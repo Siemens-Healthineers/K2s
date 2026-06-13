@@ -205,15 +205,55 @@ if ($foundLinuxImages.Count -eq 1) {
 
     $archiveFormat = if ($DockerArchive) { 'docker-archive' } else { 'oci-archive' }
     $remoteTarPath = "/tmp/${imageId}.tar"
-    $exportCmd = "sudo buildah push ${imageId} ${archiveFormat}:${remoteTarPath}:${imageFullName} 2>&1"
+    $archiveRef = "${archiveFormat}:${remoteTarPath}:${imageFullName}"
 
-    if ($linuxNodeInfo.Kind -eq 'ControlPlane') {
-        $pushResult = Invoke-CmdOnControlPlaneViaSSHKey $exportCmd -NoLog -IgnoreErrors
+    # Run a shell command on the resolved linux node (control-plane or worker VM).
+    $invokeOnLinuxNode = {
+        param([string]$Command)
+        if ($linuxNodeInfo.Kind -eq 'ControlPlane') {
+            return Invoke-CmdOnControlPlaneViaSSHKey $Command -NoLog -IgnoreErrors
+        }
+        return Invoke-CmdOnVmViaSSHKey -CmdToExecute $Command -IpAddress $linuxNodeInfo.IpAddress -UserName $linuxNodeInfo.Username -NoLog -IgnoreErrors
     }
-    else {
-        $pushResult = Invoke-CmdOnVmViaSSHKey -CmdToExecute $exportCmd -IpAddress $linuxNodeInfo.IpAddress -UserName $linuxNodeInfo.Username -NoLog -IgnoreErrors
-    }
+
+    # Primary path (unchanged): direct buildah push to the OCI/Docker archive. This
+    # keeps current behavior identical for every image that exports today, including
+    # OCI-native images and the Flux plugin.
+    $exportCmd = "sudo buildah push ${imageId} ${archiveRef} 2>&1"
+    $pushResult = & $invokeOnLinuxNode $exportCmd
     $pushResult.Output | Write-Log
+
+    # Narrow fallback: some older upstream images (e.g. legacy Headlamp plugin images)
+    # carry Docker schema2 layer media types that the node's buildah cannot convert to
+    # OCI on the fly, so 'buildah push ... oci-archive:' fails with the stable
+    # containers/image phrase 'unsupported MIME type for compression'. Only that exact
+    # conversion failure triggers the fallback; image-not-found, auth, permission,
+    # network, disk-space and generic buildah errors do NOT contain that phrase and
+    # fall straight through to the existing error handler below.
+    $isOciConversionError = (-not $pushResult.Success) -and (-not $DockerArchive) -and `
+        (($pushResult.Output | Out-String) -match 'unsupported MIME type for compression')
+
+    if ($isOciConversionError) {
+        # Re-materialize the image in native OCI format via 'buildah commit --format oci'
+        # (generates a fresh OCI manifest from local storage, bypassing the failing
+        # docker->OCI manifest update), then export to the SAME archiveRef/remoteTarPath
+        # so downstream copy and cleanup logic stays unchanged. Runs at most once.
+        Write-Log "[ImageExport] '${imageFullName}' uses Docker schema2 layers buildah cannot convert to OCI in place; retrying via OCI re-encode (buildah commit --format oci)."
+        $convContainer = "k2s-ociconv-${imageId}"
+        # Address the image by ${imageId} (not the full name): it references the exact
+        # image that just failed, avoids tag resolution, handles <none> tags, and matches
+        # the primary path. The commit target keeps ${archiveRef} so the exported archive
+        # preserves the correct repo:tag.
+        $convCmd = "sudo buildah rm ${convContainer} 2>/dev/null; " +
+            "sudo buildah from --name ${convContainer} ${imageId} && " +
+            "sudo buildah commit --format oci --rm ${convContainer} ${archiveRef} 2>&1"
+        $pushResult = & $invokeOnLinuxNode $convCmd
+        $pushResult.Output | Write-Log
+        if (-not $pushResult.Success) {
+            # Best-effort cleanup of a possibly lingering working container.
+            (& $invokeOnLinuxNode "sudo buildah rm ${convContainer} 2>/dev/null").Output | Write-Log
+        }
+    }
 
     if (-not $pushResult.Success) {
         $errMsg = "Failed to export Linux image '${imageFullName}' on node '$($linuxNodeInfo.Name)'."
