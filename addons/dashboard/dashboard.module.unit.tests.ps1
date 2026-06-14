@@ -1260,6 +1260,13 @@ Describe 'Remove-HeadlampPluginPatch' -Tag 'unit', 'ci', 'addon', 'dashboard', '
 }
 
 Describe 'Sync-HeadlampPlugins' -Tag 'unit', 'ci', 'addon', 'dashboard', 'plugin' {
+    BeforeAll {
+        # Sync-HeadlampPlugins ends with 'Wait-ForHeadlampRollout | Out-Null' (rollout
+        # observability). That helper shells out to kubectl, so stub it here to keep these
+        # unit tests hermetic and focused on plugin selection / Apply-HeadlampPluginPatch.
+        Mock -ModuleName $moduleName Wait-ForHeadlampRollout { }
+    }
+
     Context 'dashboard addon is not enabled' {
         BeforeAll {
             Mock -ModuleName $moduleName Test-IsAddonEnabled { return $false }
