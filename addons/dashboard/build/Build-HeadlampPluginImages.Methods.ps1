@@ -289,12 +289,12 @@ function Build-PluginOciImage {
     $ociTar = Join-Path $OutputDir ("headlamp-plugin-$($Plugin.name)-$($Plugin.version).tar")
 
     Write-HlPluginLog "Appending layer onto $BaseImage -> $($Plugin.image)"
-    & $CraneExe append --base $BaseImage --new_layer $LayerTar --new_tag $Plugin.image --output $ociTar
+    & $CraneExe append --base $BaseImage --new_layer $LayerTar --new_tag $Plugin.image --output $ociTar | Out-Null
     if ($LASTEXITCODE -ne 0) { throw "[HlPlugin] crane append failed for '$($Plugin.image)'" }
 
     if ($Push) {
         Write-HlPluginLog "Pushing $($Plugin.image)"
-        & $CraneExe push $ociTar $Plugin.image
+        & $CraneExe push $ociTar $Plugin.image | Out-Null
         if ($LASTEXITCODE -ne 0) { throw "[HlPlugin] crane push failed for '$($Plugin.image)'" }
     }
     return $ociTar
