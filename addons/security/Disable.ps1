@@ -27,6 +27,7 @@ $infraModule = "$PSScriptRoot/../../lib/modules/k2s/k2s.infra.module/k2s.infra.m
 $clusterModule = "$PSScriptRoot/../../lib/modules/k2s/k2s.cluster.module/k2s.cluster.module.psm1"
 $addonsModule = "$PSScriptRoot\..\addons.module.psm1"
 $securityModule = "$PSScriptRoot\security.module.psm1"
+$dashboardModule = "$PSScriptRoot\..\dashboard\dashboard.module.psm1"
 $linuxNodeModule = "$PSScriptRoot/../../lib/modules/k2s/k2s.node.module/linuxnode/vm/vm.module.psm1"
 
 Import-Module $infraModule, $clusterModule, $addonsModule, $securityModule, $linuxNodeModule
@@ -174,6 +175,15 @@ if ($clusterRole) {
 
 if ($addonEnabled) {
     Remove-AddonFromSetupJson -Addon ([pscustomobject] @{Name = 'security' })
+}
+
+# sync Headlamp plugins — cert-manager may have been removed
+if (Test-Path $dashboardModule) {
+    Import-Module $dashboardModule -Force
+    if (Get-Command Sync-HeadlampPlugins -ErrorAction SilentlyContinue) {
+        Write-Log '[Dashboard][Plugin] Syncing Headlamp plugins after security disable' -Console
+        Sync-HeadlampPlugins
+    }
 }
 
 # if security addon is enabled, than adapt other addons

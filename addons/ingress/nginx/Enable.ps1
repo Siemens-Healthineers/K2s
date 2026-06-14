@@ -32,6 +32,7 @@ $infraModule = "$PSScriptRoot/../../../lib/modules/k2s/k2s.infra.module/k2s.infr
 $clusterModule = "$PSScriptRoot/../../../lib/modules/k2s/k2s.cluster.module/k2s.cluster.module.psm1"
 $addonsModule = "$PSScriptRoot\..\..\addons.module.psm1"
 $nginxModule = "$PSScriptRoot\nginx.module.psm1"
+$dashboardModule = "$PSScriptRoot\..\..\dashboard\dashboard.module.psm1"
 
 Import-Module $infraModule, $clusterModule, $addonsModule, $nginxModule
 
@@ -183,6 +184,14 @@ if (-not $OmitCertMgr) {
 
 # adapt other addons
 Update-Addons -AddonName $addonName
+
+if (Test-Path $dashboardModule) {
+    Import-Module $dashboardModule -Force
+    if (Get-Command Sync-HeadlampPlugins -ErrorAction SilentlyContinue) {
+        Write-Log '[Dashboard][Plugin] Syncing Headlamp plugins after ingress nginx enable' -Console
+        Sync-HeadlampPlugins
+    }
+}
 
 Write-Log 'ingress nginx installed successfully' -Console
 
