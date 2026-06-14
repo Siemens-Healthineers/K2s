@@ -47,6 +47,7 @@ $clusterModule = "$PSScriptRoot/../../lib/modules/k2s/k2s.cluster.module/k2s.clu
 $nodeModule = "$PSScriptRoot\..\..\lib\modules\k2s\k2s.node.module\k2s.node.module.psm1"
 $addonsModule = "$PSScriptRoot\..\addons.module.psm1"
 $securityModule = "$PSScriptRoot\security.module.psm1"
+$dashboardModule = "$PSScriptRoot\..\dashboard\dashboard.module.psm1"
 
 Import-Module $infraModule, $clusterModule, $nodeModule, $addonsModule, $securityModule
 Import-Module PKI;
@@ -438,6 +439,15 @@ finally {
 }
 
 Add-AddonToSetupJson -Addon ([pscustomobject] @{Name = 'security' })
+
+# sync Headlamp plugins - cert-manager is now running
+if (Test-Path $dashboardModule) {
+    Import-Module $dashboardModule -Force
+    if (Get-Command Sync-HeadlampPlugins -ErrorAction SilentlyContinue) {
+        Write-Log '[Dashboard][Plugin] Syncing Headlamp plugins after security enable' -Console
+        Sync-HeadlampPlugins
+    }
+}
 
 # if security addon is enabled, than adapt other addons
 # Important is that update is called at the end because addons check state of security addon

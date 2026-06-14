@@ -11,6 +11,7 @@ Param(
 
 $addonsModule = "$PSScriptRoot\..\addons.module.psm1"
 $monitoringModule = "$PSScriptRoot\monitoring.module.psm1"
+$dashboardModule = "$PSScriptRoot\..\dashboard\dashboard.module.psm1"
 
 Import-Module $addonsModule, $monitoringModule
 
@@ -164,5 +165,13 @@ if ($EnancedSecurityEnabled) {
 }
 (Invoke-Kubectl -Params 'rollout', 'status', 'deployment', '-n', 'monitoring', '--timeout', '300s').Output | Write-Log
 (Invoke-Kubectl -Params 'rollout', 'status', 'statefulset', '-n', 'monitoring', '--timeout', '300s').Output | Write-Log
+
+if (Test-Path $dashboardModule) {
+    Import-Module $dashboardModule -Force
+    if (Get-Command Sync-HeadlampPlugins -ErrorAction SilentlyContinue) {
+        Write-Log '[Dashboard][Plugin] Syncing Headlamp plugins after monitoring update' -Console
+        Sync-HeadlampPlugins
+    }
+}
 
 Write-Log 'Updating monitoring addon finished.' -Console
