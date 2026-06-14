@@ -79,6 +79,13 @@ if ($EnableMetricsServer) {
     Enable-MetricsServer
 }
 
+# Enabling ingress can run nested scripts that force-reload dashboard.module in a
+# child scope; ensure dashboard commands are present in the current scope.
+if (-not (Get-Command Install-HeadlampViaHelm -ErrorAction SilentlyContinue)) {
+    Write-Log '[Dashboard] Re-importing dashboard module after nested addon execution' -Console
+    Import-Module $dashboardModule -Force
+}
+
 Write-Log '[Dashboard] Installing Headlamp via Helm' -Console
 
 try {
