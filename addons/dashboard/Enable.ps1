@@ -114,6 +114,9 @@ if ($headlampReady -ne $true) {
 
 Add-AddonToSetupJson -Addon ([pscustomobject] @{Name = 'dashboard' })
 
+Write-Log '[Dashboard] Syncing Headlamp plugins' -Console
+Sync-HeadlampPlugins
+
 Write-HeadlampUsageForUser
 Write-BrowserWarningForUser
 
