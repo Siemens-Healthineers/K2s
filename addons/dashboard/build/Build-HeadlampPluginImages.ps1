@@ -71,7 +71,15 @@ Write-HlPluginLog "Reading lock file: $LockFile"
 $lock = Get-HeadlampPluginLock -LockFile $LockFile
 $crane = Resolve-CraneExe -CraneExe $CraneExe
 
-$staging = Join-Path $env:TEMP ("hlplugin-" + (Get-Date -Format 'ddMMyyyy-HHmmss'))
+$tempRoot = $env:TEMP
+if ([string]::IsNullOrWhiteSpace($tempRoot)) {
+    $tempRoot = [System.IO.Path]::GetTempPath()
+}
+if ([string]::IsNullOrWhiteSpace($tempRoot)) {
+    throw "[HlPlugin] Could not determine a temporary directory (TEMP and GetTempPath() were empty)"
+}
+
+$staging = Join-Path $tempRoot ("hlplugin-" + (Get-Date -Format 'ddMMyyyy-HHmmss'))
 New-Item -ItemType Directory -Path $staging -Force | Out-Null
 
 # Directory the lock file lives in — used to resolve relative vendored bundle paths
