@@ -466,6 +466,82 @@ function Remove-HeadlampPluginPatch {
     Apply-HeadlampPluginPatch -InitContainers @()
 }
 
+function Wait-ForHeadlampRollout {
+    <#
+    .SYNOPSIS
+    Waits for the headlamp Deployment rollout to complete after a plugin sync and
+    surfaces diagnostics if it stalls.
+
+    .DESCRIPTION
+    Pure observability helper — it does NOT change plugin behavior, capability
+    detection, plugin selection, patch generation, image references, or init-container
+    logic. It simply gives operators visibility into rollout progress so a temporarily
+    stuck image pull (kubelet -> CRI) is not mistaken for a missing plugin.
+
+    On timeout or failure it logs (but does not throw) the deployment status, pod
+    status, and per-pod init-container state, then returns. Enable/sync flow continues
+    regardless, because the desired state has already been applied.
+
+    .PARAMETER TimeoutSeconds
+    Maximum time to wait for the rollout to complete. Default 300s (see rationale in
+    the module change notes): enough to absorb plugin init-container image pulls in
+    offline/ACR environments without hanging 'enable' indefinitely.
+    #>
+    param (
+        [int] $TimeoutSeconds = 300
+    )
+
+    Write-Log '[Dashboard][Plugin] Waiting for Headlamp rollout after plugin sync...' -Console
+
+    $rollout = Invoke-Kubectl -Params 'rollout', 'status', 'deployment/headlamp', '-n', 'dashboard', "--timeout=${TimeoutSeconds}s"
+    if ($rollout.Success -eq $true) {
+        Write-Log '[Dashboard][Plugin] Headlamp rollout completed successfully.' -Console
+        return $true
+    }
+
+    # Distinguish timeout from other failures for clearer operator messaging.
+    $rolloutText = "$($rollout.Output)"
+    if ($rolloutText -match 'timed out') {
+        Write-Log "[Dashboard][Plugin] Headlamp rollout timed out after ${TimeoutSeconds}s." -Console
+    }
+    else {
+        Write-Log '[Dashboard][Plugin] Headlamp rollout failed.' -Console
+    }
+    Write-Log "[Dashboard][Plugin] rollout status output: $rolloutText"
+
+    # Surface diagnostics so the operator can see WHERE the rollout is stuck
+    # (e.g. a plugin init-container waiting on an image pull) without re-running kubectl.
+    $deployStatus = (Invoke-Kubectl -Params 'get', 'deployment', 'headlamp', '-n', 'dashboard', '-o', 'wide').Output
+    Write-Log "[Dashboard][Plugin] Deployment status:`n$deployStatus" -Console
+
+    $podStatus = (Invoke-Kubectl -Params 'get', 'pods', '-n', 'dashboard', '-l', 'app.kubernetes.io/name=headlamp', '-o', 'wide').Output
+    Write-Log "[Dashboard][Plugin] Pod status:`n$podStatus" -Console
+
+    # Per-init-container state (best-effort). Two quote-free, space-free jsonpath
+    # expressions are used deliberately: jsonpath string literals containing quotes or
+    # spaces are stripped/re-tokenized at the PowerShell 5.1 native-argument boundary
+    # (the same hazard documented in Build-PluginPatchJson). The pod STATUS column above
+    # already shows the coarse phase (e.g. Init:0/2); these add which init-containers are
+    # still waiting and why (e.g. PodInitializing / ImagePullBackOff).
+    $initNames = (Invoke-Kubectl -Params 'get', 'pods', '-n', 'dashboard', '-l', 'app.kubernetes.io/name=headlamp', '-o=jsonpath={.items[*].status.initContainerStatuses[*].name}').Output
+    $initReasons = (Invoke-Kubectl -Params 'get', 'pods', '-n', 'dashboard', '-l', 'app.kubernetes.io/name=headlamp', '-o=jsonpath={.items[*].status.initContainerStatuses[*].state.waiting.reason}').Output
+    if ($initNames) {
+        Write-Log "[Dashboard][Plugin] Init-containers: $initNames" -Console
+        if ($initReasons) {
+            Write-Log "[Dashboard][Plugin] Init-containers still waiting (reasons): $initReasons" -Console
+        }
+    }
+
+    $events = (Invoke-Kubectl -Params 'get', 'events', '-n', 'dashboard', '--sort-by=.lastTimestamp').Output
+    if ($events) {
+        $eventTail = (@($events -split "`n") | Select-Object -Last 15) -join "`n"
+        Write-Log "[Dashboard][Plugin] Recent dashboard events:`n$eventTail" -Console
+    }
+
+    Write-Log '[Dashboard][Plugin] Plugin desired state was applied; rollout will continue in the background. Re-run status checks or refresh the Headlamp UI once the new pod is Running.' -Console
+    return $false
+}
+
 function Sync-HeadlampPlugins {
     <#
     .SYNOPSIS
@@ -499,6 +575,11 @@ function Sync-HeadlampPlugins {
 
     Write-Log "[Dashboard][Plugin] Plugin sync: $($initContainers.Count) plugin(s) to activate"
     Apply-HeadlampPluginPatch -InitContainers $initContainers
+
+    # Observability only: wait for the rollout so a temporarily stuck plugin image pull
+    # is visible instead of looking like a missing plugin. Non-fatal by design.
+    Wait-ForHeadlampRollout | Out-Null
+
     Write-Log '[Dashboard][Plugin] Headlamp plugin sync complete' -Console
 }
 
@@ -506,4 +587,4 @@ Export-ModuleMember -Function Get-HeadlampManifestsDirectory, Get-HeadlampChartD
     Install-HeadlampViaHelm, Uninstall-HeadlampViaHelm, Enable-MetricsServer, Wait-ForHeadlampAvailable, `
     Write-HeadlampUsageForUser, `
     Test-FluxCapabilityAvailable, Test-CertManagerCapabilityAvailable, Test-PrometheusCapabilityAvailable, `
-    New-PluginInitContainer, Apply-HeadlampPluginPatch, Remove-HeadlampPluginPatch, Sync-HeadlampPlugins
+    New-PluginInitContainer, Apply-HeadlampPluginPatch, Remove-HeadlampPluginPatch, Sync-HeadlampPlugins, Wait-ForHeadlampRollout
