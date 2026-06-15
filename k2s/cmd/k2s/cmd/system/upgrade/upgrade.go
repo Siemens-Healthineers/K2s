@@ -28,7 +28,7 @@ import (
 	"github.com/siemens-healthineers/k2s/internal/provider"
 )
 
-var upgradeCommandShortDescription = "Upgrades the installed K2s cluster to this version (full upgrade, in-place delta update, or worker node upgrade)"
+var upgradeCommandShortDescription = "Upgrades the installed K2s cluster to this version (full upgrade, delta update, or worker node upgrade)"
 
 var upgradeCommandLongDescription = `
 Upgrades the installed K2s cluster to this version.
@@ -55,17 +55,22 @@ FULL UPGRADE:
 
 DELTA UPDATE:
   ⚠  Extract the delta package and call this command from within the extracted directory:
-     1. Extract: Expand-Archive k2s-delta-v1.5.0-to-v1.6.0.zip -Destination .\delta
-     2. Navigate: cd .\delta
+	1. Extract to the desired final install directory: Expand-Archive k2s-delta-v1.5.0-to-v1.6.0.zip -Destination C:\k2s-v1.6.0
+	2. Navigate: cd C:\k2s-v1.6.0
      3. Update: .\k2s.exe system upgrade
+
+  The extracted directory becomes the active K2s installation directory after a
+  successful delta update. Keep it after the update and run refreshenv or open a
+  new terminal so PATH resolves to the new installation.
   
   The following tasks will be executed:
   1. Detect delta package root (current directory with delta-manifest.json)
-  2. Detect target installation folder (from setup.json)
-  3. Update all Windows executables and scripts from delta to target installation
-  4. Update all Debian packages from delta (if cluster is running)
-  5. Update all container images from delta
-  6. Automatically stop and restart the cluster if it was running
+  2. Detect existing installation folder (from setup.json)
+  3. Complete the current directory with files missing from the existing installation
+  4. Update setup.json InstallFolder to the current directory
+  5. Update all Debian packages from delta (if cluster is running)
+  6. Update all container images from delta
+  7. Automatically stop and restart the cluster if it was running
 
 NODE UPGRADE:
   Upgrades a single Linux worker node without touching the control plane.
@@ -90,9 +95,9 @@ var upgradeCommandExample = `
   # Full upgrade: Deleting downloaded files after upgrade
   k2s system upgrade -d
   
-  # Delta update: From extracted delta package
-  Expand-Archive k2s-delta-v1.5.0-to-v1.6.0.zip -Destination .\delta
-  cd .\delta
+	# Delta update: extract to the desired final install directory
+	Expand-Archive k2s-delta-v1.5.0-to-v1.6.0.zip -Destination C:\k2s-v1.6.0
+	cd C:\k2s-v1.6.0
   .\k2s.exe system upgrade
 
   # Node upgrade: Apply a full node package to a worker node

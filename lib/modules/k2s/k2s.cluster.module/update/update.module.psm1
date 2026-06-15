@@ -14,7 +14,8 @@
 	When running from delta package:
 	- Start-ClusterUpdate.ps1 detects delta context and loads modules from target installation
 	- This module skips duplicate module loading
-	- References target installation via Get-ClusterInstalledFolder for file operations
+	- References the existing installation via Get-ClusterInstalledFolder for source/state operations
+	- Completes the delta package directory and switches setup.json InstallFolder to it
 #>
 
 # Detect if we're running from a delta package (extracted) or from installed k2s
@@ -380,12 +381,14 @@ function Restore-ClusterIPWebhook {
 function PerformClusterUpdate {
 	<#
 	.SYNOPSIS
-		Applies a delta package to perform an in-place K2s cluster update.
+		Applies a delta package to perform a K2s cluster update.
 	.DESCRIPTION
 		Implements update flow using a previously extracted delta package.
 		This function MUST be executed from the extracted delta package directory, NOT from
 		the installed k2s directory. The delta package directory is identified by the presence
-		of delta-manifest.json in the current working directory.
+		of delta-manifest.json in the current working directory. The delta package directory
+		is completed with files from the existing installation and becomes the active K2s
+		installation directory recorded in setup.json.
 		
 		The update handles running clusters automatically:
 		- If cluster is running: Applies Debian packages first, then stops cluster, applies Windows artifacts, restarts cluster
@@ -393,19 +396,21 @@ function PerformClusterUpdate {
 		
 		High-level phases:
 		  1. Detect delta root (current directory with delta-manifest.json)
-		  2. Detect target installation folder (from setup.json/config)
+		  2. Detect existing installation folder (from setup.json/config) and target folder (current directory)
 		  3. Load delta-manifest.json (file lists + optional debian-delta metadata)
 		  4. Version compatibility validation
 		  5. Apply Debian package delta (if cluster is running)
 		  6. Stop cluster automatically (if it was running)
-		  7. Apply updated Windows artifacts (add/update files, remove obsolete files) from delta to target installation
-		  8. Restart cluster automatically (if it was running before)
-		  9. Import container images from image-delta (Windows via nerdctl, Linux via SCP + buildah)
-		  10. Run optional hooks (pre/post) [placeholder]
-		  11. Basic health checks (API server reachable, node Ready) if cluster is running
-		  12. Restore CoreDNS etcd plugin configuration (kubeadm upgrade may reset customizations)
-		  13. Restore ClusterIP webhook TLS certificates (kubeadm upgrade may invalidate certs)
-		  14. Update VERSION file and setup.json to reflect successful update
+		  7. Complete the delta directory with missing files from the existing installation
+		  8. Apply updated Windows artifacts (add/update files, remove obsolete files) in the target installation
+		  9. Switch setup.json InstallFolder to the target installation
+		  10. Restart cluster automatically (if it was running before)
+		  11. Import container images from image-delta (Windows via nerdctl, Linux via SCP + buildah)
+		  12. Run optional hooks (pre/post) [placeholder]
+		  13. Basic health checks (API server reachable, node Ready) if cluster is running
+		  14. Restore CoreDNS etcd plugin configuration (kubeadm upgrade may reset customizations)
+		  15. Restore ClusterIP webhook TLS certificates (kubeadm upgrade may invalidate certs)
+		  16. Update VERSION file and setup.json to reflect successful update
 	.PARAMETER ExecuteHooks
 		Execute lifecycle hooks (currently placeholder; no hooks executed yet).
 	.PARAMETER ShowProgress
@@ -418,8 +423,8 @@ function PerformClusterUpdate {
 		Keeps offline guarantees (no network pulls).
 		IMPORTANT: Execute this function from the extracted delta package directory.
 		The user must:
-		  1. Extract the delta package zip: Expand-Archive k2s-delta-xxx.zip -Destination .\delta
-		  2. Navigate to the extracted directory: cd .\delta
+		  1. Extract the delta package zip to the desired final install directory: Expand-Archive k2s-delta-xxx.zip -Destination C:\k2s-new
+		  2. Navigate to the extracted directory: cd C:\k2s-new
 		  3. Run the update: .\k2s.exe system update
 		The cluster will be automatically stopped and restarted if it was running before the update.
 	#>
@@ -489,28 +494,35 @@ Current directory: $deltaRoot
 	try { $manifest = $manifestRaw | ConvertFrom-Json } catch { Write-Log ("[Update][Error] Manifest parse failed: {0}" -f $_.Exception.Message) -Console; return $false }
 	Write-Log ("[Update] Manifest loaded: Added={0} Changed={1} Removed={2}" -f $manifest.AddedCount, $manifest.ChangedCount, $manifest.RemovedCount) -Console:$consoleSwitch
 
-	# 2. Get target installation folder
+	# 2. Get source and target installation folders
 	_phase 'DetectTarget'
 	try {
-		$targetInstallPath = Get-ClusterInstalledFolder
-		Write-Log ("[Update] Target installation folder: {0}" -f $targetInstallPath) -Console:$consoleSwitch
+		$oldInstallPath = Get-ClusterInstalledFolder
+		$targetInstallPath = $deltaRoot
+		Write-Log ("[Update] Existing installation folder: {0}" -f $oldInstallPath) -Console:$consoleSwitch
+		Write-Log ("[Update] New target installation folder: {0}" -f $targetInstallPath) -Console:$consoleSwitch
 		
-		if (-not (Test-Path -LiteralPath $targetInstallPath)) {
-			Write-Log ("[Update][Error] Target installation folder does not exist: {0}" -f $targetInstallPath) -Console
+		if (-not (Test-Path -LiteralPath $oldInstallPath)) {
+			Write-Log ("[Update][Error] Existing installation folder does not exist: {0}" -f $oldInstallPath) -Console
+			return $false
+		}
+
+		if (([IO.Path]::GetFullPath($oldInstallPath).TrimEnd('\')) -ieq ([IO.Path]::GetFullPath($targetInstallPath).TrimEnd('\'))) {
+			Write-Log '[Update][Error] Delta package directory must be different from the existing installation folder.' -Console
 			return $false
 		}
 	} catch {
-		Write-Log ("[Update][Error] Failed to determine target installation folder: {0}" -f $_.Exception.Message) -Console
+		Write-Log ("[Update][Error] Failed to determine installation folders: {0}" -f $_.Exception.Message) -Console
 		return $false
 	}
 
 	# 3. Validate version compatibility
 	_phase 'VersionValidation'
 	
-	# Get the currently installed cluster version from the target installation folder
+	# Get the currently installed cluster version from the existing installation folder
 	try {
-		$currentVersion = Get-ProductVersionGivenKubePath -KubePathLocal $targetInstallPath
-		Write-Log ("[Update] Current installed version: {0} (from {1})" -f $currentVersion, $targetInstallPath) -Console:$consoleSwitch
+		$currentVersion = Get-ProductVersionGivenKubePath -KubePathLocal $oldInstallPath
+		Write-Log ("[Update] Current installed version: {0} (from {1})" -f $currentVersion, $oldInstallPath) -Console:$consoleSwitch
 	} catch {
 		Write-Log ("[Update][Error] Failed to get current installed version: {0}" -f $_.Exception.Message) -Console
 		return $false
@@ -594,8 +606,8 @@ Current directory: $deltaRoot
 				Stop-ClusterNode -SetupName $setupInfo.Name -ShowLogs:$ShowLogs
 				Write-Log '[Update] K2s cluster stopped successfully.' -Console:$consoleSwitch
 			} else {
-				Write-Log '[Update][Warn] Stop-ClusterNode not available; attempting k2s.exe stop from target folder...' -Console:$consoleSwitch
-				$k2sExe = Join-Path $targetInstallPath 'k2s.exe'
+				Write-Log '[Update][Warn] Stop-ClusterNode not available; attempting k2s.exe stop from existing installation...' -Console:$consoleSwitch
+				$k2sExe = Join-Path $oldInstallPath 'k2s.exe'
 				if (Test-Path -LiteralPath $k2sExe) {
 					& $k2sExe stop
 					if ($LASTEXITCODE -ne 0) { throw "k2s.exe stop returned exit code $LASTEXITCODE" }
@@ -614,7 +626,107 @@ Current directory: $deltaRoot
 
 	# 6. Apply Windows artifacts (Added + Changed) from delta root to target install path
 	_phase 'WindowsArtifacts'
-	Write-Log ("[Update] Applying artifacts from delta root '{0}' to target '{1}'" -f $deltaRoot, $targetInstallPath) -Console:$consoleSwitch
+	Write-Log ("[Update] Completing target installation at '{0}' using existing installation '{1}'" -f $targetInstallPath, $oldInstallPath) -Console:$consoleSwitch
+
+	# Safety check: Define cluster-specific files that must keep the values from the existing installation.
+	# These files are generated during kubeadm init and contain cluster-specific certificates and configuration.
+	$clusterConfigProtectedFiles = @(
+		'config'  # Main kubeconfig at $kubePath\config
+	)
+	$clusterConfigProtectedPaths = @(
+		'etc/kubernetes/bootstrap-kubelet.conf',
+		'etc/kubernetes/pki/*',
+		'var/lib/kubelet/config.yaml',
+		'var/lib/kubelet/pki/*'
+	)
+	
+	# Helper function to check if a path should be protected
+	function Test-ProtectedClusterFile {
+		param([string]$RelPath)
+		$normalizedPath = $RelPath -replace '\\', '/'
+		$leaf = [IO.Path]::GetFileName($normalizedPath)
+		
+		# Check exact filename matches
+		foreach ($f in $clusterConfigProtectedFiles) {
+			if ($leaf -ieq $f) { return $true }
+		}
+		
+		# Check path patterns
+		foreach ($pattern in $clusterConfigProtectedPaths) {
+			$normalizedPattern = $pattern -replace '\\', '/'
+			if ($normalizedPath -like $normalizedPattern) { return $true }
+		}
+		return $false
+	}
+
+	function Test-PathInManifestList {
+		param(
+			[string] $RelPath,
+			[object[]] $ManifestPaths,
+			[switch] $AsDirectory
+		)
+
+		$normalizedPath = ($RelPath -replace '\\', '/').TrimStart('/')
+		foreach ($entry in @($ManifestPaths)) {
+			if ([string]::IsNullOrWhiteSpace($entry)) { continue }
+			$normalizedEntry = ([string]$entry -replace '\\', '/').TrimStart('/').TrimEnd('/')
+			if ($AsDirectory) {
+				if (($normalizedPath -ieq $normalizedEntry) -or $normalizedPath.StartsWith("$normalizedEntry/", [StringComparison]::OrdinalIgnoreCase)) { return $true }
+			} elseif ($normalizedPath -ieq $normalizedEntry) {
+				return $true
+			}
+		}
+
+		return $false
+	}
+
+	function Copy-MissingFilesFromOldInstall {
+		param(
+			[string] $SourceRoot,
+			[string] $DestinationRoot,
+			[object] $Manifest
+		)
+
+		$sourceRootFull = [IO.Path]::GetFullPath($SourceRoot).TrimEnd('\')
+		$removedManifestFiles = @($Manifest.Removed) | Where-Object { $_ -and ($_ -ne '') }
+		$wholesaleManifestDirs = @($Manifest.WholeDirectories) | Where-Object { $_ -and ($_ -ne '') }
+		$copiedCount = 0
+		$protectedRestoredCount = 0
+		$skippedRemovedCount = 0
+		$skippedWholesaleCount = 0
+		$skippedExistingCount = 0
+
+		foreach ($sourceFile in (Get-ChildItem -LiteralPath $sourceRootFull -Recurse -File)) {
+			$rel = $sourceFile.FullName.Substring($sourceRootFull.Length) -replace '^[\\/]+', '' -replace '\\', '/'
+			$dest = Join-Path $DestinationRoot $rel
+			$shouldRestoreProtected = Test-ProtectedClusterFile -RelPath $rel
+
+			if (Test-PathInManifestList -RelPath $rel -ManifestPaths $removedManifestFiles) {
+				$skippedRemovedCount++
+				continue
+			}
+
+			if ((Test-PathInManifestList -RelPath $rel -ManifestPaths $wholesaleManifestDirs -AsDirectory) -and -not $shouldRestoreProtected) {
+				$skippedWholesaleCount++
+				continue
+			}
+
+			if ((Test-Path -LiteralPath $dest) -and -not $shouldRestoreProtected) {
+				$skippedExistingCount++
+				continue
+			}
+
+			$destDir = Split-Path $dest -Parent
+			if (-not (Test-Path -LiteralPath $destDir)) { New-Item -ItemType Directory -Force -Path $destDir | Out-Null }
+
+			Copy-Item -LiteralPath $sourceFile.FullName -Destination $dest -Force
+			if ($shouldRestoreProtected) { $protectedRestoredCount++ } else { $copiedCount++ }
+		}
+
+		Write-Log ("[Update] Completed target installation from existing install: copied={0}, restoredProtected={1}, skippedExisting={2}, skippedRemoved={3}, skippedWholesale={4}" -f $copiedCount, $protectedRestoredCount, $skippedExistingCount, $skippedRemovedCount, $skippedWholesaleCount) -Console:$consoleSwitch
+	}
+
+	Copy-MissingFilesFromOldInstall -SourceRoot $oldInstallPath -DestinationRoot $targetInstallPath -Manifest $manifest
 	
 	# 6a. Apply wholesale directories first - these are replaced entirely (e.g., bin/kube, bin/docker)
 	# Wholesale directories contain binaries that must be completely replaced, not merged
@@ -660,6 +772,11 @@ Current directory: $deltaRoot
 				continue
 			}
 			$dstDir = Join-Path $targetInstallPath $wd
+
+			if (([IO.Path]::GetFullPath($srcDir).TrimEnd('\')) -ieq ([IO.Path]::GetFullPath($dstDir).TrimEnd('\'))) {
+				Write-Log ("[Update] Wholesale directory already staged in target: {0}" -f $wd) -Console:$consoleSwitch
+				continue
+			}
 			
 			# Remove existing directory completely for clean replacement.
 			# Retry with back-off in case file handles are still being released.
@@ -706,39 +823,6 @@ Current directory: $deltaRoot
 		Write-Log '[Update] No wholesale directories to apply' -Console:$consoleSwitch
 	}
 	
-	# 6b. Apply individual file changes (Added + Changed)
-	# Safety check: Define cluster-specific files that must NEVER be overwritten during updates.
-	# These files are generated during kubeadm init and contain cluster-specific certificates and configuration.
-	# Overwriting them would break the running cluster.
-	$clusterConfigProtectedFiles = @(
-		'config'  # Main kubeconfig at $kubePath\config
-	)
-	$clusterConfigProtectedPaths = @(
-		'etc/kubernetes/bootstrap-kubelet.conf',
-		'etc/kubernetes/pki/*',
-		'var/lib/kubelet/config.yaml',
-		'var/lib/kubelet/pki/*'
-	)
-	
-	# Helper function to check if a path should be protected
-	function Test-ProtectedClusterFile {
-		param([string]$RelPath)
-		$normalizedPath = $RelPath -replace '\\', '/'
-		$leaf = [IO.Path]::GetFileName($normalizedPath)
-		
-		# Check exact filename matches
-		foreach ($f in $clusterConfigProtectedFiles) {
-			if ($leaf -ieq $f) { return $true }
-		}
-		
-		# Check path patterns
-		foreach ($pattern in $clusterConfigProtectedPaths) {
-			$normalizedPattern = $pattern -replace '\\', '/'
-			if ($normalizedPath -like $normalizedPattern) { return $true }
-		}
-		return $false
-	}
-	
 	$addedFiles   = @($manifest.Added)
 	$changedFiles = @($manifest.Changed)
 	$filesToApply = @($addedFiles + $changedFiles) | Where-Object { $_ -and ($_ -ne '') }
@@ -756,6 +840,11 @@ Current directory: $deltaRoot
 		$src = Join-Path $deltaRoot $rel
 		if (-not (Test-Path -LiteralPath $src)) { Write-Log ("[Update][Warn] Source missing in delta: {0}" -f $rel) -Console:$consoleSwitch; continue }
 		$dest = Join-Path $targetInstallPath $rel
+		if (([IO.Path]::GetFullPath($src)) -ieq ([IO.Path]::GetFullPath($dest))) {
+			Write-Log ("[Update] Already staged: {0}" -f $rel) -Console:$consoleSwitch
+			$appliedCount++
+			continue
+		}
 		$destDir = Split-Path $dest -Parent
 		if (-not (Test-Path -LiteralPath $destDir)) { New-Item -ItemType Directory -Force -Path $destDir | Out-Null }
 		
@@ -768,6 +857,16 @@ Current directory: $deltaRoot
 		}
 	}
 	Write-Log ("[Update] Applied {0} Windows artifacts (skipped {1} protected cluster config files)" -f $appliedCount, $skippedCount) -Console:$consoleSwitch
+
+	# Switch the installation folder after the new target has the files required by target-path helpers.
+	try {
+		Write-Log ("[Update] Updating setup.json install folder from '{0}' to '{1}'" -f $oldInstallPath, $targetInstallPath) -Console:$consoleSwitch
+		Set-ConfigInstallFolder -Value $targetInstallPath
+		Write-Log '[Update] Setup configuration install folder updated successfully' -Console:$consoleSwitch
+	} catch {
+		Write-Log ("[Update][Error] Failed to update setup.json install folder: {0}" -f $_.Exception.Message) -Console
+		throw
+	}
 
 	# 6b. Regenerate containerd config.toml from updated template if the template changed.
 	# The live config.toml is generated at install time from config.toml.template by replacing
@@ -871,19 +970,15 @@ Current directory: $deltaRoot
 	if ($wasRunning) {
 		Write-Log '[Update] Restarting K2s cluster...' -Console
 		try {
-			if (Get-Command -Name Start-ClusterNode -ErrorAction SilentlyContinue) {
-				Start-ClusterNode -SetupName $setupInfo.Name -ShowLogs:$ShowLogs
+			$k2sExe = Join-Path $targetInstallPath 'k2s.exe'
+			if (Test-Path -LiteralPath $k2sExe) {
+				$argsCall = @('start')
+				if ($ShowLogs) { $argsCall += '-o' }
+				& $k2sExe @argsCall
+				if ($LASTEXITCODE -ne 0) { throw "k2s.exe start returned exit code $LASTEXITCODE" }
 				Write-Log '[Update] K2s cluster restarted successfully.' -Console:$consoleSwitch
 			} else {
-				Write-Log '[Update][Warn] Start-ClusterNode not available; attempting k2s.exe start from target folder...' -Console:$consoleSwitch
-				$k2sExe = Join-Path $targetInstallPath 'k2s.exe'
-				if (Test-Path -LiteralPath $k2sExe) {
-					& $k2sExe start
-					if ($LASTEXITCODE -ne 0) { throw "k2s.exe start returned exit code $LASTEXITCODE" }
-					Write-Log '[Update] K2s cluster restarted successfully.' -Console:$consoleSwitch
-				} else {
-					throw "k2s.exe not found at $k2sExe"
-				}
+				throw "k2s.exe not found at $k2sExe"
 			}
 		} catch {
 			Write-Log ("[Update][Error] Failed to restart K2s cluster: {0}" -f $_.Exception.Message) -Console
@@ -921,7 +1016,7 @@ Current directory: $deltaRoot
 	}
 	if ($winImageFiles.Count -gt 0) {
 		# Resolve ctr from the target installation (containerd must be running after Phase 7 restart)
-		$ctrExe = Join-Path (Get-KubeBinPath) 'containerd\ctr.exe'
+		$ctrExe = Join-Path $targetInstallPath 'bin\containerd\ctr.exe'
 		if (-not (Test-Path -LiteralPath $ctrExe)) {
 			Write-Log ("[Update][Warn] ctr.exe not found at {0}; cannot import Windows images" -f $ctrExe) -Console:$consoleSwitch
 		} else {
@@ -934,7 +1029,7 @@ Current directory: $deltaRoot
 				$success = $false
 				for ($attempt = 1; $attempt -le $maxRetries; $attempt++) {
 					try {
-						$importSuccess = Invoke-Ctr -Arguments '-n', 'k8s.io', 'images', 'import', $img.FullName
+						$importSuccess = Invoke-Ctr -Arguments '-n', 'k8s.io', 'images', 'import', $img.FullName -CtrExePath $ctrExe
 						if ($importSuccess) {
 							$success = $true
 							break
@@ -1070,8 +1165,9 @@ Current directory: $deltaRoot
 				Write-Log ("[Update][Warn] VERSION file not found at expected location: {0}" -f $versionFile) -Console:$consoleSwitch
 			}
 			
-			# Update setup.json configuration to reflect the new version
+			# Update setup.json configuration to reflect the new version and install folder
 			Write-Log ("[Update] Updating setup.json product version from {0} to {1}" -f $currentVersion, $deltaTargetVersion) -Console:$consoleSwitch
+			Set-ConfigInstallFolder -Value $targetInstallPath
 			Set-ConfigProductVersion -Value $deltaTargetVersion
 			Write-Log '[Update] Setup configuration updated successfully' -Console:$consoleSwitch
 		} catch {
@@ -1082,9 +1178,10 @@ Current directory: $deltaRoot
 	}
 
 	Write-Log '[Update] Delta update complete.' -Console:$consoleSwitch
-	Write-Log ("Upgraded successfully to K2s version: {0} (delta update from {1})" -f $deltaTargetVersion, $deltaRoot) -Console:$consoleSwitch
-	Write-Log ("[Update] Delta artifacts remain in: {0}" -f $deltaRoot) -Console:$consoleSwitch
-	Write-Log '[Update] You may safely delete the extracted delta package directory after verifying the update.' -Console:$consoleSwitch
+	Write-Log ("Upgraded successfully to K2s version: {0} (active installation: {1})" -f $deltaTargetVersion, $targetInstallPath) -Console:$consoleSwitch
+	Write-Log ("[Update] Previous installation remains unchanged at: {0}" -f $oldInstallPath) -Console:$consoleSwitch
+	Write-Log '[Update] Keep this directory; it is now the active K2s installation.' -Console:$consoleSwitch
+	Write-Log '[Update] Run refreshenv or open a new terminal so PATH points to the active installation.' -Console:$consoleSwitch
 
 	if ($ShowProgress) { Write-Progress -Activity 'Cluster delta update' -Id 1 -Completed }
 	

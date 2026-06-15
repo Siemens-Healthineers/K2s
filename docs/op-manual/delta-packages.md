@@ -135,21 +135,29 @@ The `delta-manifest.json` file describes the changes between versions. A typical
 
 ### Application Steps
 
-1. Extract the delta package to a temporary location:
+1. Extract the delta package to the directory that should become the final *K2s* installation directory:
    ```powershell
-   Expand-Archive -Path "k2s-delta-v1.4.0-to-v1.5.0.zip" -DestinationPath "C:\temp\delta"
+  Expand-Archive -Path "k2s-delta-v1.4.0-to-v1.5.0.zip" -DestinationPath "C:\k2s-v1.5.0"
    ```
 
-2. Run the upgrade from the extracted delta folder:
+2. Run the upgrade from the extracted delta folder. The upgrade completes this folder with files from the existing installation and records it in `setup.json` as the new `InstallFolder`:
    ```console
-   cd C:\temp\delta
-   k2s system upgrade
+  cd C:\k2s-v1.5.0
+  .\k2s.exe system upgrade
    ```
 
-3. Verify the installation:
+3. Refresh the current shell or open a new terminal so `PATH` points to the new installation directory:
+  ```console
+  refreshenv
+  ```
+
+4. Verify the installation:
    ```console
    k2s system status
    ```
+
+!!! warning "Keep the extracted directory"
+  After a successful delta upgrade, the extracted delta package directory is the active *K2s* installation directory. Do not delete it. The previous installation directory is left unchanged.
 
 ## Node Packages
 

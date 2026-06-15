@@ -9,7 +9,8 @@
 Starts the update of the cluster.
 
 .DESCRIPTION
-Starts the update of the cluster by doing an in-place upgrade.
+Starts the update of the cluster by completing the current delta package directory
+and switching setup.json InstallFolder to that directory.
 
 
 .EXAMPLE
@@ -31,29 +32,29 @@ $deltaManifestPath = Join-Path $possibleDeltaRoot 'delta-manifest.json'
 $runningFromDelta = Test-Path -LiteralPath $deltaManifestPath
 
 if ($runningFromDelta) {
-	# Running from delta package - reference modules from target installation
-	Write-Host "[Update] Detected delta package context - loading modules from target installation" -ForegroundColor Cyan
+	# Running from delta package - reference modules from the existing installation until the delta folder is complete.
+	Write-Host "[Update] Detected delta package context - loading base modules from existing installation" -ForegroundColor Cyan
 	
-	# Get target installation path from setup.json
+	# Get existing installation path from setup.json
 	$setupConfigPath = "$env:SystemDrive\ProgramData\k2s\setup.json"
 	if (Test-Path -LiteralPath $setupConfigPath) {
 		$setupConfig = Get-Content -LiteralPath $setupConfigPath -Raw | ConvertFrom-Json
-		$targetInstallPath = $setupConfig.InstallFolder
+		$existingInstallPath = $setupConfig.InstallFolder
 	} else {
-		$targetInstallPath = 'C:\k'
+		$existingInstallPath = 'C:\k'
 	}
 	
-	if (-not (Test-Path -LiteralPath $targetInstallPath)) {
-		Write-Host "[Update][Error] Target installation not found at: $targetInstallPath" -ForegroundColor Red
+	if (-not (Test-Path -LiteralPath $existingInstallPath)) {
+		Write-Host "[Update][Error] Existing installation not found at: $existingInstallPath" -ForegroundColor Red
 		exit 1
 	}
 	
-	$infraModule = Join-Path $targetInstallPath 'lib\modules\k2s\k2s.infra.module\k2s.infra.module.psm1'
-	$clusterModule = Join-Path $targetInstallPath 'lib\modules\k2s\k2s.cluster.module\k2s.cluster.module.psm1'
-	$addonsModule = Join-Path $targetInstallPath 'addons\addons.module.psm1'
+	$infraModule = Join-Path $existingInstallPath 'lib\modules\k2s\k2s.infra.module\k2s.infra.module.psm1'
+	$clusterModule = Join-Path $existingInstallPath 'lib\modules\k2s\k2s.cluster.module\k2s.cluster.module.psm1'
+	$addonsModule = Join-Path $existingInstallPath 'addons\addons.module.psm1'
 	
 	# Load update module from DELTA PACKAGE (it's new/updated and may not exist in target installation)
-	# Infrastructure modules are loaded from target installation so paths resolve correctly via Get-KubePath
+	# Infrastructure modules are loaded from existing installation until PerformClusterUpdate switches setup.json.
 	$updateModule = Join-Path $possibleDeltaRoot 'lib\modules\k2s\k2s.cluster.module\update\update.module.psm1'
 } else {
 	# Running from installed k2s - use relative paths

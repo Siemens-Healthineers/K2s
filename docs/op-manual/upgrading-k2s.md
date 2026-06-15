@@ -220,7 +220,7 @@ If any workload fails readiness, inspect its namespace events and logs before pr
 
 For bandwidth-constrained environments or large-scale deployments, *K2s* supports delta packages that contain only the files changed between two specific versions.
 
-> **ℹ️ Info:** Delta updates perform an in-place update without uninstalling/reinstalling the cluster. The cluster is stopped, files are updated, and the cluster is restarted. This means workloads, addons, and persistent data remain intact.
+> **ℹ️ Info:** Delta updates do not uninstall/reinstall the cluster. The extracted delta package directory is completed with files from the existing installation, recorded as the new `setup.json` `InstallFolder`, and the previous installation directory is left unchanged. Workloads, addons, and persistent data remain intact.
 
 ### When to Use Delta Updates
 
@@ -234,12 +234,13 @@ For bandwidth-constrained environments or large-scale deployments, *K2s* support
 Unlike full upgrades, delta updates:
 
 1. Detect delta package root (current directory with `delta-manifest.json`)
-2. Detect target installation folder (from `setup.json`)
+2. Detect existing installation folder (from `setup.json`)
 3. Stop the cluster if running
-4. Update Windows executables and scripts from delta to target installation
-5. Update Debian packages on the Linux VM (if applicable)
-6. Update container images from delta
-7. Restart the cluster
+4. Complete the current directory with files missing from the existing installation
+5. Update `setup.json` `InstallFolder` to the current directory
+6. Update Debian packages on the Linux VM (if applicable)
+7. Update container images from delta
+8. Restart the cluster
 
 **Key Differences from Full Upgrade:**
 
@@ -255,16 +256,19 @@ Unlike full upgrades, delta updates:
 ### Applying a Delta Package
 
 1. Verify your current version matches the delta's source version
-2. Extract the delta package:
+2. Extract the delta package to the directory that should become the final *K2s* installation directory:
    ```console
-   Expand-Archive k2s-delta-v1.5.0-to-v1.6.0.zip -Destination .\delta
+   Expand-Archive k2s-delta-v1.5.0-to-v1.6.0.zip -Destination C:\k2s-v1.6.0
    ```
 3. Navigate to the extracted directory and run the upgrade:
    ```console
-   cd .\delta
+   cd C:\k2s-v1.6.0
    .\k2s.exe system upgrade
    ```
-4. Validate the cluster as described above
+4. Run `refreshenv` or open a new terminal so command resolution uses the new installation directory
+5. Validate the cluster as described above
+
+Do not delete the extracted directory after a successful delta update. It is the active *K2s* installation directory; the previous installation directory remains available unchanged.
 
 > **⚠️ Note:** The `k2s system upgrade` command automatically detects whether to perform a full upgrade or delta update based on the presence of `delta-manifest.json` in the package directory.
 

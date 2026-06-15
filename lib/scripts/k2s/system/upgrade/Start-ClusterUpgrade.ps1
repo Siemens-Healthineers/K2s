@@ -49,7 +49,7 @@ Initialize-Logging -ShowLogs:$ShowLogs
 # Check if we're running from a delta package directory
 $deltaManifestPath = Join-Path $PSScriptRoot '..\..\..\..\..\delta-manifest.json'
 if (Test-Path $deltaManifestPath) {
-	Write-Log "Delta package detected at '$deltaManifestPath' - performing in-place update instead of full upgrade" -Console
+	Write-Log "Delta package detected at '$deltaManifestPath' - completing this directory and switching the active installation" -Console
 	
 	# Call the delta update script instead
 	$updateScriptPath = Join-Path $PSScriptRoot '..\..\..\..\..\lib\scripts\k2s\system\update\Start-ClusterUpdate.ps1'
