@@ -379,6 +379,11 @@ function Apply-HeadlampPluginPatch {
     .PARAMETER InitContainers
     The complete desired set of K2s plugin init-containers produced by New-PluginInitContainer.
     Pass an empty array (default) to remove all K2s-managed plugin init-containers.
+
+    .OUTPUTS
+    [bool] $true when a kubectl patch was actually issued (a rollout will follow);
+    $false when no change was required (no-op). Callers use this to decide whether to
+    wait for a rollout.
     #>
     param (
         [array] $InitContainers = @()
@@ -388,7 +393,7 @@ function Apply-HeadlampPluginPatch {
     # Fast path: no plugins registered and none desired — nothing to manage
     if ($registeredNames.Count -eq 0 -and $InitContainers.Count -eq 0) {
         Write-Log '[Dashboard][Plugin] No Headlamp plugins registered; skipping init-container patch'
-        return
+        return $false
     }
 
     # Read current K2s init-container state (non-K2s containers untouched by strategic merge).
@@ -417,7 +422,7 @@ function Apply-HeadlampPluginPatch {
 
     if ($toAddOrUpdate.Count -eq 0 -and $toRemove.Count -eq 0) {
         Write-Log '[Dashboard][Plugin] Plugin init-containers already up to date; no patch required'
-        return
+        return $false
     }
 
     Write-Log "[Dashboard][Plugin] Patching headlamp deployment: $($toAddOrUpdate.Count) add/update, $($toRemove.Count) remove" -Console
@@ -426,7 +431,7 @@ function Apply-HeadlampPluginPatch {
 
     if (-not $patchJson) {
         Write-Log '[Dashboard][Plugin] Nothing to patch (no additions, updates, or removals needed)'
-        return
+        return $false
     }
 
     # Build-PluginPatchJson emits backslash-escaped quotes (\") for legacy inline use.
@@ -450,6 +455,7 @@ function Apply-HeadlampPluginPatch {
         }
 
         Write-Log "[Dashboard][Plugin] Headlamp plugin patch applied: $($InitContainers.Count) K2s plugin(s) active" -Console
+        return $true
     }
     finally {
         if (Test-Path $patchFile) { Remove-Item $patchFile -Force -ErrorAction SilentlyContinue }
@@ -463,7 +469,7 @@ function Remove-HeadlampPluginPatch {
     Called when the dashboard addon is being disabled.
     #>
     Write-Log '[Dashboard][Plugin] Removing all K2s Headlamp plugin init-containers' -Console
-    Apply-HeadlampPluginPatch -InitContainers @()
+    $null = Apply-HeadlampPluginPatch -InitContainers @()
 }
 
 function Wait-ForHeadlampRollout {
@@ -574,17 +580,21 @@ function Sync-HeadlampPlugins {
     }
 
     Write-Log "[Dashboard][Plugin] Plugin sync: $($initContainers.Count) plugin(s) to activate"
-    Apply-HeadlampPluginPatch -InitContainers $initContainers
+    $patched = Apply-HeadlampPluginPatch -InitContainers $initContainers
 
-    # Observability only: wait for the rollout so a temporarily stuck plugin image pull
-    # is visible instead of looking like a missing plugin. Non-fatal by design.
-    Wait-ForHeadlampRollout | Out-Null
+    # Observability only: wait for the rollout ONLY when a patch was actually issued, so
+    # steady-state addon operations (the common case where plugin state is already
+    # converged) don't block the caller or emit a misleading "Waiting for rollout" log.
+    # Non-fatal by design.
+    if ($patched) {
+        Wait-ForHeadlampRollout | Out-Null
+    }
 
     Write-Log '[Dashboard][Plugin] Headlamp plugin sync complete' -Console
 }
 
 Export-ModuleMember -Function Get-HeadlampManifestsDirectory, Get-HeadlampChartDirectory, Get-HeadlampChartPath, `
     Install-HeadlampViaHelm, Uninstall-HeadlampViaHelm, Enable-MetricsServer, Wait-ForHeadlampAvailable, `
-    Write-HeadlampUsageForUser, `
+    Write-HeadlampUsageForUser, Get-RegisteredHeadlampPlugins, `
     Test-FluxCapabilityAvailable, Test-CertManagerCapabilityAvailable, Test-PrometheusCapabilityAvailable, `
     New-PluginInitContainer, Apply-HeadlampPluginPatch, Remove-HeadlampPluginPatch, Sync-HeadlampPlugins, Wait-ForHeadlampRollout

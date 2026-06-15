@@ -407,6 +407,13 @@ Describe 'Module exports correct public functions' -Tag 'unit', 'ci', 'addon', '
         }
     }
 
+    It 'exports Get-RegisteredHeadlampPlugins' {
+        InModuleScope $moduleName {
+            $fn = Get-Command -Module $moduleName -Name 'Get-RegisteredHeadlampPlugins' -ErrorAction SilentlyContinue
+            $fn | Should -Not -BeNullOrEmpty
+        }
+    }
+
     It 'exports Test-FluxCapabilityAvailable' {
         InModuleScope $moduleName {
             $fn = Get-Command -Module $moduleName -Name 'Test-FluxCapabilityAvailable' -ErrorAction SilentlyContinue
@@ -898,6 +905,13 @@ Describe 'Apply-HeadlampPluginPatch' -Tag 'unit', 'ci', 'addon', 'dashboard', 'p
                 Should -Invoke Invoke-Kubectl -Times 0 -Scope It
             }
         }
+
+        It 'returns $false on the fast-path no-op (registry empty, none desired)' {
+            InModuleScope $moduleName {
+                $result = Apply-HeadlampPluginPatch -InitContainers @()
+                $result | Should -Be $false
+            }
+        }
     }
 
     # ── Scenario 1: same name, same image → no patch ──────────────────────────
@@ -920,6 +934,14 @@ Describe 'Apply-HeadlampPluginPatch' -Tag 'unit', 'ci', 'addon', 'dashboard', 'p
                 Should -Invoke Invoke-Kubectl -Times 0 -Scope It -ParameterFilter {
                     $Params -contains 'patch'
                 }
+            }
+        }
+
+        It 'returns $false when no patch is required (no-op)' {
+            InModuleScope $moduleName {
+                $ic = [pscustomobject]@{ Name = 'flux-plugin'; Image = 'img:0.6.0' }
+                $result = Apply-HeadlampPluginPatch -InitContainers @($ic)
+                $result | Should -Be $false
             }
         }
     }
@@ -976,6 +998,14 @@ Describe 'Apply-HeadlampPluginPatch' -Tag 'unit', 'ci', 'addon', 'dashboard', 'p
                 Should -Invoke Invoke-Kubectl -Times 1 -Scope It -ParameterFilter {
                     $Params -contains '--type=strategic'
                 }
+            }
+        }
+
+        It 'returns $true when a patch is actually issued' {
+            InModuleScope $moduleName {
+                $ic = [pscustomobject]@{ Name = 'flux-plugin'; Image = 'img:0.7.0' }
+                $result = Apply-HeadlampPluginPatch -InitContainers @($ic)
+                $result | Should -Be $true
             }
         }
     }
@@ -1439,6 +1469,38 @@ Describe 'Sync-HeadlampPlugins' -Tag 'unit', 'ci', 'addon', 'dashboard', 'plugin
                 Should -Invoke Apply-HeadlampPluginPatch -Times 1 -Scope It -ParameterFilter {
                     @($InitContainers).Count -eq 2
                 }
+            }
+        }
+    }
+
+    Context 'rollout wait is gated on whether a patch was issued' {
+        BeforeAll {
+            Mock -ModuleName $moduleName Test-IsAddonEnabled { return $true }
+            Mock -ModuleName $moduleName Get-RegisteredHeadlampPlugins {
+                return @(
+                    [pscustomobject]@{ Name = 'flux-plugin'; Image = 'img-flux:1.0'; Detector = { $true } }
+                )
+            }
+            Mock -ModuleName $moduleName New-PluginInitContainer {
+                param ($Name, $Image)
+                return [pscustomobject]@{ Name = $Name; Image = $Image }
+            }
+            Mock -ModuleName $moduleName Write-Log { }
+        }
+
+        It 'does not call Wait-ForHeadlampRollout when Apply-HeadlampPluginPatch reports no patch ($false)' {
+            InModuleScope $moduleName {
+                Mock Apply-HeadlampPluginPatch { return $false }
+                Sync-HeadlampPlugins
+                Should -Invoke Wait-ForHeadlampRollout -Times 0 -Scope It
+            }
+        }
+
+        It 'calls Wait-ForHeadlampRollout when Apply-HeadlampPluginPatch reports a patch ($true)' {
+            InModuleScope $moduleName {
+                Mock Apply-HeadlampPluginPatch { return $true }
+                Sync-HeadlampPlugins
+                Should -Invoke Wait-ForHeadlampRollout -Times 1 -Scope It
             }
         }
     }
