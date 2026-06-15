@@ -21,7 +21,7 @@ The webhook runs as a container inside the Kubernetes cluster. The image is buil
 From the repository root:
 
 ```console
-k2s image build --input-folder k2s --dockerfile k2s/cmd/clusterip-webhook/Dockerfile --image-name shsk2s.azurecr.io/clusterip-webhook --image-tag v1.3.0
+k2s image build --input-folder k2s --dockerfile k2s/cmd/clusterip-webhook/Dockerfile --image-name shsk2s.azurecr.io/clusterip-webhook --image-tag <version>
 ```
 
 ### Push to registry
@@ -29,7 +29,7 @@ k2s image build --input-folder k2s --dockerfile k2s/cmd/clusterip-webhook/Docker
 To push the built image to the container registry:
 
 ```console
-k2s image push -n shsk2s.azurecr.io/clusterip-webhook:v1.3.0
+k2s image push -n shsk2s.azurecr.io/clusterip-webhook:<version>
 ```
 
 ### Version Bump Checklist
