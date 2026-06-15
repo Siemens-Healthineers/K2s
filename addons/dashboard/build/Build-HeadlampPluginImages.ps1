@@ -79,7 +79,11 @@ if ([string]::IsNullOrWhiteSpace($tempRoot)) {
     throw "[HlPlugin] Could not determine a temporary directory (TEMP and GetTempPath() were empty)"
 }
 
-$staging = Join-Path $tempRoot ("hlplugin-" + (Get-Date -Format 'ddMMyyyy-HHmmss'))
+# Use a GUID (not a second-precision timestamp) so concurrent builds sharing the
+# same TEMP (self-hosted CI runners, parallel local shells) never collide and
+# delete each other's staged bundles via the finally-block cleanup. Mirrors the
+# GUID pattern already used in Expand-PluginTarball / Test-PluginImageLayout.
+$staging = Join-Path $tempRoot ("hlplugin-" + [guid]::NewGuid().ToString('N'))
 New-Item -ItemType Directory -Path $staging -Force | Out-Null
 
 # Directory the lock file lives in — used to resolve relative vendored bundle paths

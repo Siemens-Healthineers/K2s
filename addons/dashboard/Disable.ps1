@@ -57,9 +57,10 @@ Remove-IngressForTraefik -Addon ([pscustomobject] @{Name = 'dashboard' })
 Remove-IngressForNginx -Addon ([pscustomobject] @{Name = 'dashboard' })
 Remove-IngressForNginxGateway -Addon ([pscustomobject] @{Name = 'dashboard' })
 
-Write-Log '[Dashboard] Removing Headlamp plugin init-containers' -Console
-Remove-HeadlampPluginPatch
-
+# Note: the Headlamp plugin init-containers are NOT explicitly removed here.
+# Uninstall-HeadlampViaHelm deletes the entire headlamp Deployment, so patching it
+# first would only trigger a rollout that Helm immediately cancels, and a transient
+# kubectl patch failure could otherwise block the uninstall below.
 Write-Log '[Dashboard] Uninstalling Headlamp workloads via Helm, please wait ...' -Console
 Uninstall-HeadlampViaHelm
 
