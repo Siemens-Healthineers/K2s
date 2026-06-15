@@ -47,7 +47,10 @@ Param(
     [string]$CheckDigest = 'false',
 
     [Parameter(Mandatory = $false, HelpMessage = 'Sync only a specific addon by name; if empty, discovers all addons via oras repo ls')]
-    [string]$AddonName = ''
+    [string]$AddonName = '',
+
+    [Parameter(Mandatory = $false, HelpMessage = 'If true, also runs Update.ps1 for addons that are currently enabled after each sync')]
+    [string]$ApplyIfEnabled = 'false'
 )
 
 $ErrorActionPreference = 'Stop'
@@ -55,6 +58,7 @@ $ErrorActionPreference = 'Stop'
 # Convert string parameters to booleans (Kubernetes env substitution passes strings like "true"/"false")
 $InsecureBool = $Insecure -eq 'true' -or $Insecure -eq '$true' -or $Insecure -eq '1'
 $CheckDigestBool = $CheckDigest -eq 'true' -or $CheckDigest -eq '$true' -or $CheckDigest -eq '1'
+$ApplyIfEnabledBool = $ApplyIfEnabled -eq 'true' -or $ApplyIfEnabled -eq '$true' -or $ApplyIfEnabled -eq '1'
 
 # Resolve oras executable path - fall back to PATH if the specified path doesn't exist
 if (-not (Test-Path $OrasExe)) {
@@ -417,6 +421,141 @@ function Sync-AddonFromOciLayout {
 }
 
 # ===========================================================================
+# Helper: Run update lifecycle for an addon that is already enabled.
+# Returns $true on success or non-fatal skip; $false on update failure.
+# ===========================================================================
+function Invoke-AddonUpdateLifecycle {
+    param(
+        [Parameter(Mandatory)] [string]$LocalAddonName,
+        [Parameter(Mandatory)] [string]$AddonVersion
+    )
+
+    Write-SyncLog "[ApplyIfEnabled] Running update lifecycle for '$LocalAddonName' v$AddonVersion"
+
+    $infraModulePath   = Join-Path $K2sInstallDir 'lib\modules\k2s\k2s.infra.module\k2s.infra.module.psm1'
+    $clusterModulePath = Join-Path $K2sInstallDir 'lib\modules\k2s\k2s.cluster.module\k2s.cluster.module.psm1'
+    $addonsModulePath  = Join-Path $addonsDir 'addons.module.psm1'
+
+    foreach ($modulePath in @($infraModulePath, $clusterModulePath, $addonsModulePath)) {
+        if (-not (Test-Path $modulePath)) {
+            Write-SyncLog "[ApplyIfEnabled] Required module not found: $modulePath - skipping lifecycle" -Warning
+            return $true
+        }
+        try {
+            Import-Module $modulePath -Force -DisableNameChecking
+        } catch {
+            Write-SyncLog "[ApplyIfEnabled] Failed to import module '$modulePath': $_ - skipping lifecycle" -Warning
+            return $true
+        }
+    }
+
+    $addonObj = [PSCustomObject]@{ Name = $LocalAddonName }
+    if (-not (Test-IsAddonEnabled -Addon $addonObj)) {
+        Write-SyncLog "[ApplyIfEnabled] '$LocalAddonName' is not enabled - skipping update"
+        return $true
+    }
+
+    $addonDir = Join-Path $addonsDir $LocalAddonName
+    $updateScript = Join-Path $addonDir 'Update.ps1'
+    if (-not (Test-Path $updateScript)) {
+        Write-SyncLog "[ApplyIfEnabled] Update.ps1 not found for '$LocalAddonName' - skipping update"
+        return $true
+    }
+
+    $backupScript  = Join-Path $addonDir 'Backup.ps1'
+    $restoreScript = Join-Path $addonDir 'Restore.ps1'
+    $backupDir     = $null
+    $hasBackup     = Test-Path $backupScript
+
+    if ($hasBackup) {
+        $backupDir = Join-Path $env:TEMP "addon-backup-${LocalAddonName}-$(Get-Date -Format 'HHmmss')"
+        New-Item -ItemType Directory -Path $backupDir -Force | Out-Null
+        Write-SyncLog "[ApplyIfEnabled] Running Backup.ps1 for '$LocalAddonName'"
+        try {
+            & $backupScript -BackupDir $backupDir
+        } catch {
+            Write-SyncLog "[ApplyIfEnabled] Backup failed for '$LocalAddonName': $_ - continuing without backup" -Warning
+            $hasBackup = $false
+        }
+    }
+
+    Write-SyncLog "[ApplyIfEnabled] Running Update.ps1 for '$LocalAddonName'"
+    try {
+        & $updateScript
+        Update-AddonVersionInSetupJson -Name $LocalAddonName -Version $AddonVersion
+        Write-SyncLog "[ApplyIfEnabled] '$LocalAddonName' updated to v$AddonVersion"
+        return $true
+    } catch {
+        Write-SyncLog "[ApplyIfEnabled] Update failed for '$LocalAddonName': $_" -IsError
+        if ($hasBackup -and $backupDir -and (Test-Path $restoreScript)) {
+            Write-SyncLog "[ApplyIfEnabled] Attempting restore for '$LocalAddonName'"
+            try {
+                & $restoreScript -BackupDir $backupDir
+                Write-SyncLog "[ApplyIfEnabled] Restore completed for '$LocalAddonName'"
+            } catch {
+                Write-SyncLog "[ApplyIfEnabled] Restore failed for '$LocalAddonName': $_" -IsError
+            }
+        }
+        return $false
+    } finally {
+        if ($backupDir) {
+            Remove-Item -Path $backupDir -Recurse -Force -ErrorAction SilentlyContinue
+        }
+    }
+}
+
+# ===========================================================================
+# ConfigMap status helpers
+# ===========================================================================
+
+function Get-KubectlPath {
+    # Returns the path to kubectl.exe. Isolated as a plain function so Pester can mock it.
+    return Join-Path (Get-KubeBinPath) 'kube\kubectl.exe'
+}
+
+function Get-SanitizedMessage {
+    param([string]$Message)
+    # Redact token-like values (base64-ish, >=40 chars) before writing to logs.
+    return $Message -replace '[A-Za-z0-9+/]{40,}={0,2}', '<redacted>'
+}
+
+function Set-AddonStatusConfigMap {
+    param(
+        [Parameter(Mandatory)] [string]$StateKey,
+        [Parameter(Mandatory)] [string]$Phase
+    )
+    # Best-effort: status reporting must never abort the main sync loop.
+    try {
+        $kubectl     = Get-KubectlPath
+        $patchJson   = "{`"data`":{`"$StateKey`":`"$Phase`"}}"
+        $maxAttempts = 5
+
+        for ($attempt = 1; $attempt -le $maxAttempts; $attempt++) {
+            $output = & $kubectl patch configmap addon-sync-status `
+                --namespace k2s-addon-sync `
+                --type merge `
+                --patch $patchJson 2>&1
+            if ($LASTEXITCODE -eq 0) { return }
+
+            $outputStr = ($output | Out-String).Trim()
+            if ($outputStr -match 'Conflict') {
+                if ($attempt -lt $maxAttempts) {
+                    Start-Sleep -Seconds $attempt
+                } else {
+                    Write-SyncLog "[Status] ConfigMap patch failed after $maxAttempts attempts: $(Get-SanitizedMessage $outputStr)" -IsError
+                }
+            } else {
+                # Non-conflict error: fail fast without retry.
+                Write-SyncLog "[Status] ConfigMap patch failed (non-retryable): $(Get-SanitizedMessage $outputStr)" -IsError
+                return
+            }
+        }
+    } catch {
+        Write-SyncLog "[Status] ConfigMap patch threw unexpectedly: $(Get-SanitizedMessage $_.ToString())" -IsError
+    }
+}
+
+# ===========================================================================
 # Main
 # ===========================================================================
 
@@ -485,6 +624,7 @@ foreach ($addonRepoName in $addonRepos) {
     $tagsOutput = & $OrasExe @tagListArgs 2>&1
     if ($LASTEXITCODE -ne 0) {
         Write-SyncLog "  Failed to list tags for '$addonRepoName' (exit $LASTEXITCODE): $tagsOutput" -IsError
+        Set-AddonStatusConfigMap -StateKey $addonRepoName -Phase 'Failed'
         $failedCount++
         continue
     }
@@ -498,6 +638,7 @@ foreach ($addonRepoName in $addonRepos) {
     $selectedTag = Select-AddonTag -AddonRepoName $addonRepoName -Tags $tags
     if (-not $selectedTag) {
         Write-SyncLog "  Unable to select a tag for '$addonRepoName' (candidates: $($tags -join ', ')) - skipping" -IsError
+        Set-AddonStatusConfigMap -StateKey $addonRepoName -Phase 'Failed'
         $failedCount++
         continue
     }
@@ -553,6 +694,13 @@ foreach ($addonRepoName in $addonRepos) {
         # Extract layers 0-3 into the addons directory
         Sync-AddonFromOciLayout -OciLayoutDir $addonTmpDir -AddonsDir $addonsDir
 
+        if ($ApplyIfEnabledBool) {
+            $lifecycleOk = Invoke-AddonUpdateLifecycle -LocalAddonName $addonRepoName -AddonVersion $selectedTag
+            if (-not $lifecycleOk) {
+                Write-SyncLog "  [ApplyIfEnabled] Lifecycle returned failure for '$addonRepoName' - sync still recorded" -Warning
+            }
+        }
+
         # Save per-addon digest after successful sync
         if ($CheckDigestBool) {
             try {
@@ -568,9 +716,11 @@ foreach ($addonRepoName in $addonRepos) {
                 Write-SyncLog "  Failed to save digest for '$addonRepoName': $_" -Warning
             }
         }
+        Set-AddonStatusConfigMap -StateKey $addonRepoName -Phase 'Synced'
         $syncedCount++
     } catch {
         Write-SyncLog "  Failed to sync '$addonRepoName': $_" -IsError
+        Set-AddonStatusConfigMap -StateKey $addonRepoName -Phase 'Failed'
         $failedCount++
     } finally {
         Remove-Item -Path $addonTmpDir -Recurse -Force -ErrorAction SilentlyContinue

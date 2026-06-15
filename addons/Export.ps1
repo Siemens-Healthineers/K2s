@@ -204,15 +204,14 @@ try {
                  Write-Log "Found $($gitopsSyncFiles.Count) gitops-sync files to inject"
                  Copy-Item -Path (Join-Path $gitopsSyncSource '*') -Destination $gitopsSyncDest -Recurse -Force
 
-                 # Replace the timestamp placeholder with the actual export timestamp
-                 $exportTimestamp = Get-Date -Format 'yyyy-MM-ddTHH:mm:ssZ'
+                 # Replace the version placeholder with the actual k2s version
                  $syncJobPath = Join-Path $gitopsSyncDest 'sync-job.yaml'
                  if (Test-Path $syncJobPath) {
                      $content = [System.IO.File]::ReadAllText($syncJobPath, [System.Text.Encoding]::UTF8)
-                     $content = $content -replace 'EXPORT_TIMESTAMP_PLACEHOLDER', $exportTimestamp
+                     $content = $content -replace 'ADDON_VERSION_PLACEHOLDER', $k2sVersion
                      $content = $content -replace 'ADDON_NAME_PLACEHOLDER', $addonFolderName
                      [System.IO.File]::WriteAllText($syncJobPath, $content, [System.Text.UTF8Encoding]::new($false))
-                     Write-Log "Injected gitops-sync Job template with timestamp $exportTimestamp and addon name $addonFolderName" -Console
+                     Write-Log "Injected gitops-sync Job template with version $k2sVersion and addon name $addonFolderName" -Console
                  } else {
                      Write-Log "Warning: sync-job.yaml not found at $syncJobPath" -Console
                  }
@@ -789,7 +788,7 @@ try {
             }
             
             # Create metadata.json as the OCI Config (contains addon metadata)
-            $addonVersion = if ($implementation.version) { $implementation.version } else { "1.0.0" }
+            $addonVersion = if ($implementation.version) { $implementation.version } else { $k2sVersion }
             $metadataJson = @{
                 name = $manifest.metadata.name
                 version = $addonVersion

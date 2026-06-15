@@ -439,6 +439,216 @@ var _ = Describe("'rollout argocd' GitOps addon sync", Ordered, func() {
 	})
 
 	// -----------------------------------------------------------------------
+	// Apply-if-enabled tests -- verifies initial, no-op, and forced re-sync
+	// behaviors. Run with: --label-filter="registry && apply-if-enabled"
+	// -----------------------------------------------------------------------
+	When("apply-if-enabled sync behaviors are exercised with the registry addon",
+		Label("registry", "apply-if-enabled"), Ordered, func() {
+
+			const (
+				aieJobInitial   = "addon-sync-aie-initial"
+				aieJobNoop      = "addon-sync-aie-noop"
+				aieJobForced    = "addon-sync-aie-forced"
+				aieExportSubDir = "gitops-sync-argocd-aie-e2e"
+			)
+
+			var aieExportDir string
+			var aieExportedOciFile string
+
+			BeforeAll(func(ctx context.Context) {
+				GinkgoWriter.Println("[Setup][AIE] Enabling registry addon for apply-if-enabled E2E test")
+				suite.K2sCli().MustExec(ctx, "addons", "enable", "registry", "-o")
+				k2s.VerifyAddonIsEnabled("registry")
+
+				// Delete any stale digest so the initial sync runs unconditionally.
+				digestFile := filepath.Join(suite.RootDir(), "addons", ".addon-sync-digests", testAddonName)
+				if err := os.Remove(digestFile); err == nil {
+					GinkgoWriter.Printf("[Setup][AIE] Removed stale digest file: %s\n", digestFile)
+				}
+
+				// Delete any leftover Jobs from prior runs of this block.
+				for _, jobName := range []string{aieJobInitial, aieJobNoop, aieJobForced} {
+					suite.Kubectl().Exec(ctx, "delete", "job", jobName,
+						"-n", addonSyncNamespace, "--ignore-not-found=true")
+				}
+				suite.Kubectl().Exec(ctx, "delete", "jobs",
+					"-n", addonSyncNamespace,
+					"-l", "batch.kubernetes.io/cronjob-name="+addonSyncPoller,
+					"--ignore-not-found=true")
+
+				// Export the metrics addon (manifests only; images and packages omitted).
+				aieExportDir = filepath.Join(suite.RootDir(), "tmp", aieExportSubDir)
+				GinkgoWriter.Printf("[Setup][AIE] Export directory: %s\n", aieExportDir)
+				Expect(os.MkdirAll(aieExportDir, 0755)).To(Succeed())
+				suite.K2sCli().MustExec(ctx, "addons", "export", testAddonName,
+					"--omit-images", "--omit-packages", "-d", aieExportDir, "-o")
+
+				pattern := filepath.Join(aieExportDir, fmt.Sprintf("K2s-*-addons-%s.oci.tar", testAddonName))
+				files, err := filepath.Glob(pattern)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(files).To(HaveLen(1),
+					"export should produce exactly one OCI tar matching %s", pattern)
+				aieExportedOciFile = files[0]
+				GinkgoWriter.Printf("[Setup][AIE] Exported OCI tar: %s\n", aieExportedOciFile)
+
+				// Extract the OCI Image Layout and push to the local registry.
+				orasLayoutDir, err := os.MkdirTemp("", "k2s-oras-layout-aie-*")
+				Expect(err).ToNot(HaveOccurred())
+				defer os.RemoveAll(orasLayoutDir)
+
+				suite.Cli(gitopssync.TarExe()).MustExec(ctx, "-xf", aieExportedOciFile, "-C", orasLayoutDir)
+
+				addonTag, err := gitopssync.ReadTagFromOCILayout(orasLayoutDir)
+				Expect(err).ToNot(HaveOccurred(), "should read tag from exported OCI layout index.json")
+				GinkgoWriter.Printf("[Setup][AIE] Detected addon tag: %s\n", addonTag)
+
+				srcRef := fmt.Sprintf("%s:%s", orasLayoutDir, addonTag)
+				destRef := fmt.Sprintf("%s/addons/%s:%s", registryHost, testAddonName, addonTag)
+				orasExe := filepath.Join(suite.RootDir(), "bin", "oras.exe")
+				suite.Cli(orasExe).MustExec(ctx, "copy", "--from-oci-layout", srcRef, destRef, "--to-plain-http")
+				GinkgoWriter.Printf("[Setup][AIE] Pushed to registry: %s\n", destRef)
+
+				DeferCleanup(func(ctx context.Context) {
+					// Remove all Jobs created during this block (best-effort).
+					for _, jobName := range []string{aieJobInitial, aieJobNoop, aieJobForced} {
+						suite.Kubectl().Exec(ctx, "delete", "job", jobName,
+							"-n", addonSyncNamespace, "--ignore-not-found=true")
+					}
+					// Remove the digest file so future suite runs detect a change.
+					cleanupDigest := filepath.Join(suite.RootDir(), "addons", ".addon-sync-digests", testAddonName)
+					if cleanupErr := os.Remove(cleanupDigest); cleanupErr == nil {
+						GinkgoWriter.Printf("[Teardown][AIE] Removed digest file: %s\n", cleanupDigest)
+					}
+					// Clean up exported OCI artifacts.
+					exportimport.CleanupExportedFiles(aieExportDir, aieExportedOciFile)
+
+					GinkgoWriter.Println("[Teardown][AIE] Disabling registry addon")
+					suite.K2sCli().MustExec(ctx, "addons", "disable", "registry", "-o")
+					k2s.VerifyAddonIsDisabled("registry")
+				})
+			})
+
+			It("initial sync: Job applies addon manifests and logs [ApplyIfEnabled] with Synced: 1", func(ctx context.Context) {
+				GinkgoWriter.Printf("[Test][AIE] Creating initial sync Job %s from CronJob %s\n", aieJobInitial, addonSyncPoller)
+				suite.Kubectl().MustExec(ctx,
+					"create", "job", aieJobInitial,
+					"--from=cronjob/"+addonSyncPoller,
+					"-n", addonSyncNamespace)
+
+				GinkgoWriter.Println("[Test][AIE] Waiting for initial sync Job to complete (timeout: 20m)")
+				gitopssync.WaitForJobCompletion(ctx, suite, addonSyncNamespace, aieJobInitial)
+
+				failedStatus, _ := suite.Kubectl().Exec(ctx,
+					"get", "job", aieJobInitial,
+					"-n", addonSyncNamespace,
+					"-o", "jsonpath={.status.conditions[?(@.type=='Failed')].status}")
+				failureReason, _ := suite.Kubectl().Exec(ctx,
+					"get", "job", aieJobInitial,
+					"-n", addonSyncNamespace,
+					"-o", "jsonpath={.status.conditions[?(@.type=='Failed')].reason}")
+				if failedStatus == "True" {
+					GinkgoWriter.Printf("[Test][AIE] Job %s FAILED -- reason: %q\n", aieJobInitial, failureReason)
+				}
+				Expect(failedStatus).NotTo(Equal("True"),
+					"Initial sync Job %s must not be in Failed state (reason: %s)", aieJobInitial, failureReason)
+
+				logs := gitopssync.GetJobLogs(ctx, suite, addonSyncNamespace, aieJobInitial)
+				GinkgoWriter.Printf("[Test][AIE] Initial sync logs (trimmed):\n%s\n", gitopssync.SafeTrim(logs, 2000))
+
+				Expect(logs).To(ContainSubstring("Synced: 1"),
+					"Initial sync should report Synced: 1 confirming the addon was processed")
+				Expect(logs).To(ContainSubstring("[ApplyIfEnabled]"),
+					"Initial sync should log [ApplyIfEnabled] confirming the apply-if-enabled path was taken")
+			})
+
+			It("no-op sync: unchanged digest causes skip; no [ApplyIfEnabled] in log", func(ctx context.Context) {
+				// The initial sync wrote a digest file. Do NOT delete it here --
+				// the no-op path depends on the sync script seeing an unchanged digest.
+				digestFile := filepath.Join(suite.RootDir(), "addons", ".addon-sync-digests", testAddonName)
+				Expect(digestFile).To(BeAnExistingFile(),
+					"Digest file %s must exist from initial sync before running no-op test", digestFile)
+				GinkgoWriter.Printf("[Test][AIE] Digest file confirmed for no-op run: %s\n", digestFile)
+
+				GinkgoWriter.Printf("[Test][AIE] Creating no-op Job %s from CronJob %s\n", aieJobNoop, addonSyncPoller)
+				suite.Kubectl().MustExec(ctx,
+					"create", "job", aieJobNoop,
+					"--from=cronjob/"+addonSyncPoller,
+					"-n", addonSyncNamespace)
+
+				GinkgoWriter.Println("[Test][AIE] Waiting for no-op Job to complete (timeout: 20m)")
+				gitopssync.WaitForJobCompletion(ctx, suite, addonSyncNamespace, aieJobNoop)
+
+				failedStatus, _ := suite.Kubectl().Exec(ctx,
+					"get", "job", aieJobNoop,
+					"-n", addonSyncNamespace,
+					"-o", "jsonpath={.status.conditions[?(@.type=='Failed')].status}")
+				failureReason, _ := suite.Kubectl().Exec(ctx,
+					"get", "job", aieJobNoop,
+					"-n", addonSyncNamespace,
+					"-o", "jsonpath={.status.conditions[?(@.type=='Failed')].reason}")
+				if failedStatus == "True" {
+					GinkgoWriter.Printf("[Test][AIE] Job %s FAILED -- reason: %q\n", aieJobNoop, failureReason)
+				}
+				Expect(failedStatus).NotTo(Equal("True"),
+					"No-op sync Job %s must not be in Failed state (reason: %s)", aieJobNoop, failureReason)
+
+				logs := gitopssync.GetJobLogs(ctx, suite, addonSyncNamespace, aieJobNoop)
+				GinkgoWriter.Printf("[Test][AIE] No-op sync logs (trimmed):\n%s\n", gitopssync.SafeTrim(logs, 2000))
+
+				Expect(logs).To(
+					Or(ContainSubstring("unchanged"), ContainSubstring("skipping"),
+						ContainSubstring("skip"), ContainSubstring("no change")),
+					"No-op sync should report unchanged/skipping behavior (digest is identical to registry)")
+				Expect(logs).NotTo(ContainSubstring("[ApplyIfEnabled]"),
+					"No-op sync must NOT log [ApplyIfEnabled] -- manifest application must be skipped when digest is unchanged")
+			})
+
+			It("forced re-sync: overwritten digest triggers re-apply; logs [ApplyIfEnabled] and Synced: 1", func(ctx context.Context) {
+				digestFile := filepath.Join(suite.RootDir(), "addons", ".addon-sync-digests", testAddonName)
+				// Overwrite with a fake digest to force the sync script to treat it
+				// as changed, regardless of the actual registry artifact digest.
+				const fakeDigest = "sha256:0000000000000000000000000000000000000000000000000000000000000000"
+				GinkgoWriter.Printf("[Test][AIE] Overwriting digest file %s with fake digest to force re-sync\n", digestFile)
+				Expect(os.WriteFile(digestFile, []byte(fakeDigest), 0644)).To(Succeed())
+
+				GinkgoWriter.Printf("[Test][AIE] Creating forced re-sync Job %s from CronJob %s\n", aieJobForced, addonSyncPoller)
+				suite.Kubectl().MustExec(ctx,
+					"create", "job", aieJobForced,
+					"--from=cronjob/"+addonSyncPoller,
+					"-n", addonSyncNamespace)
+
+				GinkgoWriter.Println("[Test][AIE] Waiting for forced re-sync Job to complete (timeout: 20m)")
+				gitopssync.WaitForJobCompletion(ctx, suite, addonSyncNamespace, aieJobForced)
+
+				failedStatus, _ := suite.Kubectl().Exec(ctx,
+					"get", "job", aieJobForced,
+					"-n", addonSyncNamespace,
+					"-o", "jsonpath={.status.conditions[?(@.type=='Failed')].status}")
+				failureReason, _ := suite.Kubectl().Exec(ctx,
+					"get", "job", aieJobForced,
+					"-n", addonSyncNamespace,
+					"-o", "jsonpath={.status.conditions[?(@.type=='Failed')].reason}")
+				if failedStatus == "True" {
+					GinkgoWriter.Printf("[Test][AIE] Job %s FAILED -- reason: %q\n", aieJobForced, failureReason)
+				}
+				Expect(failedStatus).NotTo(Equal("True"),
+					"Forced re-sync Job %s must not be in Failed state (reason: %s)", aieJobForced, failureReason)
+
+				logs := gitopssync.GetJobLogs(ctx, suite, addonSyncNamespace, aieJobForced)
+				GinkgoWriter.Printf("[Test][AIE] Forced re-sync logs (trimmed):\n%s\n", gitopssync.SafeTrim(logs, 2000))
+
+				// Fake digest guarantees the script detects a change.
+				Expect(logs).To(
+					Or(ContainSubstring("digest changed"), ContainSubstring("first sync run")),
+					"Forced re-sync should report that the digest changed or it is the first sync run")
+				Expect(logs).To(ContainSubstring("Synced: 1"),
+					"Forced re-sync should report Synced: 1 confirming the addon was re-processed")
+				Expect(logs).To(ContainSubstring("[ApplyIfEnabled]"),
+					"Forced re-sync should log [ApplyIfEnabled] confirming the apply-if-enabled path was taken")
+			})
+		})
+
+	// -----------------------------------------------------------------------
 	// Negative test — malformed OCI artifact triggers failure signaling.
 	// Run with: --label-filter="registry && negative"
 	// -----------------------------------------------------------------------

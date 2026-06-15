@@ -255,6 +255,53 @@ function Add-AddonToSetupJson() {
 
 <#
 .SYNOPSIS
+	Updates the Version property of an enabled addon entry in setup.json
+.DESCRIPTION
+	Finds the first EnabledAddons entry matching the given Name and sets its Version property.
+	Adds the property if absent or updates it if already present.
+.PARAMETER Name
+	Name of the enabled addon
+.PARAMETER Version
+	Version string to set on the addon entry
+.EXAMPLE
+	Update-AddonVersionInSetupJson -Name 'dashboard' -Version '1.2.3'
+#>
+function Update-AddonVersionInSetupJson {
+	param (
+		[Parameter(Mandatory = $true)]
+		[string]$Name = $(throw 'Please specify the addon name.'),
+		[Parameter(Mandatory = $true)]
+		[string]$Version = $(throw 'Please specify the version.')
+	)
+
+	$filePath = Get-SetupConfigFilePath
+	$parsedSetupJson = Get-Content -Raw $filePath | ConvertFrom-Json
+
+	$enabledAddonMemberExists = Get-Member -InputObject $parsedSetupJson -Name $ConfigKey_EnabledAddons -MemberType Properties
+	if (!$enabledAddonMemberExists) {
+		Write-Log "No EnabledAddons property found in setup.json, skipping version update for '$Name'"
+		return
+	}
+
+	$addonEntry = $parsedSetupJson.EnabledAddons | Where-Object { $_.Name -eq $Name } | Select-Object -First 1
+	if ($null -eq $addonEntry) {
+		Write-Log "Addon '$Name' not found in EnabledAddons, skipping version update"
+		return
+	}
+
+	$versionMemberExists = Get-Member -InputObject $addonEntry -Name 'Version' -MemberType Properties
+	if ($versionMemberExists) {
+		$addonEntry.Version = $Version
+	}
+	else {
+		$addonEntry | Add-Member -NotePropertyName 'Version' -NotePropertyValue $Version
+	}
+
+	$parsedSetupJson | ConvertTo-Json -Depth 100 | Set-Content -Force $filePath -Confirm:$false
+}
+
+<#
+.SYNOPSIS
 	Removes an enabled addon from setup.json
 .DESCRIPTION
 	From an addon from json array "EnabledAddons" in Setup.json. If the array is empty after the remove operation,
@@ -2287,7 +2334,7 @@ function Assert-IngressTlsCertificate {
     return $certExists
 }
 
-Export-ModuleMember -Function Enable-AddonFromConfig, Get-EnabledAddons, Add-AddonToSetupJson, Remove-AddonFromSetupJson,
+Export-ModuleMember -Function Enable-AddonFromConfig, Get-EnabledAddons, Add-AddonToSetupJson, Update-AddonVersionInSetupJson, Remove-AddonFromSetupJson,
 Install-DebianPackages, Get-DebianPackageAvailableOffline, Test-IsAddonEnabled, Invoke-AddonsHooks, Copy-ScriptsToHooksDir,
 Remove-ScriptsFromHooksDir, Get-AddonConfig, Backup-Addons, Restore-Addons, Get-AddonStatus, Find-AddonManifests,
 Get-ErrCodeAddonAlreadyDisabled, Get-ErrCodeAddonAlreadyEnabled, Get-ErrCodeAddonEnableFailed, Get-ErrCodeAddonNotFound, Get-ErrCodeInvalidParameter,

@@ -89,6 +89,8 @@ spec:
                 - $(INSECURE)
                 - -CheckDigest
                 - "true"
+                - -ApplyIfEnabled
+                - "true"
               env:
                 - name: CONTAINER_SANDBOX_MOUNT_POINT
                   value: "C:\\"

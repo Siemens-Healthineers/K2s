@@ -344,8 +344,8 @@ func VerifyManifestsLayerContent(layoutDir, manifestsMediaType, expectedAddonNam
 	if strings.Contains(syncJobContent, "ADDON_NAME_PLACEHOLDER") {
 		return filePaths, fmt.Errorf("sync-job.yaml still contains unsubstituted ADDON_NAME_PLACEHOLDER")
 	}
-	if strings.Contains(syncJobContent, "EXPORT_TIMESTAMP_PLACEHOLDER") {
-		return filePaths, fmt.Errorf("sync-job.yaml still contains unsubstituted EXPORT_TIMESTAMP_PLACEHOLDER")
+	if strings.Contains(syncJobContent, "ADDON_VERSION_PLACEHOLDER") {
+		return filePaths, fmt.Errorf("sync-job.yaml still contains unsubstituted ADDON_VERSION_PLACEHOLDER")
 	}
 
 	if !strings.Contains(kustomizationContent, "sync-job.yaml") {

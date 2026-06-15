@@ -13,7 +13,7 @@
 # OCIRepository detects a new selected revision via semver tag selection.
 #
 # Placeholders replaced by Export.ps1 during export:
-#   EXPORT_TIMESTAMP_PLACEHOLDER  → actual export timestamp (triggers Job recreation by Flux force:true)
+#   ADDON_VERSION_PLACEHOLDER     → addon semver version (triggers Job recreation by Flux force:true when version changes)
 #   ADDON_NAME_PLACEHOLDER        → addon folder name (e.g. monitoring, rollout)
 #
 # References two ConfigMaps from the one-time cluster setup:
@@ -33,8 +33,8 @@ metadata:
     app.kubernetes.io/component: processor
     app.kubernetes.io/part-of: k2s
   annotations:
-    # Replaced by Export.ps1 — ensures Job spec changes each export so Flux (force: true) recreates it.
-    k2s.io/export-timestamp: "EXPORT_TIMESTAMP_PLACEHOLDER"
+    # Replaced by Export.ps1 — ensures Job spec changes on each version change so Flux (force: true) recreates it.
+    k2s.io/addon-version: "ADDON_VERSION_PLACEHOLDER"
 spec:
   ttlSecondsAfterFinished: 300
   activeDeadlineSeconds: 300
@@ -89,6 +89,8 @@ spec:
             - $(INSECURE)
             - -AddonName
             - ADDON_NAME_PLACEHOLDER
+            - -ApplyIfEnabled
+            - "true"
           env:
             - name: CONTAINER_SANDBOX_MOUNT_POINT
               value: "C:\\"
