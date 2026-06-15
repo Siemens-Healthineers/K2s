@@ -221,7 +221,13 @@ function Build-PluginFromSource {
     $pluginSrc = if ($Plugin.source.subdir) { Join-Path $clone $Plugin.source.subdir } else { $clone }
     Push-Location $pluginSrc
     try {
-        if ($Proxy) { & npm config set proxy $Proxy; & npm config set https-proxy $Proxy }
+        # Scope proxy config to this process via npm_config_* environment variables
+        # instead of 'npm config set', which would permanently mutate the user's global
+        # ~/.npmrc. Cleaned up in the finally block.
+        if ($Proxy) {
+            $env:npm_config_proxy = $Proxy
+            $env:npm_config_https_proxy = $Proxy
+        }
         & npm ci
         if ($LASTEXITCODE -ne 0) { throw "[HlPlugin] npm ci failed for '$($Plugin.name)'" }
         & npx --yes @headlamp-k8s/headlamp-plugin build
@@ -231,6 +237,10 @@ function Build-PluginFromSource {
         Copy-Item -Path (Join-Path $pluginSrc 'package.json') -Destination $DestinationDir -Force
     }
     finally {
+        if ($Proxy) {
+            Remove-Item Env:\npm_config_proxy -ErrorAction SilentlyContinue
+            Remove-Item Env:\npm_config_https_proxy -ErrorAction SilentlyContinue
+        }
         Pop-Location
     }
 }
