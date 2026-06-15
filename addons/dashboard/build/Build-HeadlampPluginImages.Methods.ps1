@@ -330,7 +330,7 @@ function Test-PluginImageLayout {
     The $CraneExe parameter is retained for call-site compatibility but is unused.
     #>
     param(
-        [Parameter(Mandatory = $true)] [string] $CraneExe,
+        [string] $CraneExe = '',
         [Parameter(Mandatory = $true)] [string] $OciTar,
         [Parameter(Mandatory = $true)] [string] $PluginDir
     )
