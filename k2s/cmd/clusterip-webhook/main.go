@@ -347,6 +347,17 @@ func (h *WebhookHandler) getUsedClusterIPs() (map[string]bool, error) {
 		}
 	}
 
+	// Also include IPs tracked by the API server's internal allocator.
+	// This catches stale bitmap entries and IPs allocated during webhook downtime.
+	ipAddresses, err := h.clientset.NetworkingV1().IPAddresses().List(ctx, metav1.ListOptions{})
+	if err != nil {
+		slog.Warn("Failed to list IPAddress objects, relying on service list only", "error", err)
+	} else {
+		for _, ipa := range ipAddresses.Items {
+			used[ipa.Name] = true
+		}
+	}
+
 	return used, nil
 }
 

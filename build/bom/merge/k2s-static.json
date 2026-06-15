@@ -580,9 +580,9 @@
       "type": "application"
     },
     {
-      "group": "https://get.helm.sh/helm-v4.2.0-windows-amd64.zip",
+      "group": "https://get.helm.sh/helm-v4.2.1-windows-amd64.zip",
       "name": "helm",
-      "version": "v4.2.0",
+      "version": "v4.2.1",
       "description": "",
       "scope": "required",
       "licenses": [
@@ -599,7 +599,7 @@
           "value": "k2s:core:pkg:executables"
         }
       ],
-      "purl": "pkg:github/helm/helm@v4.2.0",
+      "purl": "pkg:github/helm/helm@v4.2.1",
       "type": "application"
     },
     {
@@ -674,7 +674,7 @@
     {
       "group": "https://github.com/prometheus/alertmanager",
       "name": "alertmanager",
-      "version": "v0.32.2",
+      "version": "v0.33.0",
       "description": "Prometheus Alertmanager - monitoring addon",
       "scope": "optional",
       "licenses": [
@@ -691,7 +691,7 @@
           "value": "k2s:addon:monitoring"
         }
       ],
-      "purl": "pkg:github/prometheus/alertmanager@v0.32.2",
+      "purl": "pkg:github/prometheus/alertmanager@v0.33.0",
       "type": "container"
     },
     {
