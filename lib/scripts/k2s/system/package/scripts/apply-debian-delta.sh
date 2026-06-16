@@ -24,6 +24,50 @@ UPGRADED_FILE=packages.upgraded
 PKG_DIR=packages
 INSTALL_SPECS=()
 
+normalize_kube_version() {
+    local version="$1"
+    version="${version#v}"
+    echo "$version" | grep -oE '^[0-9]+\.[0-9]+\.[0-9]+' || true
+}
+
+read_target_kubernetes_version() {
+    local version=""
+
+    if [[ -f "debian-delta-manifest.json" ]]; then
+        if command -v jq >/dev/null 2>&1; then
+            version=$(jq -r '.TargetKubernetesVersion // empty' debian-delta-manifest.json 2>/dev/null || true)
+        else
+            version=$(grep -oE '"TargetKubernetesVersion"[[:space:]]*:[[:space:]]*"v?[0-9]+\.[0-9]+\.[0-9]+"' debian-delta-manifest.json 2>/dev/null | head -1 | sed -E 's/.*"(v?[0-9]+\.[0-9]+\.[0-9]+)"/\1/' || true)
+        fi
+        version=$(normalize_kube_version "$version")
+        if [[ -n "$version" ]]; then
+            echo "$version"
+            return
+        fi
+    fi
+
+    if [[ -f "$UPGRADED_FILE" ]]; then
+        version=$(awk '$1 == "kubernetes" || $1 == "kubeadm" || $1 == "kubelet" { print $3; exit }' "$UPGRADED_FILE" 2>/dev/null || true)
+        version=$(normalize_kube_version "$version")
+        if [[ -n "$version" ]]; then
+            echo "$version"
+            return
+        fi
+    fi
+
+    if [[ -d images ]]; then
+        version=$(find images -maxdepth 1 -type f -name 'registry.k8s.io-kube-apiserver-v*.tar' -print 2>/dev/null | sed -E 's/.*-v([0-9]+\.[0-9]+\.[0-9]+)\.tar$/\1/' | head -1 || true)
+        version=$(normalize_kube_version "$version")
+        if [[ -n "$version" ]]; then
+            echo "$version"
+            return
+        fi
+    fi
+
+    version=$(kubelet --version 2>/dev/null | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' || echo "")
+    normalize_kube_version "$version"
+}
+
 # Remove packages that were removed between versions
 if [[ -f "$REMOVED_FILE" ]]; then
     echo "[debian-delta] Purging removed packages"
@@ -82,10 +126,10 @@ fi
 
 # Run kubeadm upgrade to migrate cluster configuration (manifests, kubelet flags, etc.)
 echo "[debian-delta] Running kubeadm upgrade to migrate cluster configuration"
-KUBE_VERSION=$(kubelet --version 2>/dev/null | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' || echo "")
+KUBE_VERSION=$(read_target_kubernetes_version)
 
 if [[ -n "$KUBE_VERSION" ]]; then
-    echo "[debian-delta] Detected Kubernetes version: v${KUBE_VERSION}"
+    echo "[debian-delta] Target Kubernetes version: v${KUBE_VERSION}"
     
     # Load container images for air-gapped kubeadm upgrade
     # kubeadm upgrade apply requires control plane images (kube-apiserver, kube-controller-manager, etc.)

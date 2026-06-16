@@ -60,17 +60,19 @@ DELTA UPDATE:
      3. Update: .\k2s.exe system upgrade
 
   The extracted directory becomes the active K2s installation directory after a
-  successful delta update. Keep it after the update and run refreshenv or open a
-  new terminal so PATH resolves to the new installation.
+	successful delta update. Keep it after the update. Delta update changes the
+	persistent machine PATH, but already-open shells still need refreshenv or a
+	new terminal so PATH resolves to the new installation.
   
   The following tasks will be executed:
   1. Detect delta package root (current directory with delta-manifest.json)
   2. Detect existing installation folder (from setup.json)
-  3. Complete the current directory with files missing from the existing installation
-  4. Update setup.json InstallFolder to the current directory
-  5. Update all Debian packages from delta (if cluster is running)
-  6. Update all container images from delta
-  7. Automatically stop and restart the cluster if it was running
+	3. Update all Debian packages from delta while the cluster is running, when applicable
+	4. Stop the cluster if it was running
+	5. Complete the current directory with files missing from the existing installation
+	6. Update persistent machine PATH and setup.json InstallFolder to the current directory
+	7. Update all container images from delta
+	8. Restart the cluster if it was running
 
 NODE UPGRADE:
   Upgrades a single Linux worker node without touching the control plane.

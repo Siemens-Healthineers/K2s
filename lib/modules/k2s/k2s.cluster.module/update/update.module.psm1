@@ -59,6 +59,117 @@ function Get-ProductVersionGivenKubePath {
 	return "$(Get-Content -Raw -Path "$KubePathLocal\VERSION")".Trim()
 }
 
+function Get-TargetKubernetesVersionFromDebianDelta {
+	param(
+		[Parameter(Mandatory = $true)]
+		[string] $DebianDeltaPath
+	)
+
+	$manifestPath = Join-Path $DebianDeltaPath 'debian-delta-manifest.json'
+	if (Test-Path -LiteralPath $manifestPath) {
+		try {
+			$debianManifest = Get-Content -LiteralPath $manifestPath -Raw | ConvertFrom-Json
+			if (-not [string]::IsNullOrWhiteSpace($debianManifest.TargetKubernetesVersion)) {
+				$version = [string]$debianManifest.TargetKubernetesVersion
+				if (-not $version.StartsWith('v')) { $version = "v$version" }
+				return $version
+			}
+		} catch {
+			Write-Log ("[Update][Warn] Failed to read Debian delta manifest '{0}': {1}" -f $manifestPath, $_.Exception.Message) -Console
+		}
+	}
+
+	$upgradedPath = Join-Path $DebianDeltaPath 'packages.upgraded'
+	if (Test-Path -LiteralPath $upgradedPath) {
+		foreach ($line in (Get-Content -LiteralPath $upgradedPath)) {
+			if ($line -match '^(kubernetes|kubeadm|kubelet)\s+\S+\s+(?<target>v?\d+\.\d+\.\d+)') {
+				$version = $matches['target']
+				if (-not $version.StartsWith('v')) { $version = "v$version" }
+				return $version
+			}
+		}
+	}
+
+	$imagesPath = Join-Path $DebianDeltaPath 'images'
+	if (Test-Path -LiteralPath $imagesPath) {
+		$image = Get-ChildItem -LiteralPath $imagesPath -File -Filter 'registry.k8s.io-kube-apiserver-v*.tar' -ErrorAction SilentlyContinue | Select-Object -First 1
+		if ($image -and $image.Name -match 'registry\.k8s\.io-kube-apiserver-(?<target>v\d+\.\d+\.\d+)\.tar') {
+			return $matches['target']
+		}
+	}
+
+	return $null
+}
+
+function Set-K2sMachinePathEntries {
+	param(
+		[Parameter(Mandatory = $true)]
+		[string] $OldKubePath,
+		[Parameter(Mandatory = $true)]
+		[string] $NewKubePath,
+		[switch] $ShowLogs
+	)
+
+	$oldRoot = [IO.Path]::GetFullPath($OldKubePath).TrimEnd('\')
+	$newRoot = [IO.Path]::GetFullPath($NewKubePath).TrimEnd('\')
+	$oldEntries = @(
+		$oldRoot,
+		(Join-Path $oldRoot 'bin'),
+		(Join-Path $oldRoot 'bin\kube'),
+		(Join-Path $oldRoot 'bin\docker'),
+		(Join-Path $oldRoot 'containerd'),
+		(Join-Path $oldRoot 'bin\containerd')
+	)
+	$newEntries = @(
+		$newRoot,
+		(Join-Path $newRoot 'bin'),
+		(Join-Path $newRoot 'bin\kube'),
+		(Join-Path $newRoot 'bin\docker'),
+		(Join-Path $newRoot 'bin\containerd')
+	)
+	$regLocation = 'Registry::HKEY_LOCAL_MACHINE\System\CurrentControlSet\Control\Session Manager\Environment'
+	$machinePath = (Get-ItemProperty -Path $regLocation -Name PATH).path
+	$pathEntries = @($machinePath -split [IO.Path]::PathSeparator) | Where-Object { -not [string]::IsNullOrWhiteSpace($_) }
+	$filteredEntries = @()
+	$removedCount = 0
+
+	foreach ($entry in $pathEntries) {
+		$trimmedEntry = $entry.Trim()
+		$isOldEntry = $false
+		foreach ($oldEntry in $oldEntries) {
+			if ($trimmedEntry -ieq $oldEntry) {
+				$isOldEntry = $true
+				break
+			}
+		}
+		if ($isOldEntry) {
+			$removedCount++
+			continue
+		}
+		$filteredEntries += $trimmedEntry
+	}
+
+	foreach ($newEntry in $newEntries) {
+		if (-not ($filteredEntries | Where-Object { $_ -ieq $newEntry })) {
+			$filteredEntries += $newEntry
+		}
+	}
+
+	$deduplicatedEntries = @()
+	foreach ($entry in $filteredEntries) {
+		if (-not ($deduplicatedEntries | Where-Object { $_ -ieq $entry })) {
+			$deduplicatedEntries += $entry
+		}
+	}
+
+	$newMachinePath = $deduplicatedEntries -join [IO.Path]::PathSeparator
+	Set-ItemProperty -Path $regLocation -Name PATH -Value $newMachinePath
+	$machineEnv = [Environment]::GetEnvironmentVariable('Path', 'Machine')
+	$userEnv = [Environment]::GetEnvironmentVariable('Path', 'User')
+	$env:Path = (@($machineEnv, $userEnv) | Where-Object { -not [string]::IsNullOrWhiteSpace($_) }) -join [IO.Path]::PathSeparator
+	Write-Log ("[Update] Updated machine PATH: removed {0} old K2s entries, ensured {1} new K2s entries" -f $removedCount, $newEntries.Count) -Console:$ShowLogs
+}
+
 <#
 .SYNOPSIS
 	Restores CoreDNS etcd plugin configuration after kubeadm upgrade.
@@ -478,7 +589,7 @@ Current directory: $deltaRoot
 	}
 
 	$script:phaseId = 0
-	$script:totalPhases = 13
+	$script:totalPhases = 14
 	function _phase { 
 		param($name) 
 		$script:phaseId++
@@ -575,8 +686,13 @@ Current directory: $deltaRoot
 
 	# 4. Debian package delta (apply while cluster is running if needed)
 	_phase 'DebianPackages'
+	$targetKubernetesVersion = $null
 	if ($manifest.DebianDeltaRelativePath) {
 		$debDir = Join-Path $deltaRoot $manifest.DebianDeltaRelativePath
+		$targetKubernetesVersion = Get-TargetKubernetesVersionFromDebianDelta -DebianDeltaPath $debDir
+		if ($targetKubernetesVersion) {
+			Write-Log ("[Update] Target Kubernetes version from Debian delta: {0}" -f $targetKubernetesVersion) -Console:$consoleSwitch
+		}
 		$applyScript = Join-Path $debDir 'apply-debian-delta.sh'
 		if (Test-Path -LiteralPath $applyScript) {
 			if ($wasRunning) {
@@ -860,11 +976,13 @@ Current directory: $deltaRoot
 
 	# Switch the installation folder after the new target has the files required by target-path helpers.
 	try {
+		Write-Log ("[Update] Updating machine PATH from '{0}' to '{1}'" -f $oldInstallPath, $targetInstallPath) -Console:$consoleSwitch
+		Set-K2sMachinePathEntries -OldKubePath $oldInstallPath -NewKubePath $targetInstallPath -ShowLogs:$ShowLogs
 		Write-Log ("[Update] Updating setup.json install folder from '{0}' to '{1}'" -f $oldInstallPath, $targetInstallPath) -Console:$consoleSwitch
 		Set-ConfigInstallFolder -Value $targetInstallPath
-		Write-Log '[Update] Setup configuration install folder updated successfully' -Console:$consoleSwitch
+		Write-Log '[Update] Machine PATH and setup configuration install folder updated successfully' -Console:$consoleSwitch
 	} catch {
-		Write-Log ("[Update][Error] Failed to update setup.json install folder: {0}" -f $_.Exception.Message) -Console
+		Write-Log ("[Update][Error] Failed to update active installation path: {0}" -f $_.Exception.Message) -Console
 		throw
 	}
 
@@ -1150,7 +1268,7 @@ Current directory: $deltaRoot
 		Write-Log '[Update] Skipping webhook restoration (cluster not running)' -Console:$consoleSwitch
 	}
 
-	# 13. Update VERSION file to reflect successful delta update
+	# 14. Update VERSION file to reflect successful delta update
 	_phase 'UpdateVersion'
 	if ($deltaTargetVersion) {
 		try {
@@ -1169,6 +1287,12 @@ Current directory: $deltaRoot
 			Write-Log ("[Update] Updating setup.json product version from {0} to {1}" -f $currentVersion, $deltaTargetVersion) -Console:$consoleSwitch
 			Set-ConfigInstallFolder -Value $targetInstallPath
 			Set-ConfigProductVersion -Value $deltaTargetVersion
+			if ($targetKubernetesVersion) {
+				Write-Log ("[Update] Updating setup.json Kubernetes version to {0}" -f $targetKubernetesVersion) -Console:$consoleSwitch
+				Set-ConfigInstalledKubernetesVersion -Value $targetKubernetesVersion
+			} else {
+				Write-Log '[Update][Info] Target Kubernetes version not determined; setup.json KubernetesVersion not updated' -Console:$consoleSwitch
+			}
 			Write-Log '[Update] Setup configuration updated successfully' -Console:$consoleSwitch
 		} catch {
 			Write-Log ("[Update][Warn] Failed to update version information: {0}" -f $_.Exception.Message) -Console:$consoleSwitch
@@ -1181,7 +1305,7 @@ Current directory: $deltaRoot
 	Write-Log ("Upgraded successfully to K2s version: {0} (active installation: {1})" -f $deltaTargetVersion, $targetInstallPath) -Console:$consoleSwitch
 	Write-Log ("[Update] Previous installation remains unchanged at: {0}" -f $oldInstallPath) -Console:$consoleSwitch
 	Write-Log '[Update] Keep this directory; it is now the active K2s installation.' -Console:$consoleSwitch
-	Write-Log '[Update] Run refreshenv or open a new terminal so PATH points to the active installation.' -Console:$consoleSwitch
+	Write-Log '[Update] Machine PATH was updated. Run refreshenv or open a new terminal so this shell resolves the active installation.' -Console:$consoleSwitch
 
 	if ($ShowProgress) { Write-Progress -Activity 'Cluster delta update' -Id 1 -Completed }
 	

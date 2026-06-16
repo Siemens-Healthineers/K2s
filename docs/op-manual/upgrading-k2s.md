@@ -235,10 +235,10 @@ Unlike full upgrades, delta updates:
 
 1. Detect delta package root (current directory with `delta-manifest.json`)
 2. Detect existing installation folder (from `setup.json`)
-3. Stop the cluster if running
-4. Complete the current directory with files missing from the existing installation
-5. Update `setup.json` `InstallFolder` to the current directory
-6. Update Debian packages on the Linux VM (if applicable)
+3. Update Debian packages on the Linux VM while the cluster is running, when applicable
+4. Stop the cluster if running
+5. Complete the current directory with files missing from the existing installation
+6. Update persistent machine `PATH` and `setup.json` `InstallFolder` to the current directory
 7. Update container images from delta
 8. Restart the cluster
 
@@ -265,10 +265,12 @@ Unlike full upgrades, delta updates:
    cd C:\k2s-v1.6.0
    .\k2s.exe system upgrade
    ```
-4. Run `refreshenv` or open a new terminal so command resolution uses the new installation directory
+4. Run `refreshenv` or open a new terminal so command resolution uses the new installation directory. Delta upgrade updates the persistent machine `PATH`, but already-open shells keep their previous environment until refreshed.
 5. Validate the cluster as described above
 
 Do not delete the extracted directory after a successful delta update. It is the active *K2s* installation directory; the previous installation directory remains available unchanged.
+
+If `k2s status` shows a newer K8s client version than server or node versions after a delta update, inspect the Debian delta log for the `Target Kubernetes version` line. The kubeadm target version must match the Kubernetes images bundled in the delta package.
 
 > **⚠️ Note:** The `k2s system upgrade` command automatically detects whether to perform a full upgrade or delta update based on the presence of `delta-manifest.json` in the package directory.
 

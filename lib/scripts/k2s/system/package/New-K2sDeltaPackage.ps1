@@ -564,10 +564,25 @@ if ($SpecialSkippedFiles -contains 'Kubemaster-Base.vhdx') {
                 foreach ($c in ($debianPackageDiff.Changed)) { if ($c -match '^(?<n>[^:]+):\s+(?<o>[^ ]+)\s+->\s+(?<nv>.+)$') { $upgradedLines += ("{0} {1} {2}" -f $matches['n'], $matches['o'], $matches['nv']) } }
                 if ($upgradedLines) { $upgradedLines | Sort-Object | Out-File -FilePath (Join-Path $debianDeltaDir 'packages.upgraded') -Encoding ASCII -Force }
 
+                $targetKubernetesVersion = $null
+                foreach ($line in $upgradedLines) {
+                    if ($line -match '^(kubernetes|kubeadm|kubelet)\s+\S+\s+(?<target>v?\d+\.\d+\.\d+)') {
+                        $targetKubernetesVersion = $matches['target']
+                        break
+                    }
+                }
+                if ([string]::IsNullOrWhiteSpace($targetKubernetesVersion)) {
+                    $targetKubernetesVersion = Get-DefaultK8sVersion
+                }
+                if (-not $targetKubernetesVersion.StartsWith('v')) {
+                    $targetKubernetesVersion = "v$targetKubernetesVersion"
+                }
+
                 # Debian delta manifest (JSON)
                 $debDeltaManifest = [pscustomobject]@{
                     SourceVhdxOld       = $debianPackageDiff.OldRelativePath
                     SourceVhdxNew       = $debianPackageDiff.NewRelativePath
+                    TargetKubernetesVersion = $targetKubernetesVersion
                     Added               = $addedPkgs
                     Removed             = $removedNames
                     Upgraded            = $upgradedLines
