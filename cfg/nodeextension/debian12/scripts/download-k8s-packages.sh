@@ -148,6 +148,44 @@ download_packages() {
     return 1
 }
 
+resolve_kubernetes_package_version() {
+    local package_name="$1"
+    local upstream_version="${K8S_VERSION#v}"
+
+    RESOLVED_K8S_PACKAGE_VERSION=$(apt-cache madison "$package_name" \
+        | awk -v version="$upstream_version" '$3 ~ "^" version "-" { print $3 }' \
+        | sort -V \
+        | tail -n 1)
+
+    if [ -z "$RESOLVED_K8S_PACKAGE_VERSION" ]; then
+        log_warning "No apt package version found for $package_name matching Kubernetes $upstream_version"
+        log_warning "Available versions for $package_name:"
+        apt-cache madison "$package_name" || true
+        return 1
+    fi
+
+    log_info "Resolved $package_name package version: $RESOLVED_K8S_PACKAGE_VERSION"
+    return 0
+}
+
+download_required_kubernetes_package() {
+    local package_name="$1"
+
+    if ! resolve_kubernetes_package_version "$package_name"; then
+        exit 1
+    fi
+
+    if ! download_packages "$package_name=$RESOLVED_K8S_PACKAGE_VERSION"; then
+        log_warning "Required Kubernetes package was not downloaded: $package_name=$RESOLVED_K8S_PACKAGE_VERSION"
+        exit 1
+    fi
+
+    if ! ls "$TARGET_PATH"/${package_name}_${RESOLVED_K8S_PACKAGE_VERSION}_*.deb >/dev/null 2>&1; then
+        log_warning "Required Kubernetes package file is missing after download: $package_name=$RESOLVED_K8S_PACKAGE_VERSION"
+        exit 1
+    fi
+}
+
 log_info "=== Downloading Base Tools ==="
 log_info "Refreshing apt package cache before base tools download"
 refresh_apt_cache || true
@@ -266,18 +304,18 @@ log_info "=== Downloading cri-tools (crictl) ==="
 download_packages 'cri-tools'
 
 log_info "=== Downloading Kubernetes Tools ==="
-SHORT_K8S_VERSION="${K8S_VERSION#v}-1.1"
-log_info "Target Kubernetes version: $SHORT_K8S_VERSION"
+SHORT_K8S_VERSION="${K8S_VERSION#v}"
+log_info "Target Kubernetes upstream version: $SHORT_K8S_VERSION"
 
-download_packages "kubectl=$SHORT_K8S_VERSION"
-download_packages "kubelet=$SHORT_K8S_VERSION"
-download_packages "kubeadm=$SHORT_K8S_VERSION"
+download_required_kubernetes_package "kubectl"
+download_required_kubernetes_package "kubelet"
+download_required_kubernetes_package "kubeadm"
 
-# Cleanup extra versions (keep only specified version)
+# Cleanup extra versions (keep only the requested upstream version)
 log_info "Cleaning up extra package versions"
 cd "$TARGET_PATH" && sudo find . -maxdepth 1 -type f \
     \( -name 'kubeadm_*.deb' -o -name 'kubectl_*.deb' -o -name 'kubelet_*.deb' \) \
-    ! -name "*_${SHORT_K8S_VERSION}_amd64.deb" \
+    ! -name "*_${SHORT_K8S_VERSION}-*_amd64.deb" \
     -exec sudo rm -f {} + || true
 
 if ! ls "$TARGET_PATH"/cri-tools*.deb >/dev/null 2>&1; then
