@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/siemens-healthineers/k2s/internal/cli"
+	"github.com/siemens-healthineers/k2s/test/e2e/addons/exportimport"
 	"github.com/siemens-healthineers/k2s/test/framework"
 	"github.com/siemens-healthineers/k2s/test/framework/dsl"
 
@@ -185,5 +186,32 @@ var _ = Describe("'storage smb' addon backup/restore", Ordered, func() {
 		content, err := os.ReadFile(testFilePath)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(string(content)).To(Equal(testFileContent))
+	})
+
+	It("can be enabled when only addons/common and addons/storage are present", func(ctx context.Context) {
+		GinkgoWriter.Println(">>> TEST: can be enabled when only addons/common and addons/storage are present")
+
+		GinkgoWriter.Println("[Test] Disabling storage smb to ensure clean re-enable path")
+		suite.K2sCli().MustExec(ctx, "addons", "disable", "storage", "smb", "--force", "-o")
+
+		GinkgoWriter.Println("[Test] Staging addon isolation: keeping only common and storage")
+		restore, err := exportimport.StageAddonIsolation(suite.RootDir(), "storage")
+		Expect(err).ToNot(HaveOccurred(), "staging addon isolation should succeed")
+		DeferCleanup(func() {
+			Expect(restore()).To(Succeed(), "addon isolation restore must succeed to avoid a partial workspace state")
+		})
+		DeferCleanup(func(ctx context.Context) {
+			suite.K2sCli().Exec(ctx, "addons", "disable", "storage", "smb", "--force", "-o")
+		})
+
+		GinkgoWriter.Println("[Test] Enabling storage smb with isolated addons directory")
+		output := suite.K2sCli().MustExec(ctx, "addons", "enable", "storage", "smb", "-o")
+
+		GinkgoWriter.Println("[Test] Verifying storage smb addon is enabled")
+		k2s.VerifyAddonIsEnabled("storage", "smb")
+
+		GinkgoWriter.Println("[Test] Verifying no PowerShell module-not-found signatures in output")
+		Expect(output).NotTo(ContainSubstring("no valid module file was found"), "enable output must not contain PowerShell module-not-found error")
+		Expect(output).NotTo(ContainSubstring("was not loaded"), "enable output must not contain PowerShell module-not-loaded error")
 	})
 })

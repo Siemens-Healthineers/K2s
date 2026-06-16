@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: © 2026 Siemens Healthineers AG
+﻿// SPDX-FileCopyrightText: © 2026 Siemens Healthineers AG
 //
 // SPDX-License-Identifier: MIT
 
@@ -197,6 +197,29 @@ var _ = Describe("security addon export and import", Ordered, func() {
 				"security.module.psm1",
 			}
 			exportimport.VerifyImportedAddonFiles(securityImplDir, expectedFiles)
+		})
+
+		It("can be enabled when only addons/common, addons/security, and addons/ingress are present", func(ctx context.Context) {
+			GinkgoWriter.Println(">>> TEST: can be enabled when only addons/common, addons/security, and addons/ingress are present")
+
+			// Stage isolation keeping ingress as a declared dependency
+			restore, err := exportimport.StageAddonIsolation(suite.RootDir(), "security", "ingress")
+			Expect(err).ToNot(HaveOccurred(), "staging addon isolation should succeed")
+			DeferCleanup(func() {
+				Expect(restore()).To(Succeed(), "addon isolation restore must succeed to avoid a partial workspace state")
+			})
+
+			// Enable security while isolated
+			output := suite.K2sCli().MustExec(ctx, "addons", "enable", "security", "-o")
+
+			// Disable security to avoid leaking state into subsequent specs
+			DeferCleanup(func() {
+				suite.K2sCli().Exec(ctx, "addons", "disable", "security", "-o")
+			})
+
+			// Assert no PowerShell module-not-found errors
+			Expect(output).NotTo(ContainSubstring("no valid module file was found"), "enable output must not contain PowerShell module-not-found error")
+			Expect(output).NotTo(ContainSubstring("was not loaded"), "enable output must not contain PowerShell module-not-loaded error")
 		})
 	})
 

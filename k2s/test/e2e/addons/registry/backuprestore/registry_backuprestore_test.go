@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/siemens-healthineers/k2s/internal/cli"
+	"github.com/siemens-healthineers/k2s/test/e2e/addons/exportimport"
 	"github.com/siemens-healthineers/k2s/test/framework"
 	"github.com/siemens-healthineers/k2s/test/framework/dsl"
 
@@ -212,5 +213,26 @@ var _ = Describe("'registry' addon backup/restore", Ordered, func() {
 				"-o", fmt.Sprintf("jsonpath={.data['%s']}", customDataKey))
 			Expect(output).To(Equal(customDataValue))
 		})
+	})
+
+	It("can be enabled when only addons/common and addons/registry are present", func(ctx context.Context) {
+		suite.K2sCli().Exec(ctx, "addons", "disable", "registry", "-o")
+
+		restore, err := exportimport.StageAddonIsolation(suite.RootDir(), "registry")
+		Expect(err).ToNot(HaveOccurred(), "staging addon isolation should succeed")
+		DeferCleanup(func() {
+			Expect(restore()).To(Succeed(), "addon isolation restore must succeed to avoid a partial workspace state")
+		})
+		DeferCleanup(func(ctx context.Context) {
+			suite.K2sCli().Exec(ctx, "addons", "disable", "registry", "-o")
+		})
+
+		output := suite.K2sCli().MustExec(ctx, "addons", "enable", "registry", "-o")
+
+		k2s.VerifyAddonIsEnabled("registry")
+		suite.Cluster().ExpectStatefulSetToBeReady("registry", "registry", 1, ctx)
+
+		Expect(output).NotTo(ContainSubstring("no valid module file was found"), "enable output must not contain PowerShell module-not-found error")
+		Expect(output).NotTo(ContainSubstring("was not loaded"), "enable output must not contain PowerShell module-not-loaded error")
 	})
 })
