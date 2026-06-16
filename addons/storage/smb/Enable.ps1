@@ -31,15 +31,27 @@ $script = $MyInvocation.MyCommand.Name
 $infraModule = "$PSScriptRoot/../../../lib/modules/k2s/k2s.infra.module/k2s.infra.module.psm1"
 $smbShareModule = "$PSScriptRoot\module\Smb-share.module.psm1"
 $addonsModule = "$PSScriptRoot\..\..\addons.module.psm1"
+$validationModule = "$PSScriptRoot\..\storage-validation.module.psm1"
 
 $addonName = 'storage'
 
-Import-Module $infraModule, $smbShareModule, $addonsModule
+Import-Module $infraModule, $smbShareModule, $addonsModule, $validationModule
 
 Initialize-Logging -ShowLogs:$ShowLogs
 
 # get addon name from folder path
 $addonName = Get-AddonNameFromFolderPath -BaseFolderPath $PSScriptRoot
+
+# Validate no conflicting storage implementation is enabled
+$conflictError = Test-ConflictingStorageImplementation -RequestedImplementation 'smb'
+if ($conflictError) {
+    Write-Log "[$script] ERROR: $conflictError" -Console -Error
+    if ($EncodeStructuredOutput -eq $true) {
+        Send-ToCli -MessageType $MessageType -Message @{Error = (New-Error -Code 'storage-conflict' -Message $conflictError) }
+        return
+    }
+    exit 1
+}
 
 if ($Config -ne $null -and $null -ne $Config.SmbHostType) {
     Write-Log "[$script] Using SMB host type '$($Config.SmbHostType)' from addon config" -Console
@@ -70,6 +82,10 @@ if ($err) {
 if ($EncodeStructuredOutput -eq $true) {
     Send-ToCli -MessageType $MessageType -Message @{Error = $null }
 }
+
+# Mark SMB as enabled and Ceph as disabled in registry
+Update-StorageImplementationRegistry -Implementation 'smb' -Enabled $true
+Update-StorageImplementationRegistry -Implementation 'ceph' -Enabled $false
 
 # adapt other addons when storage addon is called
 Update-Addons -AddonName $addonName

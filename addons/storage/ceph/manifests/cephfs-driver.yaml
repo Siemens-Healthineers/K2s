@@ -1,0 +1,9 @@
+# SPDX-FileCopyrightText: © 2026 Siemens Healthineers AG
+#
+# SPDX-License-Identifier: MIT
+
+apiVersion: csi.ceph.io/v1
+kind: Driver
+metadata:
+  name: cephfs.csi.ceph.com
+  namespace: ceph-csi-operator-system

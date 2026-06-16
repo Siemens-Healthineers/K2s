@@ -142,6 +142,31 @@ var _ = Describe("generic pkg", func() {
 	})
 
 	Describe("newAddonCmd", func() {
+		When("enabling storage addon", func() {
+			It("adds storage implementation guidance to command help", func() {
+				command := "enable"
+				addon := addons.Addon{
+					Metadata: addons.AddonMetadata{
+						Name: "storage",
+					},
+					Spec: addons.AddonSpec{
+						Implementations: []addons.Implementation{
+							{Name: "smb", Commands: &map[string]addons.AddonCmd{command: {}}},
+							{Name: "ceph", Commands: &map[string]addons.AddonCmd{command: {}}},
+						},
+					},
+				}
+
+				result, err := newAddonCmd(addon, command)
+
+				Expect(err).ToNot(HaveOccurred())
+				Expect(result.Long).To(ContainSubstring("only one storage implementation can be enabled at a time"))
+				Expect(result.Long).To(ContainSubstring("Choose either 'smb' or 'ceph'"))
+				Expect(result.Long).To(ContainSubstring("- smb:"))
+				Expect(result.Long).To(ContainSubstring("- ceph:"))
+			})
+		})
+
 		When("no CLI config exists", func() {
 			When("addon name and implementation name are the same", func() {
 				It("returns command without flags or examples", func() {

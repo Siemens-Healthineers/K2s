@@ -69,3 +69,82 @@ spec:
                 scriptParameterName: Force
               - cliFlagName: keep
                 scriptParameterName: Keep
+    - name: ceph
+      description: Ceph CSI operator for CephFS (file) storage provisioning
+      offline_usage:
+        linux:
+          repos: []
+          deb: []
+          curl: []
+          additionalImages:
+            - quay.io/cephcsi/cephcsi:v3.10.0
+            - k8s.gcr.io/sig-storage/csi-node-driver-registrar:v2.10.0
+          additionalImagesFiles:
+            - manifests/operator.yaml
+            - manifests/csi-rbac.yaml
+        windows:
+          curl: []
+          additionalImages:
+            - quay.io/cephcsi/cephcsi:v3.10.0
+            - k8s.gcr.io/sig-storage/csi-node-driver-registrar:v2.10.0
+          additionalImagesFiles:
+            - manifests/operator.yaml
+            - manifests/csi-rbac.yaml
+      commands:
+        enable:
+          cli:
+            flags:
+              - name: monitorEndpoints
+                shorthand: m
+                default: ""
+                description: Ceph monitor endpoints (comma-separated, e.g., "10.0.0.1:6789,10.0.0.2:6789")
+              - name: adminKey
+                shorthand: a
+                default: ""
+                description: Base64-encoded Ceph admin keyring
+              - name: cephfsPool
+                shorthand: f
+                default: "cephfs_data"
+                description: CephFS data pool name
+            examples:
+              - cmd: k2s addons enable storage ceph --monitorEndpoints "10.0.0.1:6789,10.0.0.2:6789"
+                comment: Enable Ceph CSI storage with monitor endpoints
+          script:
+            subPath: ceph/Enable.ps1
+            parameterMappings:
+              - cliFlagName: monitorEndpoints
+                scriptParameterName: MonitorEndpoints
+              - cliFlagName: adminKey
+                scriptParameterName: AdminKey
+              - cliFlagName: cephfsPool
+                scriptParameterName: CephfsPool
+        disable:
+          cli:
+            flags:
+              - name: force
+                shorthand: f
+                default: false
+                description: Disable the addon and DELETE ALL PERSISTENTVOLUMES without user confirmation
+                exclusionGroup: data-retention
+              - name: keep
+                shorthand: k
+                default: false
+                description: Disable the addon and KEEP ALL PERSISTENTVOLUMES without user confirmation
+                exclusionGroup: data-retention
+            examples:
+              - cmd: k2s addons disable storage ceph
+                comment: Removes Ceph CSI provisioners and prompts for data retention/deletion
+              - cmd: k2s addons disable storage ceph -f
+                comment: Removes Ceph CSI provisioners and DELETES ALL DATA without prompting
+              - cmd: k2s addons disable storage ceph -k
+                comment: Removes Ceph CSI provisioners and KEEPS ALL DATA without prompting
+          script:
+            subPath: ceph/Disable.ps1
+            parameterMappings:
+              - cliFlagName: force
+                scriptParameterName: Force
+              - cliFlagName: keep
+                scriptParameterName: Keep
+        status:
+          script:
+            subPath: ceph/Get-Status.ps1
