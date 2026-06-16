@@ -145,14 +145,16 @@ else
     echo "[InstallK8s] unqualified-search-registries already configured in /etc/containers/registries.conf, skipping"
 fi
 
-KUBEADM_PAUSE_IMAGE="$(kubeadm config images list | grep '/pause:' | tail -n 1 || true)"
+KUBEADM_VERSION="$(kubeadm version -o short)"
+KUBEADM_PAUSE_IMAGE="$(kubeadm config images list --kubernetes-version "$KUBEADM_VERSION" | grep '/pause:' | tail -n 1 || true)"
 if [ -n "$KUBEADM_PAUSE_IMAGE" ]; then
-    echo "[InstallK8s] Configuring CRI-O pause image from kubeadm: $KUBEADM_PAUSE_IMAGE"
+    echo "[InstallK8s] Configuring CRI-O pause image from kubeadm $KUBEADM_VERSION: $KUBEADM_PAUSE_IMAGE"
     sudo mkdir -p /etc/crio/crio.conf.d
     {
         echo '[crio.image]'
         echo "pause_image = \"$KUBEADM_PAUSE_IMAGE\""
     } | sudo tee /etc/crio/crio.conf.d/20-k2s-kubeadm-pause.conf > /dev/null
+    sudo systemctl restart crio || true
 else
     echo "[InstallK8s] WARNING: Could not resolve pause image from kubeadm; keeping CRI-O package default"
 fi
