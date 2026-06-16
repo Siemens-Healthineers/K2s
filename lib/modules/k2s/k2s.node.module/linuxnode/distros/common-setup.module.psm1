@@ -411,6 +411,10 @@ Function Copy-KubernetesImagesFromControlPlaneNodeToWindowsHost {
         [string] $K8sVersion = $kubernetesVersion
     )
 
+    if ([string]::IsNullOrWhiteSpace($K8sVersion)) {
+        throw 'K8sVersion is required but was not provided and $kubernetesVersion is not set.'
+    }
+
     $executeRemoteCommand = { 
         param(
             [string] $Command = $(throw 'Argument missing: Command'), 
@@ -427,10 +431,6 @@ Function Copy-KubernetesImagesFromControlPlaneNodeToWindowsHost {
         else {
             $commandOutput.Output | Write-Log
         }
-    }
-
-    if ([string]::IsNullOrWhiteSpace($K8sVersion)) {
-        throw 'K8sVersion is required but was not provided and $kubernetesVersion is not set.'
     }
   
     $imagesPath = $TargetPath
