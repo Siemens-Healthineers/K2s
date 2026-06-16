@@ -205,6 +205,33 @@ var _ = Describe("rollout fluxcd addon export and import", Ordered, func() {
 			suite.Cluster().ExpectDeploymentToBeAvailable("helm-controller", "rollout")
 			suite.Cluster().ExpectDeploymentToBeAvailable("notification-controller", "rollout")
 		})
+
+		It("can be enabled when only addons/common and addons/rollout are present", func(ctx context.Context) {
+			GinkgoWriter.Println(">>> TEST: can be enabled when only addons/common and addons/rollout are present")
+
+			GinkgoWriter.Println("[Test] Disabling rollout fluxcd to ensure clean re-enable path")
+			suite.K2sCli().MustExec(ctx, "addons", "disable", "rollout", "fluxcd", "-o", "-f")
+
+			GinkgoWriter.Println("[Test] Staging addon isolation: keeping only common and rollout")
+			restore, err := exportimport.StageAddonIsolation(suite.RootDir(), "rollout")
+			Expect(err).ToNot(HaveOccurred(), "staging addon isolation should succeed")
+			DeferCleanup(func() {
+				Expect(restore()).To(Succeed(), "addon isolation restore must succeed to avoid a partial workspace state")
+			})
+
+			GinkgoWriter.Println("[Test] Enabling rollout fluxcd with isolated addons directory")
+			output := suite.K2sCli().MustExec(ctx, "addons", "enable", "rollout", "fluxcd", "-o")
+
+			GinkgoWriter.Println("[Test] Verifying flux deployments are available")
+			suite.Cluster().ExpectDeploymentToBeAvailable("source-controller", "rollout")
+			suite.Cluster().ExpectDeploymentToBeAvailable("kustomize-controller", "rollout")
+			suite.Cluster().ExpectDeploymentToBeAvailable("helm-controller", "rollout")
+			suite.Cluster().ExpectDeploymentToBeAvailable("notification-controller", "rollout")
+
+			GinkgoWriter.Println("[Test] Verifying no PowerShell module-not-found signatures in output")
+			Expect(output).NotTo(ContainSubstring("no valid module file was found"), "enable output must not contain PowerShell module-not-found error")
+			Expect(output).NotTo(ContainSubstring("was not loaded"), "enable output must not contain PowerShell module-not-loaded error")
+		})
 	})
 
 	Describe("export and import with relative paths", func() {

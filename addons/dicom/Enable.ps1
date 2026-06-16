@@ -32,9 +32,8 @@ $infraModule = "$PSScriptRoot/../../lib/modules/k2s/k2s.infra.module/k2s.infra.m
 $clusterModule = "$PSScriptRoot/../../lib/modules/k2s/k2s.cluster.module/k2s.cluster.module.psm1"
 $addonsModule = "$PSScriptRoot\..\addons.module.psm1"
 $dicomModule = "$PSScriptRoot\dicom.module.psm1"
-$viewerModule = "$PSScriptRoot\..\viewer\viewer.module.psm1"
 
-Import-Module $infraModule, $clusterModule, $addonsModule, $dicomModule, $viewerModule
+Import-Module $infraModule, $clusterModule, $addonsModule, $dicomModule
 
 Initialize-Logging -ShowLogs:$ShowLogs
 
