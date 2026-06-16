@@ -129,6 +129,7 @@ if [[ -n "$KUBE_VERSION" ]]; then
     MISSING_IMAGES=0
     while IFS= read -r required_image; do
         [[ -z "$required_image" ]] && continue
+        [[ "$required_image" =~ ^[^[:space:]]+/[^[:space:]]+:[^[:space:]]+$ ]] || continue
         image_repo="${required_image%:*}"
         image_tag="${required_image##*:}"
         if ! crictl images 2>/dev/null | awk -v repo="$image_repo" -v tag="$image_tag" '$1 == repo && $2 == tag { found = 1 } END { exit found ? 0 : 1 }'; then
