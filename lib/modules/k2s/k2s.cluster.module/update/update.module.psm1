@@ -101,6 +101,28 @@ function Get-TargetKubernetesVersionFromDebianDelta {
 	return $null
 }
 
+function Set-K2sInstalledKubernetesVersion {
+	param(
+		[Parameter(Mandatory = $true)]
+		[string] $Value
+	)
+
+	if (Get-Command -Name Set-ConfigInstalledKubernetesVersion -ErrorAction SilentlyContinue) {
+		Set-ConfigInstalledKubernetesVersion -Value $Value
+		return
+	}
+
+	$setupJsonPath = Join-Path $env:ProgramData 'k2s\setup.json'
+	if (-not (Test-Path -LiteralPath $setupJsonPath)) {
+		throw "setup.json not found at $setupJsonPath"
+	}
+
+	$setup = Get-Content -LiteralPath $setupJsonPath -Raw | ConvertFrom-Json
+	$setup | Add-Member -MemberType NoteProperty -Name 'KubernetesVersion' -Value $Value -Force
+	$setup | ConvertTo-Json -Depth 100 | Set-Content -LiteralPath $setupJsonPath
+	Write-Log '[Update] Set-ConfigInstalledKubernetesVersion not available in existing installation; updated setup.json KubernetesVersion directly' -Console
+}
+
 function Set-K2sMachinePathEntries {
 	param(
 		[Parameter(Mandatory = $true)]
@@ -117,6 +139,8 @@ function Set-K2sMachinePathEntries {
 		(Join-Path $oldRoot 'bin'),
 		(Join-Path $oldRoot 'bin\kube'),
 		(Join-Path $oldRoot 'bin\docker'),
+		# Backward compatibility: old installs could have containerd at the install root.
+		# New installs use bin\containerd only, matching k2s.infra.module path handling.
 		(Join-Path $oldRoot 'containerd'),
 		(Join-Path $oldRoot 'bin\containerd')
 	)
@@ -1213,7 +1237,7 @@ Current directory: $deltaRoot
 			$k2sExe = Join-Path $targetInstallPath 'k2s.exe'
 			if (Test-Path -LiteralPath $k2sExe) {
 				$argsCall = @('start')
-				if ($ShowLogs) { $argsCall += '-o' }
+				if ($ShowLogs) { $argsCall += '--output' }
 				& $k2sExe @argsCall
 				if ($LASTEXITCODE -ne 0) { throw "k2s.exe start returned exit code $LASTEXITCODE" }
 				Write-Log '[Update] K2s cluster restarted successfully.' -Console:$consoleSwitch
@@ -1269,13 +1293,13 @@ Current directory: $deltaRoot
 				$success = $false
 				for ($attempt = 1; $attempt -le $maxRetries; $attempt++) {
 					try {
-						$importSuccess = Invoke-Ctr -Arguments '-n', 'k8s.io', 'images', 'import', $img.FullName -CtrExePath $ctrExe
-						if ($importSuccess) {
+						$importResult = & $ctrExe '-n' 'k8s.io' 'images' 'import' $img.FullName 2>&1
+						if ($LASTEXITCODE -eq 0) {
 							$success = $true
 							break
 						}
 						if ($attempt -lt $maxRetries) {
-							Write-Log ("[Update]   Attempt {0} failed (exit code {1}), retrying after {2}s..." -f $attempt, $LASTEXITCODE, $retryDelay) -Console:$consoleSwitch
+							Write-Log ("[Update]   Attempt {0} failed (exit code {1}): {2}; retrying after {3}s..." -f $attempt, $LASTEXITCODE, ($importResult -join "`n"), $retryDelay) -Console:$consoleSwitch
 							Start-Sleep -Seconds $retryDelay
 						}
 					} catch {
@@ -1411,7 +1435,7 @@ Current directory: $deltaRoot
 			Set-ConfigProductVersion -Value $deltaTargetVersion
 			if ($targetKubernetesVersion) {
 				Write-Log ("[Update] Updating setup.json Kubernetes version to {0}" -f $targetKubernetesVersion) -Console:$consoleSwitch
-				Set-ConfigInstalledKubernetesVersion -Value $targetKubernetesVersion
+				Set-K2sInstalledKubernetesVersion -Value $targetKubernetesVersion
 			} else {
 				Write-Log '[Update][Info] Target Kubernetes version not determined; setup.json KubernetesVersion not updated' -Console:$consoleSwitch
 			}

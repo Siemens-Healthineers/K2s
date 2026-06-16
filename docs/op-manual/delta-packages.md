@@ -157,10 +157,10 @@ The `delta-manifest.json` file describes the changes between versions. A typical
    ```
 
 !!! warning "Keep the extracted directory"
-  After a successful delta upgrade, the extracted delta package directory is the active *K2s* installation directory. Do not delete it. The previous installation directory is left unchanged.
+    After a successful delta upgrade, the extracted delta package directory is the active *K2s* installation directory. Do not delete it. The previous installation directory is left unchanged.
 
 !!! tip "Kubernetes version mismatch"
-  If `k2s status` shows a newer K8s client version than server or node versions after a delta upgrade, inspect the Debian delta log for the `Target Kubernetes version` line. The kubeadm target version must match the Kubernetes images bundled in the delta package.
+    If `k2s status` shows a newer K8s client version than server or node versions after a delta upgrade, inspect the Debian delta log for the `Target Kubernetes version` line. The kubeadm target version must match the Kubernetes images bundled in the delta package.
 
 ## Node Packages
 
