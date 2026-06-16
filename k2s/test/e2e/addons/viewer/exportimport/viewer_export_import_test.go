@@ -207,7 +207,7 @@ var _ = Describe("viewer addon export and import", Ordered, func() {
 			GinkgoWriter.Println(">>> TEST: can be enabled when only addons/common and addons/viewer are present")
 
 			GinkgoWriter.Println("[Test] Disabling viewer to ensure clean re-enable path")
-			suite.K2sCli().Exec(ctx, "addons", "disable", "viewer", "-o", "-f")
+			suite.K2sCli().Exec(ctx, "addons", "disable", "viewer", "-o")
 
 			GinkgoWriter.Println("[Test] Staging addon isolation: keeping only common and viewer")
 			restore, err := exportimport.StageAddonIsolation(suite.RootDir(), "viewer")
