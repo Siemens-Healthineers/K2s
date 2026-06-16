@@ -70,6 +70,45 @@ read_target_kubernetes_version() {
     normalize_kube_version "$version"
 }
 
+read_kubernetes_server_version() {
+    local version_json=""
+    local version=""
+
+    version_json=$(kubectl --kubeconfig=/etc/kubernetes/admin.conf version -o json 2>/tmp/k2s-delta-kubectl-version.err || true)
+    if command -v jq >/dev/null 2>&1; then
+        version=$(echo "$version_json" | jq -r '.serverVersion.gitVersion // empty' 2>/dev/null || true)
+    else
+        version=$(echo "$version_json" | tr -d '\n' | sed -nE 's/.*"serverVersion"[^{]*\{[^}]*"gitVersion"[[:space:]]*:[[:space:]]*"(v?[0-9]+\.[0-9]+\.[0-9]+)".*/\1/p' || true)
+    fi
+    normalize_kube_version "$version"
+}
+
+wait_for_kubernetes_server_version() {
+    local expected_version="$1"
+    local actual_version=""
+
+    for attempt in {1..24}; do
+        actual_version=$(read_kubernetes_server_version)
+        if [[ "$actual_version" == "$expected_version" ]]; then
+            echo "[debian-delta] Kubernetes API server version verified: v${actual_version}"
+            return 0
+        fi
+
+        if [[ -n "$actual_version" ]]; then
+            echo "[debian-delta][warn] Kubernetes API server version is v${actual_version}, expected v${expected_version} (attempt ${attempt}/24)"
+        else
+            echo "[debian-delta][warn] Kubernetes API server version not available yet (attempt ${attempt}/24)"
+            if [[ -s /tmp/k2s-delta-kubectl-version.err ]]; then
+                cat /tmp/k2s-delta-kubectl-version.err
+            fi
+        fi
+        sleep 5
+    done
+
+    echo "[debian-delta][error] Kubernetes API server did not reach target version v${expected_version}"
+    return 1
+}
+
 # Remove packages that were removed between versions
 if [[ -f "$REMOVED_FILE" ]]; then
     echo "[debian-delta] Purging removed packages"
@@ -113,15 +152,20 @@ fi
 # Verify installed versions match expectations
 if [[ ${#INSTALL_SPECS[@]} -gt 0 ]]; then
     echo "[debian-delta] Ensuring target versions for ${#INSTALL_SPECS[@]} packages"
-    # Attempt version enforcement using dpkg (requires local .debs); fallback echo warnings
+    VERSION_MISMATCHES=0
     for spec in "${INSTALL_SPECS[@]}"; do
         P=${spec%%=*}
         V=${spec#*=}
         CUR=$(dpkg-query -W -f='${Version}' "$P" 2>/dev/null || echo missing)
         if [[ "$CUR" != "$V" ]]; then
-            echo "[debian-delta][warn] Version mismatch for $P expected $V got $CUR"
+            echo "[debian-delta][error] Version mismatch for $P expected $V got $CUR"
+            VERSION_MISMATCHES=$((VERSION_MISMATCHES + 1))
         fi
     done
+    if [[ $VERSION_MISMATCHES -gt 0 ]]; then
+        echo "[debian-delta][error] $VERSION_MISMATCHES package version mismatch(es) after local package installation"
+        exit 1
+    fi
 else
     echo "[debian-delta] No packages specified for install/upgrade"
 fi
@@ -184,6 +228,14 @@ if [[ -n "$KUBE_VERSION" ]]; then
     # --ignore-preflight-errors: skip CoreDNS plugin migration warnings and image pull attempts (air-gapped)
     if kubeadm upgrade apply "v${KUBE_VERSION}" --yes --certificate-renewal=false --etcd-upgrade=false --ignore-preflight-errors=CoreDNSUnsupportedPlugins,ImagePull 2>&1; then
         echo "[debian-delta] kubeadm upgrade completed successfully"
+
+        if ! wait_for_kubernetes_server_version "$KUBE_VERSION"; then
+            if [[ -d "$IMAGES_DIR" ]]; then
+                echo "[debian-delta] Cleaning up imported image archives"
+                rm -rf "$IMAGES_DIR"
+            fi
+            exit 1
+        fi
         
         # Cleanup imported image archives to free disk space
         if [[ -d "$IMAGES_DIR" ]]; then
@@ -191,7 +243,7 @@ if [[ -n "$KUBE_VERSION" ]]; then
             rm -rf "$IMAGES_DIR"
         fi
     else
-        echo "[debian-delta][warn] kubeadm upgrade encountered issues, attempting fallback cleanup"
+        echo "[debian-delta][error] kubeadm upgrade failed, attempting cleanup"
         
         # Cleanup imported image archives even on failure
         if [[ -d "$IMAGES_DIR" ]]; then
@@ -210,9 +262,11 @@ if [[ -n "$KUBE_VERSION" ]]; then
             sed -i 's/" /"/g' "$KUBEADM_FLAGS_FILE"
             echo "[debian-delta] Kubelet flags after cleanup: $(cat $KUBEADM_FLAGS_FILE)"
         fi
+        exit 1
     fi
 else
-    echo "[debian-delta][warn] Could not detect Kubernetes version, skipping kubeadm upgrade"
+    echo "[debian-delta][error] Could not detect Kubernetes version, skipping kubeadm upgrade"
+    exit 1
 fi
 
 echo "[debian-delta] Apply complete"
