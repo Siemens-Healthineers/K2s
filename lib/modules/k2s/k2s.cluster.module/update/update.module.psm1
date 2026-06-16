@@ -506,22 +506,20 @@ function PerformClusterUpdate {
 		- If cluster is not running: Skips Debian packages, applies Windows artifacts only
 		
 		High-level phases:
-		  1. Detect delta root (current directory with delta-manifest.json)
-		  2. Detect existing installation folder (from setup.json/config) and target folder (current directory)
-		  3. Load delta-manifest.json (file lists + optional debian-delta metadata)
-		  4. Version compatibility validation
-		  5. Apply Debian package delta (if cluster is running)
-		  6. Stop cluster automatically (if it was running)
-		  7. Complete the delta directory with missing files from the existing installation
-		  8. Apply updated Windows artifacts (add/update files, remove obsolete files) in the target installation
-		  9. Switch setup.json InstallFolder to the target installation
-		  10. Restart cluster automatically (if it was running before)
-		  11. Import container images from image-delta (Windows via nerdctl, Linux via SCP + buildah)
-		  12. Run optional hooks (pre/post) [placeholder]
-		  13. Basic health checks (API server reachable, node Ready) if cluster is running
-		  14. Restore CoreDNS etcd plugin configuration (kubeadm upgrade may reset customizations)
-		  15. Restore ClusterIP webhook TLS certificates (kubeadm upgrade may invalidate certs)
-		  16. Update VERSION file and setup.json to reflect successful update
+		  1. Load delta-manifest.json
+		  2. Detect existing installation folder and target folder
+		  3. Version compatibility validation
+		  4. Apply Debian package delta, if present and cluster is running
+		  5. Stop cluster automatically, if it was running
+		  6. Complete the target directory, apply Windows artifacts, switch PATH and InstallFolder
+		  7. Clean deprecated Windows kubelet flags
+		  8. Restart cluster automatically, if it was running before
+		  9. Import container images from image-delta
+		  10. Run optional hooks placeholder
+		  11. Basic health checks, if cluster is running
+		  12. Restore CoreDNS etcd plugin configuration
+		  13. Restore ClusterIP webhook TLS certificates
+		  14. Update VERSION and setup.json versions
 	.PARAMETER ExecuteHooks
 		Execute lifecycle hooks (currently placeholder; no hooks executed yet).
 	.PARAMETER ShowProgress
@@ -1283,9 +1281,9 @@ Current directory: $deltaRoot
 				Write-Log ("[Update][Warn] VERSION file not found at expected location: {0}" -f $versionFile) -Console:$consoleSwitch
 			}
 			
-			# Update setup.json configuration to reflect the new version and install folder
+			# Update setup.json configuration to reflect the new version.
+			# InstallFolder was already switched after the target installation was completed.
 			Write-Log ("[Update] Updating setup.json product version from {0} to {1}" -f $currentVersion, $deltaTargetVersion) -Console:$consoleSwitch
-			Set-ConfigInstallFolder -Value $targetInstallPath
 			Set-ConfigProductVersion -Value $deltaTargetVersion
 			if ($targetKubernetesVersion) {
 				Write-Log ("[Update] Updating setup.json Kubernetes version to {0}" -f $targetKubernetesVersion) -Console:$consoleSwitch

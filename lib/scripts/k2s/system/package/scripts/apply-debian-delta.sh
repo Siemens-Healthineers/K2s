@@ -64,6 +64,8 @@ read_target_kubernetes_version() {
         fi
     fi
 
+    # Last resort: this function is called after dpkg has installed upgraded packages,
+    # so kubelet --version reflects the target package version at this point.
     version=$(kubelet --version 2>/dev/null | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' || echo "")
     normalize_kube_version "$version"
 }
