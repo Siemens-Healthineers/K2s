@@ -208,14 +208,12 @@ var _ = Describe("security addon export and import", Ordered, func() {
 			DeferCleanup(func() {
 				Expect(restore()).To(Succeed(), "addon isolation restore must succeed to avoid a partial workspace state")
 			})
+			DeferCleanup(func() {
+				_, _ = suite.K2sCli().Exec(context.Background(), "addons", "disable", "security", "-o")
+			})
 
 			// Enable security while isolated
 			output := suite.K2sCli().MustExec(ctx, "addons", "enable", "security", "-o")
-
-			// Disable security to avoid leaking state into subsequent specs
-			DeferCleanup(func() {
-				suite.K2sCli().Exec(ctx, "addons", "disable", "security", "-o")
-			})
 
 			// Assert no PowerShell module-not-found errors
 			Expect(output).NotTo(ContainSubstring("no valid module file was found"), "enable output must not contain PowerShell module-not-found error")

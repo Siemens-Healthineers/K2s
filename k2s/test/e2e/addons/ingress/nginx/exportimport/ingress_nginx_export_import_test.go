@@ -214,6 +214,9 @@ var _ = Describe("ingress nginx addon export and import", Ordered, func() {
 			DeferCleanup(func() {
 				Expect(restore()).To(Succeed(), "addon isolation restore must succeed to avoid a partial workspace state")
 			})
+			DeferCleanup(func() {
+				_, _ = suite.K2sCli().Exec(context.Background(), "addons", "disable", "ingress", "nginx", "-o")
+			})
 
 			GinkgoWriter.Println("[Test] Enabling ingress nginx with isolated addons directory")
 			output := suite.K2sCli().MustExec(ctx, "addons", "enable", "ingress", "nginx", "-o")

@@ -1,4 +1,4 @@
-﻿// SPDX-FileCopyrightText: © 2026 Siemens Healthineers AG
+// SPDX-FileCopyrightText: © 2026 Siemens Healthineers AG
 //
 // SPDX-License-Identifier: MIT
 
@@ -214,6 +214,9 @@ var _ = Describe("autoscaling addon export and import", Ordered, func() {
 			Expect(err).ToNot(HaveOccurred(), "staging addon isolation should succeed")
 			DeferCleanup(func() {
 				Expect(restore()).To(Succeed(), "addon isolation restore must succeed to avoid a partial workspace state")
+			})
+			DeferCleanup(func() {
+				_, _ = suite.K2sCli().Exec(context.Background(), "addons", "disable", "autoscaling", "-o")
 			})
 
 			GinkgoWriter.Println("[Test] Enabling autoscaling with isolated addons directory")
