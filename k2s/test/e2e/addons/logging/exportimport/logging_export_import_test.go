@@ -203,6 +203,30 @@ var _ = Describe("logging addon export and import", Ordered, func() {
 			suite.K2sCli().MustExec(ctx, "addons", "enable", "logging", "-o")
 			suite.Cluster().ExpectDeploymentToBeAvailable("opensearch-dashboards", "logging")
 		})
+
+		It("can be enabled when only addons/common and addons/logging are present", func(ctx context.Context) {
+			GinkgoWriter.Println(">>> TEST: can be enabled when only addons/common and addons/logging are present")
+
+			GinkgoWriter.Println("[Test] Disabling logging to ensure clean re-enable path")
+			suite.K2sCli().Exec(ctx, "addons", "disable", "logging", "-o", "-f")
+
+			GinkgoWriter.Println("[Test] Staging addon isolation: keeping only common and logging")
+			restore, err := exportimport.StageAddonIsolation(suite.RootDir(), "logging")
+			Expect(err).ToNot(HaveOccurred(), "staging addon isolation should succeed")
+			DeferCleanup(func() {
+				Expect(restore()).To(Succeed(), "addon isolation restore must succeed to avoid a partial workspace state")
+			})
+
+			GinkgoWriter.Println("[Test] Enabling logging with isolated addons directory")
+			output := suite.K2sCli().MustExec(ctx, "addons", "enable", "logging", "-o")
+
+			GinkgoWriter.Println("[Test] Verifying opensearch-dashboards deployment is available")
+			suite.Cluster().ExpectDeploymentToBeAvailable("opensearch-dashboards", "logging")
+
+			GinkgoWriter.Println("[Test] Verifying no PowerShell module-not-found signatures in output")
+			Expect(output).NotTo(ContainSubstring("no valid module file was found"), "enable output must not contain PowerShell module-not-found error")
+			Expect(output).NotTo(ContainSubstring("was not loaded"), "enable output must not contain PowerShell module-not-loaded error")
+		})
 	})
 
 	Describe("export and import with relative paths", func() {

@@ -201,6 +201,30 @@ var _ = Describe("ingress nginx addon export and import", Ordered, func() {
 			suite.K2sCli().MustExec(ctx, "addons", "enable", "ingress", "nginx", "-o")
 			suite.Cluster().ExpectDeploymentToBeAvailable("ingress-nginx-controller", "ingress-nginx")
 		})
+
+		It("can be enabled when only addons/common and addons/ingress are present", func(ctx context.Context) {
+			GinkgoWriter.Println(">>> TEST: can be enabled when only addons/common and addons/ingress are present")
+
+			GinkgoWriter.Println("[Test] Disabling ingress nginx to ensure clean re-enable path")
+			suite.K2sCli().MustExec(ctx, "addons", "disable", "ingress", "nginx", "-o")
+
+			GinkgoWriter.Println("[Test] Staging addon isolation: keeping only common and ingress")
+			restore, err := exportimport.StageAddonIsolation(suite.RootDir(), "ingress")
+			Expect(err).ToNot(HaveOccurred(), "staging addon isolation should succeed")
+			DeferCleanup(func() {
+				Expect(restore()).To(Succeed(), "addon isolation restore must succeed to avoid a partial workspace state")
+			})
+
+			GinkgoWriter.Println("[Test] Enabling ingress nginx with isolated addons directory")
+			output := suite.K2sCli().MustExec(ctx, "addons", "enable", "ingress", "nginx", "-o")
+
+			GinkgoWriter.Println("[Test] Verifying ingress-nginx-controller deployment is available")
+			suite.Cluster().ExpectDeploymentToBeAvailable("ingress-nginx-controller", "ingress-nginx")
+
+			GinkgoWriter.Println("[Test] Verifying no PowerShell module-not-found signatures in output")
+			Expect(output).NotTo(ContainSubstring("no valid module file was found"), "enable output must not contain PowerShell module-not-found error")
+			Expect(output).NotTo(ContainSubstring("was not loaded"), "enable output must not contain PowerShell module-not-loaded error")
+		})
 	})
 
 	Describe("export and import with relative paths", func() {

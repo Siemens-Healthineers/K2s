@@ -15,6 +15,7 @@ import (
 	"github.com/siemens-healthineers/k2s/internal/cli"
 	"github.com/siemens-healthineers/k2s/test/framework"
 	"github.com/siemens-healthineers/k2s/test/framework/dsl"
+	"github.com/siemens-healthineers/k2s/test/e2e/addons/exportimport"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -158,5 +159,35 @@ var _ = Describe("'ingress traefik' addon backup/restore", Ordered, func() {
 		output := suite.Kubectl().MustExec(ctx, "get", "ingress", ingressName, "-n", namespace,
 			"-o", fmt.Sprintf("jsonpath={.metadata.annotations['%s']}", annotationKey))
 		Expect(output).To(Equal(annotationValue))
+	})
+
+	It("can be enabled when only addons/common and addons/ingress are present", func(ctx context.Context) {
+		GinkgoWriter.Println(">>> TEST: can be enabled when only addons/common and addons/ingress are present")
+
+		GinkgoWriter.Println("[Test] Disabling ingress traefik to ensure clean re-enable path")
+		suite.K2sCli().MustExec(ctx, "addons", "disable", "ingress", "traefik", "-o")
+
+		GinkgoWriter.Println("[Test] Staging addon isolation: keeping only common and ingress")
+		restore, err := exportimport.StageAddonIsolation(suite.RootDir(), "ingress")
+		Expect(err).ToNot(HaveOccurred(), "staging addon isolation should succeed")
+		DeferCleanup(func() {
+			Expect(restore()).To(Succeed(), "addon isolation restore must succeed to avoid a partial workspace state")
+		})
+
+		DeferCleanup(func(ctx context.Context) {
+			suite.K2sCli().Exec(ctx, "addons", "disable", "ingress", "traefik", "-o")
+		})
+
+		GinkgoWriter.Println("[Test] Enabling ingress traefik with isolated addons directory")
+		output := suite.K2sCli().MustExec(ctx, "addons", "enable", "ingress", "traefik", "-o")
+
+		k2s.VerifyAddonIsEnabled("ingress", "traefik")
+
+		GinkgoWriter.Println("[Test] Verifying traefik deployment is available")
+		suite.Cluster().ExpectDeploymentToBeAvailable("traefik", "ingress-traefik")
+
+		GinkgoWriter.Println("[Test] Verifying no PowerShell module-not-found signatures in output")
+		Expect(output).NotTo(ContainSubstring("no valid module file was found"), "enable output must not contain PowerShell module-not-found error")
+		Expect(output).NotTo(ContainSubstring("was not loaded"), "enable output must not contain PowerShell module-not-loaded error")
 	})
 })
