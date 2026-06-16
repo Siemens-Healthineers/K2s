@@ -208,7 +208,7 @@ var _ = Describe("logging addon export and import", Ordered, func() {
 			GinkgoWriter.Println(">>> TEST: can be enabled when only addons/common and addons/logging are present")
 
 			GinkgoWriter.Println("[Test] Disabling logging to ensure clean re-enable path")
-			suite.K2sCli().Exec(ctx, "addons", "disable", "logging", "-o", "-f")
+			suite.K2sCli().Exec(ctx, "addons", "disable", "logging", "-o")
 
 			GinkgoWriter.Println("[Test] Staging addon isolation: keeping only common and logging")
 			restore, err := exportimport.StageAddonIsolation(suite.RootDir(), "logging")

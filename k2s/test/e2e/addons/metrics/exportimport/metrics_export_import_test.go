@@ -207,7 +207,7 @@ var _ = Describe("metrics addon export and import", Ordered, func() {
 			GinkgoWriter.Println(">>> TEST: can be enabled when only addons/common and addons/metrics are present")
 
 			GinkgoWriter.Println("[Test] Disabling metrics to ensure clean re-enable path")
-			suite.K2sCli().Exec(ctx, "addons", "disable", "metrics", "-o", "-f")
+			suite.K2sCli().Exec(ctx, "addons", "disable", "metrics", "-o")
 
 			GinkgoWriter.Println("[Test] Staging addon isolation: keeping only common and metrics")
 			restore, err := exportimport.StageAddonIsolation(suite.RootDir(), "metrics")
