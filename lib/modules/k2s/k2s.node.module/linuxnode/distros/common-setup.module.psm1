@@ -428,6 +428,10 @@ Function Copy-KubernetesImagesFromControlPlaneNodeToWindowsHost {
             $commandOutput.Output | Write-Log
         }
     }
+
+    if ([string]::IsNullOrWhiteSpace($K8sVersion)) {
+        throw 'K8sVersion is required but was not provided and $kubernetesVersion is not set.'
+    }
   
     $imagesPath = $TargetPath
 
