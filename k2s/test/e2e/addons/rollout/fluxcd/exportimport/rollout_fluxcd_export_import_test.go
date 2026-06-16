@@ -210,7 +210,7 @@ var _ = Describe("rollout fluxcd addon export and import", Ordered, func() {
 			GinkgoWriter.Println(">>> TEST: can be enabled when only addons/common and addons/rollout are present")
 
 			GinkgoWriter.Println("[Test] Disabling rollout fluxcd to ensure clean re-enable path")
-			suite.K2sCli().MustExec(ctx, "addons", "disable", "rollout", "fluxcd", "-o", "-f")
+			suite.K2sCli().MustExec(ctx, "addons", "disable", "rollout", "fluxcd", "-o")
 
 			GinkgoWriter.Println("[Test] Staging addon isolation: keeping only common and rollout")
 			restore, err := exportimport.StageAddonIsolation(suite.RootDir(), "rollout")
