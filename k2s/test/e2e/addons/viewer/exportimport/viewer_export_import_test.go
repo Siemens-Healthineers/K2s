@@ -215,6 +215,9 @@ var _ = Describe("viewer addon export and import", Ordered, func() {
 			DeferCleanup(func() {
 				Expect(restore()).To(Succeed(), "addon isolation restore must succeed to avoid a partial workspace state")
 			})
+			DeferCleanup(func() {
+				_, _ = suite.K2sCli().Exec(context.Background(), "addons", "disable", "viewer", "-o")
+			})
 
 			GinkgoWriter.Println("[Test] Enabling viewer with isolated addons directory")
 			output := suite.K2sCli().MustExec(ctx, "addons", "enable", "viewer", "-o")

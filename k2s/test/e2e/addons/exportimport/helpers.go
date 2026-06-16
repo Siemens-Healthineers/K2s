@@ -909,14 +909,20 @@ func StageAddonIsolation(rootDir, targetAddon string, keepExtra ...string) (rest
 		dst := filepath.Join(backupDir, name)
 		GinkgoWriter.Printf("[AddonIsolation] Staging: %s -> %s\n", src, dst)
 		if renameErr := os.Rename(src, dst); renameErr != nil {
+			stageErr := fmt.Errorf("[AddonIsolation] failed to stage addon directory %s: %w", src, renameErr)
+			var recoveryErrs []error
 			// Restore already-moved directories before propagating the error.
 			for _, m := range moved {
 				if rerr := os.Rename(filepath.Join(backupDir, m), filepath.Join(addonsDir, m)); rerr != nil {
 					GinkgoWriter.Printf("[AddonIsolation] WARNING: recovery rename failed for %s: %v\n", m, rerr)
+					recoveryErrs = append(recoveryErrs, fmt.Errorf("failed to recover staged addon directory %q: %w", m, rerr))
 				}
 			}
+			if len(recoveryErrs) > 0 {
+				return nil, errors.Join(stageErr, errors.Join(recoveryErrs...))
+			}
 			_ = os.RemoveAll(backupDir)
-			return nil, fmt.Errorf("[AddonIsolation] failed to stage addon directory %s: %w", src, renameErr)
+			return nil, stageErr
 		}
 		moved = append(moved, name)
 	}
