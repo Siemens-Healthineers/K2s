@@ -159,8 +159,10 @@ data:
         # storage.path
         # ------------
         # absolute file system path to store filesystem data buffers (chunks).
+        # The placeholder below is substituted with the configured K2s log root
+        # at addon enable time (see addons/logging/Enable.ps1); defaults to C:\var\log.
         #
-        storage.path C:\\var\\log\\flb-storage
+        storage.path __LOG_ROOT__\\flb-storage
 
         # storage.sync
         # ------------
