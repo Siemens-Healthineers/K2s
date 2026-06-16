@@ -407,7 +407,8 @@ Function Install-KubernetesArtifacts {
 
 Function Copy-KubernetesImagesFromControlPlaneNodeToWindowsHost {
     param (
-        [string] $TargetPath = $(throw 'Argument missing: TargetPath')
+        [string] $TargetPath = $(throw 'Argument missing: TargetPath'),
+        [string] $K8sVersion = $kubernetesVersion
     )
 
     $executeRemoteCommand = { 
@@ -436,31 +437,35 @@ Function Copy-KubernetesImagesFromControlPlaneNodeToWindowsHost {
     else {
         New-Item -Path $imagesPath -ItemType Directory -Force -ErrorAction Stop | Out-Null
         
-        $retrieveImagesCmd = 'sudo crictl images | grep -e "registry.k8s.io" -e "docker.io/flannel" | grep -v "\<none\>" | awk ''{ print $1\":\"$2\" \"$3 }'''
-        $cmdExecutionResult = $(&$executeRemoteCommand -Command $retrieveImagesCmd -ReturnCommandOutput)
+        $kubeadmImagesCmd = "sudo kubeadm config images list --kubernetes-version $K8sVersion | grep -E '^[^[:space:]]+/[^[:space:]]+:[^[:space:]]+$'"
+        $cmdExecutionResult = $(&$executeRemoteCommand -Command $kubeadmImagesCmd -ReturnCommandOutput)
 
         if (!$cmdExecutionResult.Success) {
-            throw 'Could not retrieve images from control plane'
+            throw "Could not retrieve kubeadm image list for Kubernetes version '$K8sVersion' from control plane"
         }
-        $imagesFound = $cmdExecutionResult.Output
+        $imageRefsToExport = @($cmdExecutionResult.Output | ForEach-Object { $_.Trim() } | Where-Object { ![string]::IsNullOrWhiteSpace($_) })
 
-        Write-Host $imagesFound
+        $retrieveAdditionalImagesCmd = 'sudo crictl images | grep -e "docker.io/flannel" | grep -v "\<none\>" | awk ''{ print $1":"$2 }'''
+        $additionalImagesResult = $(&$executeRemoteCommand -Command $retrieveAdditionalImagesCmd -ReturnCommandOutput -IgnoreErrors)
+        if ($additionalImagesResult.Success) {
+            $imageRefsToExport += @($additionalImagesResult.Output | ForEach-Object { $_.Trim() } | Where-Object { ![string]::IsNullOrWhiteSpace($_) })
+        }
+
+        $imageRefsToExport = @($imageRefsToExport | Select-Object -Unique)
+        Write-Host $imageRefsToExport
         
-        if ([string]::IsNullOrWhiteSpace($imagesFound)) {
-            throw "No image matching 'registry.k8s.io or docker.io/flannel' could be found in the control plane."
+        if (@($imageRefsToExport).Count -eq 0) {
+            throw "No kubeadm or flannel images could be found in the control plane."
         }
 
-        foreach ($imageFound in $imagesFound) {
-            $splitImageFoundInfo = $imageFound.Split(' ')
-            $imageFullName = $splitImageFoundInfo[0]
-            $imageId = $splitImageFoundInfo[1]
+        foreach ($imageFullName in $imageRefsToExport) {
             $finalExportPath = "$imagesPath/$($imageFullName.Replace('/','_').Replace(':', '__')).tar"
 
-            $targetFilePath = "/tmp/${imageId}.tar"
-            &$executeRemoteCommand "sudo buildah push ${imageId} oci-archive:${targetFilePath}:${imageFullName} 2>&1"
+            $targetFilePath = "/tmp/$($imageFullName.Replace('/','_').Replace(':', '__')).tar"
+            &$executeRemoteCommand "sudo buildah push ${imageFullName} oci-archive:${targetFilePath}:${imageFullName} 2>&1"
             Copy-FromRemoteComputerViaSSHKey -Source $targetFilePath -Target $finalExportPath -UserName $controlPlaneUserName -IpAddress $controlPlaneIpAddress
             
-            &$executeRemoteCommand "cd /tmp && sudo rm -rf ${imageId}.tar"
+            &$executeRemoteCommand "sudo rm -f ${targetFilePath}"
         } 
     }
 }
