@@ -170,6 +170,129 @@ function Set-K2sMachinePathEntries {
 	Write-Log ("[Update] Updated machine PATH: removed {0} old K2s entries, ensured {1} new K2s entries" -f $removedCount, $newEntries.Count) -Console:$ShowLogs
 }
 
+function Convert-InstallPathText {
+	param(
+		[Parameter(Mandatory = $true)]
+		[string] $Text,
+		[Parameter(Mandatory = $true)]
+		[string] $OldKubePath,
+		[Parameter(Mandatory = $true)]
+		[string] $NewKubePath
+	)
+
+	$oldRoot = [IO.Path]::GetFullPath($OldKubePath).TrimEnd('\')
+	$newRoot = [IO.Path]::GetFullPath($NewKubePath).TrimEnd('\')
+	return [regex]::Replace(
+		$Text,
+		[regex]::Escape($oldRoot),
+		[System.Text.RegularExpressions.MatchEvaluator]{ param($match) $newRoot },
+		[System.Text.RegularExpressions.RegexOptions]::IgnoreCase)
+}
+
+function Update-InstallPathInTextFile {
+	param(
+		[Parameter(Mandatory = $true)]
+		[string] $Path,
+		[Parameter(Mandatory = $true)]
+		[string] $OldKubePath,
+		[Parameter(Mandatory = $true)]
+		[string] $NewKubePath,
+		[switch] $ShowLogs
+	)
+
+	if (-not (Test-Path -LiteralPath $Path)) { return }
+	$content = Get-Content -LiteralPath $Path -Raw
+	$updated = Convert-InstallPathText -Text $content -OldKubePath $OldKubePath -NewKubePath $NewKubePath
+	if ($updated -ne $content) {
+		Set-Content -LiteralPath $Path -Value $updated -NoNewline
+		Write-Log ("[Update] Retargeted generated file to active install path: {0}" -f $Path) -Console:$ShowLogs
+	}
+}
+
+function Set-NssmServiceValue {
+	param(
+		[Parameter(Mandatory = $true)]
+		[string] $NssmPath,
+		[Parameter(Mandatory = $true)]
+		[string] $ServiceName,
+		[Parameter(Mandatory = $true)]
+		[string] $Property,
+		[Parameter(Mandatory = $true)]
+		[string] $Value
+	)
+
+	& $NssmPath set $ServiceName $Property $Value | Out-Null
+	if ($LASTEXITCODE -ne 0) {
+		throw "nssm set $ServiceName $Property failed with exit code $LASTEXITCODE"
+	}
+}
+
+function Set-K2sWindowsServiceInstallPathEntries {
+	param(
+		[Parameter(Mandatory = $true)]
+		[string] $OldKubePath,
+		[Parameter(Mandatory = $true)]
+		[string] $NewKubePath,
+		[switch] $ShowLogs
+	)
+
+	$oldRoot = [IO.Path]::GetFullPath($OldKubePath).TrimEnd('\')
+	$newRoot = [IO.Path]::GetFullPath($NewKubePath).TrimEnd('\')
+	$nssmPath = Join-Path $newRoot 'bin\nssm.exe'
+	if (-not (Test-Path -LiteralPath $nssmPath)) {
+		$nssmPath = Join-Path $oldRoot 'bin\nssm.exe'
+	}
+	if (-not (Test-Path -LiteralPath $nssmPath)) {
+		Write-Log '[Update][Warn] nssm.exe not found; Windows service paths cannot be retargeted' -Console:$ShowLogs
+		return
+	}
+
+	$serviceApplications = @{
+		'containerd'       = Join-Path $newRoot 'bin\containerd\containerd.exe'
+		'dnsproxy'         = Join-Path $newRoot 'bin\dnsproxy.exe'
+		'flanneld'         = Join-Path $newRoot 'bin\cni\flanneld.exe'
+		'httpproxy'        = Join-Path $newRoot 'bin\httpproxy.exe'
+		'kubeproxy'        = Join-Path $newRoot 'bin\kube\kube-proxy.exe'
+		'windows_exporter' = Join-Path $newRoot 'bin\windows_exporter.exe'
+	}
+	$serviceDirectories = @{
+		'containerd'       = Join-Path $newRoot 'bin\containerd'
+		'kubeproxy'        = Join-Path $newRoot 'bin\kube'
+		'windows_exporter' = $newRoot
+	}
+
+	foreach ($serviceName in $serviceApplications.Keys) {
+		if (-not (Get-Service -Name $serviceName -ErrorAction SilentlyContinue)) { continue }
+		$application = $serviceApplications[$serviceName]
+		if (Test-Path -LiteralPath $application) {
+			Set-NssmServiceValue -NssmPath $nssmPath -ServiceName $serviceName -Property 'Application' -Value $application
+			Write-Log ("[Update] Retargeted service '{0}' Application to {1}" -f $serviceName, $application) -Console:$ShowLogs
+		}
+	}
+
+	foreach ($serviceName in $serviceDirectories.Keys) {
+		if (-not (Get-Service -Name $serviceName -ErrorAction SilentlyContinue)) { continue }
+		$directory = $serviceDirectories[$serviceName]
+		if (Test-Path -LiteralPath $directory) {
+			Set-NssmServiceValue -NssmPath $nssmPath -ServiceName $serviceName -Property 'AppDirectory' -Value $directory
+		}
+	}
+
+	foreach ($serviceName in @('containerd', 'dnsproxy', 'flanneld', 'httpproxy', 'kubelet', 'kubeproxy', 'windows_exporter')) {
+		if (-not (Get-Service -Name $serviceName -ErrorAction SilentlyContinue)) { continue }
+		$currentParameters = (& $nssmPath get $serviceName AppParameters 2>$null) -join "`n"
+		if ([string]::IsNullOrWhiteSpace($currentParameters)) { continue }
+		$updatedParameters = Convert-InstallPathText -Text $currentParameters -OldKubePath $oldRoot -NewKubePath $newRoot
+		if ($updatedParameters -ne $currentParameters) {
+			Set-NssmServiceValue -NssmPath $nssmPath -ServiceName $serviceName -Property 'AppParameters' -Value $updatedParameters
+			Write-Log ("[Update] Retargeted service '{0}' AppParameters to active install path" -f $serviceName) -Console:$ShowLogs
+		}
+	}
+
+	Update-InstallPathInTextFile -Path (Join-Path $newRoot 'smallsetup\common\StartKubelet.ps1') -OldKubePath $oldRoot -NewKubePath $newRoot -ShowLogs:$ShowLogs
+	Update-InstallPathInTextFile -Path (Join-Path $newRoot 'bin\dnsproxy.yaml') -OldKubePath $oldRoot -NewKubePath $newRoot -ShowLogs:$ShowLogs
+}
+
 <#
 .SYNOPSIS
 	Restores CoreDNS etcd plugin configuration after kubeadm upgrade.
@@ -978,7 +1101,8 @@ Current directory: $deltaRoot
 		Set-K2sMachinePathEntries -OldKubePath $oldInstallPath -NewKubePath $targetInstallPath -ShowLogs:$ShowLogs
 		Write-Log ("[Update] Updating setup.json install folder from '{0}' to '{1}'" -f $oldInstallPath, $targetInstallPath) -Console:$consoleSwitch
 		Set-ConfigInstallFolder -Value $targetInstallPath
-		Write-Log '[Update] Machine PATH and setup configuration install folder updated successfully' -Console:$consoleSwitch
+		Set-K2sWindowsServiceInstallPathEntries -OldKubePath $oldInstallPath -NewKubePath $targetInstallPath -ShowLogs:$ShowLogs
+		Write-Log '[Update] Machine PATH, setup configuration, and Windows service paths updated successfully' -Console:$consoleSwitch
 	} catch {
 		Write-Log ("[Update][Error] Failed to update active installation path: {0}" -f $_.Exception.Message) -Console
 		throw
@@ -992,8 +1116,8 @@ Current directory: $deltaRoot
 	# Without this, containerd keeps using the old sandbox_image (pause-win) version.
 	$containerdTemplatePath = 'cfg/containerd/config.toml.template'
 	$templateWasUpdated = $filesToApply | Where-Object { ($_ -replace '\\', '/') -ieq $containerdTemplatePath }
-	if ($templateWasUpdated) {
-		Write-Log '[Update] Containerd config.toml.template was updated - regenerating config.toml...' -Console:$consoleSwitch
+	if ($templateWasUpdated -or ($oldInstallPath -ine $targetInstallPath)) {
+		Write-Log '[Update] Regenerating containerd config.toml for active install path...' -Console:$consoleSwitch
 		$containerdTomlPath = Join-Path $targetInstallPath 'cfg\containerd\config.toml'
 		try {
 			# Import the containerd module from the target installation so that Get-KubePath
@@ -1022,7 +1146,7 @@ Current directory: $deltaRoot
 			throw
 		}
 	} else {
-		Write-Log '[Update] Containerd config.toml.template not changed - skipping config.toml regeneration' -Console:$consoleSwitch
+		Write-Log '[Update] Containerd config.toml.template and install path not changed - skipping config.toml regeneration' -Console:$consoleSwitch
 	}
 
 	# 6c. Remove obsolete files (Removed) from target installation
