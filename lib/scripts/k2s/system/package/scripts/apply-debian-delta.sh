@@ -109,26 +109,50 @@ if [[ -n "$KUBE_VERSION" ]]; then
     
     # Reload systemd to pick up any changes to kubelet.service
     systemctl daemon-reload
+
+    KUBEADM_PAUSE_IMAGE="$(kubeadm config images list --kubernetes-version "v${KUBE_VERSION}" | grep '/pause:' | tail -n 1 || true)"
+    if [[ -n "$KUBEADM_PAUSE_IMAGE" ]]; then
+        echo "[debian-delta] Configuring CRI-O pause image from kubeadm: $KUBEADM_PAUSE_IMAGE"
+        mkdir -p /etc/crio/crio.conf.d
+        {
+            echo '[crio.image]'
+            echo "pause_image = \"$KUBEADM_PAUSE_IMAGE\""
+        } > /etc/crio/crio.conf.d/20-k2s-kubeadm-pause.conf
+        if ! systemctl restart crio; then
+            echo "[debian-delta][warn] Failed to restart CRI-O after pause image configuration; continuing"
+        fi
+    else
+        echo "[debian-delta][warn] Could not resolve pause image from kubeadm; keeping CRI-O package default"
+    fi
     
-    # Verify control plane images are available before upgrade (informational)
-    # This helps diagnose air-gapped environment issues
-    echo "[debian-delta] Verifying required control plane images..."
+    # Verify kubeadm-required images are available before upgrade (informational)
+    # This helps diagnose air-gapped environment issues and keeps pause version checks aligned with kubeadm.
+    echo "[debian-delta] Verifying required kubeadm images..."
     MISSING_IMAGES=0
-    for img in kube-apiserver kube-controller-manager kube-scheduler kube-proxy; do
-        if ! crictl images 2>/dev/null | grep -q "registry.k8s.io/${img}.*v${KUBE_VERSION}"; then
-            echo "[debian-delta][warn] Control plane image may be missing: registry.k8s.io/${img}:v${KUBE_VERSION}"
+    REQUIRED_IMAGES=""
+    if ! KUBEADM_IMAGES_OUTPUT="$(kubeadm config images list --kubernetes-version "v${KUBE_VERSION}" 2>&1)"; then
+        echo "[debian-delta][warn] Could not retrieve kubeadm image list for Kubernetes v${KUBE_VERSION}"
+        MISSING_IMAGES=$((MISSING_IMAGES + 1))
+    else
+        REQUIRED_IMAGES="$(printf '%s\n' "$KUBEADM_IMAGES_OUTPUT" | grep -E '^[^[:space:]]+/[^[:space:]]+:[^[:space:]]+$' || true)"
+        if [[ -z "$REQUIRED_IMAGES" ]]; then
+            echo "[debian-delta][warn] Kubeadm image list for Kubernetes v${KUBE_VERSION} is empty"
             MISSING_IMAGES=$((MISSING_IMAGES + 1))
         fi
-    done
-    # Check pause image (version may vary)
-    if ! crictl images 2>/dev/null | grep -q "registry.k8s.io/pause"; then
-        echo "[debian-delta][warn] Pause image may be missing: registry.k8s.io/pause"
-        MISSING_IMAGES=$((MISSING_IMAGES + 1))
     fi
+    while IFS= read -r required_image; do
+        [[ -z "$required_image" ]] && continue
+        image_repo="${required_image%:*}"
+        image_tag="${required_image##*:}"
+        if ! crictl images 2>/dev/null | awk -v repo="$image_repo" -v tag="$image_tag" '$1 == repo && $2 == tag { found = 1 } END { exit found ? 0 : 1 }'; then
+            echo "[debian-delta][warn] Kubeadm image may be missing: $required_image"
+            MISSING_IMAGES=$((MISSING_IMAGES + 1))
+        fi
+    done <<< "$REQUIRED_IMAGES"
     if [[ $MISSING_IMAGES -eq 0 ]]; then
-        echo "[debian-delta] All required control plane images verified"
+        echo "[debian-delta] All required kubeadm images verified"
     else
-        echo "[debian-delta][warn] $MISSING_IMAGES control plane image(s) may be missing - kubeadm will attempt to proceed"
+        echo "[debian-delta][warn] $MISSING_IMAGES kubeadm image(s) may be missing - kubeadm will attempt to proceed"
     fi
     
     # Run kubeadm upgrade apply with appropriate flags
