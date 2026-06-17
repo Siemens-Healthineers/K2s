@@ -949,6 +949,11 @@ func StageAddonIsolation(rootDir, targetAddon string, keepExtra ...string) (rest
 			GinkgoWriter.Printf("[AddonIsolation] WARNING: failed to remove backup dir %s: %v\n", backupDir, rerr)
 			return fmt.Errorf("[AddonIsolation] failed to remove backup directory %s: %w", backupDir, rerr)
 		}
+		if rerr := os.Remove(tmpParent); rerr != nil {
+			GinkgoWriter.Printf("[AddonIsolation] WARNING: failed to remove tmp dir %s: %v\n", tmpParent, rerr)
+		} else {
+			GinkgoWriter.Printf("[AddonIsolation] Removed empty tmp dir: %s\n", tmpParent)
+		}
 		GinkgoWriter.Println("[AddonIsolation] Restore complete")
 		return nil
 	}
