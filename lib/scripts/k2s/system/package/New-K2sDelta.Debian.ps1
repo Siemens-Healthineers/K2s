@@ -90,10 +90,12 @@ function Initialize-DebAcquisitionEnvironment {
     # stale proxy config so apt connects directly via the host NAT.
     if (-not [string]::IsNullOrWhiteSpace($Proxy)) {
         # Escape single quotes so a proxy value containing one cannot break out of the bash
-        # single-quoted printf argument below (bash idiom: ' -> '\'').
+        # single-quoted argument below (bash idiom: ' -> '\'').
         $proxyEsc = $Proxy.Replace("'", "'\''")
-        $proxyFmt = "Acquire::http::Proxy `"$proxyEsc`";\nAcquire::https::Proxy `"$proxyEsc`";\n"
-        $proxyLine = "printf '$proxyFmt' | sudo tee /etc/apt/apt.conf.d/proxy.conf > /dev/null || true"
+        # Pass the proxy URL as a printf ARGUMENT (%s), never inside the format string, so '%'
+        # characters in the URL (e.g. URL-encoded '%40') are treated as literal data and not as
+        # printf conversion specifiers. The format string is constant (only the intended %s specifiers).
+        $proxyLine = "printf 'Acquire::http::Proxy `"%s`";\nAcquire::https::Proxy `"%s`";\n' '$proxyEsc' '$proxyEsc' | sudo tee /etc/apt/apt.conf.d/proxy.conf > /dev/null || true"
         $proxyLabel = $Proxy
     } else {
         $proxyLine = 'sudo rm -f /etc/apt/apt.conf.d/proxy.conf 2>/dev/null || true'
