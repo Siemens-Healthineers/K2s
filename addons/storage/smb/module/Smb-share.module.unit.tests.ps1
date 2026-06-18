@@ -1491,7 +1491,7 @@ Describe 'Restore-SmbShareAndFolder' -Tag 'unit', 'ci', 'addon', 'storage smb' {
 
 Describe 'Get-SmbHostType' -Tag 'unit', 'ci', 'addon', 'storage smb' {
     BeforeAll {
-        Mock -ModuleName $moduleName Get-AddonConfig -ParameterFilter { $Name -eq $AddonName } { return [PSCustomObject]@{Name = 'addon1'; SmbHostType = 'my-type' } }
+        Mock -ModuleName $moduleName Get-AddonConfig { return [PSCustomObject]@{Name = 'addon1'; SmbHostType = 'my-type' } }
     }
 
     It "returns 'windows' unchanged when configured" {
