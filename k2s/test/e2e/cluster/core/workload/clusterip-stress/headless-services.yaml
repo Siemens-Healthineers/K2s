@@ -4,6 +4,10 @@
 
 # Headless services (ClusterIP: None) to verify the webhook correctly skips them.
 # These must NOT receive a ClusterIP assignment — the webhook should pass them through.
+#
+# The first 4 services use the singular "clusterIP: None" field.
+# The last 2 (*-plural) use the plural "clusterIPs: [None]" field to test that the
+# webhook handles both forms correctly. Kubernetes normalizes both to clusterIP: None.
 
 ---
 apiVersion: apps/v1

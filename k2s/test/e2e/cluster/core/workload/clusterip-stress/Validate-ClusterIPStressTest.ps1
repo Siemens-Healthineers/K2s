@@ -13,11 +13,16 @@ This script verifies:
 3. No service is stuck without a ClusterIP assignment
 4. The clusterip-webhook pod is healthy
 
-Run this after deploying the clusterip-stress manifests.
-Cleanup after testing: kubectl delete namespace clusterip-stress-test
+Deploy the stress test manifests first:
+  kubectl apply -k k2s/test/e2e/cluster/core/workload/clusterip-stress/
+
+Cleanup after testing:
+  kubectl delete namespace clusterip-stress-test
 
 .EXAMPLE
+kubectl apply -k k2s/test/e2e/cluster/core/workload/clusterip-stress/
 powershell -File Validate-ClusterIPStressTest.ps1
+kubectl delete namespace clusterip-stress-test
 #>
 
 param(
@@ -52,13 +57,16 @@ if ($webhookPod.items.Count -eq 0) {
     Write-Host "FAIL: No clusterip-webhook pod found in k2s-webhook namespace" -ForegroundColor Red
     exit 1
 }
-$podStatus = $webhookPod.items[0].status.phase
-$podReady = ($webhookPod.items[0].status.conditions | Where-Object { $_.type -eq 'Ready' }).status
-if ($podStatus -ne 'Running' -or $podReady -ne 'True') {
-    Write-Host "FAIL: Webhook pod is not Ready (phase=$podStatus, ready=$podReady)" -ForegroundColor Red
+$notReady = @($webhookPod.items | Where-Object {
+    $_.status.phase -ne 'Running' -or
+    ($_.status.conditions | Where-Object { $_.type -eq 'Ready' }).status -ne 'True'
+})
+if ($notReady.Count -gt 0) {
+    Write-Host "FAIL: $($notReady.Count) webhook pod(s) not Ready:" -ForegroundColor Red
+    $notReady | ForEach-Object { Write-Host "  - $($_.metadata.name): phase=$($_.status.phase)" -ForegroundColor Red }
     exit 1
 }
-Write-Host "  OK: Webhook pod is Running and Ready"
+Write-Host "  OK: All $($webhookPod.items.Count) webhook pod(s) Running and Ready"
 
 # 2. Get all services in the stress test namespace (with readiness wait)
 Write-Host ""
@@ -67,6 +75,7 @@ Write-Host "[2/4] Collecting services in namespace '$Namespace'..."
 $maxAttempts = 12
 $waitSeconds = 5
 $allServices = @()
+$pendingSvcs = @()
 for ($attempt = 1; $attempt -le $maxAttempts; $attempt++) {
     $raw = Invoke-Kubectl -Arguments @('get', 'svc', '-n', $Namespace, '-o', 'json')
     $services = $raw | ConvertFrom-Json
