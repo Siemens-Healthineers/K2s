@@ -208,6 +208,10 @@ function Update-NssmServiceInstallPath {
         $newValue = [regex]::Replace($current, $oldPathPattern, $NewPath, [System.Text.RegularExpressions.RegexOptions]::IgnoreCase)
         Write-Log ("Re-pointing service '{0}' parameter '{1}' to new installation path" -f $Name, $parameter)
         & $NssmPath set $Name $parameter $newValue | Out-Null
+        if ($LASTEXITCODE -ne 0) {
+            Write-Log ("[Update][Warn] nssm failed (exit {0}) re-pointing service '{1}' parameter '{2}'; not recording for rollback" -f $LASTEXITCODE, $Name, $parameter)
+            continue
+        }
         $previousValues[$parameter] = $current
     }
 

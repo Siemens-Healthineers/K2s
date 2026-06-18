@@ -35,6 +35,20 @@ Describe 'Update-NssmServiceInstallPath' -Tag 'unit', 'ci', 'update' {
 		$result.Keys | Should -Contain 'AppDirectory'
 		$result['AppDirectory'] | Should -Be 'C:\k'
 	}
+
+	It 'does not record a parameter for rollback when nssm returns a non-zero exit code' {
+		Mock -ModuleName $moduleName Get-Service { [pscustomobject]@{ Name = 'containerd'; Status = 'Stopped' } }
+		Mock -ModuleName $moduleName Test-Path { $true } -ParameterFilter { $LiteralPath -like 'HKLM:\SYSTEM\CurrentControlSet\Services\*\Parameters' }
+		Mock -ModuleName $moduleName Get-ItemProperty { [pscustomobject]@{ AppDirectory = 'C:\k' } }
+		# nssm stub that fails (e.g. ACL-protected registry key / locked service): exits non-zero.
+		$nssmStub = Join-Path $TestDrive 'nssm-fail.cmd'
+		Set-Content -Path $nssmStub -Value "@echo off`r`nexit /b 1" -NoNewline
+		$result = Update-NssmServiceInstallPath -Name 'containerd' -OldPath 'C:\k' -NewPath 'C:\k2s\1.9.0' -NssmPath $nssmStub
+		# The failed parameter must NOT be reported as updated, so the caller does not believe
+		# the relocation succeeded for a service that still points at the old path.
+		$result.Keys | Should -Not -Contain 'AppDirectory'
+		$result.Count | Should -Be 0
+	}
 }
 
 
