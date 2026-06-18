@@ -812,7 +812,7 @@
     {
       "group": "https://github.com/headlamp-k8s/headlamp",
       "name": "headlamp",
-      "version": "v0.42.0",
+      "version": "v0.43.0",
       "description": "Kubernetes web UI addon for K2s dashboard",
       "scope": "optional",
       "licenses": [
@@ -829,7 +829,7 @@
           "value": "k2s:addon:dashboard"
         }
       ],
-      "purl": "pkg:github/headlamp-k8s/headlamp@v0.42.0",
+      "purl": "pkg:github/headlamp-k8s/headlamp@v0.43.0",
       "type": "container"
     }
   ],
