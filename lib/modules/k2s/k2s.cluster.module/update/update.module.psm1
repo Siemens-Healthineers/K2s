@@ -1189,6 +1189,11 @@ Current directory: $deltaRoot
 	}
 
 	# 7. Restart cluster if it was running before
+	# NOTE: For a relocating update this restart runs after the re-home completed ($relocationDone),
+	# from inside the rollback try-block. A start failure here therefore triggers the full Windows-side
+	# home-revert in the catch block even though the file/config changes themselves were applied
+	# cleanly. That is intentional: a cluster that cannot start from the new folder is reverted to the
+	# previous, known-good installation rather than left half-migrated.
 	_phase 'RestartCluster'
 	if ($wasRunning) {
 		Write-Log '[Update] Restarting K2s cluster...' -Console
@@ -1421,11 +1426,20 @@ Current directory: $deltaRoot
 		}
 		elseif ($relocate -and $relocateServicesStopped) {
 			# The failure happened after the relocation branch stopped the previous installation's
-			# services but before the re-home took effect. setup.json still points to the previous
-			# (still valid) installation, so restart it from there to avoid leaving K2s stopped.
-			Write-Log '[Update][Recovery] Re-home not yet applied; restarting the previous installation...' -Console
-			if ($wasRunning) {
-				try {
+			# services but before the re-home was confirmed complete ($relocationDone = $false). The
+			# re-home may have been PARTIALLY applied: Set-K2sInstallationHome can fail at step 5
+			# (setup.json) after steps 1-4 already re-pointed nssm services, StartKubelet.ps1,
+			# containerd config and KUBECONFIG to the new folder. Therefore always attempt to revert
+			# any partial re-home back to the previous folder before restarting it. Set-K2sInstallationHome
+			# is safe to call even when nothing was changed (it skips services whose value does not
+			# contain the source path), so this is a no-op when seeding failed before any re-home.
+			Write-Log '[Update][Recovery] Reverting any partially-applied re-home to the previous folder...' -Console
+			try {
+				$revertOk = Set-K2sInstallationHome -FromPath $newInstallPath -ToPath $oldInstallPath -ShowLogs:$ShowLogs
+				if (-not $revertOk) {
+					Write-Log '[Update][Recovery][Error] Set-K2sInstallationHome returned false; installation state may be inconsistent (services/setup.json/KUBECONFIG may still point at the new folder). Manual recovery may be required.' -Console
+				}
+				if ($wasRunning) {
 					$oldK2sExe = Join-Path $oldInstallPath 'k2s.exe'
 					if (Test-Path -LiteralPath $oldK2sExe) {
 						& $oldK2sExe start 2>&1 | Out-Null
@@ -1434,11 +1448,11 @@ Current directory: $deltaRoot
 						}
 					}
 					Write-Log '[Update][Recovery] Previous installation restarted.' -Console
-				} catch {
-					Write-Log ("[Update][Recovery][Error] Failed to restart the previous installation: {0}. Manual recovery may be required." -f $_.Exception.Message) -Console
+				} else {
+					Write-Log '[Update][Recovery] Cluster was not running before the update; leaving services stopped.' -Console
 				}
-			} else {
-				Write-Log '[Update][Recovery] Cluster was not running before the update; leaving services stopped.' -Console
+			} catch {
+				Write-Log ("[Update][Recovery][Error] Failed to recover the previous installation: {0}. Manual recovery may be required." -f $_.Exception.Message) -Console
 			}
 		}
 		throw
