@@ -460,11 +460,10 @@ function Copy-UnchangedInstallationFiles {
 	  - nssm service configuration (Application / AppDirectory / AppParameters)
 	  - StartKubelet.ps1 (contains literal installation paths)
 	  - containerd config.toml (regenerated from template with the new path)
+	  - machine PATH entries (install root + bin, bin\kube, bin\docker, bin\containerd), mirroring
+	    Set-EnvVars in path.module which adds them during installation
 	  - KUBECONFIG machine environment variable
 	  - setup.json InstallFolder
-
-	The machine PATH is intentionally not modified because K2s does not add its installation
-	folder to PATH during installation.
 
 	This function is symmetric: calling it with swapped FromPath/ToPath reverses the re-home,
 	which is used by the rollback path.
@@ -565,7 +564,21 @@ function Set-K2sInstallationHome {
 		return $false
 	}
 
-	# 4. Update KUBECONFIG machine environment variable
+	# 4. Update the machine PATH environment variable. Install adds five entries (the install root and
+	# bin/, bin\kube, bin\docker, bin\containerd under it) via Set-EnvVars in path.module; mirror that
+	# here by removing the FromPath entries and adding the ToPath entries so the 'k2s' CLI and bundled
+	# tools resolve to the new folder. path.module (force-reimported from $ToPath in step 3) exposes
+	# Update-SystemPath. This is symmetric, so the rollback (swapped paths) restores the previous entries.
+	try {
+		$pathSubDirs = @('', '\bin', '\bin\kube', '\bin\docker', '\bin\containerd')
+		foreach ($sub in $pathSubDirs) { Update-SystemPath -Action 'remove' "$FromPath$sub" }
+		foreach ($sub in $pathSubDirs) { Update-SystemPath -Action 'add' "$ToPath$sub" }
+		Write-Log ("[Update] Updated machine PATH entries from '{0}' to '{1}'" -f $FromPath, $ToPath) -Console:$consoleSwitch
+	} catch {
+		Write-Log ("[Update][Warn] Failed to update machine PATH: {0}" -f $_.Exception.Message) -Console:$consoleSwitch
+	}
+
+	# 5. Update KUBECONFIG machine environment variable
 	try {
 		[Environment]::SetEnvironmentVariable('KUBECONFIG', "$ToPath\config", [System.EnvironmentVariableTarget]::Machine)
 		Write-Log ("[Update] KUBECONFIG set to '{0}\config'" -f $ToPath) -Console:$consoleSwitch
@@ -573,7 +586,7 @@ function Set-K2sInstallationHome {
 		Write-Log ("[Update][Warn] Failed to update KUBECONFIG: {0}" -f $_.Exception.Message) -Console:$consoleSwitch
 	}
 
-	# 5. Update setup.json InstallFolder
+	# 6. Update setup.json InstallFolder
 	try {
 		Set-ConfigInstallFolder -Value $ToPath
 		Write-Log ("[Update] setup.json InstallFolder set to '{0}'" -f $ToPath) -Console:$consoleSwitch

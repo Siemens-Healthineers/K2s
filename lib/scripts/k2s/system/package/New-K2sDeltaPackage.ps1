@@ -131,6 +131,9 @@ Param(
 
 # Internal flag to suppress duplicate terminal error logs
 $script:SuppressFinalErrorLog = $false
+# Set once a specific structured CLI error has already been emitted at the failure point, so the
+# surrounding catch blocks do not re-emit a generic (downgraded) error on top of it.
+$script:StructuredErrorSent = $false
 
 ### Import modules required for logging and signing
 $infraModule = "$PSScriptRoot/../../../../modules/k2s/k2s.infra.module/k2s.infra.module.psm1"
@@ -566,6 +569,20 @@ if ($SpecialSkippedFiles -contains 'Kubemaster-Base.vhdx') {
                 foreach ($c in ($debianPackageDiff.Changed)) { if ($c -match '^(?<n>[^:]+):\s+(?<o>[^ ]+)\s+->\s+(?<nv>.+)$') { $upgradedLines += ("{0} {1} {2}" -f $matches['n'], $matches['o'], $matches['nv']) } }
                 if ($upgradedLines) { $upgradedLines | Sort-Object | Out-File -FilePath (Join-Path $debianDeltaDir 'packages.upgraded') -Encoding ASCII -Force }
 
+                # Expected target Kubernetes version (kubelet X.Y.Z). Written so the apply script can hard-fail
+                # if the installed kubelet does not reach this version (i.e. the package is incomplete). Only
+                # written when the kubelet package actually changes between versions.
+                $expectedKubeletVersion = $null
+                foreach ($spec in $offlineSpecs) {
+                    if ($spec -match '^kubelet=(?<v>[0-9]+\.[0-9]+\.[0-9]+)') { $expectedKubeletVersion = $matches['v']; break }
+                }
+                if (-not $expectedKubeletVersion) {
+                    foreach ($line in $upgradedLines) { if ($line -match '^kubelet\s+\S+\s+(?<v>[0-9]+\.[0-9]+\.[0-9]+)') { $expectedKubeletVersion = $matches['v']; break } }
+                }
+                if ($expectedKubeletVersion) {
+                    $expectedKubeletVersion | Out-File -FilePath (Join-Path $debianDeltaDir 'expected-k8s-version') -Encoding ASCII -Force -NoNewline
+                }
+
                 # Debian delta manifest (JSON)
                 $debDeltaManifest = [pscustomobject]@{
                     SourceVhdxOld       = $debianPackageDiff.OldRelativePath
@@ -617,6 +634,28 @@ if ($SpecialSkippedFiles -contains 'Kubemaster-Base.vhdx') {
                                  throw "Offline deb acquisition failed: $($dlResult.Error)"    # mandatory failure
                             }
                             elseif ($dlResult.DownloadedDebs.Count -gt 0) {
+                                # Hard guard: critical Kubernetes packages that changed between versions MUST
+                                # have been downloaded. A partial acquisition that drops these silently produces
+                                # a delta that cannot upgrade the Linux control plane (kubeadm upgrade would just
+                                # re-apply the old kubelet version). Fail loudly so the package is never shipped.
+                                $criticalPkgNames = @('cri-o', 'cri-tools', 'kubeadm', 'kubectl', 'kubelet', 'kubernetes-cni')
+                                $missingCritical = @()
+                                foreach ($spec in $offlineSpecs) {
+                                    $pname = ($spec -split '=')[0]
+                                    if ($criticalPkgNames -notcontains $pname) { continue }
+                                    $present = $dlResult.DownloadedDebs | Where-Object { $_ -like "${pname}_*.deb" }
+                                    if (-not $present) { $missingCritical += $pname }
+                                }
+                                if ($missingCritical.Count -gt 0) {
+                                    $criticalMsg = ("Offline deb acquisition is missing critical Kubernetes package(s): {0}. The delta package would not upgrade the Linux control plane. Check network/proxy/DNS for the package-creation VM (use --proxy for corporate environments) and retry." -f ($missingCritical -join ', '))
+                                    Write-Log ("[DebPkg][Error] {0}" -f $criticalMsg) -Console
+                                    if ($EncodeStructuredOutput -eq $true) {
+                                        $err = New-Error -Severity Error -Code 'delta-critical-packages-missing' -Message $criticalMsg
+                                        Send-ToCli -MessageType $MessageType -Message @{ Error = $err }
+                                        $script:StructuredErrorSent = $true
+                                    }
+                                    throw $criticalMsg
+                                }
                                 $debMeta = [pscustomobject]@{
                                     Downloaded = $dlResult.DownloadedDebs
                                     DownloadedCount = $dlResult.DownloadedDebs.Count
@@ -647,6 +686,12 @@ if ($SpecialSkippedFiles -contains 'Kubemaster-Base.vhdx') {
             }
             catch {
                 Stop-Phase 'DebianArtifacts' $debArtifactPhase
+                if ($script:StructuredErrorSent) {
+                    # A specific structured error was already emitted at the failure point (e.g. missing
+                    # critical Kubernetes packages). Do not re-emit a generic/downgraded error on top of it.
+                    $script:SuppressFinalErrorLog = $true
+                    return
+                }
                 Write-Log "[Error] Failed to generate Debian delta artifact: $($_.Exception.Message)"
                 if ($EncodeStructuredOutput -eq $true) {
                     $err = New-Error -Severity Warning -Code '[Error] Failed to generate Debian delta artifact' -Message $_.Exception.Message
