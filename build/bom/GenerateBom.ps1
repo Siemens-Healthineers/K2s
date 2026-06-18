@@ -36,6 +36,8 @@ Param(
     [switch] $Annotate = $false
 )
 
+$cycloneDxCliVersion = '0.30.0'
+
 function EnsureTrivy() {
     Write-Output 'Check the existence of tool trivy'
 
@@ -63,9 +65,18 @@ function EnsureTrivy() {
 function EnsureCdxCli() {
     # download cli if not there
     $cli = "$global:BinPath\cyclonedx-win-x64.exe"
-    if (!(Test-Path $cli)) {
-        DownloadFile $cli https://github.com/CycloneDX/cyclonedx-cli/releases/download/v0.29.1/cyclonedx-win-x64.exe $true -ProxyToUse $Proxy
+    if (Test-Path $cli) {
+        $installedVersion = (& $cli --version 2>$null | Out-String).Trim()
+        if ($installedVersion -match [regex]::Escape($cycloneDxCliVersion)) {
+            Write-Output "cyclonedx-cli $cycloneDxCliVersion already available"
+            return
+        }
+
+        Write-Output "Replace cyclonedx-cli version '$installedVersion' with '$cycloneDxCliVersion'"
+        Remove-Item -Path $cli -Force
     }
+
+    DownloadFile $cli "https://github.com/CycloneDX/cyclonedx-cli/releases/download/v$cycloneDxCliVersion/cyclonedx-win-x64.exe" $true -ProxyToUse $Proxy
 }
 
 function GenerateBomGolang($dirname) {
