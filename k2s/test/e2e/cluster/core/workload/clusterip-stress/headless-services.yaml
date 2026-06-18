@@ -183,3 +183,94 @@ spec:
     - protocol: TCP
       port: 80
       targetPort: 80
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: stress-headless-linux-plural
+  namespace: clusterip-stress-test
+spec:
+  selector:
+    matchLabels:
+      app: stress-headless-linux-plural
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: stress-headless-linux-plural
+    spec:
+      containers:
+        - name: albums
+          image: shsk2s.azurecr.io/example.albums-golang-linux:v1.5.0
+          ports:
+            - containerPort: 80
+          env:
+            - name: PORT
+              value: "80"
+            - name: RESOURCE
+              value: "stress-headless-linux-plural"
+      nodeSelector:
+        kubernetes.io/os: linux
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: stress-headless-linux-plural
+  namespace: clusterip-stress-test
+spec:
+  clusterIPs:
+    - None
+  selector:
+    app: stress-headless-linux-plural
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 80
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: stress-headless-win-plural
+  namespace: clusterip-stress-test
+spec:
+  selector:
+    matchLabels:
+      app: stress-headless-win-plural
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: stress-headless-win-plural
+    spec:
+      containers:
+        - name: albums
+          image: shsk2s.azurecr.io/example.albums-golang-win:v1.5.0
+          ports:
+            - containerPort: 80
+          env:
+            - name: PORT
+              value: "80"
+            - name: RESOURCE
+              value: "stress-headless-win-plural"
+      nodeSelector:
+        kubernetes.io/os: windows
+      tolerations:
+        - key: "OS"
+          operator: "Equal"
+          value: "Windows"
+          effect: "NoSchedule"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: stress-headless-win-plural
+  namespace: clusterip-stress-test
+spec:
+  clusterIPs:
+    - None
+  selector:
+    app: stress-headless-win-plural
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 80

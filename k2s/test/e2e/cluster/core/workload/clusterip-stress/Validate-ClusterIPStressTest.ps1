@@ -22,10 +22,10 @@ powershell -File Validate-ClusterIPStressTest.ps1
 param(
     [string]$Namespace = 'clusterip-stress-test',
     [int]$ExpectedClusterIPServices = 20,
-    [int]$ExpectedHeadlessServices = 4
+    [int]$ExpectedHeadlessServices = 6
 )
 
-$ErrorActionPreference = 'Stop'
+$ErrorActionPreference = 'Continue'
 
 Write-Host "======================================"
 Write-Host " ClusterIP Stress Test Validation"
@@ -36,13 +36,13 @@ Write-Host ""
 Write-Host "[1/4] Checking clusterip-webhook pod health..."
 $webhookPod = kubectl get pods -n k2s-webhook -l app.kubernetes.io/name=clusterip-webhook -o json | ConvertFrom-Json
 if ($webhookPod.items.Count -eq 0) {
-    Write-Error "FAIL: No clusterip-webhook pod found in k2s-webhook namespace"
+    Write-Host "FAIL: No clusterip-webhook pod found in k2s-webhook namespace" -ForegroundColor Red
     exit 1
 }
 $podStatus = $webhookPod.items[0].status.phase
 $podReady = ($webhookPod.items[0].status.conditions | Where-Object { $_.type -eq 'Ready' }).status
 if ($podStatus -ne 'Running' -or $podReady -ne 'True') {
-    Write-Error "FAIL: Webhook pod is not Ready (phase=$podStatus, ready=$podReady)"
+    Write-Host "FAIL: Webhook pod is not Ready (phase=$podStatus, ready=$podReady)" -ForegroundColor Red
     exit 1
 }
 Write-Host "  OK: Webhook pod is Running and Ready"
@@ -54,7 +54,7 @@ $services = kubectl get svc -n $Namespace -o json | ConvertFrom-Json
 $allServices = $services.items
 
 if ($allServices.Count -eq 0) {
-    Write-Error "FAIL: No services found in namespace $Namespace"
+    Write-Host "FAIL: No services found in namespace $Namespace" -ForegroundColor Red
     exit 1
 }
 Write-Host "  Found $($allServices.Count) services total"
@@ -69,15 +69,15 @@ Write-Host "  ClusterIP services: $($clusterIPServices.Count) (expected: $Expect
 Write-Host "  Headless services:  $($headlessServices.Count) (expected: $ExpectedHeadlessServices)"
 
 if ($clusterIPServices.Count -ne $ExpectedClusterIPServices) {
-    Write-Error "FAIL: Expected $ExpectedClusterIPServices ClusterIP services, got $($clusterIPServices.Count)"
+    Write-Host "FAIL: Expected $ExpectedClusterIPServices ClusterIP services, got $($clusterIPServices.Count)" -ForegroundColor Red
     exit 1
 }
 
 # Check for empty/missing ClusterIPs
 $missingIP = $clusterIPServices | Where-Object { [string]::IsNullOrEmpty($_.spec.clusterIP) }
 if ($missingIP.Count -gt 0) {
-    Write-Error "FAIL: $($missingIP.Count) services have no ClusterIP assigned:"
-    $missingIP | ForEach-Object { Write-Error "  - $($_.metadata.name)" }
+    Write-Host "FAIL: $($missingIP.Count) services have no ClusterIP assigned:" -ForegroundColor Red
+    $missingIP | ForEach-Object { Write-Host "  - $($_.metadata.name)" -ForegroundColor Red }
     exit 1
 }
 
@@ -88,14 +88,16 @@ foreach ($svc in $clusterIPServices) {
     $ip = $svc.spec.clusterIP
     $name = $svc.metadata.name
     if ($ipMap.ContainsKey($ip)) {
-        $duplicates += "  DUPLICATE: $ip assigned to both '$($ipMap[$ip])' and '$name'"
+        $duplicates += "  DUPLICATE: $ip assigned to '$($ipMap[$ip])', '$name'"
+        $ipMap[$ip] += ", $name"
+    } else {
+        $ipMap[$ip] = $name
     }
-    $ipMap[$ip] = $name
 }
 
 if ($duplicates.Count -gt 0) {
-    Write-Error "FAIL: Duplicate ClusterIP allocations detected!"
-    $duplicates | ForEach-Object { Write-Error $_ }
+    Write-Host "FAIL: Duplicate ClusterIP allocations detected!" -ForegroundColor Red
+    $duplicates | ForEach-Object { Write-Host $_ -ForegroundColor Red }
     Write-Host ""
     Write-Host "All ClusterIP assignments:"
     foreach ($svc in $clusterIPServices) {
@@ -115,14 +117,14 @@ foreach ($svc in ($clusterIPServices | Sort-Object { $_.spec.clusterIP })) {
 Write-Host ""
 Write-Host "[4/4] Validating headless services..."
 if ($headlessServices.Count -ne $ExpectedHeadlessServices) {
-    Write-Error "FAIL: Expected $ExpectedHeadlessServices headless services, got $($headlessServices.Count)"
+    Write-Host "FAIL: Expected $ExpectedHeadlessServices headless services, got $($headlessServices.Count)" -ForegroundColor Red
     exit 1
 }
 
 $badHeadless = $headlessServices | Where-Object { $_.spec.clusterIP -ne 'None' }
 if ($badHeadless.Count -gt 0) {
-    Write-Error "FAIL: Headless services incorrectly received a ClusterIP:"
-    $badHeadless | ForEach-Object { Write-Error "  - $($_.metadata.name): $($_.spec.clusterIP)" }
+    Write-Host "FAIL: Headless services incorrectly received a ClusterIP:" -ForegroundColor Red
+    $badHeadless | ForEach-Object { Write-Host "  - $($_.metadata.name): $($_.spec.clusterIP)" -ForegroundColor Red }
     exit 1
 }
 Write-Host "  OK: All $($headlessServices.Count) headless services have ClusterIP=None"
