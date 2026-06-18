@@ -96,24 +96,26 @@ Write-Host "  Found $($allServices.Count) services total"
 # 3. Validate ClusterIP services have unique IPs
 Write-Host ""
 Write-Host "[3/4] Validating ClusterIP uniqueness..."
-$clusterIPServices = $allServices | Where-Object { $_.spec.clusterIP -ne 'None' -and -not [string]::IsNullOrEmpty($_.spec.clusterIP) }
+$nonHeadlessSvcs = @($allServices | Where-Object { $_.metadata.name -notlike 'stress-headless-*' })
 $headlessCount = @($allServices | Where-Object { $_.metadata.name -like 'stress-headless-*' }).Count
 
-Write-Host "  ClusterIP services: $($clusterIPServices.Count) (expected: $ExpectedClusterIPServices)"
+Write-Host "  ClusterIP services: $($nonHeadlessSvcs.Count) (expected: $ExpectedClusterIPServices)"
 Write-Host "  Headless services:  $headlessCount (expected: $ExpectedHeadlessServices)"
 
-if ($clusterIPServices.Count -ne $ExpectedClusterIPServices) {
-    Write-Host "FAIL: Expected $ExpectedClusterIPServices ClusterIP services, got $($clusterIPServices.Count)" -ForegroundColor Red
+if ($nonHeadlessSvcs.Count -ne $ExpectedClusterIPServices) {
+    Write-Host "FAIL: Expected $ExpectedClusterIPServices ClusterIP services, got $($nonHeadlessSvcs.Count)" -ForegroundColor Red
     exit 1
 }
 
 # Check for empty/missing ClusterIPs
-$missingIP = $clusterIPServices | Where-Object { [string]::IsNullOrEmpty($_.spec.clusterIP) }
+$missingIP = @($nonHeadlessSvcs | Where-Object { [string]::IsNullOrEmpty($_.spec.clusterIP) -or $_.spec.clusterIP -eq 'None' })
 if ($missingIP.Count -gt 0) {
     Write-Host "FAIL: $($missingIP.Count) services have no ClusterIP assigned:" -ForegroundColor Red
     $missingIP | ForEach-Object { Write-Host "  - $($_.metadata.name)" -ForegroundColor Red }
     exit 1
 }
+
+$clusterIPServices = $nonHeadlessSvcs
 
 # Check for duplicate ClusterIPs (THE critical check that would have caught the bug)
 $ipMap = @{}
