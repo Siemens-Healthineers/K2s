@@ -154,6 +154,8 @@ if [ -n "$KUBEADM_PAUSE_IMAGE" ]; then
         echo '[crio.image]'
         echo "pause_image = \"$KUBEADM_PAUSE_IMAGE\""
     } | sudo tee /etc/crio/crio.conf.d/20-k2s-kubeadm-pause.conf > /dev/null
+    # Reload first: the cri-o package upgrade may have replaced crio.service on disk
+    sudo systemctl daemon-reload
     sudo systemctl restart crio || true
 else
     echo "[InstallK8s] WARNING: Could not resolve pause image from kubeadm; keeping CRI-O package default"
