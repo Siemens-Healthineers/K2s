@@ -101,8 +101,8 @@ function Initialize-DebAcquisitionEnvironment {
     # ROUTE pings a raw IP (no DNS) to isolate routing from name resolution.
     $scriptLines = @(
         'set -uo pipefail',
-        "rm -rf $RemoteDir; mkdir -p $RemoteDir",
-        "cd $RemoteDir",
+        "rm -rf $RemoteDir; mkdir -p $RemoteDir || { echo MKDIR_FAIL; exit 1; }",
+        "cd $RemoteDir || { echo CD_FAIL; exit 1; }",
         'echo __K2S_DIAG_BEGIN__',
         "echo '--- SET DNS: $dnsLabel ---'",
         'sudo chattr -i /etc/resolv.conf 2>/dev/null || true',

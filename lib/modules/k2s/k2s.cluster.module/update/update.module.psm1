@@ -503,13 +503,21 @@ function Set-K2sInstallationHome {
 	}
 
 	# 1. Re-point nssm services
+	# Track which service parameters were actually re-pointed so a partial failure (e.g. a later step
+	# throws) leaves an audit trail in the log for manual recovery rather than silently discarding it.
+	$repointedCount = 0
 	foreach ($svc in (Get-K2sManagedServiceName)) {
 		try {
-			Update-NssmServiceInstallPath -Name $svc -OldPath $FromPath -NewPath $ToPath -NssmPath $nssmPath | Out-Null
+			$changed = Update-NssmServiceInstallPath -Name $svc -OldPath $FromPath -NewPath $ToPath -NssmPath $nssmPath
+			if ($changed -and $changed.Count -gt 0) {
+				$repointedCount += $changed.Count
+				Write-Log ("[Update] Re-pointed service '{0}' parameter(s): {1}" -f $svc, (($changed.Keys | Sort-Object) -join ', ')) -Console:$consoleSwitch
+			}
 		} catch {
 			Write-Log ("[Update][Warn] Failed to re-point service '{0}': {1}" -f $svc, $_.Exception.Message) -Console:$consoleSwitch
 		}
 	}
+	Write-Log ("[Update] Re-pointed {0} nssm service parameter(s) from '{1}' to '{2}'" -f $repointedCount, $FromPath, $ToPath) -Console:$consoleSwitch
 
 	# 2. Fix StartKubelet.ps1 (contains literal installation paths)
 	$startKubeletScript = Join-Path $ToPath 'smallsetup\common\StartKubelet.ps1'
