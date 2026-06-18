@@ -72,8 +72,8 @@ for ($attempt = 1; $attempt -le $maxAttempts; $attempt++) {
     $services = $raw | ConvertFrom-Json
     $allServices = $services.items
 
-    $clusterIPSvcs = @($allServices | Where-Object { $_.spec.clusterIP -ne 'None' })
-    $pendingSvcs = @($clusterIPSvcs | Where-Object { [string]::IsNullOrEmpty($_.spec.clusterIP) })
+    $nonHeadlessSvcs = @($allServices | Where-Object { $_.spec.clusterIP -ne 'None' })
+    $pendingSvcs = @($nonHeadlessSvcs | Where-Object { [string]::IsNullOrEmpty($_.spec.clusterIP) })
 
     if ($allServices.Count -ge ($ExpectedClusterIPServices + $ExpectedHeadlessServices) -and $pendingSvcs.Count -eq 0) {
         break
@@ -91,10 +91,6 @@ if ($pendingSvcs.Count -gt 0 -or $allServices.Count -lt ($ExpectedClusterIPServi
     exit 1
 }
 
-if ($allServices.Count -eq 0) {
-    Write-Host "FAIL: No services found in namespace $Namespace" -ForegroundColor Red
-    exit 1
-}
 Write-Host "  Found $($allServices.Count) services total"
 
 # 3. Validate ClusterIP services have unique IPs
