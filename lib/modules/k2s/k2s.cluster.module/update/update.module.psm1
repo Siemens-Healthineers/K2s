@@ -545,17 +545,24 @@ function Set-K2sInstallationHome {
 	$pathModule = Join-Path $ToPath 'lib\modules\k2s\k2s.infra.module\path\path.module.psm1'
 	$containerdModule = Join-Path $ToPath 'lib\modules\k2s\k2s.node.module\windowsnode\downloader\artifacts\containerd\containerd.module.psm1'
 	$containerdTomlPath = Join-Path $ToPath 'cfg\containerd\config.toml'
-	if (Test-Path -LiteralPath $containerdModule) {
-		try {
-			if (Test-Path -LiteralPath $pathModule) { Import-Module $pathModule -Force }
-			Import-Module $containerdModule -Force
-			Set-RootPathForImagesInConfig $containerdTomlPath | Out-Null
-			Set-InstallationDirectory $containerdTomlPath | Out-Null
-			Set-UserTokenForRegistryInConfig $containerdTomlPath | Out-Null
-			Write-Log '[Update] Regenerated containerd config.toml for new installation path' -Console:$consoleSwitch
-		} catch {
-			Write-Log ("[Update][Warn] Failed to regenerate containerd config.toml: {0}" -f $_.Exception.Message) -Console:$consoleSwitch
-		}
+	if (-not (Test-Path -LiteralPath $containerdModule)) {
+		# A missing containerd module means config.toml cannot be regenerated for $ToPath. The toml was
+		# seeded from the source installation and still contains the source path, which is a broken
+		# state (containerd would fail to start from $ToPath). Treat this as fatal so the caller rolls back.
+		Write-Log ("[Update][Error] containerd module not found at {0}; cannot regenerate config.toml for the new installation path" -f $containerdModule) -Console
+		return $false
+	}
+	try {
+		if (Test-Path -LiteralPath $pathModule) { Import-Module $pathModule -Force }
+		Import-Module $containerdModule -Force
+		Set-RootPathForImagesInConfig $containerdTomlPath | Out-Null
+		Set-InstallationDirectory $containerdTomlPath | Out-Null
+		Set-UserTokenForRegistryInConfig $containerdTomlPath | Out-Null
+		Write-Log '[Update] Regenerated containerd config.toml for new installation path' -Console:$consoleSwitch
+	} catch {
+		# A containerd config.toml left pointing at the source path is a broken state, so fail hard.
+		Write-Log ("[Update][Error] Failed to regenerate containerd config.toml: {0}" -f $_.Exception.Message) -Console
+		return $false
 	}
 
 	# 4. Update KUBECONFIG machine environment variable
@@ -752,6 +759,10 @@ Current directory: $deltaRoot
 	# completed. Used by the catch block to restart the still-valid previous installation when a
 	# failure occurs after services were stopped but before the re-home took effect.
 	$relocateServicesStopped = $false
+	# Tracks whether the cluster was actually (re)started from the new installation folder in phase 7.
+	# Used by the rollback path to only issue 'k2s stop' against the new folder when something is
+	# actually running there, avoiding unnecessary latency when the start itself failed.
+	$clusterStartedFromNew = $false
 	if ($relocate) {
 		Write-Log ("[Update] Installation will be relocated from '{0}' to '{1}'" -f $oldInstallPath, $newInstallPath) -Console:$consoleSwitch
 	} else {
@@ -897,8 +908,16 @@ Current directory: $deltaRoot
 				}
 			}
 		}
-		Stop-Process -Name 'containerd-shim-runhcs-v1' -Force -ErrorAction SilentlyContinue
-		Stop-Process -Name 'containerd' -Force -ErrorAction SilentlyContinue
+		# Kill only the K2s-owned containerd / shim processes (those whose executable lives under the
+		# previous installation folder) so file handles on the old folder are released. Killing by name
+		# alone would also terminate unrelated containerd instances (e.g. Docker/Rancher Desktop).
+		foreach ($procName in @('containerd-shim-runhcs-v1', 'containerd')) {
+			Get-Process -Name $procName -ErrorAction SilentlyContinue | Where-Object {
+				$_.Path -and $_.Path.StartsWith($oldInstallPath, [System.StringComparison]::OrdinalIgnoreCase)
+			} | ForEach-Object {
+				try { Stop-Process -Id $_.Id -Force -ErrorAction Stop } catch { }
+			}
+		}
 		Start-Sleep -Seconds 2
 		# From this point the previous installation's services are down. If seeding or the re-home
 		# fails before $relocationDone is set, the catch block must restart the previous installation.
@@ -1211,6 +1230,7 @@ Current directory: $deltaRoot
 				if (Test-Path -LiteralPath $k2sExe) {
 					& $k2sExe start
 					if ($LASTEXITCODE -ne 0) { throw "k2s.exe start returned exit code $LASTEXITCODE" }
+					if ($relocate) { $clusterStartedFromNew = $true }
 					Write-Log '[Update] K2s cluster restarted successfully.' -Console:$consoleSwitch
 				} else {
 					throw "k2s.exe not found at $k2sExe"
@@ -1394,9 +1414,9 @@ Current directory: $deltaRoot
 			Write-Log '[Update][Rollback] Reverting installation home to the previous folder...' -Console
 			try {
 				# The cluster may still be running from the new folder (phase 7 restarted it there).
-				# Stop it using the NEW binaries BEFORE re-pointing configs back, otherwise services
-				# would be left running from the new folder while all config points at the old one.
-				if ($wasRunning) {
+				# Only stop it when phase 7 actually confirmed a start from the new folder; if the start
+				# itself failed there is nothing to stop and issuing 'k2s stop' just adds latency.
+				if ($wasRunning -and $clusterStartedFromNew) {
 					$newK2sExe = Join-Path $newInstallPath 'k2s.exe'
 					if (Test-Path -LiteralPath $newK2sExe) {
 						& $newK2sExe stop 2>&1 | Out-Null

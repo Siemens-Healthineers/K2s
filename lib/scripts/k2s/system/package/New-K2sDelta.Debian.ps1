@@ -30,9 +30,11 @@ function Get-DebianPackageMapFromStatusFile {
 function Get-HostDnsServer {
     # The transient VM reaches the internet through the host NAT (default route 172.19.1.1), but the
     # base image ships an immutable /etc/resolv.conf pointing at a DNS server that is not reachable on
-    # the throwaway delta network. Use public resolvers first (these are what the proven base-image
-    # provisioning path bakes in and are reachable straight through the NAT), then append the host's
-    # own resolvers as additional fallbacks.
+    # the throwaway delta network. Prefer the host's own resolvers first (these are reachable through
+    # the NAT and work in corporate/air-gapped networks where public DNS is blocked at the perimeter),
+    # then append public resolvers as a fallback for home/dev hosts whose LAN DNS is not forwardable.
+    # In corporate environments the intended mechanism is -Proxy (apt routes through the proxy), so the
+    # public fallback only ever matters for direct-NAT (no-proxy) hosts.
     $hostServers = @()
     try {
         $hostServers = Get-DnsClientServerAddress -AddressFamily IPv4 -ErrorAction SilentlyContinue |
@@ -41,7 +43,7 @@ function Get-HostDnsServer {
             ForEach-Object { $_.ServerAddresses } |
             Where-Object { $_ -and ($_ -notlike '172.19.1.*') }
     } catch { }
-    $servers = @('8.8.8.8','8.8.4.4') + @($hostServers)
+    $servers = @($hostServers) + @('8.8.8.8','8.8.4.4')
     return @($servers | Where-Object { $_ } | Select-Object -Unique | Select-Object -First 4)
 }
 
