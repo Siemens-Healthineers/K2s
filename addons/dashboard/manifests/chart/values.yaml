@@ -8,7 +8,7 @@
 image:
   registry: ghcr.io
   repository: headlamp-k8s/headlamp
-  tag: "v0.42.0"
+  tag: "v0.43.0"
   pullPolicy: IfNotPresent
 
 replicaCount: 1
