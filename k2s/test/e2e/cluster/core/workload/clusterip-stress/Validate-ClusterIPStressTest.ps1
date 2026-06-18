@@ -14,6 +14,7 @@ This script verifies:
 4. The clusterip-webhook pod is healthy
 
 Run this after deploying the clusterip-stress manifests.
+Cleanup after testing: kubectl delete namespace clusterip-stress-test
 
 .EXAMPLE
 powershell -File Validate-ClusterIPStressTest.ps1
@@ -82,6 +83,12 @@ for ($attempt = 1; $attempt -le $maxAttempts; $attempt++) {
         Write-Host "  Waiting for services to be ready (attempt $attempt/$maxAttempts, found $($allServices.Count) services, $($pendingSvcs.Count) pending IP)..."
         Start-Sleep -Seconds $waitSeconds
     }
+}
+
+if ($pendingSvcs.Count -gt 0 -or $allServices.Count -lt ($ExpectedClusterIPServices + $ExpectedHeadlessServices)) {
+    Write-Host "FAIL: Timed out waiting for services to be ready after $($maxAttempts * $waitSeconds)s." -ForegroundColor Red
+    Write-Host "  Expected $($ExpectedClusterIPServices + $ExpectedHeadlessServices) services, found $($allServices.Count). Pending IPs: $($pendingSvcs.Count)." -ForegroundColor Red
+    exit 1
 }
 
 if ($allServices.Count -eq 0) {
