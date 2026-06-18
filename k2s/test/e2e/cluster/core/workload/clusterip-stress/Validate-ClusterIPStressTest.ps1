@@ -107,8 +107,8 @@ if ($nonHeadlessSvcs.Count -ne $ExpectedClusterIPServices) {
     exit 1
 }
 
-# Check for empty/missing ClusterIPs
-$missingIP = @($nonHeadlessSvcs | Where-Object { [string]::IsNullOrEmpty($_.spec.clusterIP) -or $_.spec.clusterIP -eq 'None' })
+# Check for empty/missing ClusterIPs (defense-in-depth after wait loop)
+$missingIP = @($nonHeadlessSvcs | Where-Object { [string]::IsNullOrEmpty($_.spec.clusterIP) })
 if ($missingIP.Count -gt 0) {
     Write-Host "FAIL: $($missingIP.Count) services have no ClusterIP assigned:" -ForegroundColor Red
     $missingIP | ForEach-Object { Write-Host "  - $($_.metadata.name)" -ForegroundColor Red }
