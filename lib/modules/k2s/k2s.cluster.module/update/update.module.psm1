@@ -377,6 +377,223 @@ function Restore-ClusterIPWebhook {
 	}
 }
 
+# region: installation relocation (delta update re-home)
+
+<#
+.SYNOPSIS
+	Names of Windows services whose nssm configuration may embed the K2s installation path.
+.DESCRIPTION
+	These services are registered via nssm during installation with absolute paths pointing
+	to executables and configuration files inside the installation folder. When the
+	installation is relocated (delta update re-home), each of these must be re-pointed.
+.OUTPUTS
+	[string[]] Service names.
+#>
+function Get-K2sManagedServiceName {
+	return @('containerd', 'flanneld', 'kubelet', 'kubeproxy', 'dnsproxy', 'httpproxy', 'windows_exporter', 'docker')
+}
+
+<#
+.SYNOPSIS
+	Seeds the new installation folder with files that did not change between versions.
+.DESCRIPTION
+	The new installation folder (the extracted delta package directory) already contains the
+	Added and Changed files from the delta. To become a complete, self-contained installation
+	it additionally needs every file from the previous installation that did not change.
+
+	This function copies only files that are MISSING in the new folder (robocopy /XC /XN /XO),
+	so the newer delta files are never overwritten. Wholesale directories that the delta
+	already provides in full are excluded so that stale files from the previous version do not
+	leak into a directory meant to be replaced as a whole.
+.PARAMETER OldInstallPath
+	The previous (current) installation folder, left untouched and used as the seed source.
+.PARAMETER NewInstallPath
+	The new installation folder (delta package root) being completed.
+.PARAMETER WholesaleDirs
+	Relative wholesale directory paths from the delta manifest.
+.OUTPUTS
+	[bool] success indicator.
+#>
+function Copy-UnchangedInstallationFiles {
+	param(
+		[Parameter(Mandatory = $true)][string] $OldInstallPath,
+		[Parameter(Mandatory = $true)][string] $NewInstallPath,
+		[string[]] $WholesaleDirs = @(),
+		[switch] $ShowLogs
+	)
+	$consoleSwitch = $ShowLogs
+
+	# Exclude only wholesale directories the delta already provides in the new folder; wholesale
+	# directories that did not change (absent in the new folder) must still be seeded from the old one.
+	$excludeDirs = @()
+	foreach ($wd in ($WholesaleDirs | Where-Object { $_ -and ($_ -ne '') })) {
+		$newWdPath = Join-Path $NewInstallPath ($wd -replace '/', '\')
+		if (Test-Path -LiteralPath $newWdPath) {
+			$excludeDirs += (Join-Path $OldInstallPath ($wd -replace '/', '\'))
+		}
+	}
+
+	$robocopyArgs = @($OldInstallPath, $NewInstallPath, '/E', '/XC', '/XN', '/XO', '/R:2', '/W:2', '/NFL', '/NDL', '/NP', '/NJH', '/NJS')
+	if ($excludeDirs.Count -gt 0) {
+		$robocopyArgs += '/XD'
+		$robocopyArgs += $excludeDirs
+	}
+
+	Write-Log ("[Update] Seeding unchanged files from '{0}' into '{1}'" -f $OldInstallPath, $NewInstallPath) -Console:$consoleSwitch
+	& robocopy.exe @robocopyArgs | Out-Null
+	$rc = $LASTEXITCODE
+	# robocopy exit codes < 8 indicate success (files copied / nothing to do / extras)
+	if ($rc -ge 8) {
+		Write-Log ("[Update][Error] robocopy seeding failed with exit code {0}" -f $rc) -Console
+		return $false
+	}
+	Write-Log ("[Update] Seeding complete (robocopy exit code {0})" -f $rc) -Console:$consoleSwitch
+	return $true
+}
+
+<#
+.SYNOPSIS
+	Re-points the K2s installation from one folder to another (delta update re-home).
+.DESCRIPTION
+	Updates every place that has the installation path baked in so that the cluster runs from
+	the new installation folder:
+	  - nssm service configuration (Application / AppDirectory / AppParameters)
+	  - StartKubelet.ps1 (contains literal installation paths)
+	  - containerd config.toml (regenerated from template with the new path)
+	  - KUBECONFIG machine environment variable
+	  - setup.json InstallFolder
+
+	The machine PATH is intentionally not modified because K2s does not add its installation
+	folder to PATH during installation.
+
+	This function is symmetric: calling it with swapped FromPath/ToPath reverses the re-home,
+	which is used by the rollback path.
+.PARAMETER FromPath
+	The installation path currently baked into the services/config.
+.PARAMETER ToPath
+	The installation path to switch to.
+.OUTPUTS
+	[bool] success indicator.
+#>
+function Set-K2sInstallationHome {
+	param(
+		[Parameter(Mandatory = $true)][string] $FromPath,
+		[Parameter(Mandatory = $true)][string] $ToPath,
+		[switch] $ShowLogs
+	)
+	$consoleSwitch = $ShowLogs
+	$FromPath = $FromPath.TrimEnd('\')
+	$ToPath = $ToPath.TrimEnd('\')
+
+	Write-Log ("[Update] Re-homing installation from '{0}' to '{1}'" -f $FromPath, $ToPath) -Console:$consoleSwitch
+
+	# Import service helpers from the destination installation (consistent with how the update
+	# module imports other node modules by absolute path during delta updates).
+	$servicesModule = Join-Path $ToPath 'lib\modules\k2s\k2s.node.module\windowsnode\services\services.module.psm1'
+	if (-not (Test-Path -LiteralPath $servicesModule)) {
+		Write-Log ("[Update][Error] services module not found at {0}; cannot re-point services" -f $servicesModule) -Console
+		return $false
+	}
+	Import-Module $servicesModule -Force
+
+	$nssmPath = Join-Path $ToPath 'bin\nssm.exe'
+	if (-not (Test-Path -LiteralPath $nssmPath)) {
+		Write-Log ("[Update][Error] nssm.exe not found at {0}; cannot re-point services" -f $nssmPath) -Console
+		return $false
+	}
+
+	# 1. Re-point nssm services
+	foreach ($svc in (Get-K2sManagedServiceName)) {
+		try {
+			Update-NssmServiceInstallPath -Name $svc -OldPath $FromPath -NewPath $ToPath -NssmPath $nssmPath | Out-Null
+		} catch {
+			Write-Log ("[Update][Warn] Failed to re-point service '{0}': {1}" -f $svc, $_.Exception.Message) -Console:$consoleSwitch
+		}
+	}
+
+	# 2. Fix StartKubelet.ps1 (contains literal installation paths)
+	$startKubeletScript = Join-Path $ToPath 'smallsetup\common\StartKubelet.ps1'
+	if (Test-Path -LiteralPath $startKubeletScript) {
+		try {
+			$content = Get-Content -LiteralPath $startKubeletScript -Raw
+			$updated = [regex]::Replace($content, [regex]::Escape($FromPath), $ToPath, [System.Text.RegularExpressions.RegexOptions]::IgnoreCase)
+			if ($updated -ne $content) {
+				Set-Content -LiteralPath $startKubeletScript -Value $updated -NoNewline
+				Write-Log '[Update] Updated StartKubelet.ps1 with new installation path' -Console:$consoleSwitch
+			}
+		} catch {
+			Write-Log ("[Update][Warn] Failed to update StartKubelet.ps1: {0}" -f $_.Exception.Message) -Console:$consoleSwitch
+		}
+	}
+
+	# 3. Regenerate containerd config.toml from template with the new installation path
+	$containerdModule = Join-Path $ToPath 'lib\modules\k2s\k2s.node.module\windowsnode\downloader\artifacts\containerd\containerd.module.psm1'
+	$containerdTomlPath = Join-Path $ToPath 'cfg\containerd\config.toml'
+	if (Test-Path -LiteralPath $containerdModule) {
+		try {
+			Import-Module $containerdModule -Force
+			Set-RootPathForImagesInConfig $containerdTomlPath | Out-Null
+			Set-InstallationDirectory $containerdTomlPath | Out-Null
+			Set-UserTokenForRegistryInConfig $containerdTomlPath | Out-Null
+			Write-Log '[Update] Regenerated containerd config.toml for new installation path' -Console:$consoleSwitch
+		} catch {
+			Write-Log ("[Update][Warn] Failed to regenerate containerd config.toml: {0}" -f $_.Exception.Message) -Console:$consoleSwitch
+		}
+	}
+
+	# 4. Update KUBECONFIG machine environment variable
+	try {
+		[Environment]::SetEnvironmentVariable('KUBECONFIG', "$ToPath\config", [System.EnvironmentVariableTarget]::Machine)
+		Write-Log ("[Update] KUBECONFIG set to '{0}\config'" -f $ToPath) -Console:$consoleSwitch
+	} catch {
+		Write-Log ("[Update][Warn] Failed to update KUBECONFIG: {0}" -f $_.Exception.Message) -Console:$consoleSwitch
+	}
+
+	# 5. Update setup.json InstallFolder
+	try {
+		Set-ConfigInstallFolder -Value $ToPath
+		Write-Log ("[Update] setup.json InstallFolder set to '{0}'" -f $ToPath) -Console:$consoleSwitch
+	} catch {
+		Write-Log ("[Update][Error] Failed to update setup.json InstallFolder: {0}" -f $_.Exception.Message) -Console
+		return $false
+	}
+
+	return $true
+}
+
+<#
+.SYNOPSIS
+	Removes delta-package-only artifacts from a completed installation folder.
+.DESCRIPTION
+	After a delta package directory has been promoted to a full installation, files that only
+	belong to a delta package (the manifest and staged image/Debian deltas) are removed so the
+	folder is indistinguishable from a normal installation and is not misdetected as a delta
+	package on a subsequent upgrade.
+.PARAMETER InstallPath
+	The installation folder to clean.
+#>
+function Remove-DeltaPackageArtifact {
+	param(
+		[Parameter(Mandatory = $true)][string] $InstallPath,
+		[switch] $ShowLogs
+	)
+	$consoleSwitch = $ShowLogs
+	$artifacts = @('delta-manifest.json', 'image-delta', 'debian-delta')
+	foreach ($a in $artifacts) {
+		$p = Join-Path $InstallPath $a
+		if (Test-Path -LiteralPath $p) {
+			try {
+				Remove-Item -LiteralPath $p -Recurse -Force -ErrorAction Stop
+				Write-Log ("[Update] Removed delta artifact from installation: {0}" -f $a) -Console:$consoleSwitch
+			} catch {
+				Write-Log ("[Update][Warn] Failed to remove delta artifact '{0}': {1}" -f $a, $_.Exception.Message) -Console:$consoleSwitch
+			}
+		}
+	}
+}
+
+# endregion
+
 function PerformClusterUpdate {
 	<#
 	.SYNOPSIS
@@ -504,6 +721,22 @@ Current directory: $deltaRoot
 		return $false
 	}
 
+	# Decide whether this update relocates the installation to a new folder.
+	# The new active installation folder is the delta package directory ($deltaRoot). When it
+	# differs from the current installation folder, the update re-homes the installation so that
+	# the new folder (e.g. C:\k2s\1.9.0) becomes the valid installation recorded in setup.json.
+	# When they are identical (delta extracted on top of the installation) the legacy in-place
+	# behavior is used so existing setups are not broken.
+	$oldInstallPath = $targetInstallPath.TrimEnd('\')
+	$newInstallPath = $deltaRoot.TrimEnd('\')
+	$relocate = ($oldInstallPath -ine $newInstallPath)
+	$relocationDone = $false
+	if ($relocate) {
+		Write-Log ("[Update] Installation will be relocated from '{0}' to '{1}'" -f $oldInstallPath, $newInstallPath) -Console:$consoleSwitch
+	} else {
+		Write-Log '[Update] Delta package directory equals the installation folder; applying update in place.' -Console:$consoleSwitch
+	}
+
 	# 3. Validate version compatibility
 	_phase 'VersionValidation'
 	
@@ -615,7 +848,68 @@ Current directory: $deltaRoot
 	# 6. Apply Windows artifacts (Added + Changed) from delta root to target install path
 	_phase 'WindowsArtifacts'
 	Write-Log ("[Update] Applying artifacts from delta root '{0}' to target '{1}'" -f $deltaRoot, $targetInstallPath) -Console:$consoleSwitch
-	
+
+	# Wrap the mutating phases so a failure after re-homing can roll the Windows-side
+	# installation back to the previous folder (see catch block before UpdateVersion).
+	try {
+
+	if ($relocate) {
+		# --- Relocation branch: the new installation folder is the delta package directory. ---
+		# It already contains the delta's Added/Changed/wholesale files; it must additionally be
+		# seeded with the unchanged files from the previous installation and then become the
+		# active installation (re-home).
+		Write-Log ("[Update][Relocate] New installation folder will be: {0}" -f $newInstallPath) -Console:$consoleSwitch
+		Write-Log ("[Update][Relocate] Previous installation retained for rollback: {0}" -f $oldInstallPath) -Console:$consoleSwitch
+
+		# Stop K2s-managed Windows services so file handles are released and the cluster can be
+		# cleanly restarted from the new folder.
+		foreach ($svcName in (Get-K2sManagedServiceName)) {
+			$svc = Get-Service -Name $svcName -ErrorAction SilentlyContinue
+			if ($svc -and $svc.Status -ne 'Stopped') {
+				try {
+					Stop-Service -Name $svcName -Force -ErrorAction Stop
+					Write-Log ("[Update][Relocate] Stopped service '{0}'" -f $svcName) -Console:$consoleSwitch
+				} catch {
+					Write-Log ("[Update][Relocate][Warn] Could not stop service '{0}': {1}" -f $svcName, $_.Exception.Message) -Console:$consoleSwitch
+				}
+			}
+		}
+		Stop-Process -Name 'containerd-shim-runhcs-v1' -Force -ErrorAction SilentlyContinue
+		Stop-Process -Name 'containerd' -Force -ErrorAction SilentlyContinue
+		Start-Sleep -Seconds 2
+
+		# Seed unchanged files from the previous installation into the new folder.
+		$wholesaleDirs = @($manifest.WholeDirectories) | Where-Object { $_ -and ($_ -ne '') }
+		if (-not (Copy-UnchangedInstallationFiles -OldInstallPath $oldInstallPath -NewInstallPath $newInstallPath -WholesaleDirs $wholesaleDirs -ShowLogs:$ShowLogs)) {
+			throw 'Failed to seed new installation folder from previous installation'
+		}
+
+		# Remove obsolete files (manifest.Removed) that may have been seeded from the previous installation.
+		$removedFiles = @($manifest.Removed) | Where-Object { $_ -and ($_ -ne '') }
+		foreach ($rel in $removedFiles) {
+			$obsolete = Join-Path $newInstallPath ($rel -replace '/', '\')
+			if (Test-Path -LiteralPath $obsolete) {
+				try {
+					Remove-Item -LiteralPath $obsolete -Force -ErrorAction Stop
+					Write-Log ("[Update][Relocate] Removed obsolete file: {0}" -f $rel) -Console:$consoleSwitch
+				} catch {
+					Write-Log ("[Update][Relocate][Warn] Failed to remove '{0}': {1}" -f $rel, $_.Exception.Message) -Console:$consoleSwitch
+				}
+			}
+		}
+
+		# Re-home: re-point services, fix StartKubelet.ps1, regenerate containerd config.toml,
+		# update KUBECONFIG and setup.json InstallFolder to the new folder.
+		if (-not (Set-K2sInstallationHome -FromPath $oldInstallPath -ToPath $newInstallPath -ShowLogs:$ShowLogs)) {
+			throw 'Failed to re-home installation to the new folder'
+		}
+		$relocationDone = $true
+
+		# All subsequent phases operate on the new installation folder.
+		$targetInstallPath = $newInstallPath
+		Write-Log ("[Update][Relocate] Active installation folder is now: {0}" -f $targetInstallPath) -Console:$consoleSwitch
+	} else {
+
 	# 6a. Apply wholesale directories first - these are replaced entirely (e.g., bin/kube, bin/docker)
 	# Wholesale directories contain binaries that must be completely replaced, not merged
 	$wholesaleDirs = @($manifest.WholeDirectories) | Where-Object { $_ -and ($_ -ne '') }
@@ -834,6 +1128,8 @@ Current directory: $deltaRoot
 		Write-Log '[Update] No files to remove' -Console:$consoleSwitch
 	}
 
+	} # end in-place artifact application (the relocation branch above seeds + re-homes instead)
+
 	# 6d. Clean deprecated kubelet flags from Windows kubeadm-flags.env
 	# The --pod-infra-container-image flag was deprecated in K8s 1.27 and removed in 1.34
 	# This matches the Linux fix in apply-debian-delta.sh
@@ -871,11 +1167,15 @@ Current directory: $deltaRoot
 	if ($wasRunning) {
 		Write-Log '[Update] Restarting K2s cluster...' -Console
 		try {
-			if (Get-Command -Name Start-ClusterNode -ErrorAction SilentlyContinue) {
+			if (-not $relocate -and (Get-Command -Name Start-ClusterNode -ErrorAction SilentlyContinue)) {
 				Start-ClusterNode -SetupName $setupInfo.Name -ShowLogs:$ShowLogs
 				Write-Log '[Update] K2s cluster restarted successfully.' -Console:$consoleSwitch
 			} else {
-				Write-Log '[Update][Warn] Start-ClusterNode not available; attempting k2s.exe start from target folder...' -Console:$consoleSwitch
+				if ($relocate) {
+					Write-Log '[Update] Starting cluster from the new installation folder...' -Console:$consoleSwitch
+				} else {
+					Write-Log '[Update][Warn] Start-ClusterNode not available; attempting k2s.exe start from target folder...' -Console:$consoleSwitch
+				}
 				$k2sExe = Join-Path $targetInstallPath 'k2s.exe'
 				if (Test-Path -LiteralPath $k2sExe) {
 					& $k2sExe start
@@ -921,7 +1221,7 @@ Current directory: $deltaRoot
 	}
 	if ($winImageFiles.Count -gt 0) {
 		# Resolve ctr from the target installation (containerd must be running after Phase 7 restart)
-		$ctrExe = Join-Path (Get-KubeBinPath) 'containerd\ctr.exe'
+		$ctrExe = if ($relocate) { Join-Path $targetInstallPath 'bin\containerd\ctr.exe' } else { Join-Path (Get-KubeBinPath) 'containerd\ctr.exe' }
 		if (-not (Test-Path -LiteralPath $ctrExe)) {
 			Write-Log ("[Update][Warn] ctr.exe not found at {0}; cannot import Windows images" -f $ctrExe) -Console:$consoleSwitch
 		} else {
@@ -934,7 +1234,7 @@ Current directory: $deltaRoot
 				$success = $false
 				for ($attempt = 1; $attempt -le $maxRetries; $attempt++) {
 					try {
-						$importSuccess = Invoke-Ctr -Arguments '-n', 'k8s.io', 'images', 'import', $img.FullName
+						$importSuccess = Invoke-Ctr -Arguments '-n', 'k8s.io', 'images', 'import', $img.FullName -CtrExePath $ctrExe
 						if ($importSuccess) {
 							$success = $true
 							break
@@ -1055,6 +1355,25 @@ Current directory: $deltaRoot
 		Write-Log '[Update] Skipping webhook restoration (cluster not running)' -Console:$consoleSwitch
 	}
 
+	} catch {
+		Write-Log ("[Update][Error] Delta update failed: {0}" -f $_.Exception.Message) -Console
+		if ($relocate -and $relocationDone) {
+			Write-Log '[Update][Rollback] Reverting installation home to the previous folder...' -Console
+			try {
+				Set-K2sInstallationHome -FromPath $newInstallPath -ToPath $oldInstallPath -ShowLogs:$ShowLogs | Out-Null
+				if ($wasRunning) {
+					$oldK2sExe = Join-Path $oldInstallPath 'k2s.exe'
+					if (Test-Path -LiteralPath $oldK2sExe) { & $oldK2sExe start | Out-Null }
+				}
+				Write-Log '[Update][Rollback] Windows-side installation reverted to the previous folder.' -Console
+				Write-Log '[Update][Rollback][Warn] Cluster/Linux-side changes (kubeadm upgrade, Debian packages) are NOT reverted, consistent with full upgrade behavior.' -Console
+			} catch {
+				Write-Log ("[Update][Rollback][Error] Rollback failed: {0}. Manual recovery may be required." -f $_.Exception.Message) -Console
+			}
+		}
+		throw
+	}
+
 	# 13. Update VERSION file to reflect successful delta update
 	_phase 'UpdateVersion'
 	if ($deltaTargetVersion) {
@@ -1081,10 +1400,22 @@ Current directory: $deltaRoot
 		Write-Log '[Update][Info] Target version not determined; version information not updated' -Console:$consoleSwitch
 	}
 
+	# Clean delta-package-only artifacts so the new installation folder is a clean installation
+	# and is not misdetected as a delta package on a subsequent upgrade.
+	if ($relocate) {
+		Remove-DeltaPackageArtifact -InstallPath $targetInstallPath -ShowLogs:$ShowLogs
+	}
+
 	Write-Log '[Update] Delta update complete.' -Console:$consoleSwitch
-	Write-Log ("Upgraded successfully to K2s version: {0} (delta update from {1})" -f $deltaTargetVersion, $deltaRoot) -Console:$consoleSwitch
-	Write-Log ("[Update] Delta artifacts remain in: {0}" -f $deltaRoot) -Console:$consoleSwitch
-	Write-Log '[Update] You may safely delete the extracted delta package directory after verifying the update.' -Console:$consoleSwitch
+	Write-Log ("Upgraded successfully to K2s version: {0} (delta update)" -f $deltaTargetVersion) -Console:$consoleSwitch
+	if ($relocate) {
+		Write-Log ("[Update] Active installation folder is now: {0}" -f $targetInstallPath) -Console:$consoleSwitch
+		Write-Log ("[Update] Previous installation retained for rollback: {0}" -f $oldInstallPath) -Console:$consoleSwitch
+		Write-Log '[Update] You may delete the previous installation folder after verifying the update.' -Console:$consoleSwitch
+	} else {
+		Write-Log ("[Update] Delta artifacts remain in: {0}" -f $deltaRoot) -Console:$consoleSwitch
+		Write-Log '[Update] You may safely delete the extracted delta package directory after verifying the update.' -Console:$consoleSwitch
+	}
 
 	if ($ShowProgress) { Write-Progress -Activity 'Cluster delta update' -Id 1 -Completed }
 	
@@ -1094,6 +1425,10 @@ Current directory: $deltaRoot
 Export-ModuleMember -Function PerformClusterUpdate
 Export-ModuleMember -Function Restore-CoreDnsEtcdConfiguration
 Export-ModuleMember -Function Restore-ClusterIPWebhook
+Export-ModuleMember -Function Copy-UnchangedInstallationFiles
+Export-ModuleMember -Function Set-K2sInstallationHome
+Export-ModuleMember -Function Remove-DeltaPackageArtifact
+Export-ModuleMember -Function Get-K2sManagedServiceName
 
 # region: VM execution helper (Debian delta application)
 function Invoke-CommandInMasterVM {
