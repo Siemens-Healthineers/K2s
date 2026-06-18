@@ -165,7 +165,6 @@ Because of this, extract the delta package to the location where you want the up
 !!! note "Rollback scope"
     If the update fails after the installation has been re-homed to the new folder, the Windows-side changes (service configuration, `KUBECONFIG`, `setup.json`) are automatically rolled back to the previous installation folder. Cluster/Linux-side changes (kubeadm upgrade, Debian package updates) are **not** reverted — this is consistent with the behavior of a full upgrade.
 
-
 ## Node Packages
 
 Node packages contain the Linux packages and container images required to run *K2s* worker nodes (kubelet, kubeadm, kubectl, CRI-O, buildah). They are independent of the control-plane installation, allowing you to upgrade bare-metal or VM-based Linux worker nodes without touching the cluster control plane.
