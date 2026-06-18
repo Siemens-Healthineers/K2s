@@ -157,10 +157,12 @@ function Start-NodePackageVmProvisioning {
 	}
 	Write-Log "[NodePkg] Using KubeSwitch subnet '$controlPlaneCIDR' with guest IP '$guestIp' and gateway '$hostIp'." -Console
 
-	$loopbackAdapter = Get-L2BridgeName
-	$hostDns = Get-DnsIpAddressesFromActivePhysicalNetworkInterfacesOnWindowsHost -ExcludeNetworkInterfaceName $loopbackAdapter
+	$hostDns = Get-DnsClientServerAddress -AddressFamily IPv4 -ErrorAction SilentlyContinue |
+		ForEach-Object { @($_.ServerAddresses) } |
+		Where-Object { $_ -and $_ -ne '0.0.0.0' -and $_ -notlike '127.*' } |
+		Select-Object -First 1
 	if ([string]::IsNullOrWhiteSpace($hostDns)) {
-		$hostDns = '8.8.8.8,8.8.4.4'
+		$hostDns = '8.8.8.8'
 		Write-Log "[NodePkg] No host DNS detected. Falling back to '$hostDns'." -Console
 	}
 	else {
