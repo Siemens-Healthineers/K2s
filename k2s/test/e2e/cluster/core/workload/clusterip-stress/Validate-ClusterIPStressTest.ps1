@@ -77,8 +77,19 @@ $waitSeconds = 5
 $allServices = @()
 $pendingSvcs = @()
 for ($attempt = 1; $attempt -le $maxAttempts; $attempt++) {
-    $raw = Invoke-Kubectl -Arguments @('get', 'svc', '-n', $Namespace, '-o', 'json')
-    $services = $raw | ConvertFrom-Json
+    $output = & kubectl get svc -n $Namespace -o json 2>&1
+    if ($LASTEXITCODE -ne 0) {
+        if ($attempt -lt $maxAttempts) {
+            Write-Host "  Waiting for namespace/services (attempt $attempt/$maxAttempts): kubectl returned exit code $LASTEXITCODE"
+            Start-Sleep -Seconds $waitSeconds
+            continue
+        }
+        Write-Host "FAIL: kubectl get svc -n $Namespace failed after $maxAttempts attempts:" -ForegroundColor Red
+        Write-Host ($output | Out-String) -ForegroundColor Red
+        exit 1
+    }
+
+    $services = $output | ConvertFrom-Json
     $allServices = $services.items
 
     $nonHeadlessSvcs = @($allServices | Where-Object { $_.spec.clusterIP -ne 'None' })
@@ -106,10 +117,8 @@ Write-Host "  Found $($allServices.Count) services total"
 Write-Host ""
 Write-Host "[3/4] Validating ClusterIP uniqueness..."
 $nonHeadlessSvcs = @($allServices | Where-Object { $_.spec.clusterIP -ne 'None' })
-$headlessCount = @($allServices | Where-Object { $_.spec.clusterIP -eq 'None' }).Count
 
 Write-Host "  ClusterIP services: $($nonHeadlessSvcs.Count) (expected: $ExpectedClusterIPServices)"
-Write-Host "  Headless services:  $headlessCount (expected: $ExpectedHeadlessServices)"
 
 if ($nonHeadlessSvcs.Count -ne $ExpectedClusterIPServices) {
     Write-Host "FAIL: Expected $ExpectedClusterIPServices ClusterIP services, got $($nonHeadlessSvcs.Count)" -ForegroundColor Red

@@ -5,9 +5,9 @@
 # Headless services (ClusterIP: None) to verify the webhook correctly skips them.
 # These must NOT receive a ClusterIP assignment — the webhook should pass them through.
 #
-# The first 4 services use the singular "clusterIP: None" field.
-# The last 2 (*-plural) use the plural "clusterIPs: [None]" field to test that the
-# webhook handles both forms correctly. Kubernetes normalizes both to clusterIP: None.
+# The first 4 services use only the singular "clusterIP: None" field.
+# The last 2 (*-plural) explicitly set both "clusterIP: None" and "clusterIPs: [None]"
+# to test that the webhook handles services with both fields populated.
 
 ---
 apiVersion: apps/v1
@@ -222,6 +222,7 @@ metadata:
   name: stress-headless-linux-plural
   namespace: clusterip-stress-test
 spec:
+  clusterIP: None
   clusterIPs:
     - None
   selector:
@@ -270,6 +271,7 @@ metadata:
   name: stress-headless-win-plural
   namespace: clusterip-stress-test
 spec:
+  clusterIP: None
   clusterIPs:
     - None
   selector:
