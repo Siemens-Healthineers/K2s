@@ -535,17 +535,19 @@ function Set-K2sInstallationHome {
 	}
 
 	# 3. Regenerate containerd config.toml from template with the new installation path.
-	# Ordering/independence invariant: the containerd regen helpers derive the installation path
-	# from the module-level '$kubePath = Get-KubePath' captured when containerd.module is imported,
-	# which resolves from the module's own $PSScriptRoot (i.e. $ToPath here), NOT from setup.json.
-	# Because the module is imported from $ToPath with -Force just below, regeneration always targets
-	# $ToPath regardless of the current setup.json InstallFolder value and regardless of step 5 below.
-	# This also makes the rollback path correct: re-homing back to the previous folder imports
-	# containerd.module from that folder and regenerates for it the same way.
+	# Ordering/independence invariant: the containerd regen helpers derive the installation path from
+	# the module-level '$kubePath = Get-KubePath' captured when containerd.module is imported, which
+	# resolves from the path module's own $PSScriptRoot. To guarantee that resolves to $ToPath (and not
+	# a path.module copy cached from the previous installation), force-reimport the path module from
+	# $ToPath FIRST, then import containerd.module from $ToPath. Both are independent of setup.json, so
+	# regeneration always targets $ToPath regardless of step 5 below. This also makes the rollback path
+	# correct: re-homing back to the previous folder reimports both modules from that folder.
+	$pathModule = Join-Path $ToPath 'lib\modules\k2s\k2s.infra.module\path\path.module.psm1'
 	$containerdModule = Join-Path $ToPath 'lib\modules\k2s\k2s.node.module\windowsnode\downloader\artifacts\containerd\containerd.module.psm1'
 	$containerdTomlPath = Join-Path $ToPath 'cfg\containerd\config.toml'
 	if (Test-Path -LiteralPath $containerdModule) {
 		try {
+			if (Test-Path -LiteralPath $pathModule) { Import-Module $pathModule -Force }
 			Import-Module $containerdModule -Force
 			Set-RootPathForImagesInConfig $containerdTomlPath | Out-Null
 			Set-InstallationDirectory $containerdTomlPath | Out-Null
@@ -880,8 +882,10 @@ Current directory: $deltaRoot
 		Write-Log ("[Update][Relocate] New installation folder will be: {0}" -f $newInstallPath) -Console:$consoleSwitch
 		Write-Log ("[Update][Relocate] Previous installation retained for rollback: {0}" -f $oldInstallPath) -Console:$consoleSwitch
 
-		# Stop K2s-managed Windows services so file handles are released and the cluster can be
-		# cleanly restarted from the new folder.
+		# Defensively ensure K2s-managed Windows services are stopped so file handles are released
+		# before seeding/re-homing. Phase 2 (Stop) already issued 'k2s stop'; this per-service stop is
+		# idempotent (skips services already Stopped) and guards against any service still holding the
+		# old folder before the cluster is cleanly restarted from the new folder.
 		foreach ($svcName in (Get-K2sManagedServiceName)) {
 			$svc = Get-Service -Name $svcName -ErrorAction SilentlyContinue
 			if ($svc -and $svc.Status -ne 'Stopped') {
@@ -1262,7 +1266,9 @@ Current directory: $deltaRoot
 							break
 						}
 						if ($attempt -lt $maxRetries) {
-							Write-Log ("[Update]   Attempt {0} failed (exit code {1}), retrying after {2}s..." -f $attempt, $LASTEXITCODE, $retryDelay) -Console:$consoleSwitch
+							# Invoke-Ctr logs the underlying ctr error internally; it returns a bool, so do
+							# not reference $LASTEXITCODE here (it would reflect an unrelated command).
+							Write-Log ("[Update]   Attempt {0} failed, retrying after {1}s..." -f $attempt, $retryDelay) -Console:$consoleSwitch
 							Start-Sleep -Seconds $retryDelay
 						}
 					} catch {
