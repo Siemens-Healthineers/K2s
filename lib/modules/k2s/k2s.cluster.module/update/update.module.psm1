@@ -1400,7 +1400,10 @@ Current directory: $deltaRoot
 						}
 					}
 				}
-				Set-K2sInstallationHome -FromPath $newInstallPath -ToPath $oldInstallPath -ShowLogs:$ShowLogs | Out-Null
+				$rollbackOk = Set-K2sInstallationHome -FromPath $newInstallPath -ToPath $oldInstallPath -ShowLogs:$ShowLogs
+				if (-not $rollbackOk) {
+					Write-Log '[Update][Rollback][Error] Set-K2sInstallationHome returned false; installation state may be inconsistent (services/setup.json/KUBECONFIG may still point at the new folder). Manual recovery may be required.' -Console
+				}
 				if ($wasRunning) {
 					$oldK2sExe = Join-Path $oldInstallPath 'k2s.exe'
 					if (Test-Path -LiteralPath $oldK2sExe) {
