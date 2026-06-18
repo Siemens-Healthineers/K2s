@@ -1158,12 +1158,25 @@ function Restore-SmbShareAndFolder {
 Reads the SMB host type from config
 
 .DESCRIPTION
-Reads the SMB host type from addons config file
+Reads the SMB host type from the addons config file
 #>
 function Get-SmbHostType {
     $config = Get-AddonConfig -Name $AddonName
 
-    return $config.SmbHostType
+    $validTypes = @('windows', 'linux')
+    $default = 'windows'
+
+    if ($null -eq $config -or $null -eq $config.SmbHostType) {
+        return $default
+    }
+
+    $normalized = ([string]$config.SmbHostType).Trim().ToLowerInvariant()
+
+    if ($validTypes -contains $normalized) {
+        return $normalized
+    }
+
+    return $default
 }
 
 function Get-Status {
