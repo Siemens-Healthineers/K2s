@@ -26,6 +26,25 @@ function Get-DebianPackageMapFromStatusFile {
     return $map
 }
 
+# --- Helper: detect nameservers usable by the NAT'd transient guest
+function Get-HostDnsServer {
+    # The transient VM reaches the internet through the host NAT (default route 172.19.1.1), but the
+    # base image ships an immutable /etc/resolv.conf pointing at a DNS server that is not reachable on
+    # the throwaway delta network. Use public resolvers first (these are what the proven base-image
+    # provisioning path bakes in and are reachable straight through the NAT), then append the host's
+    # own resolvers as additional fallbacks.
+    $hostServers = @()
+    try {
+        $hostServers = Get-DnsClientServerAddress -AddressFamily IPv4 -ErrorAction SilentlyContinue |
+            Where-Object { $_.ServerAddresses } |
+            Where-Object { $_.InterfaceAlias -notlike '*k2s*' -and $_.InterfaceAlias -notlike '*Loopback*' } |
+            ForEach-Object { $_.ServerAddresses } |
+            Where-Object { $_ -and ($_ -notlike '172.19.1.*') }
+    } catch { }
+    $servers = @('8.8.8.8','8.8.4.4') + @($hostServers)
+    return @($servers | Where-Object { $_ } | Select-Object -Unique | Select-Object -First 4)
+}
+
 # --- Helper: initialize remote acquisition directory & capture diagnostics
 function Initialize-DebAcquisitionEnvironment {
     param(
@@ -36,7 +55,10 @@ function Initialize-DebAcquisitionEnvironment {
         [string] $SshUser,
         [string] $GuestIp,
         [string] $SshKey,
-        [string] $SshPassword
+        [string] $SshPassword,
+        # Optional HTTP proxy for guest apt downloads (e.g. a corporate proxy). When empty (default),
+        # the guest reaches the repos directly through the host NAT using the injected nameservers.
+        [string] $Proxy = ''
     )
     function _BaseArgsLocal() {
         if ($UsingPlink) {
@@ -52,23 +74,56 @@ function Initialize-DebAcquisitionEnvironment {
             return ,$sshArgs
         }
     }
-    $initParts = @(
-        'set -euo pipefail',
+    # Override the guest's immutable resolv.conf with reachable nameservers before any apt call, so the
+    # NAT'd guest can resolve the package repositories.
+    #
+    # The script is base64-encoded and run via `echo <b64> | base64 -d | bash`. This is deliberate:
+    # passing a `bash -c '...'` string through PowerShell -> plink -> remote login shell mangles quotes
+    # (PowerShell strips embedded double quotes) and chokes on shell metacharacters like '('. base64
+    # output is only [A-Za-z0-9+/=], so the script survives every layer untouched.
+    $dnsServers = Get-HostDnsServer
+    $dnsFmt = (($dnsServers | ForEach-Object { "nameserver $_\n" }) -join '')
+    $dnsLabel = $dnsServers -join ', '
+    # When a proxy is supplied (corporate environments), route apt through it; otherwise remove any
+    # stale proxy config so apt connects directly via the host NAT.
+    if (-not [string]::IsNullOrWhiteSpace($Proxy)) {
+        $proxyFmt = "Acquire::http::Proxy `"$Proxy`";\nAcquire::https::Proxy `"$Proxy`";\n"
+        $proxyLine = "printf '$proxyFmt' | sudo tee /etc/apt/apt.conf.d/proxy.conf > /dev/null || true"
+        $proxyLabel = $Proxy
+    } else {
+        $proxyLine = 'sudo rm -f /etc/apt/apt.conf.d/proxy.conf 2>/dev/null || true'
+        $proxyLabel = 'none (direct via NAT)'
+    }
+    # Diagnostics are ordered so the connectivity verdicts (HOSTGW/ROUTE/DNS/HTTPS) appear first.
+    # ROUTE pings a raw IP (no DNS) to isolate routing from name resolution.
+    $scriptLines = @(
+        'set -uo pipefail',
         "rm -rf $RemoteDir; mkdir -p $RemoteDir",
         "cd $RemoteDir",
         'echo __K2S_DIAG_BEGIN__',
-        'ip addr show || true',
-        'ip route show || true',
+        "echo '--- SET DNS: $dnsLabel ---'",
+        'sudo chattr -i /etc/resolv.conf 2>/dev/null || true',
+        "printf '$dnsFmt' | sudo tee /etc/resolv.conf > /dev/null || true",
+        "echo '--- APT PROXY: $proxyLabel ---'",
+        $proxyLine,
+        "echo '--- RESOLV.CONF (effective) ---'",
+        'cat /etc/resolv.conf 2>/dev/null || true',
+        'ping -c1 -W3 172.19.1.1 >/dev/null 2>&1 && echo HOSTGW_OK || echo HOSTGW_FAIL',
+        'ping -c1 -W3 8.8.8.8 >/dev/null 2>&1 && echo ROUTE_OK || echo ROUTE_FAIL',
+        'getent hosts deb.debian.org >/dev/null 2>&1 && echo DNS_OK || echo DNS_FAIL',
+        'if command -v curl >/dev/null 2>&1; then curl -fsI --connect-timeout 8 https://deb.debian.org/ >/dev/null 2>&1 && echo HTTPS_DEB_OK || echo HTTPS_DEB_FAIL; else echo CURL_NOT_INSTALLED; fi',
+        "echo '--- IP ROUTE ---'",
+        'ip route show 2>/dev/null || true',
+        "echo '--- APT SOURCES ---'",
         'grep -v ^# /etc/apt/sources.list 2>/dev/null || true',
         'ls -1 /etc/apt/sources.list.d 2>/dev/null || true',
-        'ping -c1 deb.debian.org >/dev/null 2>&1 && echo PING_OK || echo PING_FAIL || true',
-        'echo --- RESOLV.CONF ---',
-        'cat /etc/resolv.conf 2>/dev/null || true',
-        'if command -v curl >/dev/null 2>&1; then echo "--- CURL TEST deb.debian.org HTTP root ---"; if curl -fsI --connect-timeout 5 http://deb.debian.org/ >/dev/null; then echo CURL_DEB_OK; else echo CURL_DEB_FAIL; fi; else echo CURL_NOT_INSTALLED; fi',
-        'echo __K2S_DIAG_END__',
-        'apt-get update 2>&1 || true'
+        "echo '--- APT-GET UPDATE ---'",
+        'apt-get update 2>&1 || true',
+        'echo __K2S_DIAG_END__'
     )
-    $initCmd = "bash -c '" + ($initParts -join '; ') + "'"
+    $scriptBody = $scriptLines -join "`n"
+    $b64 = [System.Convert]::ToBase64String([System.Text.Encoding]::UTF8.GetBytes($scriptBody))
+    $initCmd = "echo $b64 | base64 -d | bash"
     $initOut = & $SshClient @((_BaseArgsLocal) + $initCmd) 2>&1
     return ,$initOut
 }
@@ -382,7 +437,9 @@ function Invoke-GuestDebAcquisition {
         [string] $SshKey,
         # NOTE: Legacy plain-text password to match existing calling pattern; avoid proliferating further. Prefer key auth.
         # PSScriptAnalyzer Suppression: Using string for backward compatibility with existing callers.
-        [string] $SshPassword
+        [string] $SshPassword,
+        # Optional HTTP proxy for guest apt downloads (corporate environments). Empty = direct via NAT.
+        [string] $Proxy = ''
     )
     $result = [pscustomobject]@{ DebFiles=@(); Failures=@(); Logs=@(); RemoteDir=$RemoteDir; UsedFallback=$false; Diagnostics=@(); SatisfiedMeta=@(); Resolutions=@() }
     if (-not $PackageSpecs -or $PackageSpecs.Count -eq 0) { return $result }
@@ -402,9 +459,11 @@ function Invoke-GuestDebAcquisition {
         }
     }
 
-    $initOut = Initialize-DebAcquisitionEnvironment -RemoteDir $RemoteDir -SshClient $SshClient -UsingPlink:$UsingPlink -PlinkHostKey $PlinkHostKey -SshUser $SshUser -GuestIp $GuestIp -SshKey $SshKey -SshPassword $SshPassword
-    if ($initOut) { $result.Diagnostics += ($initOut | Select-Object -First 40) }
-    Write-Log ("[DebPkg][DL] Init output head: {0}" -f (($initOut | Select-Object -First 20) -join ' | ')) -Console
+    $initOut = Initialize-DebAcquisitionEnvironment -RemoteDir $RemoteDir -SshClient $SshClient -UsingPlink:$UsingPlink -PlinkHostKey $PlinkHostKey -SshUser $SshUser -GuestIp $GuestIp -SshKey $SshKey -SshPassword $SshPassword -Proxy $Proxy
+    if ($initOut) { $result.Diagnostics += ($initOut | Select-Object -First 60) }
+    # Log the full diagnostic block (connectivity verdicts + apt-get update output) so download failures
+    # are explainable without a second run.
+    Write-Log ("[DebPkg][DL] Init diagnostics:`n{0}" -f (($initOut | Select-Object -First 60) -join "`n")) -Console
 
     $idx = 0; $total = $PackageSpecs.Count
     foreach ($spec in $PackageSpecs) {

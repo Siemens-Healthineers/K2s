@@ -124,7 +124,9 @@ Param(
     [parameter(Mandatory = $false, HelpMessage = 'Directories to include wholesale from newer package (no diffing). Relative paths; can be specified multiple times.')]
     [string[]] $WholeDirectories = @(),
     [parameter(Mandatory = $false, HelpMessage = 'Skip container image delta processing')]
-    [switch] $SkipImageDelta = $false
+    [switch] $SkipImageDelta = $false,
+    [parameter(Mandatory = $false, HelpMessage = 'HTTP proxy for Debian package downloads inside the transient VM (corporate environments). Leave empty to download directly through the host NAT.')]
+    [string] $Proxy = ''
 )
 
 # Internal flag to suppress duplicate terminal error logs
@@ -609,7 +611,7 @@ if ($SpecialSkippedFiles -contains 'Kubemaster-Base.vhdx') {
                         $kubemasterNewRel = $debianPackageDiff.NewRelativePath
                         $kubemasterNewAbs = Join-Path $newExtract $kubemasterNewRel
                         if (Test-Path -LiteralPath $kubemasterNewAbs) {
-                            $dlResult = Get-DebianPackagesFromVHDX -VhdxPath $kubemasterNewAbs -NewExtract $newExtract -OldExtract $oldExtract -switchNameEnding 'delta' -DownloadPackageSpecs $offlineSpecs -DownloadLocalDir $debDownloadDir -DownloadDebs -AllowPartialAcquisition
+                            $dlResult = Get-DebianPackagesFromVHDX -VhdxPath $kubemasterNewAbs -NewExtract $newExtract -OldExtract $oldExtract -switchNameEnding 'delta' -DownloadPackageSpecs $offlineSpecs -DownloadLocalDir $debDownloadDir -DownloadDebs -AllowPartialAcquisition -Proxy $Proxy
                             if ($dlResult.Error) {
                                 Write-Log ("[DebPkg][Warning] Offline package acquisition error: {0}" -f $dlResult.Error) -Console
                                  throw "Offline deb acquisition failed: $($dlResult.Error)"    # mandatory failure
