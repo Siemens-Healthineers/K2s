@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: © 2024 Siemens Healthineers AG
+# SPDX-FileCopyrightText: © 2026 Siemens Healthineers AG
 #
 # SPDX-License-Identifier: MIT
 
@@ -25,9 +25,16 @@ Write-Log "[$script] Re-establishing SMB share after cluster start.." -Console
 
 $smbHostType = Get-SmbHostType
 $storageConfig = Get-StorageConfig
-    
+
 foreach ($storageEntry in $storageConfig) {
-    Restore-SmbShareAndFolder -SmbHostType $smbHostType -Config $storageEntry
+    # Harden against a single bad entry: a restore failure must not abort cluster start nor surface a raw console error - log full detail and continue.
+    try {
+        Restore-SmbShareAndFolder -SmbHostType $smbHostType -Config $storageEntry
+    }
+    catch {
+        Write-Log "[$script] Could not re-establish an SMB share entry after start; continuing. See log for details." -Console
+        Write-Log "[$script] Restore-SmbShareAndFolder failed: $_"
+    }
 }
 
 Write-Log "[$script] SMB share re-established after cluster start." -Console
