@@ -25,7 +25,18 @@ param(
     [int]$ExpectedHeadlessServices = 6
 )
 
-$ErrorActionPreference = 'Continue'
+$ErrorActionPreference = 'Stop'
+
+function Invoke-Kubectl {
+    param([string[]]$Arguments)
+    $output = & kubectl @Arguments 2>&1
+    if ($LASTEXITCODE -ne 0) {
+        Write-Host "FAIL: kubectl $($Arguments -join ' ') failed (exit code $LASTEXITCODE):" -ForegroundColor Red
+        Write-Host ($output | Out-String) -ForegroundColor Red
+        exit 1
+    }
+    return $output
+}
 
 Write-Host "======================================"
 Write-Host " ClusterIP Stress Test Validation"
@@ -34,7 +45,8 @@ Write-Host ""
 
 # 1. Check webhook pod health
 Write-Host "[1/4] Checking clusterip-webhook pod health..."
-$webhookPod = kubectl get pods -n k2s-webhook -l app.kubernetes.io/name=clusterip-webhook -o json | ConvertFrom-Json
+$raw = Invoke-Kubectl -Arguments @('get', 'pods', '-n', 'k2s-webhook', '-l', 'app.kubernetes.io/name=clusterip-webhook', '-o', 'json')
+$webhookPod = $raw | ConvertFrom-Json
 if ($webhookPod.items.Count -eq 0) {
     Write-Host "FAIL: No clusterip-webhook pod found in k2s-webhook namespace" -ForegroundColor Red
     exit 1
@@ -47,11 +59,30 @@ if ($podStatus -ne 'Running' -or $podReady -ne 'True') {
 }
 Write-Host "  OK: Webhook pod is Running and Ready"
 
-# 2. Get all services in the stress test namespace
+# 2. Get all services in the stress test namespace (with readiness wait)
 Write-Host ""
 Write-Host "[2/4] Collecting services in namespace '$Namespace'..."
-$services = kubectl get svc -n $Namespace -o json | ConvertFrom-Json
-$allServices = $services.items
+
+$maxAttempts = 12
+$waitSeconds = 5
+$allServices = @()
+for ($attempt = 1; $attempt -le $maxAttempts; $attempt++) {
+    $raw = Invoke-Kubectl -Arguments @('get', 'svc', '-n', $Namespace, '-o', 'json')
+    $services = $raw | ConvertFrom-Json
+    $allServices = $services.items
+
+    $clusterIPSvcs = @($allServices | Where-Object { $_.spec.clusterIP -ne 'None' })
+    $pendingSvcs = @($clusterIPSvcs | Where-Object { [string]::IsNullOrEmpty($_.spec.clusterIP) })
+
+    if ($allServices.Count -ge ($ExpectedClusterIPServices + $ExpectedHeadlessServices) -and $pendingSvcs.Count -eq 0) {
+        break
+    }
+
+    if ($attempt -lt $maxAttempts) {
+        Write-Host "  Waiting for services to be ready (attempt $attempt/$maxAttempts, found $($allServices.Count) services, $($pendingSvcs.Count) pending IP)..."
+        Start-Sleep -Seconds $waitSeconds
+    }
+}
 
 if ($allServices.Count -eq 0) {
     Write-Host "FAIL: No services found in namespace $Namespace" -ForegroundColor Red
@@ -88,10 +119,14 @@ foreach ($svc in $clusterIPServices) {
     $ip = $svc.spec.clusterIP
     $name = $svc.metadata.name
     if ($ipMap.ContainsKey($ip)) {
-        $duplicates += "  DUPLICATE: $ip assigned to '$($ipMap[$ip])', '$name'"
-        $ipMap[$ip] += ", $name"
+        $ipMap[$ip] += @($name)
     } else {
-        $ipMap[$ip] = $name
+        $ipMap[$ip] = @($name)
+    }
+}
+foreach ($entry in $ipMap.GetEnumerator()) {
+    if ($entry.Value.Count -gt 1) {
+        $duplicates += "  DUPLICATE: $($entry.Key) assigned to: $($entry.Value -join ', ')"
     }
 }
 
