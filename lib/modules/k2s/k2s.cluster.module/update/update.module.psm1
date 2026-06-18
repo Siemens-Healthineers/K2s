@@ -526,7 +526,14 @@ function Set-K2sInstallationHome {
 		}
 	}
 
-	# 3. Regenerate containerd config.toml from template with the new installation path
+	# 3. Regenerate containerd config.toml from template with the new installation path.
+	# Ordering/independence invariant: the containerd regen helpers derive the installation path
+	# from the module-level '$kubePath = Get-KubePath' captured when containerd.module is imported,
+	# which resolves from the module's own $PSScriptRoot (i.e. $ToPath here), NOT from setup.json.
+	# Because the module is imported from $ToPath with -Force just below, regeneration always targets
+	# $ToPath regardless of the current setup.json InstallFolder value and regardless of step 5 below.
+	# This also makes the rollback path correct: re-homing back to the previous folder imports
+	# containerd.module from that folder and regenerates for it the same way.
 	$containerdModule = Join-Path $ToPath 'lib\modules\k2s\k2s.node.module\windowsnode\downloader\artifacts\containerd\containerd.module.psm1'
 	$containerdTomlPath = Join-Path $ToPath 'cfg\containerd\config.toml'
 	if (Test-Path -LiteralPath $containerdModule) {
@@ -731,6 +738,10 @@ Current directory: $deltaRoot
 	$newInstallPath = $deltaRoot.TrimEnd('\')
 	$relocate = ($oldInstallPath -ine $newInstallPath)
 	$relocationDone = $false
+	# Tracks whether the relocation branch stopped the K2s-managed services before the re-home
+	# completed. Used by the catch block to restart the still-valid previous installation when a
+	# failure occurs after services were stopped but before the re-home took effect.
+	$relocateServicesStopped = $false
 	if ($relocate) {
 		Write-Log ("[Update] Installation will be relocated from '{0}' to '{1}'" -f $oldInstallPath, $newInstallPath) -Console:$consoleSwitch
 	} else {
@@ -877,6 +888,9 @@ Current directory: $deltaRoot
 		Stop-Process -Name 'containerd-shim-runhcs-v1' -Force -ErrorAction SilentlyContinue
 		Stop-Process -Name 'containerd' -Force -ErrorAction SilentlyContinue
 		Start-Sleep -Seconds 2
+		# From this point the previous installation's services are down. If seeding or the re-home
+		# fails before $relocationDone is set, the catch block must restart the previous installation.
+		$relocateServicesStopped = $true
 
 		# Seed unchanged files from the previous installation into the new folder.
 		$wholesaleDirs = @($manifest.WholeDirectories) | Where-Object { $_ -and ($_ -ne '') }
@@ -1369,6 +1383,23 @@ Current directory: $deltaRoot
 				Write-Log '[Update][Rollback][Warn] Cluster/Linux-side changes (kubeadm upgrade, Debian packages) are NOT reverted, consistent with full upgrade behavior.' -Console
 			} catch {
 				Write-Log ("[Update][Rollback][Error] Rollback failed: {0}. Manual recovery may be required." -f $_.Exception.Message) -Console
+			}
+		}
+		elseif ($relocate -and $relocateServicesStopped) {
+			# The failure happened after the relocation branch stopped the previous installation's
+			# services but before the re-home took effect. setup.json still points to the previous
+			# (still valid) installation, so restart it from there to avoid leaving K2s stopped.
+			Write-Log '[Update][Recovery] Re-home not yet applied; restarting the previous installation...' -Console
+			if ($wasRunning) {
+				try {
+					$oldK2sExe = Join-Path $oldInstallPath 'k2s.exe'
+					if (Test-Path -LiteralPath $oldK2sExe) { & $oldK2sExe start | Out-Null }
+					Write-Log '[Update][Recovery] Previous installation restarted.' -Console
+				} catch {
+					Write-Log ("[Update][Recovery][Error] Failed to restart the previous installation: {0}. Manual recovery may be required." -f $_.Exception.Message) -Console
+				}
+			} else {
+				Write-Log '[Update][Recovery] Cluster was not running before the update; leaving services stopped.' -Console
 			}
 		}
 		throw

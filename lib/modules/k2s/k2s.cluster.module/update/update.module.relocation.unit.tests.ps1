@@ -101,3 +101,16 @@ Describe 'Remove-DeltaPackageArtifact' -Tag 'unit', 'ci', 'update' {
 		(Test-Path (Join-Path $install 'k2s.exe')) | Should -BeTrue
 	}
 }
+
+Describe 'Set-K2sInstallationHome' -Tag 'unit', 'ci', 'update' {
+	It 'returns false when the services module is missing at the destination' {
+		# Empty destination: lib\...\services.module.psm1 is absent, so the function aborts early
+		# before touching any service, machine environment variable, or setup.json. This intentionally
+		# returns before importing any module so the test never loads a stub named 'services.module'.
+		$to = Join-Path $TestDrive 'to-no-services'
+		New-Item -ItemType Directory -Path $to -Force | Out-Null
+		$result = Set-K2sInstallationHome -FromPath (Join-Path $TestDrive 'from') -ToPath $to
+		$result | Should -BeFalse
+	}
+}
+

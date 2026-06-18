@@ -156,11 +156,14 @@ function Start-WSL() {
 .PARAMETER Name
     Name of the Windows service managed by nssm (e.g. 'containerd', 'flanneld').
 .PARAMETER OldPath
-    The current installation path that is baked into the service configuration.
+    The current installation path that is baked into the service configuration. Trailing
+    backslashes are ignored (the value is trimmed before matching).
 .PARAMETER NewPath
-    The new installation path that should replace the old one.
+    The new installation path that should replace the old one. Trailing backslashes are
+    ignored (the value is trimmed before substitution).
 .PARAMETER NssmPath
-    Optional full path to nssm.exe. Defaults to the nssm.exe in the module's bin path.
+    Optional full path to nssm.exe. Defaults to the nssm.exe in the module's bin path, or
+    'nssm.exe' (resolved via PATH) when the module bin path could not be determined.
 .OUTPUTS
     [hashtable] Map of changed nssm parameter names to their previous values (for rollback).
     Returns an empty hashtable when the service does not exist or nothing changed.
@@ -174,8 +177,13 @@ function Update-NssmServiceInstallPath {
         [Parameter(Mandatory = $true)]
         [string] $NewPath,
         [Parameter(Mandatory = $false)]
-        [string] $NssmPath = "$kubeBinPath\nssm.exe"
+        [string] $NssmPath = $(if ($kubeBinPath) { "$kubeBinPath\nssm.exe" } else { 'nssm.exe' })
     )
+
+    # Trim trailing separators so callers passing a path with a trailing backslash still match
+    # the values stored in the nssm registry parameters.
+    $OldPath = $OldPath.TrimEnd('\')
+    $NewPath = $NewPath.TrimEnd('\')
 
     $previousValues = @{}
 
