@@ -86,7 +86,7 @@ for ($attempt = 1; $attempt -le $maxAttempts; $attempt++) {
 }
 
 if ($pendingSvcs.Count -gt 0 -or $allServices.Count -lt ($ExpectedClusterIPServices + $ExpectedHeadlessServices)) {
-    Write-Host "FAIL: Timed out waiting for services to be ready after $($maxAttempts * $waitSeconds)s." -ForegroundColor Red
+    Write-Host "FAIL: Timed out waiting for services to be ready after $(($maxAttempts - 1) * $waitSeconds)s." -ForegroundColor Red
     Write-Host "  Expected $($ExpectedClusterIPServices + $ExpectedHeadlessServices) services, found $($allServices.Count). Pending IPs: $($pendingSvcs.Count)." -ForegroundColor Red
     exit 1
 }
@@ -96,8 +96,8 @@ Write-Host "  Found $($allServices.Count) services total"
 # 3. Validate ClusterIP services have unique IPs
 Write-Host ""
 Write-Host "[3/4] Validating ClusterIP uniqueness..."
-$nonHeadlessSvcs = @($allServices | Where-Object { $_.metadata.name -notlike 'stress-headless-*' })
-$headlessCount = @($allServices | Where-Object { $_.metadata.name -like 'stress-headless-*' }).Count
+$nonHeadlessSvcs = @($allServices | Where-Object { $_.spec.clusterIP -ne 'None' })
+$headlessCount = @($allServices | Where-Object { $_.spec.clusterIP -eq 'None' }).Count
 
 Write-Host "  ClusterIP services: $($nonHeadlessSvcs.Count) (expected: $ExpectedClusterIPServices)"
 Write-Host "  Headless services:  $headlessCount (expected: $ExpectedHeadlessServices)"
