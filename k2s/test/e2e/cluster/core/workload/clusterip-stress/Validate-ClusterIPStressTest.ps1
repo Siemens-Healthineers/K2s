@@ -96,11 +96,11 @@ Write-Host "  Found $($allServices.Count) services total"
 # 3. Validate ClusterIP services have unique IPs
 Write-Host ""
 Write-Host "[3/4] Validating ClusterIP uniqueness..."
-$clusterIPServices = $allServices | Where-Object { $_.spec.clusterIP -ne 'None' }
-$headlessServices = $allServices | Where-Object { $_.spec.clusterIP -eq 'None' }
+$clusterIPServices = $allServices | Where-Object { $_.spec.clusterIP -ne 'None' -and -not [string]::IsNullOrEmpty($_.spec.clusterIP) }
+$headlessCount = @($allServices | Where-Object { $_.metadata.name -like 'stress-headless-*' }).Count
 
 Write-Host "  ClusterIP services: $($clusterIPServices.Count) (expected: $ExpectedClusterIPServices)"
-Write-Host "  Headless services:  $($headlessServices.Count) (expected: $ExpectedHeadlessServices)"
+Write-Host "  Headless services:  $headlessCount (expected: $ExpectedHeadlessServices)"
 
 if ($clusterIPServices.Count -ne $ExpectedClusterIPServices) {
     Write-Host "FAIL: Expected $ExpectedClusterIPServices ClusterIP services, got $($clusterIPServices.Count)" -ForegroundColor Red
@@ -147,25 +147,30 @@ if ($duplicates.Count -gt 0) {
 Write-Host "  OK: All $($clusterIPServices.Count) ClusterIPs are unique"
 Write-Host ""
 Write-Host "  Assigned IPs:"
-foreach ($svc in ($clusterIPServices | Sort-Object { $_.spec.clusterIP })) {
+foreach ($svc in ($clusterIPServices | Sort-Object { ($_.spec.clusterIP -split '\.') | ForEach-Object { [int]$_ } })) {
     Write-Host "    $($svc.spec.clusterIP) -> $($svc.metadata.name)"
 }
 
 # 4. Validate headless services
 Write-Host ""
 Write-Host "[4/4] Validating headless services..."
-if ($headlessServices.Count -ne $ExpectedHeadlessServices) {
-    Write-Host "FAIL: Expected $ExpectedHeadlessServices headless services, got $($headlessServices.Count)" -ForegroundColor Red
-    exit 1
-}
 
-$badHeadless = $headlessServices | Where-Object { $_.spec.clusterIP -ne 'None' }
+# Check services that should be headless (by name) directly from $allServices
+$badHeadless = $allServices | Where-Object {
+    $_.metadata.name -like 'stress-headless-*' -and $_.spec.clusterIP -ne 'None'
+}
 if ($badHeadless.Count -gt 0) {
     Write-Host "FAIL: Headless services incorrectly received a ClusterIP:" -ForegroundColor Red
     $badHeadless | ForEach-Object { Write-Host "  - $($_.metadata.name): $($_.spec.clusterIP)" -ForegroundColor Red }
     exit 1
 }
-Write-Host "  OK: All $($headlessServices.Count) headless services have ClusterIP=None"
+
+$actualHeadless = @($allServices | Where-Object { $_.metadata.name -like 'stress-headless-*' })
+if ($actualHeadless.Count -ne $ExpectedHeadlessServices) {
+    Write-Host "FAIL: Expected $ExpectedHeadlessServices headless services, got $($actualHeadless.Count)" -ForegroundColor Red
+    exit 1
+}
+Write-Host "  OK: All $($actualHeadless.Count) headless services have ClusterIP=None"
 
 # Summary
 Write-Host ""
@@ -174,7 +179,7 @@ Write-Host " ALL CHECKS PASSED"
 Write-Host "======================================"
 Write-Host ""
 Write-Host " ClusterIP services: $($clusterIPServices.Count) (all unique)"
-Write-Host " Headless services:  $($headlessServices.Count) (all None)"
+Write-Host " Headless services:  $($actualHeadless.Count) (all None)"
 Write-Host " Webhook pod:        Running/Ready"
 Write-Host ""
 exit 0
