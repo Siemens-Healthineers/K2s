@@ -87,7 +87,10 @@ function Initialize-DebAcquisitionEnvironment {
     # When a proxy is supplied (corporate environments), route apt through it; otherwise remove any
     # stale proxy config so apt connects directly via the host NAT.
     if (-not [string]::IsNullOrWhiteSpace($Proxy)) {
-        $proxyFmt = "Acquire::http::Proxy `"$Proxy`";\nAcquire::https::Proxy `"$Proxy`";\n"
+        # Escape single quotes so a proxy value containing one cannot break out of the bash
+        # single-quoted printf argument below (bash idiom: ' -> '\'').
+        $proxyEsc = $Proxy.Replace("'", "'\''")
+        $proxyFmt = "Acquire::http::Proxy `"$proxyEsc`";\nAcquire::https::Proxy `"$proxyEsc`";\n"
         $proxyLine = "printf '$proxyFmt' | sudo tee /etc/apt/apt.conf.d/proxy.conf > /dev/null || true"
         $proxyLabel = $Proxy
     } else {

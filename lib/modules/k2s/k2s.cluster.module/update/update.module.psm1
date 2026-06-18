@@ -1374,10 +1374,27 @@ Current directory: $deltaRoot
 		if ($relocate -and $relocationDone) {
 			Write-Log '[Update][Rollback] Reverting installation home to the previous folder...' -Console
 			try {
+				# The cluster may still be running from the new folder (phase 7 restarted it there).
+				# Stop it using the NEW binaries BEFORE re-pointing configs back, otherwise services
+				# would be left running from the new folder while all config points at the old one.
+				if ($wasRunning) {
+					$newK2sExe = Join-Path $newInstallPath 'k2s.exe'
+					if (Test-Path -LiteralPath $newK2sExe) {
+						& $newK2sExe stop 2>&1 | Out-Null
+						if ($LASTEXITCODE -ne 0) {
+							Write-Log ("[Update][Rollback][Warn] k2s stop (new folder) returned exit code {0}" -f $LASTEXITCODE) -Console
+						}
+					}
+				}
 				Set-K2sInstallationHome -FromPath $newInstallPath -ToPath $oldInstallPath -ShowLogs:$ShowLogs | Out-Null
 				if ($wasRunning) {
 					$oldK2sExe = Join-Path $oldInstallPath 'k2s.exe'
-					if (Test-Path -LiteralPath $oldK2sExe) { & $oldK2sExe start | Out-Null }
+					if (Test-Path -LiteralPath $oldK2sExe) {
+						& $oldK2sExe start 2>&1 | Out-Null
+						if ($LASTEXITCODE -ne 0) {
+							Write-Log ("[Update][Rollback][Warn] k2s start (previous folder) returned exit code {0}; manual recovery may be required." -f $LASTEXITCODE) -Console
+						}
+					}
 				}
 				Write-Log '[Update][Rollback] Windows-side installation reverted to the previous folder.' -Console
 				Write-Log '[Update][Rollback][Warn] Cluster/Linux-side changes (kubeadm upgrade, Debian packages) are NOT reverted, consistent with full upgrade behavior.' -Console
@@ -1393,7 +1410,12 @@ Current directory: $deltaRoot
 			if ($wasRunning) {
 				try {
 					$oldK2sExe = Join-Path $oldInstallPath 'k2s.exe'
-					if (Test-Path -LiteralPath $oldK2sExe) { & $oldK2sExe start | Out-Null }
+					if (Test-Path -LiteralPath $oldK2sExe) {
+						& $oldK2sExe start 2>&1 | Out-Null
+						if ($LASTEXITCODE -ne 0) {
+							Write-Log ("[Update][Recovery][Warn] k2s start (previous folder) returned exit code {0}; manual recovery may be required." -f $LASTEXITCODE) -Console
+						}
+					}
 					Write-Log '[Update][Recovery] Previous installation restarted.' -Console
 				} catch {
 					Write-Log ("[Update][Recovery][Error] Failed to restart the previous installation: {0}. Manual recovery may be required." -f $_.Exception.Message) -Console
