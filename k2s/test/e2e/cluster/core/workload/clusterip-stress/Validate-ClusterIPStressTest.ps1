@@ -158,7 +158,10 @@ if ($duplicates.Count -gt 0) {
 Write-Host "  OK: All $($clusterIPServices.Count) ClusterIPs are unique"
 Write-Host ""
 Write-Host "  Assigned IPs:"
-foreach ($svc in ($clusterIPServices | Sort-Object { ($_.spec.clusterIP -split '\.') | ForEach-Object { [int]$_ } })) {
+foreach ($svc in ($clusterIPServices | Sort-Object {
+    $parts = $_.spec.clusterIP -split '\.'
+    [version]"$($parts[0]).$($parts[1]).$($parts[2]).$($parts[3])"
+})) {
     Write-Host "    $($svc.spec.clusterIP) -> $($svc.metadata.name)"
 }
 
@@ -167,9 +170,9 @@ Write-Host ""
 Write-Host "[4/4] Validating headless services..."
 
 # Check services that should be headless (by name) directly from $allServices
-$badHeadless = $allServices | Where-Object {
+$badHeadless = @($allServices | Where-Object {
     $_.metadata.name -like 'stress-headless-*' -and $_.spec.clusterIP -ne 'None'
-}
+})
 if ($badHeadless.Count -gt 0) {
     Write-Host "FAIL: Headless services incorrectly received a ClusterIP:" -ForegroundColor Red
     $badHeadless | ForEach-Object { Write-Host "  - $($_.metadata.name): $($_.spec.clusterIP)" -ForegroundColor Red }
