@@ -109,7 +109,7 @@ func main() {
 	}
 
 	slog.SetDefault(slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelInfo})))
-	slog.Info("Starting", "name", cliName, "addr", addr,
+	slog.Info("Starting", "name", cliName, "version", ve.GetVersion().String(), "addr", addr,
 		"linuxSubnet", linuxSubnet, "windowsSubnet", windowsSubnet, "reservedIPs", reservedIPs)
 
 	config, err := rest.InClusterConfig()
@@ -263,8 +263,8 @@ func (h *WebhookHandler) mutateService(request *admissionv1.AdmissionRequest) *a
 		return &admissionv1.AdmissionResponse{Allowed: true}
 	}
 
-	// Skip headless services
-	if service.Spec.ClusterIP == "None" {
+	// Skip headless services (check both singular and plural fields)
+	if service.Spec.ClusterIP == "None" || containsNone(service.Spec.ClusterIPs) {
 		slog.Info("Service is headless, skipping", "name", service.Name, "namespace", service.Namespace)
 		return &admissionv1.AdmissionResponse{Allowed: true}
 	}
@@ -917,6 +917,15 @@ func bytesGreater(a, b net.IP) bool {
 		}
 		if a[i] < b[i] {
 			return false
+		}
+	}
+	return false
+}
+
+func containsNone(clusterIPs []string) bool {
+	for _, ip := range clusterIPs {
+		if ip == "None" {
+			return true
 		}
 	}
 	return false
