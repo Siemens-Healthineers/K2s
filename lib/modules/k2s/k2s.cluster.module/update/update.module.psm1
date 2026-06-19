@@ -754,7 +754,7 @@ function PerformClusterUpdate {
 		  11. Basic health checks (API server reachable, node Ready) if cluster is running
 		  12. Restore CoreDNS etcd plugin configuration (kubeadm upgrade may reset customizations)
 		  13. Restore ClusterIP webhook TLS certificates (kubeadm upgrade may invalidate certs)
-		  14. Update VERSION file and setup.json to reflect successful update
+		  14. Update VERSION file and setup.json (product version + Kubernetes version) to reflect successful update
 	.PARAMETER ExecuteHooks
 		Execute lifecycle hooks (currently placeholder; no hooks executed yet).
 	.PARAMETER ShowProgress
@@ -1627,6 +1627,30 @@ Current directory: $deltaRoot
 		}
 	} else {
 		Write-Log '[Update][Info] Target version not determined; version information not updated' -Console:$consoleSwitch
+	}
+
+	# 13b. Update setup.json KubernetesVersion when the delta bumped Kubernetes.
+	# The delta package only carries the 'debian-delta/expected-k8s-version' marker (kubelet X.Y.Z)
+	# when the kubelet package actually changed; otherwise the Kubernetes version is unchanged and
+	# setup.json must keep its current value. install records the version with a leading 'v', so
+	# normalize the marker (which has no 'v') to match.
+	try {
+		if ($manifest.DebianDeltaRelativePath) {
+			$expectedK8sVersionFile = Join-Path (Join-Path $deltaRoot $manifest.DebianDeltaRelativePath) 'expected-k8s-version'
+			if (Test-Path -LiteralPath $expectedK8sVersionFile) {
+				$newK8sVersion = (Get-Content -LiteralPath $expectedK8sVersionFile -Raw).Trim()
+				if (-not [string]::IsNullOrWhiteSpace($newK8sVersion)) {
+					if ($newK8sVersion -notmatch '^v') { $newK8sVersion = "v$newK8sVersion" }
+					$currentK8sVersion = Get-ConfigInstalledKubernetesVersion
+					Write-Log ("[Update] Updating setup.json KubernetesVersion from {0} to {1}" -f $currentK8sVersion, $newK8sVersion) -Console:$consoleSwitch
+					Set-ConfigInstalledKubernetesVersion -Value $newK8sVersion
+				}
+			} else {
+				Write-Log '[Update][Info] No expected-k8s-version marker in delta; Kubernetes version unchanged' -Console:$consoleSwitch
+			}
+		}
+	} catch {
+		Write-Log ("[Update][Warn] Failed to update setup.json KubernetesVersion: {0}" -f $_.Exception.Message) -Console:$consoleSwitch
 	}
 
 	# Clean delta-package-only artifacts so the new installation folder is a clean installation
