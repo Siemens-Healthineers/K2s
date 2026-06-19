@@ -163,7 +163,7 @@ Because of this, extract the delta package to the location where you want the up
    After a successful upgrade, `C:\k2s\1.5.0` is the active installation. The previous installation folder remains on disk for rollback and can be deleted once the upgrade is confirmed.
 
 !!! note "Rollback scope"
-    If the update fails after the installation has been re-homed to the new folder, the Windows-side changes (service configuration, `KUBECONFIG`, `setup.json`) are automatically rolled back to the previous installation folder. Cluster/Linux-side changes (kubeadm upgrade, Debian package updates) are **not** reverted — this is consistent with the behavior of a full upgrade.
+    If the update fails after the installation has been re-homed to the new folder, the Windows-side changes (service configuration, `setup.json`, kubeconfig) are automatically rolled back to the previous installation folder. Cluster/Linux-side changes (kubeadm upgrade, Debian package updates) are **not** reverted — this is consistent with the behavior of a full upgrade.
 
 ## Node Packages
 

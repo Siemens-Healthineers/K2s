@@ -507,7 +507,8 @@ function Copy-UnchangedInstallationFiles {
 	  - containerd config.toml (regenerated from template with the new path)
 	  - machine PATH entries (install root + bin, bin\kube, bin\docker, bin\containerd), mirroring
 	    Set-EnvVars in path.module which adds them during installation
-	  - KUBECONFIG machine environment variable
+	  - kubeconfig file copied into the new installation folder (the active install folder always carries
+	    its own 'config'; the machine KUBECONFIG environment variable is intentionally left untouched)
 	  - setup.json InstallFolder
 
 	This function is symmetric: calling it with swapped FromPath/ToPath reverses the re-home,
@@ -660,12 +661,24 @@ function Set-K2sInstallationHome {
 		Write-Log ("[Update][Warn] Failed to update machine PATH: {0}" -f $_.Exception.Message) -Console:$consoleSwitch
 	}
 
-	# 5. Update KUBECONFIG machine environment variable
+	# 5. Copy the kubeconfig file into the new installation folder.
+	# k2s resolves the kubeconfig relative to the ACTIVE installation folder (setup.json InstallFolder,
+	# updated in step 6) and all of its own services pass --kubeconfig explicitly, so the delta update
+	# does NOT touch the machine KUBECONFIG environment variable. We only make sure the new folder owns a
+	# valid 'config' by copying it from the previous installation folder. The previous folder remains on
+	# disk, so any pre-existing machine KUBECONFIG (set by install for the HostVM variant) keeps resolving.
+	# This is symmetric: the rollback (swapped paths) copies the kubeconfig back.
 	try {
-		[Environment]::SetEnvironmentVariable('KUBECONFIG', "$ToPath\config", [System.EnvironmentVariableTarget]::Machine)
-		Write-Log ("[Update] KUBECONFIG set to '{0}\config'" -f $ToPath) -Console:$consoleSwitch
+		$fromKubeconfig = Join-Path $FromPath 'config'
+		$toKubeconfig = Join-Path $ToPath 'config'
+		if (Test-Path -LiteralPath $fromKubeconfig) {
+			Copy-Item -LiteralPath $fromKubeconfig -Destination $toKubeconfig -Force -ErrorAction Stop
+			Write-Log ("[Update] Copied kubeconfig from '{0}' to '{1}'" -f $fromKubeconfig, $toKubeconfig) -Console:$consoleSwitch
+		} else {
+			Write-Log ("[Update][Warn] kubeconfig not found at '{0}'; nothing to copy" -f $fromKubeconfig) -Console:$consoleSwitch
+		}
 	} catch {
-		Write-Log ("[Update][Warn] Failed to update KUBECONFIG: {0}" -f $_.Exception.Message) -Console:$consoleSwitch
+		Write-Log ("[Update][Warn] Failed to copy kubeconfig: {0}" -f $_.Exception.Message) -Console:$consoleSwitch
 	}
 
 	# 6. Update setup.json InstallFolder
@@ -1041,7 +1054,7 @@ Current directory: $deltaRoot
 		}
 
 		# Re-home: re-point services, fix StartKubelet.ps1, regenerate containerd config.toml,
-		# update KUBECONFIG and setup.json InstallFolder to the new folder.
+		# copy the kubeconfig and update setup.json InstallFolder to the new folder.
 		if (-not (Set-K2sInstallationHome -FromPath $oldInstallPath -ToPath $newInstallPath -ShowLogs:$ShowLogs)) {
 			throw 'Failed to re-home installation to the new folder'
 		}
@@ -1535,7 +1548,7 @@ Current directory: $deltaRoot
 				}
 				$rollbackOk = Set-K2sInstallationHome -FromPath $newInstallPath -ToPath $oldInstallPath -ShowLogs:$ShowLogs
 				if (-not $rollbackOk) {
-					Write-Log '[Update][Rollback][Error] Set-K2sInstallationHome returned false; installation state may be inconsistent (services/setup.json/KUBECONFIG may still point at the new folder). Manual recovery may be required.' -Console
+					Write-Log '[Update][Rollback][Error] Set-K2sInstallationHome returned false; installation state may be inconsistent (services/setup.json may still point at the new folder). Manual recovery may be required.' -Console
 				}
 				if ($wasRunning) {
 					$oldK2sExe = Join-Path $oldInstallPath 'k2s.exe'
@@ -1569,7 +1582,7 @@ Current directory: $deltaRoot
 			try {
 				$revertOk = Set-K2sInstallationHome -FromPath $newInstallPath -ToPath $oldInstallPath -ShowLogs:$ShowLogs
 				if (-not $revertOk) {
-					Write-Log '[Update][Recovery][Error] Set-K2sInstallationHome returned false; installation state may be inconsistent (services/setup.json/KUBECONFIG may still point at the new folder). Manual recovery may be required.' -Console
+					Write-Log '[Update][Recovery][Error] Set-K2sInstallationHome returned false; installation state may be inconsistent (services/setup.json may still point at the new folder). Manual recovery may be required.' -Console
 				}
 				if ($wasRunning) {
 					$oldK2sExe = Join-Path $oldInstallPath 'k2s.exe'
