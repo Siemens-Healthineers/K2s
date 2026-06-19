@@ -216,8 +216,12 @@ var _ = Describe("'registry' addon backup/restore", Ordered, func() {
 	})
 
 	It("can be enabled when only addons/common and addons/registry are present", func(ctx context.Context) {
+		GinkgoWriter.Println(">>> TEST: can be enabled when only addons/common and addons/registry are present")
+
+		GinkgoWriter.Println("[Test] Disabling registry to ensure clean re-enable path")
 		suite.K2sCli().Exec(ctx, "addons", "disable", "registry", "-o")
 
+		GinkgoWriter.Println("[Test] Staging addon isolation: keeping only common and registry")
 		restore, err := exportimport.StageAddonIsolation(suite.RootDir(), "registry")
 		Expect(err).ToNot(HaveOccurred(), "staging addon isolation should succeed")
 		DeferCleanup(func() {
@@ -227,11 +231,14 @@ var _ = Describe("'registry' addon backup/restore", Ordered, func() {
 			suite.K2sCli().Exec(ctx, "addons", "disable", "registry", "-o")
 		})
 
+		GinkgoWriter.Println("[Test] Enabling registry with isolated addons directory")
 		output := suite.K2sCli().MustExec(ctx, "addons", "enable", "registry", "-o")
 
 		k2s.VerifyAddonIsEnabled("registry")
+		GinkgoWriter.Println("[Test] Verifying registry statefulset is ready")
 		suite.Cluster().ExpectStatefulSetToBeReady("registry", "registry", 1, ctx)
 
+		GinkgoWriter.Println("[Test] Verifying no PowerShell module-not-found signatures in output")
 		Expect(output).NotTo(ContainSubstring("no valid module file was found"), "enable output must not contain PowerShell module-not-found error")
 		Expect(output).NotTo(ContainSubstring("was not loaded"), "enable output must not contain PowerShell module-not-loaded error")
 	})

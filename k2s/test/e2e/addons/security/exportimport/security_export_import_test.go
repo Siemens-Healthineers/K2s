@@ -156,6 +156,8 @@ var _ = Describe("security addon export and import", Ordered, func() {
 		})
 
 		AfterAll(func(ctx context.Context) {
+			_, _ = suite.K2sCli().Exec(ctx, "addons", "disable", "security", "-o")
+
 			if restoreProxyEnvironment != nil {
 				restoreProxyEnvironment()
 			}
@@ -199,11 +201,11 @@ var _ = Describe("security addon export and import", Ordered, func() {
 			exportimport.VerifyImportedAddonFiles(securityImplDir, expectedFiles)
 		})
 
-		It("can be enabled when only addons/common, addons/security, and addons/ingress are present", func(ctx context.Context) {
-			GinkgoWriter.Println(">>> TEST: can be enabled when only addons/common, addons/security, and addons/ingress are present")
+		It("can be enabled when only addons/common and addons/security are present", func(ctx context.Context) {
+			GinkgoWriter.Println(">>> TEST: can be enabled when only addons/common and addons/security are present")
 
-			// Stage isolation keeping ingress as a declared dependency
-			restore, err := exportimport.StageAddonIsolation(suite.RootDir(), "security", "ingress")
+			// Stage isolation keeping only common and security
+			restore, err := exportimport.StageAddonIsolation(suite.RootDir(), "security")
 			Expect(err).ToNot(HaveOccurred(), "staging addon isolation should succeed")
 			DeferCleanup(func() {
 				Expect(restore()).To(Succeed(), "addon isolation restore must succeed to avoid a partial workspace state")
@@ -212,7 +214,7 @@ var _ = Describe("security addon export and import", Ordered, func() {
 				_, _ = suite.K2sCli().Exec(context.Background(), "addons", "disable", "security", "-o")
 			})
 
-			// Enable security while isolated
+			// Enable security with isolated addons directory
 			output := suite.K2sCli().MustExec(ctx, "addons", "enable", "security", "-o")
 
 			// Assert no PowerShell module-not-found errors
