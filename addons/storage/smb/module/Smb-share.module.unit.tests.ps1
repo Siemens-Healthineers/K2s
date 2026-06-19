@@ -1491,7 +1491,7 @@ Describe 'Restore-SmbShareAndFolder' -Tag 'unit', 'ci', 'addon', 'storage smb' {
 
 Describe 'Get-SmbHostType' -Tag 'unit', 'ci', 'addon', 'storage smb' {
     BeforeAll {
-        Mock -ModuleName $moduleName Get-AddonConfig { return [PSCustomObject]@{Name = 'addon1'; SmbHostType = 'my-type' } }
+        Mock -ModuleName $moduleName Get-AddonConfig { }
     }
 
     It "returns 'windows' unchanged when configured" {
@@ -1544,7 +1544,8 @@ Describe 'Get-SmbHostType' -Tag 'unit', 'ci', 'addon', 'storage smb' {
     }
 
     It "returns 'windows' when configured SmbHostType is invalid (not in windows,linux)" {
-        InModuleScope $moduleName {
+        InModuleScope -ModuleName $moduleName {
+            Mock Get-AddonConfig { return [PSCustomObject]@{Name = 'addon1'; SmbHostType = 'my-type' } }
             Get-SmbHostType | Should -Be 'windows'
         }
     }
