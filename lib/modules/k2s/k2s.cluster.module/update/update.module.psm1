@@ -554,13 +554,47 @@ function Set-K2sInstallationHome {
 	# 1. Re-point nssm services
 	# Track which service parameters were actually re-pointed so a partial failure (e.g. a later step
 	# throws) leaves an audit trail in the log for manual recovery rather than silently discarding it.
+	#
+	# Update-NssmServiceInstallPath is provided by the destination ($ToPath) services module. On the
+	# very first relocating upgrade, a ROLLBACK re-homes back to the PREVIOUS installation whose older
+	# services module pre-dates this feature and does not export the function. Detect that and fall back
+	# to a direct nssm.exe registry substitution so the rollback still fully re-points the services.
 	$repointedCount = 0
+	$haveUpdateFn = [bool](Get-Command -Name Update-NssmServiceInstallPath -ErrorAction SilentlyContinue)
+	if (-not $haveUpdateFn) {
+		Write-Log '[Update][Warn] Update-NssmServiceInstallPath not available in the target installation module; using direct nssm fallback to re-point services.' -Console
+	}
+	$fromTrim = $FromPath.TrimEnd('\')
+	$toTrim = $ToPath.TrimEnd('\')
+	$fromPattern = [regex]::Escape($fromTrim)
 	foreach ($svc in (Get-K2sManagedServiceName)) {
 		try {
-			$changed = Update-NssmServiceInstallPath -Name $svc -OldPath $FromPath -NewPath $ToPath -NssmPath $nssmPath
-			if ($changed -and $changed.Count -gt 0) {
-				$repointedCount += $changed.Count
-				Write-Log ("[Update] Re-pointed service '{0}' parameter(s): {1}" -f $svc, (($changed.Keys | Sort-Object) -join ', ')) -Console:$consoleSwitch
+			if ($haveUpdateFn) {
+				$changed = Update-NssmServiceInstallPath -Name $svc -OldPath $FromPath -NewPath $ToPath -NssmPath $nssmPath
+				if ($changed -and $changed.Count -gt 0) {
+					$repointedCount += $changed.Count
+					Write-Log ("[Update] Re-pointed service '{0}' parameter(s): {1}" -f $svc, (($changed.Keys | Sort-Object) -join ', ')) -Console:$consoleSwitch
+				}
+			} else {
+				# Direct fallback: read the nssm registry parameters and substitute FromPath->ToPath.
+				if (-not (Get-Service -Name $svc -ErrorAction SilentlyContinue)) { continue }
+				$regKey = "HKLM:\SYSTEM\CurrentControlSet\Services\$svc\Parameters"
+				if (-not (Test-Path -LiteralPath $regKey)) { continue }
+				$props = Get-ItemProperty -Path $regKey -ErrorAction SilentlyContinue
+				foreach ($parameter in @('Application', 'AppDirectory', 'AppParameters')) {
+					$current = $props.$parameter
+					if ($null -eq $current) { continue }
+					if ($current -is [Array]) { $current = ($current -join ' ') }
+					if ($current.IndexOf($fromTrim, [System.StringComparison]::OrdinalIgnoreCase) -lt 0) { continue }
+					$newValue = [regex]::Replace($current, $fromPattern, $toTrim, [System.Text.RegularExpressions.RegexOptions]::IgnoreCase)
+					& $nssmPath set $svc $parameter $newValue | Out-Null
+					if ($LASTEXITCODE -ne 0) {
+						Write-Log ("[Update][Warn] nssm fallback failed (exit {0}) re-pointing service '{1}' parameter '{2}'" -f $LASTEXITCODE, $svc, $parameter) -Console
+						continue
+					}
+					$repointedCount++
+					Write-Log ("[Update] Re-pointed service '{0}' parameter '{1}' (fallback)" -f $svc, $parameter) -Console:$consoleSwitch
+				}
 			}
 		} catch {
 			Write-Log ("[Update][Warn] Failed to re-point service '{0}': {1}" -f $svc, $_.Exception.Message) -Console:$consoleSwitch
@@ -1287,6 +1321,11 @@ Current directory: $deltaRoot
 	if ($wasRunning) {
 		Write-Log '[Update] Restarting K2s cluster...' -Console
 		try {
+			# IMPORTANT: a relocating update ($relocate=$true) must ALWAYS take the k2s.exe-start
+			# else-branch below, because that is the only place $clusterStartedFromNew is set (the
+			# rollback path relies on it to decide whether to stop the new-folder cluster). The
+			# condition is written so '-not $relocate' short-circuits the '-and' for relocations,
+			# guaranteeing the else-branch. Do not refactor this without preserving that guarantee.
 			if (-not $relocate -and (Get-Command -Name Start-ClusterNode -ErrorAction SilentlyContinue)) {
 				Start-ClusterNode -SetupName $setupInfo.Name -ShowLogs:$ShowLogs
 				Write-Log '[Update] K2s cluster restarted successfully.' -Console:$consoleSwitch

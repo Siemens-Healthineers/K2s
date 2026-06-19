@@ -95,7 +95,7 @@ function Initialize-DebAcquisitionEnvironment {
         # Pass the proxy URL as a printf ARGUMENT (%s), never inside the format string, so '%'
         # characters in the URL (e.g. URL-encoded '%40') are treated as literal data and not as
         # printf conversion specifiers. The format string is constant (only the intended %s specifiers).
-        $proxyLine = "printf 'Acquire::http::Proxy `"%s`";\nAcquire::https::Proxy `"%s`";\n' '$proxyEsc' '$proxyEsc' | sudo tee /etc/apt/apt.conf.d/proxy.conf > /dev/null || true"
+        $proxyLine = "printf 'Acquire::http::Proxy `"%s`";\nAcquire::https::Proxy `"%s`";\n' '$proxyEsc' '$proxyEsc' | sudo tee /etc/apt/apt.conf.d/proxy.conf > /dev/null && echo SET_PROXY_OK || echo SET_PROXY_FAIL"
         $proxyLabel = $Proxy
     } else {
         $proxyLine = 'sudo rm -f /etc/apt/apt.conf.d/proxy.conf 2>/dev/null || true'
@@ -110,7 +110,10 @@ function Initialize-DebAcquisitionEnvironment {
         'echo __K2S_DIAG_BEGIN__',
         "echo '--- SET DNS: $dnsLabel ---'",
         'sudo chattr -i /etc/resolv.conf 2>/dev/null || true',
-        "printf '$dnsFmt' | sudo tee /etc/resolv.conf > /dev/null || true",
+        # Make a failed resolv.conf write visible (SET_DNS_FAIL) instead of silently continuing; with
+        # -e dropped this is the explicit guard the reviewer asked for, and it surfaces the real cause
+        # of a subsequent apt-get update DNS failure.
+        "printf '$dnsFmt' | sudo tee /etc/resolv.conf > /dev/null && echo SET_DNS_OK || echo SET_DNS_FAIL",
         "echo '--- APT PROXY: $proxyLabel ---'",
         $proxyLine,
         "echo '--- RESOLV.CONF (effective) ---'",
