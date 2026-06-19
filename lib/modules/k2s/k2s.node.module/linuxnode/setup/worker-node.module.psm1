@@ -123,14 +123,14 @@ function Restore-LinuxWorkerNodeRoutes {
     Write-Log "[RouteRestore] Using Windows host IP: $windowsHostIpAddress"
 
     # Restore route to control plane network
-    $controlPlaneCIDR = Get-ConfiguredControlPlaneCIDR
-    $controlPlaneRouteExists = -not [string]::IsNullOrWhiteSpace((Invoke-CmdOnVmViaSSHKey -CmdToExecute "ip route show $controlPlaneCIDR | grep -v 'proto kernel'" -UserName $UserName -IpAddress $IpAddress -IgnoreErrors).Output)
-    if ($controlPlaneRouteExists) {
-        Write-Log "[RouteRestore] Route to $controlPlaneCIDR already exists, skipping."
-    } else {
-        Write-Log "[RouteRestore] Adding route to control plane: $controlPlaneCIDR via $windowsHostIpAddress"
-        (Invoke-CmdOnVmViaSSHKey -CmdToExecute "sudo ip route add $controlPlaneCIDR via $windowsHostIpAddress" -UserName $UserName -IpAddress $IpAddress -IgnoreErrors).Output | Write-Log
-    }
+    # $controlPlaneCIDR = Get-ConfiguredControlPlaneCIDR
+    # $controlPlaneRouteExists = -not [string]::IsNullOrWhiteSpace((Invoke-CmdOnVmViaSSHKey -CmdToExecute "ip route show $controlPlaneCIDR | grep -v 'proto kernel'" -UserName $UserName -IpAddress $IpAddress -IgnoreErrors).Output)
+    # if ($controlPlaneRouteExists) {
+    #     Write-Log "[RouteRestore] Route to $controlPlaneCIDR already exists, skipping."
+    # } else {
+    #     Write-Log "[RouteRestore] Adding route to control plane: $controlPlaneCIDR via $windowsHostIpAddress"
+    #     (Invoke-CmdOnVmViaSSHKey -CmdToExecute "sudo ip route add $controlPlaneCIDR via $windowsHostIpAddress" -UserName $UserName -IpAddress $IpAddress -IgnoreErrors).Output | Write-Log
+    # }
 
     # Restore route to pod network
     $podNetworkCIDR = Get-ConfiguredClusterCIDR
@@ -286,13 +286,13 @@ function Add-LinuxWorkerNode {
     $doBeforeJoining = {
         Write-Log "Configuring networking for adding the node" -Console
         # add a route to the cluster network over the Windows host IP address
-        $controlPlaneCIDR = Get-ConfiguredControlPlaneCIDR
-        $controlPlaneRouteExists = -not [string]::IsNullOrWhiteSpace((Invoke-CmdOnVmViaSSHKey -CmdToExecute "ip route show $controlPlaneCIDR" -UserName $UserName -IpAddress $IpAddress -IgnoreErrors).Output)
-        if ($controlPlaneRouteExists) {
-            Write-Log "[Route] Route $controlPlaneCIDR already exists, skipping add."
-        } else {
-            (Invoke-CmdOnVmViaSSHKey -CmdToExecute "sudo ip route add $controlPlaneCIDR via $WindowsHostIpAddress" -UserName $UserName -IpAddress $IpAddress).Output | Write-Log
-        }
+        # $controlPlaneCIDR = Get-ConfiguredControlPlaneCIDR
+        # $controlPlaneRouteExists = -not [string]::IsNullOrWhiteSpace((Invoke-CmdOnVmViaSSHKey -CmdToExecute "ip route show $controlPlaneCIDR" -UserName $UserName -IpAddress $IpAddress -IgnoreErrors).Output)
+        # if ($controlPlaneRouteExists) {
+        #     Write-Log "[Route] Route $controlPlaneCIDR already exists, skipping add."
+        # } else {
+        #     (Invoke-CmdOnVmViaSSHKey -CmdToExecute "sudo ip route add $controlPlaneCIDR via $WindowsHostIpAddress" -UserName $UserName -IpAddress $IpAddress).Output | Write-Log
+        # }
 
         $podNetworkCIDR = Get-ConfiguredClusterCIDR
         $podNetworkRouteExists = -not [string]::IsNullOrWhiteSpace((Invoke-CmdOnVmViaSSHKey -CmdToExecute "ip route show $podNetworkCIDR" -UserName $UserName -IpAddress $IpAddress -IgnoreErrors).Output)
