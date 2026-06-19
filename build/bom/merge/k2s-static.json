@@ -605,7 +605,7 @@
     {
       "group": "https://github.com/prometheus-operator/prometheus-operator",
       "name": "prometheus-operator",
-      "version": "v0.91.0",
+      "version": "v0.92.0",
       "description": "Kubernetes operator for Prometheus - monitoring addon",
       "scope": "optional",
       "licenses": [
@@ -622,13 +622,13 @@
           "value": "k2s:addon:monitoring"
         }
       ],
-      "purl": "pkg:github/prometheus-operator/prometheus-operator@v0.91.0",
+      "purl": "pkg:github/prometheus-operator/prometheus-operator@v0.92.0",
       "type": "container"
     },
     {
       "group": "https://github.com/prometheus-operator/prometheus-operator",
       "name": "prometheus-config-reloader",
-      "version": "v0.91.0",
+      "version": "v0.92.0",
       "description": "Config reloader sidecar for Prometheus Operator - monitoring addon",
       "scope": "optional",
       "licenses": [
@@ -645,13 +645,13 @@
           "value": "k2s:addon:monitoring"
         }
       ],
-      "purl": "pkg:github/prometheus-operator/prometheus-operator@v0.91.0",
+      "purl": "pkg:github/prometheus-operator/prometheus-operator@v0.92.0",
       "type": "container"
     },
     {
       "group": "https://github.com/prometheus/prometheus",
       "name": "prometheus",
-      "version": "v3.12.0",
+      "version": "v3.5.4",
       "description": "Systems and service monitoring toolkit - monitoring addon",
       "scope": "optional",
       "licenses": [
@@ -668,7 +668,7 @@
           "value": "k2s:addon:monitoring"
         }
       ],
-      "purl": "pkg:github/prometheus/prometheus@v3.12.0",
+      "purl": "pkg:github/prometheus/prometheus@v3.5.4",
       "type": "container"
     },
     {
