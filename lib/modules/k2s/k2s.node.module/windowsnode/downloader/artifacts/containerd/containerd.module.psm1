@@ -27,7 +27,7 @@ function Get-CtrExePath {
 
 function Invoke-DownloadContainerdArtifacts($downloadsBaseDirectory, $Proxy, $windowsNodeArtifactsDirectory) {
     $containerdDownloadsDirectory = "$downloadsBaseDirectory\$windowsNode_ContainerdDirectory"
-    $versionContainerd = '2.3.1'
+    $versionContainerd = '2.3.2'
     $compressedContainerdFile = "containerd-$versionContainerd-windows-amd64.tar.gz"
     $compressedFile = "$containerdDownloadsDirectory\$compressedContainerdFile"
 
