@@ -86,7 +86,7 @@ for ($i = 1; $i -le 12; $i++) {
     }
 }
 if (-not $webhookReady) {
-    Write-Host "FAIL: Webhook pod(s) not Ready after 60s:" -ForegroundColor Red
+    Write-Host "FAIL: Webhook pod(s) not Ready after $(($i - 1) * 5)s:" -ForegroundColor Red
     $notReady | ForEach-Object { Write-Host "  - $($_.metadata.name): phase=$($_.status.phase)" -ForegroundColor Red }
     exit 1
 }
@@ -154,8 +154,6 @@ $expectedTotal = $ExpectedClusterIPServices + $ExpectedHeadlessServices
 $stressClusterIPSvcs = @($allServices | Where-Object {
     $_.metadata.name -like 'stress-linux-*' -or $_.metadata.name -like 'stress-win-*'
 })
-$stressHeadlessSvcs = @($allServices | Where-Object { $_.metadata.name -like 'stress-headless-*' })
-
 # Check exact total service count
 if ($allServices.Count -ne $expectedTotal) {
     Write-Host "FAIL: Expected $expectedTotal total services, got $($allServices.Count)" -ForegroundColor Red
@@ -166,6 +164,7 @@ if ($allServices.Count -ne $expectedTotal) {
         Write-Host "  Unexpected services:" -ForegroundColor Red
         $unexpected | ForEach-Object { Write-Host "    - $($_.metadata.name)" -ForegroundColor Red }
     }
+    Write-Host "  Hint: If leftover services exist from a prior run, clean up with: kubectl delete namespace $Namespace" -ForegroundColor Yellow
     exit 1
 }
 
