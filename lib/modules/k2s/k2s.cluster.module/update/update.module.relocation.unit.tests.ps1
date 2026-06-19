@@ -61,11 +61,25 @@ Describe 'Copy-UnchangedInstallationFiles' -Tag 'unit', 'ci', 'update' {
 		Get-Content (Join-Path $new 'a.txt') -Raw | Should -Be 'new-a'
 	}
 
-	It 'excludes wholesale directories that the delta already provides in the new folder' {
+	It 'seeds missing files in a wholesale directory without overwriting delta-provided files' {
+		# The new folder's wholesale dir already has the delta's new1.txt (a changed file) but is
+		# missing old1.txt/old2.txt (unchanged binaries). Those must be seeded so e.g. an unchanged
+		# containerd.exe is not lost, while the delta's newer file is preserved.
 		Copy-UnchangedInstallationFiles -OldInstallPath $old -NewInstallPath $new -WholesaleDirs @('wholedir', 'otherdir') | Out-Null
-		(Test-Path (Join-Path $new 'wholedir\old1.txt')) | Should -BeFalse
-		(Test-Path (Join-Path $new 'wholedir\old2.txt')) | Should -BeFalse
+		(Test-Path (Join-Path $new 'wholedir\old1.txt')) | Should -BeTrue
+		(Test-Path (Join-Path $new 'wholedir\old2.txt')) | Should -BeTrue
 		(Test-Path (Join-Path $new 'wholedir\new1.txt')) | Should -BeTrue
+		Get-Content (Join-Path $new 'wholedir\new1.txt') -Raw | Should -Be 'new-1'
+	}
+
+	It 'seeds an empty wholesale directory from the previous installation (offline-package case)' {
+		# Reproduces the real failure: bin\containerd is staged EMPTY in the delta (binaries live in
+		# WindowsNodeArtifacts.zip), so its unchanged binaries must be seeded or containerd cannot start.
+		New-Item -ItemType Directory -Path (Join-Path $new 'wholedir-empty') -Force | Out-Null
+		New-Item -ItemType Directory -Path (Join-Path $old 'wholedir-empty') -Force | Out-Null
+		Set-Content -Path (Join-Path $old 'wholedir-empty\containerd.exe') -Value 'binary' -NoNewline
+		Copy-UnchangedInstallationFiles -OldInstallPath $old -NewInstallPath $new -WholesaleDirs @('wholedir-empty') | Out-Null
+		(Test-Path (Join-Path $new 'wholedir-empty\containerd.exe')) | Should -BeTrue
 	}
 
 	It 'seeds wholesale directories that did not change (absent in the new folder)' {

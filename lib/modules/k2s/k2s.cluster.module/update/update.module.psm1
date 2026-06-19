@@ -452,15 +452,18 @@ function Select-PrunableRemovedFile {
 	it additionally needs every file from the previous installation that did not change.
 
 	This function copies only files that are MISSING in the new folder (robocopy /XC /XN /XO),
-	so the newer delta files are never overwritten. Wholesale directories that the delta
-	already provides in full are excluded so that stale files from the previous version do not
-	leak into a directory meant to be replaced as a whole.
+	so the newer delta files are never overwritten. Wholesale directories are NOT excluded from
+	seeding: because an offline delta only stages CHANGED binaries (the new versions live in
+	WindowsNodeArtifacts.zip), a wholesale directory in the new folder is frequently empty or
+	partial. robocopy's "only copy missing" semantics correctly fill in the unchanged binaries
+	(e.g. containerd.exe) from the previous installation without clobbering the delta's newer files.
 .PARAMETER OldInstallPath
 	The previous (current) installation folder, left untouched and used as the seed source.
 .PARAMETER NewInstallPath
 	The new installation folder (delta package root) being completed.
 .PARAMETER WholesaleDirs
-	Relative wholesale directory paths from the delta manifest.
+	Relative wholesale directory paths from the delta manifest. Retained for signature compatibility;
+	no longer used to exclude directories from seeding (see description).
 .OUTPUTS
 	[bool] success indicator.
 #>
@@ -473,21 +476,13 @@ function Copy-UnchangedInstallationFiles {
 	)
 	$consoleSwitch = $ShowLogs
 
-	# Exclude only wholesale directories the delta already provides in the new folder; wholesale
-	# directories that did not change (absent in the new folder) must still be seeded from the old one.
-	$excludeDirs = @()
-	foreach ($wd in ($WholesaleDirs | Where-Object { $_ -and ($_ -ne '') })) {
-		$newWdPath = Join-Path $NewInstallPath ($wd -replace '/', '\')
-		if (Test-Path -LiteralPath $newWdPath) {
-			$excludeDirs += (Join-Path $OldInstallPath ($wd -replace '/', '\'))
-		}
-	}
-
+	# Seed every file missing in the new folder from the previous installation. /XC /XN /XO make
+	# robocopy copy ONLY files that do not already exist in the destination, so the delta's newer
+	# (changed/added) files are never overwritten. Wholesale directories are intentionally NOT
+	# excluded: an offline delta stages only changed binaries, so a wholesale directory can be empty
+	# or partial in the new folder and its unchanged binaries (e.g. bin\containerd\containerd.exe)
+	# must be seeded here or the corresponding services would fail to start.
 	$robocopyArgs = @($OldInstallPath, $NewInstallPath, '/E', '/XC', '/XN', '/XO', '/R:2', '/W:2', '/NFL', '/NDL', '/NP', '/NJH', '/NJS')
-	if ($excludeDirs.Count -gt 0) {
-		$robocopyArgs += '/XD'
-		$robocopyArgs += $excludeDirs
-	}
 
 	Write-Log ("[Update] Seeding unchanged files from '{0}' into '{1}'" -f $OldInstallPath, $NewInstallPath) -Console:$consoleSwitch
 	& robocopy.exe @robocopyArgs | Out-Null
