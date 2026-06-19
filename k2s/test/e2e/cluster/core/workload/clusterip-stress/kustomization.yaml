@@ -9,4 +9,4 @@ resources:
   - namespace.yaml
   - linux-services.yaml
   - windows-services.yaml
-  - headless-services.yaml
+  - headless-workloads.yaml

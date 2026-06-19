@@ -35,13 +35,19 @@ $ErrorActionPreference = 'Stop'
 
 function Invoke-Kubectl {
     param([string[]]$Arguments)
-    $output = & kubectl @Arguments 2>&1
-    if ($LASTEXITCODE -ne 0) {
-        Write-Host "FAIL: kubectl $($Arguments -join ' ') failed (exit code $LASTEXITCODE):" -ForegroundColor Red
-        Write-Host ($output | Out-String) -ForegroundColor Red
-        exit 1
+    $errFile = [System.IO.Path]::GetTempFileName()
+    try {
+        $output = & kubectl @Arguments 2>$errFile
+        if ($LASTEXITCODE -ne 0) {
+            $errContent = Get-Content $errFile -Raw -ErrorAction SilentlyContinue
+            Write-Host "FAIL: kubectl $($Arguments -join ' ') failed (exit code $LASTEXITCODE):" -ForegroundColor Red
+            if ($errContent) { Write-Host $errContent -ForegroundColor Red }
+            exit 1
+        }
+        return $output
+    } finally {
+        Remove-Item $errFile -Force -ErrorAction SilentlyContinue
     }
-    return $output
 }
 
 Write-Host "======================================"
@@ -49,24 +55,42 @@ Write-Host " ClusterIP Stress Test Validation"
 Write-Host "======================================"
 Write-Host ""
 
-# 1. Check webhook pod health
+# 1. Check webhook pod health (with retry for pod restarts during startup)
 Write-Host "[1/4] Checking clusterip-webhook pod health..."
-$raw = Invoke-Kubectl -Arguments @('get', 'pods', '-n', 'k2s-webhook', '-l', 'app.kubernetes.io/name=clusterip-webhook', '-o', 'json')
-$webhookPod = $raw | ConvertFrom-Json
-if ($webhookPod.items.Count -eq 0) {
-    Write-Host "FAIL: No clusterip-webhook pod found in k2s-webhook namespace" -ForegroundColor Red
-    exit 1
+$webhookReady = $false
+for ($i = 1; $i -le 12; $i++) {
+    $raw = Invoke-Kubectl -Arguments @('get', 'pods', '-n', 'k2s-webhook', '-l', 'app.kubernetes.io/name=clusterip-webhook', '-o', 'json')
+    $webhookPod = $raw | ConvertFrom-Json
+    # Exclude pods being terminated during rolling updates
+    $activePods = @($webhookPod.items | Where-Object { $null -eq $_.metadata.deletionTimestamp })
+    if ($activePods.Count -eq 0) {
+        if ($i -lt 12) {
+            Write-Host "  Waiting for webhook pod (attempt $i/12)..."
+            Start-Sleep -Seconds 5
+            continue
+        }
+        Write-Host "FAIL: No clusterip-webhook pod found in k2s-webhook namespace" -ForegroundColor Red
+        exit 1
+    }
+    $notReady = @($activePods | Where-Object {
+        $_.status.phase -ne 'Running' -or
+        ($_.status.conditions | Where-Object { $_.type -eq 'Ready' }).status -ne 'True'
+    })
+    if ($notReady.Count -eq 0) {
+        $webhookReady = $true
+        break
+    }
+    if ($i -lt 12) {
+        Write-Host "  Waiting for webhook pod readiness (attempt $i/12)..."
+        Start-Sleep -Seconds 5
+    }
 }
-$notReady = @($webhookPod.items | Where-Object {
-    $_.status.phase -ne 'Running' -or
-    ($_.status.conditions | Where-Object { $_.type -eq 'Ready' }).status -ne 'True'
-})
-if ($notReady.Count -gt 0) {
-    Write-Host "FAIL: $($notReady.Count) webhook pod(s) not Ready:" -ForegroundColor Red
+if (-not $webhookReady) {
+    Write-Host "FAIL: Webhook pod(s) not Ready after 60s:" -ForegroundColor Red
     $notReady | ForEach-Object { Write-Host "  - $($_.metadata.name): phase=$($_.status.phase)" -ForegroundColor Red }
     exit 1
 }
-Write-Host "  OK: All $($webhookPod.items.Count) webhook pod(s) Running and Ready"
+Write-Host "  OK: All $($activePods.Count) webhook pod(s) Running and Ready"
 
 # 2. Get all services in the stress test namespace (with readiness wait)
 Write-Host ""
@@ -77,16 +101,24 @@ $waitSeconds = 5
 $allServices = @()
 $pendingSvcs = @()
 for ($attempt = 1; $attempt -le $maxAttempts; $attempt++) {
-    $output = & kubectl get svc -n $Namespace -o json 2>&1
-    if ($LASTEXITCODE -ne 0) {
-        if ($attempt -lt $maxAttempts) {
-            Write-Host "  Waiting for namespace/services (attempt $attempt/$maxAttempts): kubectl returned exit code $LASTEXITCODE"
-            Start-Sleep -Seconds $waitSeconds
-            continue
+    # Inline kubectl call (not Invoke-Kubectl) to allow retry on transient failures
+    # like namespace-not-found, instead of hard-exiting on first error.
+    $errFile = [System.IO.Path]::GetTempFileName()
+    try {
+        $output = & kubectl get svc -n $Namespace -o json 2>$errFile
+        if ($LASTEXITCODE -ne 0) {
+            $errContent = Get-Content $errFile -Raw -ErrorAction SilentlyContinue
+            if ($attempt -lt $maxAttempts) {
+                Write-Host "  Waiting for namespace/services (attempt $attempt/$maxAttempts): kubectl returned exit code $LASTEXITCODE"
+                Start-Sleep -Seconds $waitSeconds
+                continue
+            }
+            Write-Host "FAIL: kubectl get svc -n $Namespace failed after $maxAttempts attempts:" -ForegroundColor Red
+            if ($errContent) { Write-Host $errContent -ForegroundColor Red }
+            exit 1
         }
-        Write-Host "FAIL: kubectl get svc -n $Namespace failed after $maxAttempts attempts:" -ForegroundColor Red
-        Write-Host ($output | Out-String) -ForegroundColor Red
-        exit 1
+    } finally {
+        Remove-Item $errFile -Force -ErrorAction SilentlyContinue
     }
 
     $services = $output | ConvertFrom-Json
@@ -116,24 +148,43 @@ Write-Host "  Found $($allServices.Count) services total"
 # 3. Validate ClusterIP services have unique IPs
 Write-Host ""
 Write-Host "[3/4] Validating ClusterIP uniqueness..."
-$nonHeadlessSvcs = @($allServices | Where-Object { $_.spec.clusterIP -ne 'None' })
+$expectedTotal = $ExpectedClusterIPServices + $ExpectedHeadlessServices
 
-Write-Host "  ClusterIP services: $($nonHeadlessSvcs.Count) (expected: $ExpectedClusterIPServices)"
+# Filter by expected name patterns to avoid false matches from unrelated services
+$stressClusterIPSvcs = @($allServices | Where-Object {
+    $_.metadata.name -like 'stress-linux-*' -or $_.metadata.name -like 'stress-win-*'
+})
+$stressHeadlessSvcs = @($allServices | Where-Object { $_.metadata.name -like 'stress-headless-*' })
 
-if ($nonHeadlessSvcs.Count -ne $ExpectedClusterIPServices) {
-    Write-Host "FAIL: Expected $ExpectedClusterIPServices ClusterIP services, got $($nonHeadlessSvcs.Count)" -ForegroundColor Red
+# Check exact total service count
+if ($allServices.Count -ne $expectedTotal) {
+    Write-Host "FAIL: Expected $expectedTotal total services, got $($allServices.Count)" -ForegroundColor Red
+    $unexpected = @($allServices | Where-Object {
+        $_.metadata.name -notlike 'stress-linux-*' -and $_.metadata.name -notlike 'stress-win-*' -and $_.metadata.name -notlike 'stress-headless-*'
+    })
+    if ($unexpected.Count -gt 0) {
+        Write-Host "  Unexpected services:" -ForegroundColor Red
+        $unexpected | ForEach-Object { Write-Host "    - $($_.metadata.name)" -ForegroundColor Red }
+    }
     exit 1
 }
 
-# Check for empty/missing ClusterIPs (defense-in-depth after wait loop)
-$missingIP = @($nonHeadlessSvcs | Where-Object { [string]::IsNullOrEmpty($_.spec.clusterIP) })
+# Check for empty/missing ClusterIPs first (clearer diagnostic before count check)
+$missingIP = @($stressClusterIPSvcs | Where-Object { [string]::IsNullOrEmpty($_.spec.clusterIP) -or $_.spec.clusterIP -eq 'None' })
 if ($missingIP.Count -gt 0) {
     Write-Host "FAIL: $($missingIP.Count) services have no ClusterIP assigned:" -ForegroundColor Red
     $missingIP | ForEach-Object { Write-Host "  - $($_.metadata.name)" -ForegroundColor Red }
     exit 1
 }
 
-$clusterIPServices = $nonHeadlessSvcs
+Write-Host "  ClusterIP services: $($stressClusterIPSvcs.Count) (expected: $ExpectedClusterIPServices)"
+
+if ($stressClusterIPSvcs.Count -ne $ExpectedClusterIPServices) {
+    Write-Host "FAIL: Expected $ExpectedClusterIPServices ClusterIP services, got $($stressClusterIPSvcs.Count)" -ForegroundColor Red
+    exit 1
+}
+
+$clusterIPServices = $stressClusterIPSvcs
 
 # Check for duplicate ClusterIPs (THE critical check that would have caught the bug)
 $ipMap = @{}
@@ -164,13 +215,41 @@ if ($duplicates.Count -gt 0) {
     exit 1
 }
 
+# Check for duplicate secondary IPs in dual-stack clusters (spec.clusterIPs)
+$allClusterIPs = @()
+foreach ($svc in $clusterIPServices) {
+    if ($svc.spec.clusterIPs) {
+        foreach ($ip in $svc.spec.clusterIPs) {
+            if (-not [string]::IsNullOrEmpty($ip) -and $ip -ne 'None') {
+                $allClusterIPs += [PSCustomObject]@{ IP = $ip; Name = $svc.metadata.name }
+            }
+        }
+    }
+}
+$dualStackDupes = @()
+$dualStackMap = @{}
+foreach ($entry in $allClusterIPs) {
+    if ($dualStackMap.ContainsKey($entry.IP)) {
+        $dualStackMap[$entry.IP] += @($entry.Name)
+    } else {
+        $dualStackMap[$entry.IP] = @($entry.Name)
+    }
+}
+foreach ($entry in $dualStackMap.GetEnumerator()) {
+    if ($entry.Value.Count -gt 1) {
+        $dualStackDupes += "  DUPLICATE: $($entry.Key) assigned to: $($entry.Value -join ', ')"
+    }
+}
+if ($dualStackDupes.Count -gt 0) {
+    Write-Host "FAIL: Duplicate IPs detected in spec.clusterIPs (dual-stack):" -ForegroundColor Red
+    $dualStackDupes | ForEach-Object { Write-Host $_ -ForegroundColor Red }
+    exit 1
+}
+
 Write-Host "  OK: All $($clusterIPServices.Count) ClusterIPs are unique"
 Write-Host ""
 Write-Host "  Assigned IPs:"
-foreach ($svc in ($clusterIPServices | Sort-Object {
-    $parts = $_.spec.clusterIP -split '\.'
-    [version]"$($parts[0]).$($parts[1]).$($parts[2]).$($parts[3])"
-})) {
+foreach ($svc in ($clusterIPServices | Sort-Object { $_.spec.clusterIP })) {
     Write-Host "    $($svc.spec.clusterIP) -> $($svc.metadata.name)"
 }
 
