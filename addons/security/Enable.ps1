@@ -445,7 +445,13 @@ if (Test-Path $dashboardModule) {
     Import-Module $dashboardModule -Force
     if (Get-Command Sync-HeadlampPlugins -ErrorAction SilentlyContinue) {
         Write-Log '[Dashboard][Plugin] Syncing Headlamp plugins after security enable' -Console
-        Sync-HeadlampPlugins
+        try {
+            Sync-HeadlampPlugins
+        }
+        catch {
+            # Plugin sync is best-effort: a failure here must not fail the primary addon operation.
+            Write-Log "[Dashboard][Plugin] Headlamp plugin sync failed (security enable continues): $($_.Exception.Message)" -Console
+        }
     }
 }
 

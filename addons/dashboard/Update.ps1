@@ -154,6 +154,15 @@ if ($patchApplied) {
 }
 
 Write-Log '[Dashboard] Syncing Headlamp plugins' -Console
-Sync-HeadlampPlugins
+# Plugin activation is an optional, capability-driven enhancement layered on top of an
+# already-updated dashboard. A transient sync failure (e.g. a kubectl patch error) must
+# NOT fail the dashboard update: the plugin reconciliation is idempotent and re-runs on
+# every enable/update, so degrade gracefully with a warning instead.
+try {
+    Sync-HeadlampPlugins
+}
+catch {
+    Write-Log "[Dashboard] Headlamp plugin sync failed (dashboard update continues; plugins will reconcile on the next 'k2s addons enable dashboard' or update): $($_.Exception.Message)" -Console
+}
 
 Write-Log '[Dashboard] Updating dashboard addon finished.' -Console
