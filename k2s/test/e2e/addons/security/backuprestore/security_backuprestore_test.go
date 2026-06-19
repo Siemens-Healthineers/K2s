@@ -158,11 +158,11 @@ var _ = Describe("'security' addon backup/restore", Ordered, func() {
 			"CA root certificate should be identical after restore (same trust chain)")
 	})
 
-	It("can be enabled when only addons/common, addons/security, and addons/ingress are present", func(ctx context.Context) {
+	It("can be enabled when only addons/common and addons/security are present", func(ctx context.Context) {
 		// Disable security first to ensure a clean re-enable path.
 		suite.K2sCli().MustExec(ctx, "addons", "disable", "security", "-o")
 
-		restore, err := exportimport.StageAddonIsolation(suite.RootDir(), "security", "ingress")
+		restore, err := exportimport.StageAddonIsolation(suite.RootDir(), "security")
 		Expect(err).ToNot(HaveOccurred(), "staging addon isolation should succeed")
 		DeferCleanup(func() {
 			Expect(restore()).To(Succeed(), "addon isolation restore must succeed to avoid a partial workspace state")

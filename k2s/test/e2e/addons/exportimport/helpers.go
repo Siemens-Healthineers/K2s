@@ -878,6 +878,7 @@ func StageAddonIsolation(rootDir, targetAddon string, keepExtra ...string) (rest
 	}
 	backupDir, tmpErr := os.MkdirTemp(tmpParent, "addon-isolation-")
 	if tmpErr != nil {
+		_ = os.Remove(tmpParent)
 		return nil, fmt.Errorf("[AddonIsolation] failed to create backup directory under %s: %w", tmpParent, tmpErr)
 	}
 
@@ -922,6 +923,7 @@ func StageAddonIsolation(rootDir, targetAddon string, keepExtra ...string) (rest
 				return nil, errors.Join(stageErr, errors.Join(recoveryErrs...))
 			}
 			_ = os.RemoveAll(backupDir)
+			_ = os.Remove(tmpParent)
 			return nil, stageErr
 		}
 		moved = append(moved, name)
@@ -949,6 +951,7 @@ func StageAddonIsolation(rootDir, targetAddon string, keepExtra ...string) (rest
 			GinkgoWriter.Printf("[AddonIsolation] WARNING: failed to remove backup dir %s: %v\n", backupDir, rerr)
 			return fmt.Errorf("[AddonIsolation] failed to remove backup directory %s: %w", backupDir, rerr)
 		}
+		// Intentionally best-effort warning-only cleanup to preserve restore success and original error precedence.
 		if rerr := os.Remove(tmpParent); rerr != nil {
 			GinkgoWriter.Printf("[AddonIsolation] WARNING: failed to remove tmp dir %s: %v\n", tmpParent, rerr)
 		} else {
