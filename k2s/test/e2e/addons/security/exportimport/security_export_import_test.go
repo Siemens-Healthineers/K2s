@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: © 2026 Siemens Healthineers AG
+﻿// SPDX-FileCopyrightText: © 2026 Siemens Healthineers AG
 //
 // SPDX-License-Identifier: MIT
 
@@ -156,6 +156,8 @@ var _ = Describe("security addon export and import", Ordered, func() {
 		})
 
 		AfterAll(func(ctx context.Context) {
+			_, _ = suite.K2sCli().Exec(ctx, "addons", "disable", "security", "-o")
+
 			if restoreProxyEnvironment != nil {
 				restoreProxyEnvironment()
 			}
@@ -197,6 +199,27 @@ var _ = Describe("security addon export and import", Ordered, func() {
 				"security.module.psm1",
 			}
 			exportimport.VerifyImportedAddonFiles(securityImplDir, expectedFiles)
+		})
+
+		It("can be enabled when only addons/common and addons/security are present", func(ctx context.Context) {
+			GinkgoWriter.Println(">>> TEST: can be enabled when only addons/common and addons/security are present")
+
+			// Stage isolation keeping only common and security
+			restore, err := exportimport.StageAddonIsolation(suite.RootDir(), "security")
+			Expect(err).ToNot(HaveOccurred(), "staging addon isolation should succeed")
+			DeferCleanup(func() {
+				Expect(restore()).To(Succeed(), "addon isolation restore must succeed to avoid a partial workspace state")
+			})
+			DeferCleanup(func() {
+				_, _ = suite.K2sCli().Exec(context.Background(), "addons", "disable", "security", "-o")
+			})
+
+			// Enable security with isolated addons directory
+			output := suite.K2sCli().MustExec(ctx, "addons", "enable", "security", "-o")
+
+			// Assert no PowerShell module-not-found errors
+			Expect(output).NotTo(ContainSubstring("no valid module file was found"), "enable output must not contain PowerShell module-not-found error")
+			Expect(output).NotTo(ContainSubstring("was not loaded"), "enable output must not contain PowerShell module-not-loaded error")
 		})
 	})
 
