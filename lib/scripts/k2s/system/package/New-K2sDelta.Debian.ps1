@@ -124,9 +124,11 @@ function Initialize-DebAcquisitionEnvironment {
         "echo '--- APT SOURCES ---'",
         'grep -v ^# /etc/apt/sources.list 2>/dev/null || true',
         'ls -1 /etc/apt/sources.list.d 2>/dev/null || true',
+        # Emit the END marker BEFORE apt-get update so the connectivity verdicts and the marker itself are
+        # always within the captured window even if apt-get update produces many lines on a fresh image.
+        'echo __K2S_DIAG_END__',
         "echo '--- APT-GET UPDATE ---'",
-        'apt-get update 2>&1 || true',
-        'echo __K2S_DIAG_END__'
+        'apt-get update 2>&1 || true'
     )
     $scriptBody = $scriptLines -join "`n"
     $b64 = [System.Convert]::ToBase64String([System.Text.Encoding]::UTF8.GetBytes($scriptBody))
@@ -467,10 +469,11 @@ function Invoke-GuestDebAcquisition {
     }
 
     $initOut = Initialize-DebAcquisitionEnvironment -RemoteDir $RemoteDir -SshClient $SshClient -UsingPlink:$UsingPlink -PlinkHostKey $PlinkHostKey -SshUser $SshUser -GuestIp $GuestIp -SshKey $SshKey -SshPassword $SshPassword -Proxy $Proxy
-    if ($initOut) { $result.Diagnostics += ($initOut | Select-Object -First 60) }
+    if ($initOut) { $result.Diagnostics += ($initOut | Select-Object -First 200) }
     # Log the full diagnostic block (connectivity verdicts + apt-get update output) so download failures
-    # are explainable without a second run.
-    Write-Log ("[DebPkg][DL] Init diagnostics:`n{0}" -f (($initOut | Select-Object -First 60) -join "`n")) -Console
+    # are explainable without a second run. The cap is generous so apt-get update errors are not hidden;
+    # the END marker is emitted before apt-get update so it is always captured regardless.
+    Write-Log ("[DebPkg][DL] Init diagnostics:`n{0}" -f (($initOut | Select-Object -First 200) -join "`n")) -Console
 
     $idx = 0; $total = $PackageSpecs.Count
     foreach ($spec in $PackageSpecs) {

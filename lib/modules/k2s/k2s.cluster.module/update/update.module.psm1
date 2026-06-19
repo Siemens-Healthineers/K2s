@@ -565,14 +565,17 @@ function Set-K2sInstallationHome {
 	}
 
 	# 4. Update the machine PATH environment variable. Install adds five entries (the install root and
-	# bin/, bin\kube, bin\docker, bin\containerd under it) via Set-EnvVars in path.module; mirror that
-	# here by removing the FromPath entries and adding the ToPath entries so the 'k2s' CLI and bundled
-	# tools resolve to the new folder. path.module (force-reimported from $ToPath in step 3) exposes
-	# Update-SystemPath. This is symmetric, so the rollback (swapped paths) restores the previous entries.
+	# bin, bin\kube, bin\docker, bin\containerd under it) via Set-EnvVars in path.module; mirror that here.
+	# Removal additionally clears the legacy '\containerd' (no '\bin') entry that older installations may
+	# still carry, matching Reset-EnvVars, so re-homing never leaves a stale entry pointing at FromPath.
+	# path.module (force-reimported from $ToPath in step 3) exposes Update-SystemPath. This is symmetric:
+	# the rollback (swapped paths) restores the previous entries (the extra legacy removal is a no-op when
+	# the entry is absent).
 	try {
-		$pathSubDirs = @('', '\bin', '\bin\kube', '\bin\docker', '\bin\containerd')
-		foreach ($sub in $pathSubDirs) { Update-SystemPath -Action 'remove' "$FromPath$sub" }
-		foreach ($sub in $pathSubDirs) { Update-SystemPath -Action 'add' "$ToPath$sub" }
+		$pathAddSubDirs = @('', '\bin', '\bin\kube', '\bin\docker', '\bin\containerd')
+		$pathRemoveSubDirs = $pathAddSubDirs + '\containerd'  # include legacy entry for cleanup
+		foreach ($sub in $pathRemoveSubDirs) { Update-SystemPath -Action 'remove' "$FromPath$sub" }
+		foreach ($sub in $pathAddSubDirs) { Update-SystemPath -Action 'add' "$ToPath$sub" }
 		Write-Log ("[Update] Updated machine PATH entries from '{0}' to '{1}'" -f $FromPath, $ToPath) -Console:$consoleSwitch
 	} catch {
 		Write-Log ("[Update][Warn] Failed to update machine PATH: {0}" -f $_.Exception.Message) -Console:$consoleSwitch
@@ -1434,6 +1437,10 @@ Current directory: $deltaRoot
 					if (Test-Path -LiteralPath $newK2sExe) {
 						& $newK2sExe stop 2>&1 | Out-Null
 						if ($LASTEXITCODE -ne 0) {
+							# A failed/partial stop is non-fatal here: Set-K2sInstallationHome re-points the
+							# nssm registry parameters, which does not require the services to be stopped. The
+							# old folder is restored regardless; any service still running from the new folder
+							# is corrected on the next start/stop cycle.
 							Write-Log ("[Update][Rollback][Warn] k2s stop (new folder) returned exit code {0}" -f $LASTEXITCODE) -Console
 						}
 					}

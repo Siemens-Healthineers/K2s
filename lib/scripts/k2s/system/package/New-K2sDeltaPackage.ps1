@@ -689,6 +689,9 @@ if ($SpecialSkippedFiles -contains 'Kubemaster-Base.vhdx') {
                 if ($script:StructuredErrorSent) {
                     # A specific structured error was already emitted at the failure point (e.g. missing
                     # critical Kubernetes packages). Do not re-emit a generic/downgraded error on top of it.
+                    # NOTE: this 'return' exits the ENTIRE script (a return inside a catch in a top-level
+                    # script returns from the script), which is the intended behavior here - the structured
+                    # error has been sent to the CLI and no further phases should run.
                     $script:SuppressFinalErrorLog = $true
                     return
                 }
