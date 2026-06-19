@@ -635,7 +635,6 @@ Describe 'Test-FluxCapabilityAvailable' -Tag 'unit', 'ci', 'addon', 'dashboard',
 
     Context 'flux-system namespace absent but Flux CRD present' {
         BeforeAll {
-            $script:fluxKubectlCall = 0
             Mock -ModuleName $moduleName Invoke-Kubectl {
                 $script:fluxKubectlCall++
                 # First call = namespace check (empty), second call = CRD check (found)
@@ -647,9 +646,15 @@ Describe 'Test-FluxCapabilityAvailable' -Tag 'unit', 'ci', 'addon', 'dashboard',
             Mock -ModuleName $moduleName Write-Log { }
         }
 
+        BeforeEach {
+            # Reset in the test-file script scope — the same scope the mock closure
+            # increments. Resetting inside InModuleScope would target the module's
+            # script scope instead, leaving this counter stale across It blocks.
+            $script:fluxKubectlCall = 0
+        }
+
         It 'returns true when the Flux CRD is found' {
             InModuleScope $moduleName {
-                $script:fluxKubectlCall = 0
                 $result = Test-FluxCapabilityAvailable
                 $result | Should -Be $true
             }
@@ -692,7 +697,6 @@ Describe 'Test-CertManagerCapabilityAvailable' -Tag 'unit', 'ci', 'addon', 'dash
 
     Context 'cert-manager namespace absent but CRD present' {
         BeforeAll {
-            $script:cmKubectlCall = 0
             Mock -ModuleName $moduleName Invoke-Kubectl {
                 $script:cmKubectlCall++
                 if ($script:cmKubectlCall -eq 1) {
@@ -703,9 +707,14 @@ Describe 'Test-CertManagerCapabilityAvailable' -Tag 'unit', 'ci', 'addon', 'dash
             Mock -ModuleName $moduleName Write-Log { }
         }
 
+        BeforeEach {
+            # Reset in the test-file script scope — the same scope the mock closure
+            # increments (see Flux context for rationale).
+            $script:cmKubectlCall = 0
+        }
+
         It 'returns true when the certificates CRD is found' {
             InModuleScope $moduleName {
-                $script:cmKubectlCall = 0
                 $result = Test-CertManagerCapabilityAvailable
                 $result | Should -Be $true
             }
@@ -765,7 +774,6 @@ Describe 'Test-PrometheusCapabilityAvailable' -Tag 'unit', 'ci', 'addon', 'dashb
 
     Context 'CRD absent but prometheus-operated service present' {
         BeforeAll {
-            $script:promKubectlCall = 0
             Mock -ModuleName $moduleName Invoke-Kubectl {
                 $script:promKubectlCall++
                 if ($script:promKubectlCall -eq 1) {
@@ -776,9 +784,14 @@ Describe 'Test-PrometheusCapabilityAvailable' -Tag 'unit', 'ci', 'addon', 'dashb
             Mock -ModuleName $moduleName Write-Log { }
         }
 
+        BeforeEach {
+            # Reset in the test-file script scope — the same scope the mock closure
+            # increments (see Flux context for rationale).
+            $script:promKubectlCall = 0
+        }
+
         It 'returns true when the prometheus-operated service is found' {
             InModuleScope $moduleName {
-                $script:promKubectlCall = 0
                 $result = Test-PrometheusCapabilityAvailable
                 $result | Should -Be $true
             }

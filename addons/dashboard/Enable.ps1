@@ -122,7 +122,17 @@ if ($headlampReady -ne $true) {
 Add-AddonToSetupJson -Addon ([pscustomobject] @{Name = 'dashboard' })
 
 Write-Log '[Dashboard] Syncing Headlamp plugins' -Console
-Sync-HeadlampPlugins
+# Plugin activation is an optional, capability-driven enhancement layered on top of an
+# already-enabled dashboard (Helm release installed + addon registered in setup.json).
+# A transient sync failure (e.g. a kubectl patch error) must NOT leave the dashboard in
+# a registered-but-failed state: the plugin reconciliation is idempotent and re-runs on
+# every Update.ps1 and subsequent enable, so degrade gracefully with a warning instead.
+try {
+    Sync-HeadlampPlugins
+}
+catch {
+    Write-Log "[Dashboard] Headlamp plugin sync failed (dashboard remains enabled; plugins will reconcile on the next 'k2s addons enable dashboard' or update): $($_.Exception.Message)" -Console
+}
 
 Write-HeadlampUsageForUser
 Write-BrowserWarningForUser
