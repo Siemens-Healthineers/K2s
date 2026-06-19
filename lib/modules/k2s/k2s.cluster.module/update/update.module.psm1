@@ -395,6 +395,56 @@ function Get-K2sManagedServiceName {
 
 <#
 .SYNOPSIS
+	Filters a delta manifest 'Removed' list to entries that are safe to delete during an update.
+.DESCRIPTION
+	The manifest 'Removed' list (files present in the old package but not the new) can contain
+	false positives for content under the 'bin' directory. Those binaries are owned wholesale by
+	the new package - via wholesale directories (bin\kube, bin\docker, bin\containerd, bin\cni)
+	and the loose tools extracted from bin\WindowsNodeArtifacts.zip at install/start time - not by
+	the per-file delta. The package-vs-package diff can wrongly classify them as 'Removed' because
+	the wholesale list is finalized only after the diff runs during creation, and because the
+	loose tools live inside the ZIP in a package but loose in an installation. Deleting them would
+	remove essential executables (e.g. nssm.exe, ctr.exe, containerd.exe) and break the cluster.
+
+	Therefore this excludes any entry under 'bin/' and any entry under an explicit wholesale
+	directory. Genuine removals elsewhere (manifests, scripts, lib, cfg, ...) are still pruned.
+.PARAMETER RemovedFiles
+	The manifest 'Removed' relative paths.
+.PARAMETER WholesaleDirs
+	Relative wholesale directory paths from the delta manifest.
+.OUTPUTS
+	[string[]] The subset of RemovedFiles that may be safely deleted.
+#>
+function Select-PrunableRemovedFile {
+	param(
+		[string[]] $RemovedFiles = @(),
+		[string[]] $WholesaleDirs = @()
+	)
+	$normalizedWholesale = @()
+	foreach ($wd in $WholesaleDirs) {
+		if ([string]::IsNullOrWhiteSpace($wd)) { continue }
+		$normalizedWholesale += (($wd -replace '\\', '/').Trim('/'))
+	}
+	$result = @()
+	foreach ($rel in $RemovedFiles) {
+		if ([string]::IsNullOrWhiteSpace($rel)) { continue }
+		$norm = ($rel -replace '\\', '/').TrimStart('/')
+		# bin/ is owned wholesale by the new package (wholesale dirs + WindowsNodeArtifacts.zip);
+		# never prune individual files under it.
+		if ($norm -like 'bin/*') { continue }
+		# Skip anything under an explicit wholesale directory (replaced as a unit).
+		$inWholesale = $false
+		foreach ($wd in $normalizedWholesale) {
+			if ($norm -like "$wd/*") { $inWholesale = $true; break }
+		}
+		if ($inWholesale) { continue }
+		$result += $rel
+	}
+	return , $result
+}
+
+<#
+.SYNOPSIS
 	Seeds the new installation folder with files that did not change between versions.
 .DESCRIPTION
 	The new installation folder (the extracted delta package directory) already contains the
@@ -946,7 +996,9 @@ Current directory: $deltaRoot
 		}
 
 		# Remove obsolete files (manifest.Removed) that may have been seeded from the previous installation.
-		$removedFiles = @($manifest.Removed) | Where-Object { $_ -and ($_ -ne '') }
+		# Filter out false positives under bin/ and wholesale directories so essential binaries
+		# (nssm.exe, ctr.exe, ...) that the new package owns wholesale are never deleted.
+		$removedFiles = Select-PrunableRemovedFile -RemovedFiles @($manifest.Removed) -WholesaleDirs $wholesaleDirs
 		foreach ($rel in $removedFiles) {
 			$obsolete = Join-Path $newInstallPath ($rel -replace '/', '\')
 			if (Test-Path -LiteralPath $obsolete) {
@@ -1166,7 +1218,9 @@ Current directory: $deltaRoot
 	}
 
 	# 6c. Remove obsolete files (Removed) from target installation
-	$removedFiles = @($manifest.Removed) | Where-Object { $_ -and ($_ -ne '') }
+	# Filter out false positives under bin/ and wholesale directories so essential binaries owned
+	# wholesale by the new package (nssm.exe, ctr.exe, containerd.exe, ...) are never deleted.
+	$removedFiles = Select-PrunableRemovedFile -RemovedFiles @($manifest.Removed) -WholesaleDirs $wholesaleDirs
 	if ($removedFiles.Count -gt 0) {
 		Write-Log ("[Update] Removing {0} obsolete files from target installation" -f $removedFiles.Count) -Console:$consoleSwitch
 		$removedCount = 0
@@ -1553,6 +1607,7 @@ Export-ModuleMember -Function Copy-UnchangedInstallationFiles
 Export-ModuleMember -Function Set-K2sInstallationHome
 Export-ModuleMember -Function Remove-DeltaPackageArtifact
 Export-ModuleMember -Function Get-K2sManagedServiceName
+Export-ModuleMember -Function Select-PrunableRemovedFile
 
 # region: VM execution helper (Debian delta application)
 function Invoke-CommandInMasterVM {

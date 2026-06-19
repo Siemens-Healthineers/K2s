@@ -114,3 +114,35 @@ Describe 'Set-K2sInstallationHome' -Tag 'unit', 'ci', 'update' {
 	}
 }
 
+Describe 'Select-PrunableRemovedFile' -Tag 'unit', 'ci', 'update' {
+	It 'keeps genuine removals outside bin and wholesale directories' {
+		$removed = @('lib/manifests/clusterip-webhook/certgen-create-job.yaml', 'cfg/old-thing.yaml')
+		$result = Select-PrunableRemovedFile -RemovedFiles $removed -WholesaleDirs @('bin/cni', 'bin/containerd')
+		$result | Should -Contain 'lib/manifests/clusterip-webhook/certgen-create-job.yaml'
+		$result | Should -Contain 'cfg/old-thing.yaml'
+		$result.Count | Should -Be 2
+	}
+
+	It 'never prunes essential binaries or other files under bin/' {
+		# Reproduces the real-world false positives that broke the re-home (nssm.exe deleted).
+		$removed = @('bin/nssm.exe', 'bin/helm.exe', 'bin/jq.exe', 'bin/crictl.yaml', 'bin/containerd/ctr.exe')
+		$result = Select-PrunableRemovedFile -RemovedFiles $removed -WholesaleDirs @('bin/containerd')
+		$result.Count | Should -Be 0
+	}
+
+	It 'excludes files under an explicit wholesale directory even outside bin' {
+		$removed = @('addons/registry/old.yaml', 'data/stale.txt')
+		$result = Select-PrunableRemovedFile -RemovedFiles $removed -WholesaleDirs @('addons/registry')
+		$result | Should -Not -Contain 'addons/registry/old.yaml'
+		$result | Should -Contain 'data/stale.txt'
+	}
+
+	It 'handles backslash separators and empty entries' {
+		$removed = @('bin\nssm.exe', '', 'lib\foo\bar.yaml')
+		$result = Select-PrunableRemovedFile -RemovedFiles $removed -WholesaleDirs @()
+		$result | Should -Not -Contain 'bin\nssm.exe'
+		$result | Should -Contain 'lib\foo\bar.yaml'
+		$result.Count | Should -Be 1
+	}
+}
+
