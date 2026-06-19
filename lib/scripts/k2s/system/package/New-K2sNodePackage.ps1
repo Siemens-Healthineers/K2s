@@ -293,18 +293,28 @@ try {
 
     (Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute "mkdir -p $remoteImagesExportDir" -RemoteUser $remoteUser -RemoteUserPwd $sshPwd -IgnoreErrors).Output | Write-Log
 
-    # Build export list from crictl JSON to avoid fragile text parsing.
+    # Kubeadm is the source of truth for Kubernetes images, including pause.
+    $kubeadmImagesOutput = (Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute "sudo kubeadm config images list --kubernetes-version $k8sVersion" -RemoteUser $remoteUser -RemoteUserPwd $sshPwd -IgnoreErrors).Output
+    $kubeadmImageRefs = @($kubeadmImagesOutput | ForEach-Object { $_.Trim() } | Where-Object { $_ -match '^[^\s]+/[^\s]+:[^\s]+$' })
+
+    if (@($kubeadmImageRefs).Count -eq 0) {
+        throw "[NodePkg] Could not resolve Kubernetes images with kubeadm for version '$k8sVersion'."
+    }
+
+    Write-Log "[NodePkg] Kubeadm images selected for export: $($kubeadmImageRefs -join ', ')" -Console
+
+    # Build non-kubeadm export list from crictl JSON to avoid fragile text parsing.
     $imagesJsonOutput = (Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute 'sudo crictl images -o json' -RemoteUser $remoteUser -RemoteUserPwd $sshPwd -IgnoreErrors).Output
     $imagesJsonText = ($imagesJsonOutput -join "`n")
     $imagesDoc = $imagesJsonText | ConvertFrom-Json
 
-    $imageRefsToExport = @()
+    $imageRefsToExport = @($kubeadmImageRefs)
     foreach ($img in @($imagesDoc.images)) {
         foreach ($repoTag in @($img.repoTags)) {
             if ([string]::IsNullOrWhiteSpace($repoTag) -or $repoTag -match '<none>') {
                 continue
             }
-            if ($repoTag -like 'registry.k8s.io/*' -or $repoTag -like 'docker.io/flannel/*') {
+            if ($repoTag -like 'docker.io/flannel/*') {
                 $imageRefsToExport += $repoTag
             }
             # Include GPU images when --include-gpu is specified
@@ -316,7 +326,7 @@ try {
     $imageRefsToExport = $imageRefsToExport | Select-Object -Unique
 
     if (@($imageRefsToExport).Count -eq 0) {
-        throw "[NodePkg] No image matching 'registry.k8s.io/* or docker.io/flannel/*' found in crictl output."
+        throw "[NodePkg] No container images were selected for export."
     }
 
     Write-Log "[NodePkg] Images selected for export: $($imageRefsToExport -join ', ')" -Console
