@@ -1555,12 +1555,16 @@ Current directory: $deltaRoot
 		elseif ($relocate -and $relocateServicesStopped) {
 			# The failure happened after the relocation branch stopped the previous installation's
 			# services but before the re-home was confirmed complete ($relocationDone = $false). The
-			# re-home may have been PARTIALLY applied: Set-K2sInstallationHome can fail at step 5
-			# (setup.json) after steps 1-4 already re-pointed nssm services, StartKubelet.ps1,
-			# containerd config and KUBECONFIG to the new folder. Therefore always attempt to revert
-			# any partial re-home back to the previous folder before restarting it. Set-K2sInstallationHome
-			# is safe to call even when nothing was changed (it skips services whose value does not
-			# contain the source path), so this is a no-op when seeding failed before any re-home.
+			# forward re-home may have been PARTIALLY applied (e.g. nssm services already re-pointed to
+			# the new folder before a later step threw). Revert by re-homing back to the previous folder.
+			#
+			# This revert targets $ToPath = $oldInstallPath, which is the REAL previous installation and
+			# therefore always contains the services + containerd + path modules. So Set-K2sInstallationHome
+			# runs all of steps 1-6 to completion here (it does not early-return on a missing-module guard,
+			# unlike the forward direction into a possibly-incomplete delta folder). Re-pointing is also
+			# idempotent: services whose nssm value does not contain the source path are skipped, so this is
+			# a harmless no-op when seeding failed before any re-home was applied. A $false return here
+			# therefore signals a GENUINE problem (e.g. nssm/setup.json write failed) worth manual attention.
 			Write-Log '[Update][Recovery] Reverting any partially-applied re-home to the previous folder...' -Console
 			try {
 				$revertOk = Set-K2sInstallationHome -FromPath $newInstallPath -ToPath $oldInstallPath -ShowLogs:$ShowLogs
