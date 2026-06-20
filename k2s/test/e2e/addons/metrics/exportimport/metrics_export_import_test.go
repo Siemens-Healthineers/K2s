@@ -202,6 +202,33 @@ var _ = Describe("metrics addon export and import", Ordered, func() {
 			suite.K2sCli().MustExec(ctx, "addons", "enable", "metrics", "-o")
 			suite.Cluster().ExpectDeploymentToBeAvailable("metrics-server", "metrics")
 		})
+
+		It("can be enabled when only addons/common and addons/metrics are present", func(ctx context.Context) {
+			GinkgoWriter.Println(">>> TEST: can be enabled when only addons/common and addons/metrics are present")
+
+			GinkgoWriter.Println("[Test] Disabling metrics to ensure clean re-enable path")
+			suite.K2sCli().Exec(ctx, "addons", "disable", "metrics", "-o")
+
+			GinkgoWriter.Println("[Test] Staging addon isolation: keeping only common and metrics")
+			restore, err := exportimport.StageAddonIsolation(suite.RootDir(), "metrics")
+			Expect(err).ToNot(HaveOccurred(), "staging addon isolation should succeed")
+			DeferCleanup(func() {
+				Expect(restore()).To(Succeed(), "addon isolation restore must succeed to avoid a partial workspace state")
+			})
+			DeferCleanup(func() {
+				_, _ = suite.K2sCli().Exec(context.Background(), "addons", "disable", "metrics", "-o")
+			})
+
+			GinkgoWriter.Println("[Test] Enabling metrics with isolated addons directory")
+			output := suite.K2sCli().MustExec(ctx, "addons", "enable", "metrics", "-o")
+
+			GinkgoWriter.Println("[Test] Verifying metrics-server deployment is available")
+			suite.Cluster().ExpectDeploymentToBeAvailable("metrics-server", "metrics")
+
+			GinkgoWriter.Println("[Test] Verifying no PowerShell module-not-found signatures in output")
+			Expect(output).NotTo(ContainSubstring("no valid module file was found"), "enable output must not contain PowerShell module-not-found error")
+			Expect(output).NotTo(ContainSubstring("was not loaded"), "enable output must not contain PowerShell module-not-loaded error")
+		})
 	})
 
 	Describe("export and import with relative paths", func() {

@@ -8,6 +8,7 @@ package exportimport
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io/fs"
 	"os"
@@ -840,4 +841,125 @@ func ImportAddonRelativePath(ctx context.Context, suite *framework.K2sTestSuite,
 	suite.K2sCli().WorkingDir(workingDir).MustExec(ctx, "addons", "import", "-f", relativeFilePath, "-o")
 	GinkgoWriter.Println("[ImportRel] Import command completed successfully")
 	GinkgoWriter.Println("=== IMPORT ADDON (RELATIVE PATH) END ===")
+}
+
+// StageAddonIsolation moves every addon subdirectory under <rootDir>/addons to a unique
+// temporary directory, except "common", targetAddon, and any additional names supplied via
+// keepExtra, which are all left in place.
+// The returned restore function moves them all back, removes the temporary directory on full
+// success, and returns an aggregated error on any failure — the backup directory is preserved
+// when restoration is incomplete so that no staged addon is permanently lost.
+// Intended for use inside DeferCleanup or AfterAll so teardown is guaranteed on failure.
+//
+// Example:
+//
+//	restore, err := StageAddonIsolation(suite.RootDir(), "dicom")
+//	Expect(err).ToNot(HaveOccurred())
+//	DeferCleanup(func() { Expect(restore()).To(Succeed()) })
+func StageAddonIsolation(rootDir, targetAddon string, keepExtra ...string) (restore func() error, err error) {
+	addonsDir := filepath.Join(rootDir, "addons")
+
+	// Validate required directories.
+	if _, statErr := os.Stat(addonsDir); os.IsNotExist(statErr) {
+		return nil, fmt.Errorf("[AddonIsolation] addons directory not found: %s", addonsDir)
+	}
+	if _, statErr := os.Stat(filepath.Join(addonsDir, "common")); os.IsNotExist(statErr) {
+		return nil, fmt.Errorf("[AddonIsolation] required 'common' directory not found under: %s", addonsDir)
+	}
+	if _, statErr := os.Stat(filepath.Join(addonsDir, targetAddon)); os.IsNotExist(statErr) {
+		return nil, fmt.Errorf("[AddonIsolation] target addon directory not found: %s", filepath.Join(addonsDir, targetAddon))
+	}
+
+	// Create a unique backup directory under <rootDir>/tmp so it stays on the same
+	// filesystem volume as addonsDir, making os.Rename atomic on every supported OS.
+	tmpParent := filepath.Join(rootDir, "tmp")
+	if mkErr := os.MkdirAll(tmpParent, 0o755); mkErr != nil {
+		return nil, fmt.Errorf("[AddonIsolation] failed to create tmp directory %s: %w", tmpParent, mkErr)
+	}
+	backupDir, tmpErr := os.MkdirTemp(tmpParent, "addon-isolation-")
+	if tmpErr != nil {
+		_ = os.Remove(tmpParent)
+		return nil, fmt.Errorf("[AddonIsolation] failed to create backup directory under %s: %w", tmpParent, tmpErr)
+	}
+
+	GinkgoWriter.Printf("[AddonIsolation] Staging isolation for addon %q; backup dir: %s\n", targetAddon, backupDir)
+
+	entries, readErr := os.ReadDir(addonsDir)
+	if readErr != nil {
+		_ = os.RemoveAll(backupDir)
+		return nil, fmt.Errorf("[AddonIsolation] failed to read addons directory %s: %w", addonsDir, readErr)
+	}
+
+	keep := map[string]bool{"common": true, targetAddon: true}
+	for _, extra := range keepExtra {
+		keep[extra] = true
+	}
+	var moved []string // names of directories successfully staged
+
+	for _, entry := range entries {
+		if !entry.IsDir() {
+			continue
+		}
+		name := entry.Name()
+		if keep[name] {
+			GinkgoWriter.Printf("[AddonIsolation] Keeping: %s\n", name)
+			continue
+		}
+
+		src := filepath.Join(addonsDir, name)
+		dst := filepath.Join(backupDir, name)
+		GinkgoWriter.Printf("[AddonIsolation] Staging: %s -> %s\n", src, dst)
+		if renameErr := os.Rename(src, dst); renameErr != nil {
+			stageErr := fmt.Errorf("[AddonIsolation] failed to stage addon directory %s: %w", src, renameErr)
+			var recoveryErrs []error
+			// Restore already-moved directories before propagating the error.
+			for _, m := range moved {
+				if rerr := os.Rename(filepath.Join(backupDir, m), filepath.Join(addonsDir, m)); rerr != nil {
+					GinkgoWriter.Printf("[AddonIsolation] WARNING: recovery rename failed for %s: %v\n", m, rerr)
+					recoveryErrs = append(recoveryErrs, fmt.Errorf("failed to recover staged addon directory %q: %w", m, rerr))
+				}
+			}
+			if len(recoveryErrs) > 0 {
+				return nil, errors.Join(stageErr, errors.Join(recoveryErrs...))
+			}
+			_ = os.RemoveAll(backupDir)
+			_ = os.Remove(tmpParent)
+			return nil, stageErr
+		}
+		moved = append(moved, name)
+	}
+
+	GinkgoWriter.Printf("[AddonIsolation] Staged %d addon directory(ies)\n", len(moved))
+
+	restore = func() error {
+		GinkgoWriter.Printf("[AddonIsolation] Restoring %d addon directory(ies) from: %s\n", len(moved), backupDir)
+		var errs []error
+		for _, name := range moved {
+			src := filepath.Join(backupDir, name)
+			dst := filepath.Join(addonsDir, name)
+			GinkgoWriter.Printf("[AddonIsolation] Restoring: %s -> %s\n", src, dst)
+			if rerr := os.Rename(src, dst); rerr != nil {
+				GinkgoWriter.Printf("[AddonIsolation] ERROR: failed to restore %s: %v\n", name, rerr)
+				errs = append(errs, fmt.Errorf("failed to restore addon directory %q: %w", name, rerr))
+			}
+		}
+		if len(errs) > 0 {
+			GinkgoWriter.Printf("[AddonIsolation] Restore incomplete: %d error(s); backup dir preserved: %s\n", len(errs), backupDir)
+			return errors.Join(errs...)
+		}
+		if rerr := os.RemoveAll(backupDir); rerr != nil {
+			GinkgoWriter.Printf("[AddonIsolation] WARNING: failed to remove backup dir %s: %v\n", backupDir, rerr)
+			return fmt.Errorf("[AddonIsolation] failed to remove backup directory %s: %w", backupDir, rerr)
+		}
+		// Intentionally best-effort warning-only cleanup to preserve restore success and original error precedence.
+		if rerr := os.Remove(tmpParent); rerr != nil {
+			GinkgoWriter.Printf("[AddonIsolation] WARNING: failed to remove tmp dir %s: %v\n", tmpParent, rerr)
+		} else {
+			GinkgoWriter.Printf("[AddonIsolation] Removed empty tmp dir: %s\n", tmpParent)
+		}
+		GinkgoWriter.Println("[AddonIsolation] Restore complete")
+		return nil
+	}
+
+	return restore, nil
 }
