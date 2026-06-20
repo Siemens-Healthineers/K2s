@@ -933,6 +933,14 @@ func StageAddonIsolation(rootDir, targetAddon string, keepExtra ...string) (rest
 			src := filepath.Join(backupDir, name)
 			dst := filepath.Join(addonsDir, name)
 			GinkgoWriter.Printf("[AddonIsolation] Restoring: %s -> %s\n", src, dst)
+			if _, statErr := os.Stat(dst); statErr == nil {
+				GinkgoWriter.Printf("[AddonIsolation] Destination %s already exists; removing before restore rename\n", dst)
+				if rmErr := os.RemoveAll(dst); rmErr != nil {
+					GinkgoWriter.Printf("[AddonIsolation] ERROR: failed to remove existing destination %s: %v\n", dst, rmErr)
+					errs = append(errs, fmt.Errorf("failed to remove existing destination directory %q before restore: %w", dst, rmErr))
+					continue
+				}
+			}
 			if rerr := renameWithRetry(src, dst); rerr != nil {
 				GinkgoWriter.Printf("[AddonIsolation] ERROR: failed to restore %s: %v\n", name, rerr)
 				errs = append(errs, fmt.Errorf("failed to restore addon directory %q: %w", name, rerr))
