@@ -87,9 +87,17 @@ function Deploy-ClusterIPWebhook {
     &$executeRemoteCommand "kubectl apply -f $remoteDir/namespace.yaml" -Retries 3
     &$executeRemoteCommand "kubectl apply -f $remoteDir/rbac.yaml" -Retries 3
 
-    # Step 3: Apply webhook config (caBundle empty, will be patched by init container)
-    Write-Log '[ClusterIP-Webhook] Applying MutatingWebhookConfiguration'
-    &$executeRemoteCommand "kubectl apply -f $remoteDir/webhook-config.yaml" -Retries 3
+    # Step 3: Apply webhook config only if it doesn't exist yet.
+    # On upgrade, re-applying would reset the caBundle to empty, causing TLS
+    # errors until the init container re-patches it (race condition).
+    Write-Log '[ClusterIP-Webhook] Checking MutatingWebhookConfiguration'
+    &$executeRemoteCommand "kubectl get mutatingwebhookconfiguration k2s-webhook" -IgnoreErrors
+    if ($LASTEXITCODE -ne 0) {
+        Write-Log '[ClusterIP-Webhook] Creating MutatingWebhookConfiguration'
+        &$executeRemoteCommand "kubectl apply -f $remoteDir/webhook-config.yaml" -Retries 3
+    } else {
+        Write-Log '[ClusterIP-Webhook] MutatingWebhookConfiguration already exists — skipping to preserve caBundle'
+    }
 
     # Step 4: Apply Deployment + Service (init container generates TLS cert on startup)
     Write-Log '[ClusterIP-Webhook] Applying Deployment and Service'
