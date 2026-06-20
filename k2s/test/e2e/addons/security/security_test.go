@@ -65,6 +65,10 @@ var _ = BeforeSuite(func(ctx context.Context) {
 })
 
 var _ = AfterSuite(func(ctx context.Context) {
+	if suite == nil {
+		return
+	}
+
 	suite.StatusChecker().IsK2sRunning(ctx)
 
 	GinkgoWriter.Println("Deleting workloads if necessary..")
@@ -85,11 +89,11 @@ var _ = AfterSuite(func(ctx context.Context) {
 	}
 
 	if isEnabled(addonName) {
-		suite.K2sCli().MustExec(ctx, "addons", "disable", addonName, "-o")
+		suite.K2sCli().Exec(ctx, "addons", "disable", addonName, "-o")
 	}
 
 	if isEnabled("ingress", "nginx") {
-		suite.K2sCli().MustExec(ctx, "addons", "disable", "ingress", "nginx", "-o")
+		suite.K2sCli().Exec(ctx, "addons", "disable", "ingress", "nginx", "-o")
 	}
 
 	suite.TearDown(ctx)
@@ -553,11 +557,6 @@ var _ = Describe("'security' addon tests", Ordered, Serial, func() {
 				HaveField("Message", gstruct.PointTo(ContainSubstring("not deployed"))),
 			)))
 		})
-
-		AfterAll(func(ctx context.Context) {
-			suite.K2sCli().MustExec(ctx, "addons", "disable", addonName, "-o")
-			suite.K2sCli().MustExec(ctx, "addons", "disable", "ingress", "nginx", "-o")
-		})
 	})
 
 	Describe("'security' addon with omit flags (enhanced mode)", Ordered, func() {
@@ -614,11 +613,6 @@ var _ = Describe("'security' addon tests", Ordered, Serial, func() {
 				HaveField("Okay", gstruct.PointTo(BeTrue())),
 				HaveField("Message", gstruct.PointTo(ContainSubstring("The trust-manager API is ready"))),
 			)))
-		})
-
-		AfterAll(func(ctx context.Context) {
-			suite.K2sCli().MustExec(ctx, "addons", "disable", addonName, "-o")
-			suite.K2sCli().MustExec(ctx, "addons", "disable", "ingress", "nginx", "-o")
 		})
 	})
 })
