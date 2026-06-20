@@ -324,14 +324,16 @@ function Restore-ClusterIPWebhook {
 		$rbacResult = Invoke-CmdOnControlPlaneViaSSHKey -CmdToExecute "kubectl apply -f $remoteDir/rbac.yaml" -Timeout 30 -Retries 3 -IgnoreErrors:$true
 		Write-Log ('[Webhook] rbac apply: success={0} output={1}' -f $rbacResult.Success, ($rbacResult.Output | Out-String).Trim()) -Console:$consoleSwitch
 
-		# Step 2: Apply webhook configuration.
-		# Note: This resets caBundle to "" in the MutatingWebhookConfiguration. The init container
-		# in the deployment will re-patch it with a fresh CA certificate on rollout restart (Step 5).
-		# There is a brief window between this apply and init container completion where the webhook
-		# will not validate admission requests. This is safe because the webhook uses
-		# failurePolicy: Ignore — admission requests are allowed through when the webhook is unavailable.
-		Write-Log '[Webhook] Applying MutatingWebhookConfiguration...' -Console:$consoleSwitch
-		(Invoke-CmdOnControlPlaneViaSSHKey -CmdToExecute "kubectl apply -f $remoteDir/webhook-config.yaml" -Timeout 30 -Retries 3 -IgnoreErrors:$true).Output | Out-Null
+		# Step 2: Apply webhook configuration only if it doesn't exist yet.
+		# Re-applying would reset caBundle to "" causing a TLS race condition until the init
+		# container re-patches it. The init container handles caBundle patching on every pod restart.
+		$webhookExists = Invoke-CmdOnControlPlaneViaSSHKey -CmdToExecute 'kubectl get mutatingwebhookconfiguration k2s-webhook' -Timeout 30 -IgnoreErrors:$true
+		if (-not $webhookExists.Success) {
+			Write-Log '[Webhook] Creating MutatingWebhookConfiguration...' -Console:$consoleSwitch
+			(Invoke-CmdOnControlPlaneViaSSHKey -CmdToExecute "kubectl apply -f $remoteDir/webhook-config.yaml" -Timeout 30 -Retries 3 -IgnoreErrors:$true).Output | Out-Null
+		} else {
+			Write-Log '[Webhook] MutatingWebhookConfiguration already exists — skipping to preserve caBundle' -Console:$consoleSwitch
+		}
 
 		# Step 3: Clean up legacy certgen resources from previous versions
 		Write-Log '[Webhook] Cleaning up legacy certgen resources...' -Console:$consoleSwitch
@@ -345,11 +347,18 @@ function Restore-ClusterIPWebhook {
 		# Step 4: Apply deployment (with init-cert init container)
 		Write-Log '[Webhook] Applying deployment and service...' -Console:$consoleSwitch
 		$deployResult = Invoke-CmdOnControlPlaneViaSSHKey -CmdToExecute "kubectl apply -f $remoteDir/deployment.yaml" -Timeout 30 -Retries 3 -IgnoreErrors:$true
-		Write-Log ('[Webhook] deployment apply: success={0} output={1}' -f $deployResult.Success, ($deployResult.Output | Out-String).Trim()) -Console:$consoleSwitch
+		$deployOutput = ($deployResult.Output | Out-String).Trim()
+		Write-Log ('[Webhook] deployment apply: success={0} output={1}' -f $deployResult.Success, $deployOutput) -Console:$consoleSwitch
 
-		# Step 5: Trigger rollout restart to regenerate certificate via init container
-		Write-Log '[Webhook] Restarting webhook deployment to regenerate certificate...' -Console:$consoleSwitch
-		(Invoke-CmdOnControlPlaneViaSSHKey -CmdToExecute 'kubectl rollout restart deployment/clusterip-webhook -n k2s-webhook' -Timeout 30 -IgnoreErrors:$true).Output | Out-Null
+		# Step 5: Ensure the webhook pod is running with a fresh certificate.
+		# If the apply changed the deployment spec (e.g., new image/init container), it already
+		# triggered a rollout — no restart needed. Only restart if unchanged (to regenerate cert).
+		if ($deployOutput -match 'unchanged') {
+			Write-Log '[Webhook] Deployment unchanged — restarting to regenerate certificate...' -Console:$consoleSwitch
+			(Invoke-CmdOnControlPlaneViaSSHKey -CmdToExecute 'kubectl rollout restart deployment/clusterip-webhook -n k2s-webhook' -Timeout 30 -IgnoreErrors:$true).Output | Out-Null
+		} else {
+			Write-Log '[Webhook] Deployment updated — rollout already in progress' -Console:$consoleSwitch
+		}
 		$rolloutResult = Invoke-CmdOnControlPlaneViaSSHKey -CmdToExecute 'kubectl rollout status deployment/clusterip-webhook -n k2s-webhook --timeout=120s' -Timeout 150 -Retries 2 -IgnoreErrors:$true
 		if (-not $rolloutResult.Success) {
 			Write-Log '[Webhook][Error] Webhook deployment did not become ready after restart' -Console:$consoleSwitch
