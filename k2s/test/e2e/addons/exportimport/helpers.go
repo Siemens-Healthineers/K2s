@@ -16,6 +16,8 @@ import (
 	"runtime"
 	"slices"
 	"strings"
+	"syscall"
+	"time"
 
 	"github.com/siemens-healthineers/k2s/internal/core/addons"
 	"github.com/siemens-healthineers/k2s/test/framework"
@@ -849,13 +851,6 @@ func ImportAddonRelativePath(ctx context.Context, suite *framework.K2sTestSuite,
 // The returned restore function moves them all back, removes the temporary directory on full
 // success, and returns an aggregated error on any failure — the backup directory is preserved
 // when restoration is incomplete so that no staged addon is permanently lost.
-// Intended for use inside DeferCleanup or AfterAll so teardown is guaranteed on failure.
-//
-// Example:
-//
-//	restore, err := StageAddonIsolation(suite.RootDir(), "dicom")
-//	Expect(err).ToNot(HaveOccurred())
-//	DeferCleanup(func() { Expect(restore()).To(Succeed()) })
 func StageAddonIsolation(rootDir, targetAddon string, keepExtra ...string) (restore func() error, err error) {
 	addonsDir := filepath.Join(rootDir, "addons")
 
@@ -909,12 +904,12 @@ func StageAddonIsolation(rootDir, targetAddon string, keepExtra ...string) (rest
 		src := filepath.Join(addonsDir, name)
 		dst := filepath.Join(backupDir, name)
 		GinkgoWriter.Printf("[AddonIsolation] Staging: %s -> %s\n", src, dst)
-		if renameErr := os.Rename(src, dst); renameErr != nil {
+		if renameErr := renameWithRetry(src, dst); renameErr != nil {
 			stageErr := fmt.Errorf("[AddonIsolation] failed to stage addon directory %s: %w", src, renameErr)
 			var recoveryErrs []error
 			// Restore already-moved directories before propagating the error.
 			for _, m := range moved {
-				if rerr := os.Rename(filepath.Join(backupDir, m), filepath.Join(addonsDir, m)); rerr != nil {
+				if rerr := renameWithRetry(filepath.Join(backupDir, m), filepath.Join(addonsDir, m)); rerr != nil {
 					GinkgoWriter.Printf("[AddonIsolation] WARNING: recovery rename failed for %s: %v\n", m, rerr)
 					recoveryErrs = append(recoveryErrs, fmt.Errorf("failed to recover staged addon directory %q: %w", m, rerr))
 				}
@@ -938,7 +933,7 @@ func StageAddonIsolation(rootDir, targetAddon string, keepExtra ...string) (rest
 			src := filepath.Join(backupDir, name)
 			dst := filepath.Join(addonsDir, name)
 			GinkgoWriter.Printf("[AddonIsolation] Restoring: %s -> %s\n", src, dst)
-			if rerr := os.Rename(src, dst); rerr != nil {
+			if rerr := renameWithRetry(src, dst); rerr != nil {
 				GinkgoWriter.Printf("[AddonIsolation] ERROR: failed to restore %s: %v\n", name, rerr)
 				errs = append(errs, fmt.Errorf("failed to restore addon directory %q: %w", name, rerr))
 			}
@@ -962,4 +957,47 @@ func StageAddonIsolation(rootDir, targetAddon string, keepExtra ...string) (rest
 	}
 
 	return restore, nil
+}
+
+func renameWithRetry(src, dst string) error {
+	const maxRetries = 10
+	const retryDelay = 300 * time.Millisecond
+
+	var lastErr error
+	for attempt := 1; attempt <= maxRetries; attempt++ {
+		if err := os.Rename(src, dst); err != nil {
+			lastErr = err
+			if attempt == maxRetries {
+				GinkgoWriter.Printf("[AddonIsolation] ERROR: rename retries exhausted for %s -> %s after %d attempts; last error: %v\n", src, dst, maxRetries, lastErr)
+			}
+			if !isRetryableWindowsRenameError(err) || attempt == maxRetries {
+				return err
+			}
+			GinkgoWriter.Printf("[AddonIsolation] WARN: rename retry %d/%d for %s -> %s due to: %v\n", attempt, maxRetries, src, dst, err)
+			time.Sleep(retryDelay)
+			continue
+		}
+		return nil
+	}
+
+	return lastErr
+}
+
+func isRetryableWindowsRenameError(err error) bool {
+	if runtime.GOOS != "windows" {
+		return false
+	}
+
+	var pathErr *os.PathError
+	if errors.As(err, &pathErr) {
+		err = pathErr.Err
+	}
+
+	if errno, ok := err.(syscall.Errno); ok {
+		// Windows errno values for transient file-lock conditions.
+		return errno == 5 || errno == 32 || errno == 33
+	}
+
+	msg := strings.ToLower(err.Error())
+	return strings.Contains(msg, "access is denied") || strings.Contains(msg, "being used by another process")
 }
