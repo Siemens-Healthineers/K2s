@@ -77,6 +77,12 @@ Write-Log 'Cleaning up addon-sync infrastructure' -Console
 Remove-IngressForTraefik -Addon ([pscustomobject] @{Name = 'rollout'; Implementation = 'fluxcd' })
 Remove-IngressForNginx -Addon ([pscustomobject] @{Name = 'rollout'; Implementation = 'fluxcd' })
 
+Write-Log 'Removing FluxCD resources before stopping controllers...' -Console
+(Invoke-Kubectl -Params 'delete', 'gitrepositories.source.toolkit.fluxcd.io', '--all', '-A', '--ignore-not-found', '--timeout=60s').Output | Write-Log
+(Invoke-Kubectl -Params 'delete', 'ocirepositories.source.toolkit.fluxcd.io', '--all', '-A', '--ignore-not-found', '--timeout=60s').Output | Write-Log
+(Invoke-Kubectl -Params 'delete', 'kustomizations.kustomize.toolkit.fluxcd.io', '--all', '-A', '--ignore-not-found', '--timeout=60s').Output | Write-Log
+(Invoke-Kubectl -Params 'delete', 'helmreleases.helm.toolkit.fluxcd.io', '--all', '-A', '--ignore-not-found', '--timeout=60s').Output | Write-Log
+
 Write-Log 'Uninstalling Flux resources...' -Console
 $kustomizationDir = Get-FluxConfig
 (Invoke-Kubectl -Params 'delete', '-k', $kustomizationDir).Output | Write-Log
