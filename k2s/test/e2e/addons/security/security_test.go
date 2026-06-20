@@ -557,6 +557,10 @@ var _ = Describe("'security' addon tests", Ordered, Serial, func() {
 				HaveField("Message", gstruct.PointTo(ContainSubstring("not deployed"))),
 			)))
 		})
+
+		It("disables the addon", func(ctx context.Context) {
+			suite.K2sCli().MustExec(ctx, "addons", "disable", addonName, "-o")
+		})
 	})
 
 	Describe("'security' addon with omit flags (enhanced mode)", Ordered, func() {
