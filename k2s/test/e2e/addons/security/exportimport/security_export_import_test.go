@@ -213,6 +213,7 @@ var _ = Describe("security addon export and import", Ordered, func() {
 			})
 			DeferCleanup(func() {
 				_, _ = suite.K2sCli().Exec(context.Background(), "addons", "disable", "security", "-o")
+				_, _ = suite.K2sCli().Exec(context.Background(), "addons", "disable", "ingress", "nginx", "-o")
 			})
 
 			// Enable security with isolated addons directory
