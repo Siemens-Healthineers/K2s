@@ -168,6 +168,8 @@ var _ = Describe("'security' addon backup/restore", Ordered, func() {
 			Expect(restore()).To(Succeed(), "addon isolation restore must succeed to avoid a partial workspace state")
 		})
 		DeferCleanup(func() {
+			ctx, cancel := context.WithTimeout(context.Background(), testClusterTimeout)
+			defer cancel()
 			suite.K2sCli().Exec(ctx, "addons", "disable", "security", "-o")
 		})
 
