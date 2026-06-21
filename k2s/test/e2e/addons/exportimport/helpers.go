@@ -867,11 +867,14 @@ func StageAddonIsolation(rootDir, targetAddon string, keepExtra ...string) (rest
 
 	// Create a unique backup directory under <rootDir>/tmp (K2s e2e temp pattern)
 	// so it stays on the same filesystem volume as addonsDir and keeps rename atomic.
-	backupDir, tmpErr := os.MkdirTemp(filepath.Join(rootDir, "tmp"), "addon-isolation-")
-	if tmpErr != nil {
-		return nil, fmt.Errorf("[AddonIsolation] failed to create backup directory under %s: %w", filepath.Join(rootDir, "tmp"), tmpErr)
+	tmpParent := filepath.Join(rootDir, "tmp")
+	if mkErr := os.MkdirAll(tmpParent, 0o755); mkErr != nil {
+		return nil, fmt.Errorf("[AddonIsolation] failed to create tmp directory %s: %w", tmpParent, mkErr)
 	}
-	tmpParent := filepath.Dir(backupDir)
+	backupDir, tmpErr := os.MkdirTemp(tmpParent, "addon-isolation-")
+	if tmpErr != nil {
+		return nil, fmt.Errorf("[AddonIsolation] failed to create backup directory under %s: %w", tmpParent, tmpErr)
+	}
 
 	GinkgoWriter.Printf("[AddonIsolation] Staging isolation for addon %q; backup dir: %s\n", targetAddon, backupDir)
 
