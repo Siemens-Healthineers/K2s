@@ -93,11 +93,11 @@ route delete $ipControlPlaneCIDR >$null 2>&1
 Write-Log "[Route] Adding persistent route to $ipControlPlaneCIDR via $nextHop"
 route -p add $ipControlPlaneCIDR $nextHop METRIC 3 | Out-Null
 
-# # Add persistent route to pod network CIDR
-# $podNetworkCIDR = Get-ConfiguredClusterCIDR
-# route delete $podNetworkCIDR >$null 2>&1
-# Write-Log "[Route] Adding persistent route to $podNetworkCIDR via $nextHop"
-# route -p add $podNetworkCIDR $nextHop METRIC 3 | Out-Null
+# Add persistent route to pod network CIDR
+$podNetworkCIDR = Get-ConfiguredClusterCIDR
+route delete $podNetworkCIDR >$null 2>&1
+Write-Log "[Route] Adding persistent route to $podNetworkCIDR via $nextHop"
+route -p add $podNetworkCIDR $nextHop METRIC 3 | Out-Null
 
 Add-WindowsWorkerNodeOnWindowsHost @workerNodeParams
 
