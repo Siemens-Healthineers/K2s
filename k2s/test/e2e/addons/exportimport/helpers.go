@@ -865,17 +865,13 @@ func StageAddonIsolation(rootDir, targetAddon string, keepExtra ...string) (rest
 		return nil, fmt.Errorf("[AddonIsolation] target addon directory not found: %s", filepath.Join(addonsDir, targetAddon))
 	}
 
-	// Create a unique backup directory under <rootDir>/tmp so it stays on the same
-	// filesystem volume as addonsDir, making os.Rename atomic on every supported OS.
-	tmpParent := filepath.Join(rootDir, "tmp")
-	if mkErr := os.MkdirAll(tmpParent, 0o755); mkErr != nil {
-		return nil, fmt.Errorf("[AddonIsolation] failed to create tmp directory %s: %w", tmpParent, mkErr)
-	}
-	backupDir, tmpErr := os.MkdirTemp(tmpParent, "addon-isolation-")
+	// Create a unique backup directory under <rootDir>/tmp (K2s e2e temp pattern)
+	// so it stays on the same filesystem volume as addonsDir and keeps rename atomic.
+	backupDir, tmpErr := os.MkdirTemp(filepath.Join(rootDir, "tmp"), "addon-isolation-")
 	if tmpErr != nil {
-		_ = os.Remove(tmpParent)
-		return nil, fmt.Errorf("[AddonIsolation] failed to create backup directory under %s: %w", tmpParent, tmpErr)
+		return nil, fmt.Errorf("[AddonIsolation] failed to create backup directory under %s: %w", filepath.Join(rootDir, "tmp"), tmpErr)
 	}
+	tmpParent := filepath.Dir(backupDir)
 
 	GinkgoWriter.Printf("[AddonIsolation] Staging isolation for addon %q; backup dir: %s\n", targetAddon, backupDir)
 
@@ -918,7 +914,6 @@ func StageAddonIsolation(rootDir, targetAddon string, keepExtra ...string) (rest
 				return nil, errors.Join(stageErr, errors.Join(recoveryErrs...))
 			}
 			_ = os.RemoveAll(backupDir)
-			_ = os.Remove(tmpParent)
 			return nil, stageErr
 		}
 		moved = append(moved, name)
@@ -935,7 +930,7 @@ func StageAddonIsolation(rootDir, targetAddon string, keepExtra ...string) (rest
 			GinkgoWriter.Printf("[AddonIsolation] Restoring: %s -> %s\n", src, dst)
 			if _, statErr := os.Stat(dst); statErr == nil {
 				GinkgoWriter.Printf("[AddonIsolation] Destination %s already exists; removing before restore rename\n", dst)
-				if rmErr := os.RemoveAll(dst); rmErr != nil {
+				if rmErr := removeDirWithRetry(dst); rmErr != nil {
 					GinkgoWriter.Printf("[AddonIsolation] ERROR: failed to remove existing destination %s: %v\n", dst, rmErr)
 					errs = append(errs, fmt.Errorf("failed to remove existing destination directory %q before restore: %w", dst, rmErr))
 					continue
@@ -991,6 +986,27 @@ func renameWithRetry(src, dst string) error {
 	return lastErr
 }
 
+func removeDirWithRetry(path string) error {
+	const maxRetries = 10
+	const retryDelay = 300 * time.Millisecond
+
+	var lastErr error
+	for attempt := 1; attempt <= maxRetries; attempt++ {
+		if err := os.RemoveAll(path); err != nil {
+			lastErr = err
+			if !isRetryableWindowsRenameError(err) || attempt == maxRetries {
+				return err
+			}
+			GinkgoWriter.Printf("[AddonIsolation] WARN: remove retry %d/%d for %s due to: %v\n", attempt, maxRetries, path, err)
+			time.Sleep(retryDelay)
+			continue
+		}
+		return nil
+	}
+
+	return lastErr
+}
+
 func isRetryableWindowsRenameError(err error) bool {
 	if runtime.GOOS != "windows" {
 		return false
@@ -1002,8 +1018,12 @@ func isRetryableWindowsRenameError(err error) bool {
 	}
 
 	if errno, ok := err.(syscall.Errno); ok {
-		// Windows errno values for transient file-lock conditions.
-		return errno == 5 || errno == 32 || errno == 33
+		// Windows errno values for transient file-lock conditions:
+		//   5   = ERROR_ACCESS_DENIED
+		//   32  = ERROR_SHARING_VIOLATION
+		//   33  = ERROR_LOCK_VIOLATION
+		//   145 = ERROR_DIR_NOT_EMPTY (raised by RemoveAll when dir still has handles)
+		return errno == 5 || errno == 32 || errno == 33 || errno == 145
 	}
 
 	msg := strings.ToLower(err.Error())
