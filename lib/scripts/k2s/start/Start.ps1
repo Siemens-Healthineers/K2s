@@ -82,15 +82,6 @@ Initialize-Cni0Interface -VmName $controlPlaneVMHostName -WSL:$WSL
 Write-Log "[$logUseCase] Waiting for control-plane pods to be ready"
 Wait-ForControlPlanePodsReady
 
-# Restart kube-proxy to ensure clean HNS load-balancer policy state.
-# After a full HNS teardown/recreation (upgrade, stop/start), kube-proxy may initialize
-# while HNS internal state is still settling, causing intermittent failures in
-# host-to-ClusterIP routing. Restarting after the network is fully stable (2+ minutes
-# after bridge creation) ensures correct endpoint discovery and LB policy programming.
-Write-Log "[$logUseCase] Restarting kube-proxy for clean HNS policy state"
-Restart-Service 'kubeproxy' -Force -ErrorAction SilentlyContinue
-Start-Sleep -Seconds 3
-
 # change loopback adapter to private network profile
 # Set-PrivateNetworkProfileForLoopbackAdapter
 
