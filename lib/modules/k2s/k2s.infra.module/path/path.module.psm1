@@ -82,7 +82,9 @@ function Update-SystemPath ($Action, $Addendum) {
 
     # Remove an item from PATH
     if ($Action -eq 'remove') {
-        $path = ($path.Split([IO.Path]::PathSeparator) | Where-Object { $_ -ne "$Addendum" }) -join [IO.Path]::PathSeparator
+        # Case-insensitive match: Windows paths are case-insensitive, so PATH entries that differ only in
+        # casing (e.g. 'C:\K' vs 'C:\k') must still be removed (important for installation re-homing).
+        $path = ($path.Split([IO.Path]::PathSeparator) | Where-Object { $_ -ine "$Addendum" }) -join [IO.Path]::PathSeparator
         Set-ItemProperty -Path $regLocation -Name PATH -Value $path
     }
 }
