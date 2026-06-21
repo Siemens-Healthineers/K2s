@@ -201,17 +201,19 @@ var _ = Describe("security addon export and import", Ordered, func() {
 			exportimport.VerifyImportedAddonFiles(securityImplDir, expectedFiles)
 		})
 
-		It("can be enabled when only addons/common and addons/security are present", func(ctx context.Context) {
-			GinkgoWriter.Println(">>> TEST: can be enabled when only addons/common and addons/security are present")
+		It("can be enabled when only addons/common, addons/security, and addons/ingress are present", func(ctx context.Context) {
+			GinkgoWriter.Println(">>> TEST: can be enabled when only addons/common, addons/security, and addons/ingress are present")
 
-			// Stage isolation keeping only common and security
-			restore, err := exportimport.StageAddonIsolation(suite.RootDir(), "security")
+			// Security defaults to nginx ingress and auto-enables ingress when no controller is present,
+			// so the isolation test must keep the ingress addon available as well.
+			restore, err := exportimport.StageAddonIsolation(suite.RootDir(), "security", "ingress")
 			Expect(err).ToNot(HaveOccurred(), "staging addon isolation should succeed")
 			DeferCleanup(func() {
 				Expect(restore()).To(Succeed(), "addon isolation restore must succeed to avoid a partial workspace state")
 			})
 			DeferCleanup(func() {
 				_, _ = suite.K2sCli().Exec(context.Background(), "addons", "disable", "security", "-o")
+				_, _ = suite.K2sCli().Exec(context.Background(), "addons", "disable", "ingress", "nginx", "-o")
 			})
 
 			// Enable security with isolated addons directory
