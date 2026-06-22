@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/siemens-healthineers/k2s/internal/cli"
+	"github.com/siemens-healthineers/k2s/test/e2e/addons/exportimport"
 	"github.com/siemens-healthineers/k2s/test/framework"
 	"github.com/siemens-healthineers/k2s/test/framework/dsl"
 
@@ -272,5 +273,41 @@ spec:
 		output := suite.Kubectl().MustExec(ctx, "get", "appproject", appProjectName, "-n", namespace,
 			"-o", fmt.Sprintf("jsonpath={.metadata.annotations['%s']}", markerAnnotKey))
 		Expect(output).To(Equal(markerAnnotVal))
+	})
+
+	It("can be enabled when only addons/common and addons/rollout are present", func(ctx context.Context) {
+		GinkgoWriter.Println(">>> TEST: can be enabled when only addons/common and addons/rollout are present")
+
+		GinkgoWriter.Println("[Test] Disabling rollout argocd to ensure clean re-enable path")
+		suite.K2sCli().MustExec(ctx, "addons", "disable", "rollout", "argocd", "-o")
+
+		GinkgoWriter.Println("[Test] Staging addon isolation: keeping only common and rollout")
+		restore, err := exportimport.StageAddonIsolation(suite.RootDir(), "rollout")
+		Expect(err).ToNot(HaveOccurred(), "staging addon isolation should succeed")
+		DeferCleanup(func() {
+			Expect(restore()).To(Succeed(), "addon isolation restore must succeed to avoid a partial workspace state")
+		})
+		DeferCleanup(func(ctx context.Context) {
+			suite.K2sCli().Exec(ctx, "addons", "disable", "rollout", "argocd", "-o")
+		})
+
+		GinkgoWriter.Println("[Test] Enabling rollout argocd with isolated addons directory")
+		output := suite.K2sCli().MustExec(ctx, "addons", "enable", "rollout", "argocd", "-o")
+
+		GinkgoWriter.Println("[Test] Verifying rollout argocd addon is enabled")
+		k2s.VerifyAddonIsEnabled("rollout", "argocd")
+
+		GinkgoWriter.Println("[Test] Verifying argocd deployments are available")
+		suite.Cluster().ExpectDeploymentToBeAvailable("argocd-applicationset-controller", namespace)
+		suite.Cluster().ExpectDeploymentToBeAvailable("argocd-dex-server", namespace)
+		suite.Cluster().ExpectDeploymentToBeAvailable("argocd-notifications-controller", namespace)
+		suite.Cluster().ExpectDeploymentToBeAvailable("argocd-redis", namespace)
+		suite.Cluster().ExpectDeploymentToBeAvailable("argocd-repo-server", namespace)
+		suite.Cluster().ExpectDeploymentToBeAvailable("argocd-server", namespace)
+		suite.Cluster().ExpectStatefulSetToBeReady("argocd-application-controller", namespace, 1, ctx)
+
+		GinkgoWriter.Println("[Test] Verifying no PowerShell module-not-found signatures in output")
+		Expect(output).NotTo(ContainSubstring("no valid module file was found"), "enable output must not contain PowerShell module-not-found error")
+		Expect(output).NotTo(ContainSubstring("was not loaded"), "enable output must not contain PowerShell module-not-loaded error")
 	})
 })
