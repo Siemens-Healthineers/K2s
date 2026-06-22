@@ -53,7 +53,12 @@ if ($runningFromDelta) {
 	$addonsModule = Join-Path $targetInstallPath 'addons\addons.module.psm1'
 	
 	# Load update module from DELTA PACKAGE (it's new/updated and may not exist in target installation)
-	# Infrastructure modules are loaded from target installation so paths resolve correctly via Get-KubePath
+	# Infrastructure modules are loaded from target installation so paths resolve correctly via Get-KubePath.
+	# NOTE: When the delta update relocates the installation to the new folder, PerformClusterUpdate
+	# performs the re-home internally (it re-imports node modules from the new folder by absolute path,
+	# restarts the cluster via the new k2s.exe and writes the new InstallFolder to setup.json, which
+	# lives at the fixed ProgramData location). Therefore loading these modules from the previous
+	# installation folder here remains correct for the whole update run.
 	$updateModule = Join-Path $possibleDeltaRoot 'lib\modules\k2s\k2s.cluster.module\update\update.module.psm1'
 } else {
 	# Running from installed k2s - use relative paths

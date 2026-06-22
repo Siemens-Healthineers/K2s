@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/siemens-healthineers/k2s/internal/cli"
+	"github.com/siemens-healthineers/k2s/test/e2e/addons/exportimport"
 	"github.com/siemens-healthineers/k2s/test/framework"
 	"github.com/siemens-healthineers/k2s/test/framework/dsl"
 
@@ -208,5 +209,26 @@ var _ = Describe("'viewer' addon backup/restore", Ordered, func() {
 				"-o", fmt.Sprintf("jsonpath={.metadata.annotations['%s']}", testAnnotationKey))
 			Expect(output).To(Equal(testAnnotationVal))
 		})
+	})
+
+	It("can be enabled when only addons/common and addons/viewer are present", func(ctx context.Context) {
+		suite.K2sCli().Exec(ctx, "addons", "disable", "viewer", "-o")
+
+		restore, err := exportimport.StageAddonIsolation(suite.RootDir(), "viewer")
+		Expect(err).ToNot(HaveOccurred(), "staging addon isolation should succeed")
+		DeferCleanup(func() {
+			Expect(restore()).To(Succeed(), "addon isolation restore must succeed to avoid a partial workspace state")
+		})
+		DeferCleanup(func(ctx context.Context) {
+			suite.K2sCli().Exec(ctx, "addons", "disable", "viewer", "-o")
+		})
+
+		output := suite.K2sCli().MustExec(ctx, "addons", "enable", "viewer", "-o")
+
+		k2s.VerifyAddonIsEnabled("viewer")
+		suite.Cluster().ExpectDeploymentToBeAvailable("viewerwebapp", "viewer")
+
+		Expect(output).NotTo(ContainSubstring("no valid module file was found"), "enable output must not contain PowerShell module-not-found error")
+		Expect(output).NotTo(ContainSubstring("was not loaded"), "enable output must not contain PowerShell module-not-loaded error")
 	})
 })
