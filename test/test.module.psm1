@@ -141,6 +141,9 @@ function New-GinkgoTestCmd {
         [switch]
         $V = $false,
         [Parameter(Mandatory = $false)]
+        [int]
+        $Procs = 0,
+        [Parameter(Mandatory = $false)]
         [string]
         $Timeout = '90m'
     )
@@ -164,6 +167,10 @@ function New-GinkgoTestCmd {
     $ginkgoCmd += " --junit-report=GoTest-$((Get-Date -Format 'yyyy-MM-dd-HH-mm-ss').ToString()).xml"
     $ginkgoCmd += " --output-dir=$OutDir"
     $ginkgoCmd += ' --vet=off' # disable go vet during test compilation to avoid sporadic Windows I/O errors (vet should run as a separate lint step)
+
+    if ($Procs -gt 0) {
+        $ginkgoCmd += " --procs=$Procs"
+    }
 
     if ($null -eq $Tags -and $null -eq $ExcludeTags) {
         return $ginkgoCmd
@@ -321,6 +328,9 @@ function Start-GinkgoTests {
         [switch]
         $VV = $false,
         [Parameter(Mandatory = $false)]
+        [int]
+        $Procs = 0,
+        [Parameter(Mandatory = $false)]
         [string]
         $Timeout = '90m'
     )
@@ -334,7 +344,23 @@ function Start-GinkgoTests {
         Invoke-GoModDownloadInDir -WorkingDir $WorkingDir
     }
 
-    $ginkgoCmd = $(New-GinkgoTestCmd -Tags $Tags -ExcludeTags $ExcludeTags -OutDir $OutDir -V:$V -Timeout $Timeout)
+    $effectiveProcs = $Procs
+    if ($effectiveProcs -le 0) {
+        $containsSecurity = $false
+        $containsInvasive = $false
+
+        if ($Tags) {
+            $containsSecurity = [bool]($Tags | Where-Object { $_ -eq 'security' })
+            $containsInvasive = [bool]($Tags | Where-Object { $_ -eq 'invasive' })
+        }
+
+        if ($containsSecurity -or $containsInvasive) {
+            $effectiveProcs = 1
+            Write-Output '  Forcing ginkgo single-process mode (--procs=1) for security/invasive tagged runs.'
+        }
+    }
+
+    $ginkgoCmd = $(New-GinkgoTestCmd -Tags $Tags -ExcludeTags $ExcludeTags -OutDir $OutDir -V:$V -Procs $effectiveProcs -Timeout $Timeout)
     $testFolders = (Get-ChildItem -Path $WorkingDir -File -Recurse -Filter '*_test.go').DirectoryName | Get-Unique
 
     if ($VV -eq $true) {

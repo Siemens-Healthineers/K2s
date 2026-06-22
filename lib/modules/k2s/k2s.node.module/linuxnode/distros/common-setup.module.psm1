@@ -912,7 +912,7 @@ function Get-ClusterIPWebhookImages {
 
     Write-Log 'Get images used by clusterip-webhook'
 
-    &$executeRemoteCommand 'sudo crictl pull shsk2s.azurecr.io/clusterip-webhook:v1.3.1'
+    &$executeRemoteCommand 'sudo crictl pull shsk2s.azurecr.io/clusterip-webhook:v1.3.5'
 }
 
 function AddRegistryMirrors {
@@ -1144,8 +1144,17 @@ Function Deploy-ClusterIPWebhook {
     &$ExecuteRemoteCommand "kubectl apply -f $remoteDir/namespace.yaml" -Retries 3
     &$ExecuteRemoteCommand "kubectl apply -f $remoteDir/rbac.yaml" -Retries 3
 
-    Write-Log '[ClusterIP-Webhook] Applying MutatingWebhookConfiguration'
-    &$ExecuteRemoteCommand "kubectl apply -f $remoteDir/webhook-config.yaml" -Retries 3
+    # Only create webhook config if it doesn't exist yet.
+    # On upgrade, re-applying would reset the caBundle to empty, causing TLS
+    # errors until the init container re-patches it (race condition).
+    Write-Log '[ClusterIP-Webhook] Checking MutatingWebhookConfiguration'
+    &$ExecuteRemoteCommand 'kubectl get mutatingwebhookconfiguration k2s-webhook' -IgnoreErrors
+    if ($LASTEXITCODE -ne 0) {
+        Write-Log '[ClusterIP-Webhook] Creating MutatingWebhookConfiguration'
+        &$ExecuteRemoteCommand "kubectl apply -f $remoteDir/webhook-config.yaml" -Retries 3
+    } else {
+        Write-Log '[ClusterIP-Webhook] MutatingWebhookConfiguration already exists — skipping to preserve caBundle'
+    }
 
     Write-Log '[ClusterIP-Webhook] Applying Deployment and Service'
     &$ExecuteRemoteCommand "kubectl apply -f $remoteDir/deployment.yaml" -Retries 3
