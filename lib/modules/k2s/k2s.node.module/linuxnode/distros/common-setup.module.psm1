@@ -723,6 +723,8 @@ Function Install-Tools {
     &$executeRemoteCommand 'sudo systemctl daemon-reload'
     &$executeRemoteCommand 'sudo systemctl restart crio'
 
+    Install-HelmAndYqOnKubeMaster -UserName $UserName -UserPwd $UserPwd -IpAddress $IpAddress
+
     Write-Log 'Finished installing tools in Linux'
 
 }
@@ -1658,7 +1660,6 @@ function New-VmImageForControlPlaneNode {
             GatewayIpAddress     = $GatewayIpAddress
         }
         Edit-SupportForWSL @supportForWSLParams
-        Install-HelmAndYqOnKubeMaster -UserName $vmUserName -UserPwd $vmUserPwd -IpAddress $IpAddress
 
         if ($EnableDynamicMemory) {
             $dynamicMemoryParams = @{
