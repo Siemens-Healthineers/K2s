@@ -786,6 +786,26 @@ function Remove-StorageClasses {
         Remove-PersistentVolumeClaimsForStorageClass -StorageClass $configEntry.StorageClassName | Write-Log
     }
 
+    $scKustomizationPath = "$manifestStorageClassesDir\$scKustomizeFileName"
+    if (-not (Test-Path -Path $scKustomizationPath -PathType Leaf)) {
+        $manifestsForDelete = [System.Collections.ArrayList]@(
+            Get-ChildItem -Path $manifestStorageClassesDir -File -Filter "$generatedPrefix*.yaml" -ErrorAction SilentlyContinue | ForEach-Object { $_.Name }
+        )
+
+        if ($manifestsForDelete.Count -eq 0) {
+            foreach ($configEntry in $Config) {
+                if ($null -ne $configEntry.StorageClassName -and "$($configEntry.StorageClassName)".Length -gt 0) {
+                    $manifestsForDelete.Add("$generatedPrefix$($configEntry.StorageClassName).yaml") | Out-Null
+                }
+            }
+        }
+
+        if ($manifestsForDelete.Count -gt 0) {
+            Write-Log "StorageClass kustomization '$scKustomizationPath' missing, regenerating for cleanup.."
+            New-StorageClassKustomization -Manifests $manifestsForDelete
+        }
+    }
+
     $params = 'delete', '-k', $manifestDir, '--force', '--ignore-not-found', '--grace-period=0'
 
     Write-Log "Deleting resources from manifest dir '$manifestDir'.."

@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/siemens-healthineers/k2s/internal/cli"
+	"github.com/siemens-healthineers/k2s/test/e2e/addons/exportimport"
 	"github.com/siemens-healthineers/k2s/test/framework"
 	"github.com/siemens-healthineers/k2s/test/framework/dsl"
 
@@ -281,5 +282,40 @@ spec:
 			"get", "secret", testSecretName, "-n", testNamespace,
 			"-o", "jsonpath={.data.password}")
 		Expect(passwordDataAfter).To(Equal(passwordDataBase), "referenced Secret should be restored unchanged")
+	})
+
+	It("can be enabled when only addons/common and addons/rollout are present", func(ctx context.Context) {
+		GinkgoWriter.Println(">>> TEST: can be enabled when only addons/common and addons/rollout are present")
+
+		GinkgoWriter.Println("[Test] Disabling rollout fluxcd to ensure clean re-enable path")
+		suite.K2sCli().MustExec(ctx, "addons", "disable", "rollout", "fluxcd", "-o")
+
+		GinkgoWriter.Println("[Test] Staging addon isolation: keeping only common and rollout")
+		restore, err := exportimport.StageAddonIsolation(suite.RootDir(), "rollout")
+		Expect(err).ToNot(HaveOccurred(), "staging addon isolation should succeed")
+		DeferCleanup(func() {
+			Expect(restore()).To(Succeed(), "addon isolation restore must succeed to avoid a partial workspace state")
+		})
+		DeferCleanup(func(ctx context.Context) {
+			suite.K2sCli().Exec(ctx, "addons", "disable", "rollout", "fluxcd", "-o")
+		})
+
+		GinkgoWriter.Println("[Test] Enabling rollout fluxcd with isolated addons directory")
+		output := suite.K2sCli().MustExec(ctx, "addons", "enable", "rollout", "fluxcd", "-o")
+
+		GinkgoWriter.Println("[Test] Verifying rollout fluxcd addon is enabled")
+		k2s.VerifyAddonIsEnabled("rollout", "fluxcd")
+
+		GinkgoWriter.Println("[Test] Verifying flux namespace is Active")
+		Eventually(func() string {
+			phase, _ := suite.Kubectl().Exec(ctx, "get", "namespace", testNamespace,
+				"-o", "jsonpath={.status.phase}")
+			return strings.TrimSpace(phase)
+		}).WithTimeout(2*time.Minute).WithPolling(5*time.Second).Should(Equal("Active"),
+			"namespace %q must be Active after enable; Enable.ps1 may have failed to create it", testNamespace)
+
+		GinkgoWriter.Println("[Test] Verifying no PowerShell module-not-found signatures in output")
+		Expect(output).NotTo(ContainSubstring("no valid module file was found"), "enable output must not contain PowerShell module-not-found error")
+		Expect(output).NotTo(ContainSubstring("was not loaded"), "enable output must not contain PowerShell module-not-loaded error")
 	})
 })
