@@ -932,7 +932,7 @@ function Remove-SmbShareAndFolder() {
     )
     Write-Log 'Removing SMB shares and folders..' -Console    
 
-    $smbHostType = Get-SmbHostType
+    $smbHostType = Get-SmbHostType -AllowUnspecified
 
     switch ($SmbHostType) {
         'windows' {
@@ -1181,12 +1181,19 @@ Reads the SMB host type from config
 Reads the SMB host type from the addons config file
 #>
 function Get-SmbHostType {
+    param(
+        [parameter(Mandatory = $false)]
+        [switch]$AllowUnspecified = $false
+    )
     $config = Get-AddonConfig -Name $AddonName
 
     $validTypes = @('windows', 'linux')
     $default = 'windows'
 
     if ($null -eq $config -or $null -eq $config.SmbHostType) {
+        if ($AllowUnspecified) {
+            return ''
+        }
         return $default
     }
 
@@ -1196,6 +1203,9 @@ function Get-SmbHostType {
         return $normalized
     }
 
+    if ($AllowUnspecified) {
+        return ''
+    }
     return $default
 }
 
