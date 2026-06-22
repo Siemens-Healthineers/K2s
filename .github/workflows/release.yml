@@ -26,6 +26,11 @@ permissions:
   issues: read
   pull-requests: read
 
+permissions:
+  contents: write
+  issues: read
+  pull-requests: read
+
 jobs:
   build_release:
     name: build_release
