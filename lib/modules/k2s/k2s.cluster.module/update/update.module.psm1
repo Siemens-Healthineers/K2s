@@ -832,7 +832,7 @@ Current directory: $deltaRoot
 	}
 
 	$script:phaseId = 0
-	$script:totalPhases = 13
+	$script:totalPhases = 15
 	function _phase { 
 		param($name) 
 		$script:phaseId++
@@ -1553,8 +1553,14 @@ Current directory: $deltaRoot
 			if (-not $finalRollout.Success) {
 				Write-Log '[Update][Warn] ClusterIP webhook did not become ready after final restart; service IP assignment may be unreliable until it recovers.' -Console:$consoleSwitch
 			} else {
-				$finalCaBundle = (Invoke-CmdOnControlPlaneViaSSHKey -CmdToExecute "kubectl get mutatingwebhookconfiguration k2s-webhook -o jsonpath='{.webhooks[0].clientConfig.caBundle}'" -Timeout 30 -IgnoreErrors:$true).Output | Out-String
-				if ([string]::IsNullOrWhiteSpace($finalCaBundle.Trim())) {
+				# Only trust the caBundle value when the retrieval itself succeeded. With -IgnoreErrors the
+				# command never throws, so a failed 'kubectl get' would otherwise place its error text in
+				# .Output (a non-empty string) and be misread as a populated caBundle / false success.
+				$caBundleResult = Invoke-CmdOnControlPlaneViaSSHKey -CmdToExecute "kubectl get mutatingwebhookconfiguration k2s-webhook -o jsonpath='{.webhooks[0].clientConfig.caBundle}'" -Timeout 30 -IgnoreErrors:$true
+				$finalCaBundle = ($caBundleResult.Output | Out-String).Trim()
+				if (-not $caBundleResult.Success) {
+					Write-Log '[Update][Warn] Could not read ClusterIP webhook caBundle after final restart; service IP assignment reliability is unverified.' -Console:$consoleSwitch
+				} elseif ([string]::IsNullOrWhiteSpace($finalCaBundle)) {
 					Write-Log '[Update][Warn] ClusterIP webhook caBundle is empty after final restart; service IP assignment may be unreliable.' -Console:$consoleSwitch
 				} else {
 					Write-Log '[Update] ClusterIP webhook restarted and caBundle re-synced successfully.' -Console:$consoleSwitch
