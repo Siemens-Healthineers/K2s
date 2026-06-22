@@ -203,6 +203,34 @@ var _ = Describe("monitoring addon export and import", Ordered, func() {
 			suite.Cluster().ExpectDeploymentToBeAvailable("kube-prometheus-stack-kube-state-metrics", "monitoring")
 			suite.Cluster().ExpectDeploymentToBeAvailable("kube-prometheus-stack-operator", "monitoring")
 		})
+
+		It("can be enabled when only addons/common and addons/monitoring are present", func(ctx context.Context) {
+			GinkgoWriter.Println(">>> TEST: can be enabled when only addons/common and addons/monitoring are present")
+
+			GinkgoWriter.Println("[Test] Disabling monitoring to ensure clean re-enable path")
+			suite.K2sCli().MustExec(ctx, "addons", "disable", "monitoring", "-o")
+
+			GinkgoWriter.Println("[Test] Staging addon isolation: keeping only common and monitoring")
+			restore, err := exportimport.StageAddonIsolation(suite.RootDir(), "monitoring")
+			Expect(err).ToNot(HaveOccurred(), "staging addon isolation should succeed")
+			DeferCleanup(func() {
+				Expect(restore()).To(Succeed(), "addon isolation restore must succeed to avoid a partial workspace state")
+			})
+			DeferCleanup(func() {
+				_, _ = suite.K2sCli().Exec(context.Background(), "addons", "disable", "monitoring", "-o")
+			})
+
+			GinkgoWriter.Println("[Test] Enabling monitoring with isolated addons directory")
+			output := suite.K2sCli().MustExec(ctx, "addons", "enable", "monitoring", "-o")
+
+			GinkgoWriter.Println("[Test] Verifying kube-prometheus-stack deployments are available")
+			suite.Cluster().ExpectDeploymentToBeAvailable("kube-prometheus-stack-kube-state-metrics", "monitoring")
+			suite.Cluster().ExpectDeploymentToBeAvailable("kube-prometheus-stack-operator", "monitoring")
+
+			GinkgoWriter.Println("[Test] Verifying no PowerShell module-not-found signatures in output")
+			Expect(output).NotTo(ContainSubstring("no valid module file was found"), "enable output must not contain PowerShell module-not-found error")
+			Expect(output).NotTo(ContainSubstring("was not loaded"), "enable output must not contain PowerShell module-not-loaded error")
+		})
 	})
 
 	Describe("export and import with relative paths", func() {
