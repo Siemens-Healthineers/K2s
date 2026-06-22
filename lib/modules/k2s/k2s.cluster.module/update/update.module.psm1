@@ -764,8 +764,7 @@ function PerformClusterUpdate {
 		  11. Basic health checks (API server reachable, node Ready) if cluster is running
 		  12. Restore CoreDNS etcd plugin configuration (kubeadm upgrade may reset customizations)
 		  13. Restore ClusterIP webhook TLS certificates (kubeadm upgrade may invalidate certs)
-		  14. Final ClusterIP webhook pod restart to re-sync TLS cert/caBundle before workloads start
-		  15. Update VERSION file and setup.json (product version + Kubernetes version) to reflect successful update
+		  14. Update VERSION file and setup.json (product version + Kubernetes version) to reflect successful update
 	.PARAMETER ExecuteHooks
 		Execute lifecycle hooks (currently placeholder; no hooks executed yet).
 	.PARAMETER ShowProgress
@@ -833,7 +832,7 @@ Current directory: $deltaRoot
 	}
 
 	$script:phaseId = 0
-	$script:totalPhases = 15
+	$script:totalPhases = 14
 	function _phase { 
 		param($name) 
 		$script:phaseId++
@@ -1534,44 +1533,6 @@ Current directory: $deltaRoot
 		}
 	} else {
 		Write-Log '[Update] Skipping webhook restoration (cluster not running)' -Console:$consoleSwitch
-	}
-
-	# 12b. Final ClusterIP webhook pod restart (last cluster-side action).
-	# kubeadm upgrade restarts kube-apiserver and may leave the webhook pod serving a TLS cert that no
-	# longer matches the caBundle trusted by the API server, producing "tls: bad certificate" handshake
-	# errors. Because the webhook uses failurePolicy: Ignore, those failures are silent and Services then
-	# get random ClusterIPs from the full /16 instead of the enforced /24 subnets. The webhook's init-cert
-	# container regenerates the serving cert AND patches the MutatingWebhookConfiguration caBundle on every
-	# pod start, so a single restart re-syncs both. Do this as the very last cluster action so the webhook
-	# is guaranteed healthy before any test workloads create Services. Warn-only: the upgrade itself has
-	# already succeeded at this point, so a transient restart issue must not trigger a rollback.
-	_phase 'WebhookFinalRestart'
-	if ($wasRunning) {
-		try {
-			Write-Log '[Update] Restarting ClusterIP webhook pod to re-sync TLS cert/caBundle before workloads start...' -Console:$consoleSwitch
-			(Invoke-CmdOnControlPlaneViaSSHKey -CmdToExecute 'kubectl rollout restart deployment/clusterip-webhook -n k2s-webhook' -Timeout 30 -Retries 2 -IgnoreErrors:$true).Output | Out-Null
-			$finalRollout = Invoke-CmdOnControlPlaneViaSSHKey -CmdToExecute 'kubectl rollout status deployment/clusterip-webhook -n k2s-webhook --timeout=120s' -Timeout 150 -Retries 2 -IgnoreErrors:$true
-			if (-not $finalRollout.Success) {
-				Write-Log '[Update][Warn] ClusterIP webhook did not become ready after final restart; service IP assignment may be unreliable until it recovers.' -Console:$consoleSwitch
-			} else {
-				# Only trust the caBundle value when the retrieval itself succeeded. With -IgnoreErrors the
-				# command never throws, so a failed 'kubectl get' would otherwise place its error text in
-				# .Output (a non-empty string) and be misread as a populated caBundle / false success.
-				$caBundleResult = Invoke-CmdOnControlPlaneViaSSHKey -CmdToExecute "kubectl get mutatingwebhookconfiguration k2s-webhook -o jsonpath='{.webhooks[0].clientConfig.caBundle}'" -Timeout 30 -IgnoreErrors:$true
-				$finalCaBundle = ($caBundleResult.Output | Out-String).Trim()
-				if (-not $caBundleResult.Success) {
-					Write-Log '[Update][Warn] Could not read ClusterIP webhook caBundle after final restart; service IP assignment reliability is unverified.' -Console:$consoleSwitch
-				} elseif ([string]::IsNullOrWhiteSpace($finalCaBundle)) {
-					Write-Log '[Update][Warn] ClusterIP webhook caBundle is empty after final restart; service IP assignment may be unreliable.' -Console:$consoleSwitch
-				} else {
-					Write-Log '[Update] ClusterIP webhook restarted and caBundle re-synced successfully.' -Console:$consoleSwitch
-				}
-			}
-		} catch {
-			Write-Log ("[Update][Warn] Final ClusterIP webhook restart encountered an issue: {0}" -f $_.Exception.Message) -Console:$consoleSwitch
-		}
-	} else {
-		Write-Log '[Update] Skipping final webhook restart (cluster not running)' -Console:$consoleSwitch
 	}
 
 	} catch {
