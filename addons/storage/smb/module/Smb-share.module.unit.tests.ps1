@@ -1549,6 +1549,36 @@ Describe 'Get-SmbHostType' -Tag 'unit', 'ci', 'addon', 'storage smb' {
             Get-SmbHostType | Should -Be 'windows'
         }
     }
+
+    Context '-AllowUnspecified (disable-cleanup path, protects #2605 "remove both host types")' {
+        It "returns the configured value unchanged when valid" {
+            InModuleScope -ModuleName $moduleName {
+                Mock Get-AddonConfig { return [PSCustomObject]@{Name = 'addon1'; SmbHostType = 'linux' } }
+                Get-SmbHostType -AllowUnspecified | Should -Be 'linux'
+            }
+        }
+
+        It "returns empty (not 'windows') when SmbHostType is empty" {
+            InModuleScope -ModuleName $moduleName {
+                Mock Get-AddonConfig { return [PSCustomObject]@{Name = 'addon1'; SmbHostType = '' } }
+                Get-SmbHostType -AllowUnspecified | Should -Be ''
+            }
+        }
+
+        It "returns empty (not 'windows') when config is null" {
+            InModuleScope -ModuleName $moduleName {
+                Mock Get-AddonConfig { return $null }
+                Get-SmbHostType -AllowUnspecified | Should -Be ''
+            }
+        }
+
+        It "returns empty (not 'windows') when configured value is invalid" {
+            InModuleScope -ModuleName $moduleName {
+                Mock Get-AddonConfig { return [PSCustomObject]@{Name = 'addon1'; SmbHostType = 'my-type' } }
+                Get-SmbHostType -AllowUnspecified | Should -Be ''
+            }
+        }
+    }
 }
 
 Describe 'Get-Status' -Tag 'unit', 'ci', 'addon', 'storage smb' {
