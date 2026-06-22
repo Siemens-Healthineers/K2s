@@ -353,7 +353,8 @@ function Restore-ClusterIPWebhook {
 		# Step 5: Ensure the webhook pod is running with a fresh certificate.
 		# If the apply changed the deployment spec (e.g., new image/init container), it already
 		# triggered a rollout — no restart needed. Only restart if unchanged (to regenerate cert).
-		if ($deployOutput -match 'unchanged') {
+		# Check specifically the deployment line, not the service line which may also be in output.
+		if ($deployOutput -match 'deployment\.\S+\s+unchanged') {
 			Write-Log '[Webhook] Deployment unchanged — restarting to regenerate certificate...' -Console:$consoleSwitch
 			(Invoke-CmdOnControlPlaneViaSSHKey -CmdToExecute 'kubectl rollout restart deployment/clusterip-webhook -n k2s-webhook' -Timeout 30 -IgnoreErrors:$true).Output | Out-Null
 		} else {
