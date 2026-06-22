@@ -107,25 +107,19 @@ New-Item -ItemType Directory -Path $BackupDir -Force | Out-Null
 $files = @()
 
 try {
-    # Export ConfigMaps in a minimal JSON format
+    # Export ConfigMaps in a minimal JSON format.
+    #
+    # NOTE: The Fluent Bit ConfigMaps (fluent-bit, fluent-bit-win-parsers, fluent-bit-win-config)
+    # are intentionally NOT backed up. They are generated artifacts produced by Enable.ps1 and the
+    # Windows config now contains host-specific, resolved log paths (the __LOG_ROOT__ placeholder is
+    # substituted at addon enable time). Capturing the live ConfigMap and re-applying it during restore
+    # would overwrite the freshly generated, restore-host-correct config with stale paths from the
+    # backup host (e.g. D:\Temp\k2s-logs vs C:\var\log). During restore, Enable.ps1 runs first and
+    # regenerates these ConfigMaps correctly for the target host, so re-applying a snapshot is both
+    # unnecessary and unsafe. Only genuinely stateful config (OpenSearch) is backed up here.
     $cm1 = Join-Path $BackupDir 'opensearch-config.json'
     if (Try-ExportMinimalConfigMap -Name 'opensearch-cluster-master-config' -Namespace $namespace -OutPath $cm1) {
         $files += (Split-Path -Leaf $cm1)
-    }
-
-    $cm2 = Join-Path $BackupDir 'fluent-bit-config.json'
-    if (Try-ExportMinimalConfigMap -Name 'fluent-bit' -Namespace $namespace -OutPath $cm2) {
-        $files += (Split-Path -Leaf $cm2)
-    }
-
-    $cm3 = Join-Path $BackupDir 'fluent-bit-win-parsers.json'
-    if (Try-ExportMinimalConfigMap -Name 'fluent-bit-win-parsers' -Namespace $namespace -OutPath $cm3) {
-        $files += (Split-Path -Leaf $cm3)
-    }
-
-    $cm4 = Join-Path $BackupDir 'fluent-bit-win-config.json'
-    if (Try-ExportMinimalConfigMap -Name 'fluent-bit-win-config' -Namespace $namespace -OutPath $cm4) {
-        $files += (Split-Path -Leaf $cm4)
     }
 }
 catch {

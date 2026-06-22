@@ -30,6 +30,7 @@ $clusterModule = "$PSScriptRoot/../../../lib/modules/k2s/k2s.cluster.module/k2s.
 $infraModule = "$PSScriptRoot/../../../lib/modules/k2s/k2s.infra.module/k2s.infra.module.psm1"
 $addonsModule = "$PSScriptRoot\..\..\addons.module.psm1"
 $rolloutModule = "$PSScriptRoot\rollout.module.psm1"
+$dashboardModule = "$PSScriptRoot\..\..\dashboard\dashboard.module.psm1"
 
 Import-Module $clusterModule, $infraModule, $addonsModule, $rolloutModule
 
@@ -77,6 +78,12 @@ Write-Log 'Cleaning up addon-sync infrastructure' -Console
 Remove-IngressForTraefik -Addon ([pscustomobject] @{Name = 'rollout'; Implementation = 'fluxcd' })
 Remove-IngressForNginx -Addon ([pscustomobject] @{Name = 'rollout'; Implementation = 'fluxcd' })
 
+Write-Log 'Removing FluxCD resources before stopping controllers...' -Console
+(Invoke-Kubectl -Params 'delete', 'gitrepositories.source.toolkit.fluxcd.io', '--all', '-A', '--ignore-not-found', '--timeout=60s').Output | Write-Log
+(Invoke-Kubectl -Params 'delete', 'ocirepositories.source.toolkit.fluxcd.io', '--all', '-A', '--ignore-not-found', '--timeout=60s').Output | Write-Log
+(Invoke-Kubectl -Params 'delete', 'kustomizations.kustomize.toolkit.fluxcd.io', '--all', '-A', '--ignore-not-found', '--timeout=60s').Output | Write-Log
+(Invoke-Kubectl -Params 'delete', 'helmreleases.helm.toolkit.fluxcd.io', '--all', '-A', '--ignore-not-found', '--timeout=60s').Output | Write-Log
+
 Write-Log 'Uninstalling Flux resources...' -Console
 $kustomizationDir = Get-FluxConfig
 (Invoke-Kubectl -Params 'delete', '-k', $kustomizationDir).Output | Write-Log
@@ -85,6 +92,20 @@ Write-Log 'Deleting rollout namespace...' -Console
 (Invoke-Kubectl -Params 'delete', 'namespace', 'rollout','--timeout', '60s').Output | Write-Log
 
 Remove-AddonFromSetupJson -Addon ([pscustomobject] @{Name = 'rollout'; Implementation = 'fluxcd' })
+
+if (Test-Path $dashboardModule) {
+    Import-Module $dashboardModule -Force
+    if (Get-Command Sync-HeadlampPlugins -ErrorAction SilentlyContinue) {
+        Write-Log '[Dashboard][Plugin] Syncing Headlamp plugins after Flux disable' -Console
+        try {
+            Sync-HeadlampPlugins
+        }
+        catch {
+            # Plugin sync is best-effort: a failure here must not fail the primary addon operation.
+            Write-Log "[Dashboard][Plugin] Headlamp plugin sync failed (Flux disable continues): $($_.Exception.Message)" -Console
+        }
+    }
+}
 
 Write-Log 'Uninstallation of rollout addon with Flux finished' -Console
 

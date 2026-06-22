@@ -123,6 +123,33 @@ function Stop-WithError ([string]$Message) {
     exit 1
 }
 
+# Returns the configured K2s log root escaped for the Windows Fluent Bit conf,
+# which uses doubled backslashes (e.g. C:\\var\\log). Used to substitute the
+# __LOG_ROOT__ placeholder in the Windows configmaps so the Fluent Bit storage
+# buffer (flb-storage) follows the relocated log root instead of C:\var\log.
+function Get-EscapedLogRootForFluentBit {
+    $logRoot = (Get-ConfiguredLogDirectory).TrimEnd('\')
+    return ($logRoot -replace '\\', '\\')
+}
+
+# Applies a kubectl action while the given Windows Fluent Bit manifest has its
+# __LOG_ROOT__ placeholder substituted on disk, then restores the original file.
+# Mirrors the temporary replace/restore pattern used for __STORAGE_NODE__.
+function Invoke-WithLogRootSubstitution {
+    param(
+        [Parameter(Mandatory = $true)][string] $ManifestFile,
+        [Parameter(Mandatory = $true)][scriptblock] $Action
+    )
+    $original = [System.IO.File]::ReadAllText($ManifestFile)
+    [System.IO.File]::WriteAllText($ManifestFile, $original.Replace('__LOG_ROOT__', (Get-EscapedLogRootForFluentBit)))
+    try {
+        return (& $Action)
+    }
+    finally {
+        [System.IO.File]::WriteAllText($ManifestFile, $original)
+    }
+}
+
 function Wait-FluentBitReady {
     Write-Log 'Waiting for Fluent-bit DaemonSets to be ready...' -Console
     $cmd = Invoke-Kubectl -Params 'rollout', 'status', 'daemonset/fluent-bit', '-n', 'logging', '--timeout=300s'
@@ -152,7 +179,10 @@ if ($OmitOpensearch) {
 
     if ($setupInfo.LinuxOnly -eq $false) {
         $fluentbitWindowsPath = "$manifestsPath\fluentbit\windows"
-        (Invoke-Kubectl -Params 'apply', '-f', "$fluentbitWindowsPath\stdout\configmap-windows-stdout.yaml").Output | Write-Log
+        $winStdoutConfigMap = "$fluentbitWindowsPath\stdout\configmap-windows-stdout.yaml"
+        Invoke-WithLogRootSubstitution -ManifestFile $winStdoutConfigMap -Action {
+            (Invoke-Kubectl -Params 'apply', '-f', $winStdoutConfigMap).Output | Write-Log
+        }
         (Invoke-Kubectl -Params 'apply', '-f', "$fluentbitWindowsPath\daemonset-windows.yaml").Output | Write-Log
     }
 
@@ -183,7 +213,10 @@ else {
 
     # fluent-bit windows
     if ($setupInfo.LinuxOnly -eq $false) {
-        $createWinResult = Invoke-Kubectl -Params 'create', '-k', "$manifestsPath\fluentbit\windows"
+        $winConfigMap = "$manifestsPath\fluentbit\windows\configmap-windows.yaml"
+        $createWinResult = Invoke-WithLogRootSubstitution -ManifestFile $winConfigMap -Action {
+            Invoke-Kubectl -Params 'create', '-k', "$manifestsPath\fluentbit\windows"
+        }
         $createWinResult.Output | Write-Log
         if (!$createWinResult.Success) { Stop-WithError "Failed to create logging Windows resources: $($createWinResult.Output)" }
     }
