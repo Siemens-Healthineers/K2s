@@ -275,6 +275,9 @@ func buildSystemPackageCmd(flags *pflag.FlagSet) (string, []string, error) {
 		newPkg := flags.Lookup(PackageVersionToFlagName).Value.String()
 		params = append(params, " -InputPackageOne "+utils.EscapeWithSingleQuotes(oldPkg))
 		params = append(params, " -InputPackageTwo "+utils.EscapeWithSingleQuotes(newPkg))
+		if proxy != "" {
+			params = append(params, " -Proxy "+utils.EscapeWithSingleQuotes(proxy))
+		}
 		return utils.FormatScriptFilePath(filepath.Join(utils.InstallDir(), "lib", "scripts", "k2s", "system", "package", "New-K2sDeltaPackage.ps1")), params, nil
 	}
 

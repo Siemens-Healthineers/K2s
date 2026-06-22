@@ -36,6 +36,8 @@ Param(
     [switch] $Annotate = $false
 )
 
+$cycloneDxCliVersion = '0.30.0'
+
 function EnsureTrivy() {
     Write-Output 'Check the existence of tool trivy'
 
@@ -47,7 +49,7 @@ function EnsureTrivy() {
     }
 
     $compressedFile = "$global:BinPath\trivy.zip"
-    DownloadFile $compressedFile 'https://github.com/aquasecurity/trivy/releases/download/v0.71.1/trivy_0.71.1_windows-64bit.zip' $true -ProxyToUse $Proxy
+    DownloadFile $compressedFile 'https://github.com/aquasecurity/trivy/releases/download/v0.71.2/trivy_0.71.2_windows-64bit.zip' $true -ProxyToUse $Proxy
 
     # Extract the archive.
     Write-Output "Extract archive to '$global:BinPath"
@@ -63,9 +65,18 @@ function EnsureTrivy() {
 function EnsureCdxCli() {
     # download cli if not there
     $cli = "$global:BinPath\cyclonedx-win-x64.exe"
-    if (!(Test-Path $cli)) {
-        DownloadFile $cli https://github.com/CycloneDX/cyclonedx-cli/releases/download/v0.29.1/cyclonedx-win-x64.exe $true -ProxyToUse $Proxy
+    if (Test-Path $cli) {
+        $installedVersion = (& $cli --version 2>$null | Out-String).Trim()
+        if ($installedVersion -match [regex]::Escape($cycloneDxCliVersion)) {
+            Write-Output "cyclonedx-cli $cycloneDxCliVersion already available"
+            return
+        }
+
+        Write-Output "Replace cyclonedx-cli version '$installedVersion' with '$cycloneDxCliVersion'"
+        Remove-Item -Path $cli -Force
     }
+
+    DownloadFile $cli "https://github.com/CycloneDX/cyclonedx-cli/releases/download/v$cycloneDxCliVersion/cyclonedx-win-x64.exe" $true -ProxyToUse $Proxy
 }
 
 function GenerateBomGolang($dirname) {
@@ -175,7 +186,7 @@ function GenerateBomDebian() {
     Write-Output 'Generate bom for debian packages'
 
     $hostname = Get-ControlPlaneNodeHostname
-    $trivyVersion = '0.71.1'
+    $trivyVersion = '0.71.2'
     $kubemasterProxy = 'http://172.19.1.1:8181'
     $trivyUrl = "https://github.com/aquasecurity/trivy/releases/download/v${trivyVersion}/trivy_${trivyVersion}_Linux-64bit.tar.gz"
 
