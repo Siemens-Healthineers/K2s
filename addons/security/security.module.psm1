@@ -236,35 +236,114 @@ function Test-OAuth2ProxyServiceAvailability {
     return $deployment -and $deployment -notmatch 'NotFound'
 }
 
+<#
+.DESCRIPTION
+Tests if the Keycloak service is available in the 'security' namespace.
+#>
+function Test-KeycloakServiceAvailability {
+    $deployment = (Invoke-Kubectl -Params '-n', 'security', 'get', 'deployment', 'keycloak', '--ignore-not-found').Output
+    return $deployment -and $deployment -notmatch 'NotFound'
+}
+
 function Enable-IngressForSecurity {
     param (
         [Parameter(Mandatory = $true)]
         [string]$Ingress
     )
-    
+
+    # The keycloak and oauth2-proxy ingress resources (Ingress, Middleware, HTTPRoute,
+    # Server/ServerAuthorization, SnippetsFilter) reference backend services
+    # (oauth2-proxy:4180, keycloak:8080) that only exist when the corresponding OAuth
+    # component is deployed. To support independently optional Keycloak and OAuth2 Proxy
+    # (--omit-keycloak / --omit-oauth2-proxy / --omit-hydra), the manifests are split per
+    # component and applied only when their backend is present. This avoids dangling
+    # resources that flood the ingress controller logs with 'service not found' errors.
+    $oauth2ProxyAvailable = Test-OAuth2ProxyServiceAvailability
+    $keycloakAvailable = Test-KeycloakServiceAvailability
+    if (-not $oauth2ProxyAvailable -and -not $keycloakAvailable) {
+        Write-Log '[Security] Skipping security ingress creation: neither oauth2-proxy nor keycloak service is deployed (OAuth components omitted).' -Console
+        return
+    }
+
+    $manifestDir = "$PSScriptRoot\manifests\keycloak"
+
     switch ($Ingress) {
         'nginx' {
-            (Invoke-Kubectl -Params 'apply', '-f', "$PSScriptRoot\manifests\keycloak\nginx-ingress.yaml").Output | Write-Log
+            if ($oauth2ProxyAvailable) {
+                Write-Log '[Security] Applying nginx ingress for oauth2-proxy' -Console
+                (Invoke-Kubectl -Params 'apply', '-f', "$manifestDir\nginx-ingress-oauth2-proxy.yaml").Output | Write-Log
+            }
+            if ($keycloakAvailable) {
+                Write-Log '[Security] Applying nginx ingress for keycloak' -Console
+                (Invoke-Kubectl -Params 'apply', '-f', "$manifestDir\nginx-ingress-keycloak.yaml").Output | Write-Log
+            }
             break
         }
         'traefik' {
-            (Invoke-Kubectl -Params 'apply', '-f', "$PSScriptRoot\manifests\keycloak\traefik-ingress.yaml").Output | Write-Log
+            if ($oauth2ProxyAvailable) {
+                Write-Log '[Security] Applying traefik ingress and middleware for oauth2-proxy' -Console
+                (Invoke-Kubectl -Params 'apply', '-f', "$manifestDir\traefik-ingress-oauth2-proxy.yaml").Output | Write-Log
+            }
+            if ($keycloakAvailable) {
+                Write-Log '[Security] Applying traefik ingress for keycloak' -Console
+                (Invoke-Kubectl -Params 'apply', '-f', "$manifestDir\traefik-ingress-keycloak.yaml").Output | Write-Log
+            }
             break
         }
         'nginx-gw' {
-            Write-Log '[nginx-gw] Applying shared OAuth2 locations (/_auth, @oauth2_redirect)' -Console
-            (Invoke-Kubectl -Params 'apply', '-f', "$PSScriptRoot\manifests\keycloak\oauth2-shared-locations.yaml").Output | Write-Log
-            (Invoke-Kubectl -Params 'apply', '-f', "$PSScriptRoot\manifests\keycloak\nginx-gw-ingress.yaml").Output | Write-Log
+            # ReferenceGrant is shared infrastructure required by any security HTTPRoute,
+            # so it is applied whenever at least one backend is present.
+            Write-Log '[nginx-gw] Applying shared ReferenceGrant for security HTTPRoutes' -Console
+            (Invoke-Kubectl -Params 'apply', '-f', "$manifestDir\nginx-gw-ingress-shared.yaml").Output | Write-Log
+            if ($oauth2ProxyAvailable) {
+                Write-Log '[nginx-gw] Applying shared OAuth2 locations (/_auth, @oauth2_redirect)' -Console
+                (Invoke-Kubectl -Params 'apply', '-f', "$manifestDir\oauth2-shared-locations.yaml").Output | Write-Log
+                Write-Log '[nginx-gw] Applying HTTPRoute and authorization for oauth2-proxy' -Console
+                (Invoke-Kubectl -Params 'apply', '-f', "$manifestDir\nginx-gw-ingress-oauth2-proxy.yaml").Output | Write-Log
+            }
+            if ($keycloakAvailable) {
+                Write-Log '[nginx-gw] Applying HTTPRoute and authorization for keycloak' -Console
+                (Invoke-Kubectl -Params 'apply', '-f', "$manifestDir\nginx-gw-ingress-keycloak.yaml").Output | Write-Log
+            }
             break
         }
     }
 }
 
 function Remove-IngressForSecurity {
-    (Invoke-Kubectl -Params 'delete', '-f', "$PSScriptRoot\manifests\keycloak\nginx-ingress.yaml", '--ignore-not-found').Output | Write-Log
-    (Invoke-Kubectl -Params 'delete', '-f', "$PSScriptRoot\manifests\keycloak\traefik-ingress.yaml", '--ignore-not-found').Output | Write-Log
-    (Invoke-Kubectl -Params 'delete', '-f', "$PSScriptRoot\manifests\keycloak\nginx-gw-ingress.yaml", '--ignore-not-found').Output | Write-Log
-    (Invoke-Kubectl -Params 'delete', '-f', "$PSScriptRoot\manifests\keycloak\oauth2-shared-locations.yaml", '--ignore-not-found').Output | Write-Log
+    $manifestDir = "$PSScriptRoot\manifests\keycloak"
+
+    # Per-component split manifests (current layout)
+    $manifestsToRemove = @(
+        'nginx-ingress-oauth2-proxy.yaml',
+        'nginx-ingress-keycloak.yaml',
+        'traefik-ingress-oauth2-proxy.yaml',
+        'traefik-ingress-keycloak.yaml',
+        'nginx-gw-ingress-oauth2-proxy.yaml',
+        'nginx-gw-ingress-keycloak.yaml',
+        'nginx-gw-ingress-shared.yaml',
+        'oauth2-shared-locations.yaml'
+    )
+    foreach ($manifest in $manifestsToRemove) {
+        $path = "$manifestDir\$manifest"
+        if (Test-Path $path) {
+            (Invoke-Kubectl -Params 'delete', '-f', $path, '--ignore-not-found').Output | Write-Log
+        }
+    }
+
+    # Legacy combined manifests (pre-split) -- delete if still present on upgraded clusters
+    # so resources created by an older addon version are cleaned up as well.
+    $legacyManifests = @(
+        'nginx-ingress.yaml',
+        'traefik-ingress.yaml',
+        'nginx-gw-ingress.yaml'
+    )
+    foreach ($manifest in $legacyManifests) {
+        $path = "$manifestDir\$manifest"
+        if (Test-Path $path) {
+            (Invoke-Kubectl -Params 'delete', '-f', $path, '--ignore-not-found').Output | Write-Log
+        }
+    }
 }
 
 <#
