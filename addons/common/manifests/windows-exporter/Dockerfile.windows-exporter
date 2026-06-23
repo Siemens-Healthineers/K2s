@@ -10,8 +10,8 @@ FROM mcr.microsoft.com/windows/nanoserver:${WINDOWS_VERSION}
 
 LABEL description='Windows exporter'
 
-COPY ["windows_exporter.exe", "/windows_exporter.exe"]
+COPY windows_exporter.exe .
 COPY --from=winbase ["/Windows/System32/netapi32.dll", "/Windows/System32/netapi32.dll"]
 
 USER ContainerAdministrator
-ENTRYPOINT ["/windows_exporter.exe"]
+ENTRYPOINT ["windows_exporter.exe"]

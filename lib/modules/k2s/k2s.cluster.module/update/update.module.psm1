@@ -755,16 +755,17 @@ function PerformClusterUpdate {
 		  3. Load delta-manifest.json (file lists + optional debian-delta metadata)
 		  4. Version compatibility validation
 		  5. Apply Debian package delta (if cluster is running)
-		  6. Stop cluster automatically (if it was running)
-		  7. Apply updated Windows artifacts (add/update files, remove obsolete files) from delta to target installation
-		  8. Restart cluster automatically (if it was running before)
-		  9. Import container images from image-delta (Windows via nerdctl, Linux via SCP + buildah)
-		  10. Run optional hooks (pre/post) [placeholder]
-		  11. Basic health checks (API server reachable, node Ready) if cluster is running
-		  12. Restore CoreDNS etcd plugin configuration (kubeadm upgrade may reset customizations)
-		  13. Restore ClusterIP webhook TLS certificates (kubeadm upgrade may invalidate certs)
-		  14. Final ClusterIP webhook pod restart to re-sync TLS cert/caBundle before workloads start
-		  15. Update VERSION file and setup.json (product version + Kubernetes version) to reflect successful update
+		  6. Apply Linux guest-config host tools (helm/yq) to the control plane VM, air-gapped (if cluster is running)
+		  7. Stop cluster automatically (if it was running)
+		  8. Apply updated Windows artifacts (add/update files, remove obsolete files) from delta to target installation
+		  9. Restart cluster automatically (if it was running before)
+		  10. Import container images from image-delta (Windows via nerdctl, Linux via SCP + buildah)
+		  11. Run optional hooks (pre/post) [placeholder]
+		  12. Basic health checks (API server reachable, node Ready) if cluster is running
+		  13. Restore CoreDNS etcd plugin configuration (kubeadm upgrade may reset customizations)
+		  14. Restore ClusterIP webhook TLS certificates (kubeadm upgrade may invalidate certs)
+		  15. Final ClusterIP webhook pod restart to re-sync TLS cert/caBundle before workloads start
+		  16. Update VERSION file and setup.json (product version + Kubernetes version) to reflect successful update
 	.PARAMETER ExecuteHooks
 		Execute lifecycle hooks (currently placeholder; no hooks executed yet).
 	.PARAMETER ShowProgress
@@ -832,7 +833,7 @@ Current directory: $deltaRoot
 	}
 
 	$script:phaseId = 0
-	$script:totalPhases = 15
+	$script:totalPhases = 16
 	function _phase { 
 		param($name) 
 		$script:phaseId++
@@ -967,6 +968,31 @@ Current directory: $deltaRoot
 			Write-Log '[Update][Info] No Debian delta apply script found; skipping' -Console:$consoleSwitch
 		}
 	} else { Write-Log '[Update] No Debian delta in manifest' -Console:$consoleSwitch }
+
+	# 4b. Apply Linux guest-config host tools (helm/yq) to the kubemaster VM.
+	# These binaries live in /usr/local/bin on the control plane and are NOT dpkg packages, so the Debian
+	# delta above does not touch them. Delta creation captures their changed/added versions via the
+	# GuestConfig diff and bundles them under 'guest-config/' inside the package, so this is fully
+	# air-gapped (no internet at apply). Applied here while the control plane VM is confirmed running
+	# (before StopCluster). Allowlisted to /usr/local/bin and warn-only - a transient failure must not
+	# fail an otherwise-successful upgrade.
+	_phase 'GuestConfigApply'
+	if ($wasRunning) {
+		if ($manifest.GuestConfigRelativePath) {
+			try {
+				$guestApply = Invoke-GuestConfigDeltaApply -DeltaRoot $deltaRoot -Manifest $manifest -ShowLogs:$ShowLogs
+				if (-not $guestApply.Success) {
+					Write-Log '[Update][Warn] Guest-config apply reported issues; Linux helm/yq may be stale until re-applied.' -Console:$consoleSwitch
+				}
+			} catch {
+				Write-Log ("[Update][Warn] Guest-config apply encountered an error: {0}" -f $_.Exception.Message) -Console:$consoleSwitch
+			}
+		} else {
+			Write-Log '[Update] No guest-config payload in manifest; skipping Linux host tool update.' -Console:$consoleSwitch
+		}
+	} else {
+		Write-Log '[Update] Skipping guest-config apply (cluster not running)' -Console:$consoleSwitch
+	}
 
 	# 5. Stop cluster if it was running
 	_phase 'StopCluster'
@@ -1731,6 +1757,179 @@ Export-ModuleMember -Function Set-K2sInstallationHome
 Export-ModuleMember -Function Remove-DeltaPackageArtifact
 Export-ModuleMember -Function Get-K2sManagedServiceName
 Export-ModuleMember -Function Select-PrunableRemovedFile
+
+# region: guest-config (Linux control plane host tools) delta application
+<#
+.SYNOPSIS
+	Returns the allowlist of guest (Linux control plane) absolute path prefixes that a delta update is
+	permitted to re-apply to the kubemaster VM.
+.DESCRIPTION
+	Delta creation captures changed/added control plane host files via the GuestConfig diff (see
+	New-K2sDelta.GuestConfig.ps1) and bundles them under the package's 'guest-config/' folder so the
+	update is fully air-gapped. Only host TOOL binaries are re-applied during a delta update - currently
+	the Linux helm and yq executables under /usr/local/bin. Cluster-identity files (PKI, kubeconfigs,
+	static pod manifests, kubelet config) are intentionally NOT applied even though delta creation already
+	excludes them from the payload - this allowlist is a second, independent safety boundary.
+.OUTPUTS
+	[string[]] Absolute path prefixes (each ending with '/').
+#>
+function Get-GuestConfigApplyAllowlist {
+	return @('/usr/local/bin/')
+}
+
+<#
+.SYNOPSIS
+	Tests whether a guest-config payload entry is permitted to be applied to the control plane VM.
+.DESCRIPTION
+	Accepts either a staging-relative path (e.g. 'usr/local/bin/helm', forward or back slashes) or an
+	absolute guest path (e.g. '/usr/local/bin/helm') and returns $true only when the corresponding
+	absolute path falls under one of the Get-GuestConfigApplyAllowlist prefixes.
+.PARAMETER Path
+	The relative or absolute path to test.
+.OUTPUTS
+	[bool]
+#>
+function Test-GuestConfigApplyAllowed {
+	param([string] $Path)
+	if ([string]::IsNullOrWhiteSpace($Path)) { return $false }
+	# Normalize to an absolute, forward-slash guest path.
+	$abs = '/' + (($Path -replace '\\', '/').TrimStart('/'))
+	foreach ($prefix in (Get-GuestConfigApplyAllowlist)) {
+		if ($abs.StartsWith($prefix, [System.StringComparison]::Ordinal)) { return $true }
+	}
+	return $false
+}
+
+<#
+.SYNOPSIS
+	Applies the air-gapped guest-config payload (Linux host tools, e.g. helm/yq) from a delta package to
+	the running kubemaster VM.
+.DESCRIPTION
+	The delta package bundles changed/added control plane host files under 'guest-config/<absolute-path>'
+	(no leading slash), recorded in the manifest as GuestConfigRelativePath plus GuestConfigDiff.CopiedFiles.
+	This function copies each ALLOWLISTED file (see Test-GuestConfigApplyAllowed - only /usr/local/bin/* by
+	default) onto the control plane VM via the existing SSH helpers and installs it in place (root-owned,
+	0755). No internet access is used - the binaries already ride inside the delta package, satisfying the
+	air-gapped requirement. The function is warn-only: failures are logged but never thrown, so a transient
+	issue applying helm/yq does not fail an otherwise-successful upgrade.
+.PARAMETER DeltaRoot
+	Absolute path to the extracted delta package root (the directory containing delta-manifest.json).
+.PARAMETER Manifest
+	The parsed delta manifest object (must expose GuestConfigRelativePath and, optionally,
+	GuestConfigDiff.CopiedFiles).
+.PARAMETER ShowLogs
+	Mirror logs to console.
+.OUTPUTS
+	PSCustomObject { Applied[]; Skipped[]; Failed[]; Success }
+#>
+function Invoke-GuestConfigDeltaApply {
+	[CmdletBinding()]
+	param(
+		[Parameter(Mandatory = $true)][string] $DeltaRoot,
+		[Parameter(Mandatory = $true)] $Manifest,
+		[switch] $ShowLogs
+	)
+	$consoleSwitch = $ShowLogs
+	$result = [pscustomobject]@{ Applied = @(); Skipped = @(); Failed = @(); Success = $true }
+
+	$relRoot = $Manifest.GuestConfigRelativePath
+	if ([string]::IsNullOrWhiteSpace($relRoot)) {
+		Write-Log '[GuestConfigApply] No guest-config payload in manifest; nothing to apply.' -Console:$consoleSwitch
+		return $result
+	}
+	$guestConfigDir = Join-Path $DeltaRoot $relRoot
+	if (-not (Test-Path -LiteralPath $guestConfigDir)) {
+		Write-Log ("[GuestConfigApply][Warn] guest-config directory not found: {0}" -f $guestConfigDir) -Console:$consoleSwitch
+		return $result
+	}
+
+	# Determine candidate files: prefer the manifest's CopiedFiles list; otherwise enumerate the payload.
+	$candidates = @()
+	if ($Manifest.GuestConfigDiff -and $Manifest.GuestConfigDiff.CopiedFiles) {
+		$candidates = @($Manifest.GuestConfigDiff.CopiedFiles)
+	} else {
+		$candidates = Get-ChildItem -LiteralPath $guestConfigDir -Recurse -File -ErrorAction SilentlyContinue | ForEach-Object {
+			($_.FullName.Substring($guestConfigDir.Length).TrimStart('\', '/')) -replace '\\', '/'
+		}
+	}
+	$candidates = @($candidates | Where-Object { -not [string]::IsNullOrWhiteSpace($_) } | Sort-Object -Unique)
+
+	# Apply allowlist filtering (defense in depth - only host tools under /usr/local/bin are applied).
+	$allowed = @($candidates | Where-Object { Test-GuestConfigApplyAllowed $_ })
+	foreach ($blocked in @($candidates | Where-Object { -not (Test-GuestConfigApplyAllowed $_) })) {
+		$result.Skipped += $blocked
+		Write-Log ("[GuestConfigApply] Skipping non-allowlisted guest file: {0}" -f $blocked) -Console:$consoleSwitch
+	}
+	if ($allowed.Count -eq 0) {
+		Write-Log '[GuestConfigApply] No allowlisted guest-config files to apply (only /usr/local/bin/* is applied).' -Console:$consoleSwitch
+		return $result
+	}
+
+	# Import vm module + verify control plane reachability (mirror Invoke-CommandInMasterVM).
+	$vmModule = "$PSScriptRoot/../../k2s.node.module/linuxnode/vm/vm.module.psm1"
+	if (Test-Path -LiteralPath $vmModule) { Import-Module $vmModule -ErrorAction SilentlyContinue }
+	if (-not (Get-Command -Name Invoke-CmdOnControlPlaneViaSSHKey -ErrorAction SilentlyContinue) -or
+		-not (Get-Command -Name Copy-ToControlPlaneViaSSHKey -ErrorAction SilentlyContinue)) {
+		Write-Log '[GuestConfigApply][Warn] SSH helpers not available; skipping guest-config apply.' -Console:$consoleSwitch
+		$result.Success = $false
+		return $result
+	}
+	$cpRunning = $false
+	if (Get-Command -Name Get-IsControlPlaneRunning -ErrorAction SilentlyContinue) {
+		try { $cpRunning = Get-IsControlPlaneRunning } catch { $cpRunning = $false }
+	}
+	if (-not $cpRunning) {
+		Write-Log '[GuestConfigApply][Warn] Control plane VM not running; cannot apply guest-config (helm/yq).' -Console:$consoleSwitch
+		$result.Success = $false
+		return $result
+	}
+
+	$remoteBase = '/tmp/k2s-guest-config'
+	(Invoke-CmdOnControlPlaneViaSSHKey "sudo rm -rf $remoteBase && mkdir -p $remoteBase && sudo chown `$(whoami) $remoteBase" -Timeout 5 -IgnoreErrors:$true).Output | Out-Null
+
+	foreach ($rel in $allowed) {
+		$relForward = (($rel -replace '\\', '/').TrimStart('/'))
+		$localPath = Join-Path $guestConfigDir ($relForward -replace '/', '\')
+		if (-not (Test-Path -LiteralPath $localPath)) {
+			Write-Log ("[GuestConfigApply][Warn] Staged file missing, cannot apply: {0}" -f $relForward) -Console:$consoleSwitch
+			$result.Failed += $relForward
+			$result.Success = $false
+			continue
+		}
+		$remoteAbs = '/' + $relForward
+		$remoteDir = ($remoteAbs -replace '/[^/]+$', '')
+		$remoteTmp = "$remoteBase/" + (Split-Path -Leaf $relForward)
+		try {
+			Copy-ToControlPlaneViaSSHKey -Source $localPath -Target $remoteTmp -IgnoreErrors:$false
+			# Install in place: ensure parent dir, root-owned, 0755 (executable). 'install' is atomic.
+			$installCmd = "sudo mkdir -p '$remoteDir' && sudo install -m 0755 -o root -g root '$remoteTmp' '$remoteAbs'"
+			(Invoke-CmdOnControlPlaneViaSSHKey -CmdToExecute $installCmd -Timeout 10 -IgnoreErrors:$true).Output | Out-Null
+			$verify = (Invoke-CmdOnControlPlaneViaSSHKey -CmdToExecute "test -x '$remoteAbs' && echo OK || echo MISSING" -Timeout 5 -IgnoreErrors:$true).Output | Out-String
+			if ($verify -match 'OK') {
+				$result.Applied += $remoteAbs
+				Write-Log ("[GuestConfigApply] Applied {0}" -f $remoteAbs) -Console:$consoleSwitch
+			} else {
+				$result.Failed += $remoteAbs
+				$result.Success = $false
+				Write-Log ("[GuestConfigApply][Warn] Verification failed for {0}" -f $remoteAbs) -Console:$consoleSwitch
+			}
+		} catch {
+			$result.Failed += $remoteAbs
+			$result.Success = $false
+			Write-Log ("[GuestConfigApply][Warn] Failed to apply {0}: {1}" -f $remoteAbs, $_.Exception.Message) -Console:$consoleSwitch
+		}
+	}
+
+	# Cleanup staging.
+	(Invoke-CmdOnControlPlaneViaSSHKey "sudo rm -rf $remoteBase" -Timeout 5 -IgnoreErrors:$true).Output | Out-Null
+
+	Write-Log ("[GuestConfigApply] Done. Applied={0} Skipped={1} Failed={2}" -f $result.Applied.Count, $result.Skipped.Count, $result.Failed.Count) -Console:$consoleSwitch
+	return $result
+}
+
+Export-ModuleMember -Function Get-GuestConfigApplyAllowlist -ErrorAction SilentlyContinue
+Export-ModuleMember -Function Test-GuestConfigApplyAllowed -ErrorAction SilentlyContinue
+Export-ModuleMember -Function Invoke-GuestConfigDeltaApply -ErrorAction SilentlyContinue
 
 # region: VM execution helper (Debian delta application)
 function Invoke-CommandInMasterVM {
