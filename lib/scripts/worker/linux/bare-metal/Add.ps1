@@ -22,6 +22,10 @@ $linuxWorkerCommon = "$PSScriptRoot\..\common\LinuxWorkerNode.Common.ps1"
 
 Initialize-LinuxWorkerScriptEnvironment -ShowLogs:$ShowLogs -IncludePuttyTools
 
+# Import GPU worker module for GPU detection and configuration
+$gpuWorkerModule = "$PSScriptRoot\..\..\..\..\modules\k2s\k2s.node.module\linuxnode\setup\gpu-worker.module.psm1"
+Import-Module $gpuWorkerModule
+
 $ErrorActionPreference = 'Stop'
 
 

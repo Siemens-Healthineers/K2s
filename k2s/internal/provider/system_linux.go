@@ -6,6 +6,7 @@
 package provider
 
 import (
+	"errors"
 	"fmt"
 	"log/slog"
 	"os/exec"
@@ -72,7 +73,40 @@ func (p *linuxSystemProvider) Restore(_ SystemRestoreConfig) error {
 
 func (p *linuxSystemProvider) CertificateRenew(_ SystemCertRenewConfig) error {
 	slog.Info("[System] Renewing Kubernetes certificates")
-	return exec.Command("kubeadm", "certs", "renew", "all").Run()
+	if err := exec.Command("kubeadm", "certs", "renew", "all").Run(); err != nil {
+		return err
+	}
+
+	// Renew the clusterip-webhook certificate by restarting the deployment.
+	// The init container generates a fresh certificate on each Pod start.
+	slog.Info("[System] Renewing clusterip-webhook certificate")
+	checkCmd := exec.Command("kubectl", "get", "deployment", "clusterip-webhook",
+		"-n", "k2s-webhook", "--no-headers")
+	if out, err := checkCmd.CombinedOutput(); err != nil {
+		var exitErr *exec.ExitError
+		if errors.As(err, &exitErr) && exitErr.ExitCode() == 1 {
+			slog.Info("[System] clusterip-webhook deployment not found - skipping webhook cert renewal")
+			return nil
+		}
+		slog.Warn("[System] Failed to check clusterip-webhook deployment - skipping webhook cert renewal",
+			"error", err, "output", string(out))
+		return nil
+	}
+
+	restartCmd := exec.Command("kubectl", "rollout", "restart",
+		"deployment/clusterip-webhook", "-n", "k2s-webhook")
+	if out, err := restartCmd.CombinedOutput(); err != nil {
+		return fmt.Errorf("failed to restart clusterip-webhook deployment: %w\n%s", err, out)
+	}
+
+	statusCmd := exec.Command("kubectl", "rollout", "status",
+		"deployment/clusterip-webhook", "-n", "k2s-webhook", "--timeout=120s")
+	if out, err := statusCmd.CombinedOutput(); err != nil {
+		return fmt.Errorf("clusterip-webhook deployment did not become ready: %w\n%s", err, out)
+	}
+
+	slog.Info("[System] clusterip-webhook certificate renewed successfully")
+	return nil
 }
 
 func (p *linuxSystemProvider) CertificateAutoRotation(cfg SystemCertAutoRotationConfig) error {

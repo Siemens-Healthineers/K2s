@@ -42,6 +42,7 @@ $infraModule = "$PSScriptRoot/../../../lib/modules/k2s/k2s.infra.module/k2s.infr
 $addonsModule = "$PSScriptRoot\..\..\addons.module.psm1"
 $nodeModule = "$PSScriptRoot/../../../lib/modules/k2s/k2s.node.module/k2s.node.module.psm1"
 $rolloutModule = "$PSScriptRoot\rollout.module.psm1"
+$dashboardModule = "$PSScriptRoot\..\..\dashboard\dashboard.module.psm1"
 
 Import-Module $clusterModule, $infraModule, $addonsModule, $nodeModule, $rolloutModule
 
@@ -120,6 +121,20 @@ if ($Ingress -ne 'none') {
 Write-Log 'Installation of rollout addon with Flux finished.' -Console
 
 Add-AddonToSetupJson -Addon ([pscustomobject] @{Name = 'rollout'; Implementation = 'fluxcd' })
+
+if (Test-Path $dashboardModule) {
+    Import-Module $dashboardModule -Force
+    if (Get-Command Sync-HeadlampPlugins -ErrorAction SilentlyContinue) {
+        Write-Log '[Dashboard][Plugin] Syncing Headlamp plugins after Flux enable' -Console
+        try {
+            Sync-HeadlampPlugins
+        }
+        catch {
+            # Plugin sync is best-effort: a failure here must not fail the primary addon operation.
+            Write-Log "[Dashboard][Plugin] Headlamp plugin sync failed (Flux enable continues): $($_.Exception.Message)" -Console
+        }
+    }
+}
 
 # Deploy addon-sync infrastructure for GitOps addon delivery
 if ($AddonSync) {

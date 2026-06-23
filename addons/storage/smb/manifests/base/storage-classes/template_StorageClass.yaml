@@ -20,11 +20,5 @@ parameters:
 reclaimPolicy: SC_RECLAIM_POLICY # default: Delete; available values: Delete, Retain
 volumeBindingMode: Immediate
 mountOptions:
-  - dir_mode=0777
-  - file_mode=0777
-  - uid=1001
-  - gid=1001
-  - noperm
-  - mfsymlinks
-  - cache=strict
-  - noserverino # required to prevent data corruption
+# mount options are injected below (placeholder line must stay at column 0)
+MOUNT_OPTIONS

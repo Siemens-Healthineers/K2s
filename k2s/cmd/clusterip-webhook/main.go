@@ -69,6 +69,11 @@ func main() {
 	var tlsCert string
 	var tlsKey string
 
+	var initCert bool
+	var webhookName string
+	var serviceName string
+	var namespace string
+
 	versionFlag := cli.NewVersionFlag(cliName)
 	flag.StringVar(&addr, "addr", ":8443", "address to listen on")
 	flag.StringVar(&linuxSubnet, "linux-subnet", defaultLinuxSubnet, "CIDR for Linux service ClusterIPs")
@@ -76,6 +81,10 @@ func main() {
 	flag.IntVar(&reservedIPs, "reserved-ips", defaultReservedIPs, "number of IPs reserved at the start of each subnet")
 	flag.StringVar(&tlsCert, "tls-cert", certFile, "path to TLS certificate")
 	flag.StringVar(&tlsKey, "tls-key", keyFile, "path to TLS private key")
+	flag.BoolVar(&initCert, "init-cert", false, "generate TLS certificate and patch webhook config, then exit")
+	flag.StringVar(&webhookName, "webhook-name", "k2s-webhook", "name of the MutatingWebhookConfiguration to patch (init-cert mode)")
+	flag.StringVar(&serviceName, "service-name", "clusterip-webhook", "service name for TLS certificate SANs (init-cert mode)")
+	flag.StringVar(&namespace, "namespace", "k2s-webhook", "namespace of the webhook service (init-cert mode)")
 	flag.Parse()
 
 	if *versionFlag {
@@ -83,8 +92,24 @@ func main() {
 		return
 	}
 
+	if initCert {
+		slog.SetDefault(slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelInfo})))
+		if err := runCertGen(certGenConfig{
+			CertPath:    tlsCert,
+			KeyPath:     tlsKey,
+			ServiceName: serviceName,
+			Namespace:   namespace,
+			WebhookName: webhookName,
+		}); err != nil {
+			slog.Error("Certificate generation failed", "error", err)
+			os.Exit(1)
+		}
+		slog.Info("Init-cert completed successfully")
+		return
+	}
+
 	slog.SetDefault(slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelInfo})))
-	slog.Info("Starting", "name", cliName, "addr", addr,
+	slog.Info("Starting", "name", cliName, "version", ve.GetVersion().String(), "addr", addr,
 		"linuxSubnet", linuxSubnet, "windowsSubnet", windowsSubnet, "reservedIPs", reservedIPs)
 
 	config, err := rest.InClusterConfig()
@@ -238,8 +263,8 @@ func (h *WebhookHandler) mutateService(request *admissionv1.AdmissionRequest) *a
 		return &admissionv1.AdmissionResponse{Allowed: true}
 	}
 
-	// Skip headless services
-	if service.Spec.ClusterIP == "None" {
+	// Skip headless services (check both singular and plural fields)
+	if service.Spec.ClusterIP == "None" || containsNone(service.Spec.ClusterIPs) {
 		slog.Info("Service is headless, skipping", "name", service.Name, "namespace", service.Namespace)
 		return &admissionv1.AdmissionResponse{Allowed: true}
 	}
@@ -319,6 +344,17 @@ func (h *WebhookHandler) getUsedClusterIPs() (map[string]bool, error) {
 	for _, svc := range services.Items {
 		if svc.Spec.ClusterIP != "" && svc.Spec.ClusterIP != "None" {
 			used[svc.Spec.ClusterIP] = true
+		}
+	}
+
+	// Also include IPs tracked by the API server's internal allocator.
+	// This catches stale bitmap entries and IPs allocated during webhook downtime.
+	ipAddresses, err := h.clientset.NetworkingV1().IPAddresses().List(ctx, metav1.ListOptions{})
+	if err != nil {
+		slog.Warn("Failed to list IPAddress objects, relying on service list only", "error", err)
+	} else {
+		for _, ipa := range ipAddresses.Items {
+			used[ipa.Name] = true
 		}
 	}
 
@@ -881,6 +917,15 @@ func bytesGreater(a, b net.IP) bool {
 		}
 		if a[i] < b[i] {
 			return false
+		}
+	}
+	return false
+}
+
+func containsNone(clusterIPs []string) bool {
+	for _, ip := range clusterIPs {
+		if ip == "None" {
+			return true
 		}
 	}
 	return false
