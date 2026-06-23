@@ -786,6 +786,26 @@ function Remove-StorageClasses {
         Remove-PersistentVolumeClaimsForStorageClass -StorageClass $configEntry.StorageClassName | Write-Log
     }
 
+    $scKustomizationPath = "$manifestStorageClassesDir\$scKustomizeFileName"
+    if (-not (Test-Path -Path $scKustomizationPath -PathType Leaf)) {
+        $manifestsForDelete = [System.Collections.ArrayList]@(
+            Get-ChildItem -Path $manifestStorageClassesDir -File -Filter "$generatedPrefix*.yaml" -ErrorAction SilentlyContinue | ForEach-Object { $_.Name }
+        )
+
+        if ($manifestsForDelete.Count -eq 0) {
+            foreach ($configEntry in $Config) {
+                if ($null -ne $configEntry.StorageClassName -and "$($configEntry.StorageClassName)".Length -gt 0) {
+                    $manifestsForDelete.Add("$generatedPrefix$($configEntry.StorageClassName).yaml") | Out-Null
+                }
+            }
+        }
+
+        if ($manifestsForDelete.Count -gt 0) {
+            Write-Log "StorageClass kustomization '$scKustomizationPath' missing, regenerating for cleanup.."
+            New-StorageClassKustomization -Manifests $manifestsForDelete
+        }
+    }
+
     $params = 'delete', '-k', $manifestDir, '--force', '--ignore-not-found', '--grace-period=0'
 
     Write-Log "Deleting resources from manifest dir '$manifestDir'.."
@@ -912,7 +932,7 @@ function Remove-SmbShareAndFolder() {
     )
     Write-Log 'Removing SMB shares and folders..' -Console    
 
-    $smbHostType = Get-SmbHostType
+    $smbHostType = Get-SmbHostType -AllowUnspecified
 
     switch ($SmbHostType) {
         'windows' {
@@ -1158,12 +1178,35 @@ function Restore-SmbShareAndFolder {
 Reads the SMB host type from config
 
 .DESCRIPTION
-Reads the SMB host type from addons config file
+Reads the SMB host type from the addons config file
 #>
 function Get-SmbHostType {
+    param(
+        [parameter(Mandatory = $false)]
+        [switch]$AllowUnspecified = $false
+    )
     $config = Get-AddonConfig -Name $AddonName
 
-    return $config.SmbHostType
+    $validTypes = @('windows', 'linux')
+    $default = 'windows'
+
+    if ($null -eq $config -or $null -eq $config.SmbHostType) {
+        if ($AllowUnspecified) {
+            return ''
+        }
+        return $default
+    }
+
+    $normalized = ([string]$config.SmbHostType).Trim().ToLowerInvariant()
+
+    if ($validTypes -contains $normalized) {
+        return $normalized
+    }
+
+    if ($AllowUnspecified) {
+        return ''
+    }
+    return $default
 }
 
 function Get-Status {

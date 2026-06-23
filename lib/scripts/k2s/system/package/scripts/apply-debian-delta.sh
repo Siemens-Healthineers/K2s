@@ -80,6 +80,22 @@ else
     echo "[debian-delta] No packages specified for install/upgrade"
 fi
 
+# Hard guard: if the package declares an expected Kubernetes version, the installed kubelet MUST match
+# it after the .deb install. Otherwise the package is incomplete (the Kubernetes .deb files were not
+# downloaded during package creation) and the kubeadm upgrade below would silently re-apply the OLD
+# version, leaving the Linux control plane unchanged. Fail loudly instead.
+EXPECTED_K8S_FILE=expected-k8s-version
+if [[ -f "$EXPECTED_K8S_FILE" ]]; then
+    EXPECTED_K8S="$(tr -d '[:space:]' < "$EXPECTED_K8S_FILE")"
+    ACTUAL_K8S="$(kubelet --version 2>/dev/null | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' || echo '')"
+    if [[ -n "$EXPECTED_K8S" && "$ACTUAL_K8S" != "$EXPECTED_K8S" ]]; then
+        echo "[debian-delta][error] Kubernetes version mismatch after package install: expected v${EXPECTED_K8S}, got v${ACTUAL_K8S:-none}." >&2
+        echo "[debian-delta][error] The delta package is incomplete - the Kubernetes .deb files were not bundled (likely a failed download during package creation). Rebuild the delta package and re-apply." >&2
+        exit 1
+    fi
+    echo "[debian-delta] Verified installed Kubernetes version v${ACTUAL_K8S} matches expected v${EXPECTED_K8S}"
+fi
+
 # Run kubeadm upgrade to migrate cluster configuration (manifests, kubelet flags, etc.)
 echo "[debian-delta] Running kubeadm upgrade to migrate cluster configuration"
 KUBE_VERSION=$(kubelet --version 2>/dev/null | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' || echo "")

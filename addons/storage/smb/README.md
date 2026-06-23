@@ -217,3 +217,22 @@ spec:
 
 Additional ready-to-run manifests are available under [k2s/test/e2e/addons/storage/smb/workloads](../../../k2s/test/e2e/addons/storage/smb/workloads/).
 
+## Known Limitations
+
+### Enabling the addon fails on hosts that deny network logon for local accounts
+
+In the default `windows` host type, the Linux control-plane VM mounts the Windows host SMB share over CIFS as the local `remotesmb` account. This requires a network logon for that local account on the Windows host.
+
+On machines hardened by domain/OU group policy, the local-account SID `S-1-5-113` ("Local account") is added to the `SeDenyNetworkLogonRight` user-rights assignment ("Deny access to this computer from the network"). That policy blocks the `remotesmb` network logon, so the CIFS mount cannot complete and `k2s addons enable storage smb` fails with a mount error such as `mount(2) system call failed`.
+
+This is a host security-policy restriction that K2s cannot change. It is recorded here as a known limitation rather than worked around. A machine administrator can address it in one of two ways:
+
+- Adjust the host policy so the `remotesmb` local account is allowed a network logon. The helper script [SetNetworkSharePolicy.ps1](SetNetworkSharePolicy.ps1) documents the relevant `SeDenyNetworkLogonRight` handling.
+- Or enable the addon with the Linux host type instead, which serves the share from the Linux Samba server and avoids the Windows network-logon requirement:
+
+```
+k2s addons enable storage smb -t linux
+```
+
+The enable failure is logged in full to the addon log file; the console shows a single concise note pointing here.
+
