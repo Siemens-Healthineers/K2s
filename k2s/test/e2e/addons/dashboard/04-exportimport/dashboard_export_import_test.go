@@ -156,6 +156,7 @@ var _ = Describe("dashboard addon export and import", Ordered, func() {
 		})
 
 		AfterAll(func(ctx context.Context) {
+			suite.K2sCli().Exec(ctx, "addons", "disable", "dashboard", "-o")
 			if restoreProxyEnvironment != nil {
 				restoreProxyEnvironment()
 			}
@@ -200,6 +201,39 @@ var _ = Describe("dashboard addon export and import", Ordered, func() {
 				"dashboard.module.unit.tests.ps1",
 			}
 			exportimport.VerifyImportedAddonFiles(dashboardImplDir, expectedFiles)
+		})
+
+		It("addon can be enabled while air-gapped", func(ctx context.Context) {
+			GinkgoWriter.Println(">>> TEST: addon can be enabled while air-gapped")
+			suite.K2sCli().MustExec(ctx, "addons", "enable", "dashboard", "-o")
+			suite.Cluster().ExpectDeploymentToBeAvailable("headlamp", "dashboard")
+		})
+
+		It("can be enabled when only addons/common and addons/dashboard are present", func(ctx context.Context) {
+			GinkgoWriter.Println(">>> TEST: can be enabled when only addons/common and addons/dashboard are present")
+
+			GinkgoWriter.Println("[Test] Disabling dashboard to ensure clean re-enable path")
+			suite.K2sCli().MustExec(ctx, "addons", "disable", "dashboard", "-o")
+
+			GinkgoWriter.Println("[Test] Staging addon isolation: keeping only common and dashboard")
+			restore, err := exportimport.StageAddonIsolation(suite.RootDir(), "dashboard")
+			Expect(err).ToNot(HaveOccurred(), "staging addon isolation should succeed")
+			DeferCleanup(func() {
+				Expect(restore()).To(Succeed(), "addon isolation restore must succeed to avoid a partial workspace state")
+			})
+			DeferCleanup(func() {
+				_, _ = suite.K2sCli().Exec(context.Background(), "addons", "disable", "dashboard", "-o")
+			})
+
+			GinkgoWriter.Println("[Test] Enabling dashboard with isolated addons directory")
+			output := suite.K2sCli().MustExec(ctx, "addons", "enable", "dashboard", "-o")
+
+			GinkgoWriter.Println("[Test] Verifying headlamp deployment is available")
+			suite.Cluster().ExpectDeploymentToBeAvailable("headlamp", "dashboard")
+
+			GinkgoWriter.Println("[Test] Verifying no PowerShell module-not-found signatures in output")
+			Expect(output).NotTo(ContainSubstring("no valid module file was found"), "enable output must not contain PowerShell module-not-found error")
+			Expect(output).NotTo(ContainSubstring("was not loaded"), "enable output must not contain PowerShell module-not-loaded error")
 		})
 	})
 

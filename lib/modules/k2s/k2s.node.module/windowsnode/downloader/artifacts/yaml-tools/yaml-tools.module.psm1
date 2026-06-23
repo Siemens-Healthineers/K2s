@@ -20,13 +20,13 @@ function Invoke-DownloadYamlArtifacts($downloadsBaseDirectory, $Proxy, $windowsN
     Write-Log "Download jq executable"
 
     $downloadedFile1 = "$yamlDownloadsDirectory\jq.exe"
-    Invoke-DownloadFile "$downloadedFile1" https://github.com/stedolan/jq/releases/download/jq-1.8.1/jq-win64.exe $true $Proxy
+    Invoke-DownloadFile "$downloadedFile1" https://github.com/stedolan/jq/releases/download/jq-1.8.2/jq-win64.exe $true $Proxy
     Move-Item -Path "$downloadedFile1" -Destination $yamlDownloadsDirectory
     Write-Log "Move $downloadedFile1 to $yamlDownloadsDirectory done"
 
     $downloadedFile2 = "$yamlDownloadsDirectory\yq.exe"
     Write-Log "Download yq executable"
-    Invoke-DownloadFile "$downloadedFile2" https://github.com/mikefarah/yq/releases/download/v4.53.2/yq_windows_amd64.exe $true $Proxy
+    Invoke-DownloadFile "$downloadedFile2" https://github.com/mikefarah/yq/releases/download/v4.53.3/yq_windows_amd64.exe $true $Proxy
     Move-Item -Path "$downloadedFile2" -Destination $yamlDownloadsDirectory
     Write-Log "Move $downloadedFile2 to $yamlDownloadsDirectory done"
 

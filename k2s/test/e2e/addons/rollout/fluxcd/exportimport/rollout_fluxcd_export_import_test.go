@@ -35,7 +35,7 @@ var (
 
 func TestRolloutFluxcdExportImport(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "rollout fluxcd Addon Export/Import Tests", Label("addon", "addon-ilities", "acceptance", "internet-required", "setup-required", "invasive", "rollout-fluxcd", "export-import", "system-running"))
+	RunSpecs(t, "rollout fluxcd Addon Export/Import Tests", Label("addon", "addon-ilities", "acceptance", "internet-required", "setup-required", "invasive", "rollout-fluxcd", "export-import", "air-gapped", "system-running"))
 }
 
 var _ = BeforeSuite(func(ctx context.Context) {
@@ -143,11 +143,18 @@ var _ = Describe("rollout fluxcd addon export and import", Ordered, func() {
 	})
 
 	Describe("import rollout fluxcd addon", func() {
+		var restoreProxyEnvironment func()
+
 		BeforeAll(func(ctx context.Context) {
+			restoreProxyEnvironment = exportimport.PrepareAirGappedAddonImport(ctx, suite, controlPlaneIpAddress)
 			exportimport.ImportAddon(ctx, suite, exportedOciFile)
 		})
 
 		AfterAll(func(ctx context.Context) {
+			suite.K2sCli().Exec(ctx, "addons", "disable", "rollout", "fluxcd", "-o")
+			if restoreProxyEnvironment != nil {
+				restoreProxyEnvironment()
+			}
 			exportimport.CleanupExportedFiles(exportPath, exportedOciFile)
 		})
 
@@ -188,6 +195,45 @@ var _ = Describe("rollout fluxcd addon export and import", Ordered, func() {
 				"rollout.module.psm1",
 			}
 			exportimport.VerifyImportedAddonFiles(fluxcdImplDir, expectedFiles)
+		})
+
+		It("addon can be enabled while air-gapped", func(ctx context.Context) {
+			GinkgoWriter.Println(">>> TEST: addon can be enabled while air-gapped")
+			suite.K2sCli().MustExec(ctx, "addons", "enable", "rollout", "fluxcd", "-o")
+			suite.Cluster().ExpectDeploymentToBeAvailable("source-controller", "rollout")
+			suite.Cluster().ExpectDeploymentToBeAvailable("kustomize-controller", "rollout")
+			suite.Cluster().ExpectDeploymentToBeAvailable("helm-controller", "rollout")
+			suite.Cluster().ExpectDeploymentToBeAvailable("notification-controller", "rollout")
+		})
+
+		It("can be enabled when only addons/common and addons/rollout are present", func(ctx context.Context) {
+			GinkgoWriter.Println(">>> TEST: can be enabled when only addons/common and addons/rollout are present")
+
+			GinkgoWriter.Println("[Test] Disabling rollout fluxcd to ensure clean re-enable path")
+			suite.K2sCli().MustExec(ctx, "addons", "disable", "rollout", "fluxcd", "-o")
+
+			GinkgoWriter.Println("[Test] Staging addon isolation: keeping only common and rollout")
+			restore, err := exportimport.StageAddonIsolation(suite.RootDir(), "rollout")
+			Expect(err).ToNot(HaveOccurred(), "staging addon isolation should succeed")
+			DeferCleanup(func() {
+				Expect(restore()).To(Succeed(), "addon isolation restore must succeed to avoid a partial workspace state")
+			})
+			DeferCleanup(func() {
+				_, _ = suite.K2sCli().Exec(context.Background(), "addons", "disable", "rollout", "fluxcd", "-o")
+			})
+
+			GinkgoWriter.Println("[Test] Enabling rollout fluxcd with isolated addons directory")
+			output := suite.K2sCli().MustExec(ctx, "addons", "enable", "rollout", "fluxcd", "-o")
+
+			GinkgoWriter.Println("[Test] Verifying flux deployments are available")
+			suite.Cluster().ExpectDeploymentToBeAvailable("source-controller", "rollout")
+			suite.Cluster().ExpectDeploymentToBeAvailable("kustomize-controller", "rollout")
+			suite.Cluster().ExpectDeploymentToBeAvailable("helm-controller", "rollout")
+			suite.Cluster().ExpectDeploymentToBeAvailable("notification-controller", "rollout")
+
+			GinkgoWriter.Println("[Test] Verifying no PowerShell module-not-found signatures in output")
+			Expect(output).NotTo(ContainSubstring("no valid module file was found"), "enable output must not contain PowerShell module-not-found error")
+			Expect(output).NotTo(ContainSubstring("was not loaded"), "enable output must not contain PowerShell module-not-loaded error")
 		})
 	})
 

@@ -47,6 +47,9 @@ var (
 	# Requires an existing K2s cluster and the local cluster proxy
 	k2s system package --node-package --os debian12 --target-dir "C:\out" --name "debian12-node.zip" --proxy http://172.19.1.1:8181
 
+	# Creates a node package with GPU support (includes NVIDIA Container Toolkit packages)
+	k2s system package --node-package --os debian12 --include-gpu --target-dir "C:\output" --name "debian12-node-gpu.zip" --proxy http://172.19.1.1:8181
+
 	# Creates a node-only delta package (between two node package zips)
 	k2s system package --node-package --delta-package --package-version-from "C:\tmp\debian12-node-v1.7.0.zip" --package-version-to "C:\tmp\debian12-node-v1.8.0.zip" --target-dir "C:\output" --name "debian12-node-delta-v1.7.0-to-v1.8.0.zip"
 
@@ -272,6 +275,9 @@ func buildSystemPackageCmd(flags *pflag.FlagSet) (string, []string, error) {
 		newPkg := flags.Lookup(PackageVersionToFlagName).Value.String()
 		params = append(params, " -InputPackageOne "+utils.EscapeWithSingleQuotes(oldPkg))
 		params = append(params, " -InputPackageTwo "+utils.EscapeWithSingleQuotes(newPkg))
+		if proxy != "" {
+			params = append(params, " -Proxy "+utils.EscapeWithSingleQuotes(proxy))
+		}
 		return utils.FormatScriptFilePath(filepath.Join(utils.InstallDir(), "lib", "scripts", "k2s", "system", "package", "New-K2sDeltaPackage.ps1")), params, nil
 	}
 

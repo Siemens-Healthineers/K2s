@@ -56,6 +56,9 @@ param (
     [Parameter(Mandatory = $false, HelpMessage = 'HTTP proxy for package downloads inside the VM')]
     [string] $Proxy = '',
 
+    [Parameter(Mandatory = $false, HelpMessage = 'Include NVIDIA Container Toolkit packages for GPU support')]
+    [switch] $IncludeGpu = $false,
+
     [Parameter(Mandatory = $false, HelpMessage = 'Show all logs in terminal')]
     [switch] $ShowLogs = $false,
 
@@ -120,9 +123,11 @@ $packagesDir = Join-Path $stagingDir "packages"
 $packagesByOsDir = Join-Path $packagesDir $distributionKey
 $k8sPkgDir = Join-Path $packagesByOsDir "kubernetes"
 $buildahPkgDir = Join-Path $packagesByOsDir "buildah"
+$gpuPkgDir = Join-Path $packagesByOsDir "nvidia-gpu"
 $imagesDir = Join-Path $stagingDir "images"
 $remoteK8sPkgDir = "/tmp/k2s-k8s-packages"
 $remoteBuildahPkgDir = "/tmp/k2s-buildah-packages"
+$remoteGpuPkgDir = "/tmp/k2s-gpu-packages"
 $remoteImagesExportDir = "/tmp/k2s-images"
 $vmProvisioningStarted = $false
 
@@ -131,6 +136,9 @@ New-Item -Path $packagesDir -ItemType Directory -Force | Out-Null
 New-Item -Path $packagesByOsDir -ItemType Directory -Force | Out-Null
 New-Item -Path $k8sPkgDir -ItemType Directory -Force | Out-Null
 New-Item -Path $buildahPkgDir -ItemType Directory -Force | Out-Null
+if ($IncludeGpu) {
+    New-Item -Path $gpuPkgDir -ItemType Directory -Force | Out-Null
+}
 
 # ---------------------------------------------------------------------------
 # Validate inputs
@@ -243,6 +251,19 @@ try {
         -InstalledDistribution $distributionKey
 
     # -----------------------------------------------------------------------
+    # Phase 7.5 (optional) - Download NVIDIA Container Toolkit packages
+    # -----------------------------------------------------------------------
+    if ($IncludeGpu) {
+        Write-Log "[NodePkg] === Phase 7.5: Downloading NVIDIA Container Toolkit packages (GPU support) ===" -Console
+        Get-NvidiaGpuDebPackagesFromInternet `
+            -UserName   $sshUser `
+            -UserPwd    $sshPwd `
+            -IpAddress  $guestIp `
+            -Proxy      $Proxy `
+            -TargetPath $remoteGpuPkgDir
+    }
+
+    # -----------------------------------------------------------------------
     # Phase 8 - Pull and export Kubernetes/flannel images from VM
     # -----------------------------------------------------------------------
     Write-Log "[NodePkg] === Phase 8: Pulling and exporting container images inside VM ===" -Console
@@ -262,20 +283,42 @@ try {
         -UserPwd   $sshPwd `
         -IpAddress $guestIp
 
+    # Pull GPU images if --include-gpu is specified
+    if ($IncludeGpu) {
+        Get-GpuContainerImages `
+            -UserName  $sshUser `
+            -UserPwd   $sshPwd `
+            -IpAddress $guestIp
+    }
+
     (Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute "mkdir -p $remoteImagesExportDir" -RemoteUser $remoteUser -RemoteUserPwd $sshPwd -IgnoreErrors).Output | Write-Log
 
-    # Build export list from crictl JSON to avoid fragile text parsing.
+    # Kubeadm is the source of truth for Kubernetes images, including pause.
+    $kubeadmImagesOutput = (Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute "sudo kubeadm config images list --kubernetes-version $k8sVersion" -RemoteUser $remoteUser -RemoteUserPwd $sshPwd -IgnoreErrors).Output
+    $kubeadmImageRefs = @($kubeadmImagesOutput | ForEach-Object { $_.Trim() } | Where-Object { $_ -match '^[^\s]+/[^\s]+:[^\s]+$' })
+
+    if (@($kubeadmImageRefs).Count -eq 0) {
+        throw "[NodePkg] Could not resolve Kubernetes images with kubeadm for version '$k8sVersion'."
+    }
+
+    Write-Log "[NodePkg] Kubeadm images selected for export: $($kubeadmImageRefs -join ', ')" -Console
+
+    # Build non-kubeadm export list from crictl JSON to avoid fragile text parsing.
     $imagesJsonOutput = (Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute 'sudo crictl images -o json' -RemoteUser $remoteUser -RemoteUserPwd $sshPwd -IgnoreErrors).Output
     $imagesJsonText = ($imagesJsonOutput -join "`n")
     $imagesDoc = $imagesJsonText | ConvertFrom-Json
 
-    $imageRefsToExport = @()
+    $imageRefsToExport = @($kubeadmImageRefs)
     foreach ($img in @($imagesDoc.images)) {
         foreach ($repoTag in @($img.repoTags)) {
             if ([string]::IsNullOrWhiteSpace($repoTag) -or $repoTag -match '<none>') {
                 continue
             }
-            if ($repoTag -like 'registry.k8s.io/*' -or $repoTag -like 'docker.io/flannel/*') {
+            if ($repoTag -like 'docker.io/flannel/*') {
+                $imageRefsToExport += $repoTag
+            }
+            # Include GPU images when --include-gpu is specified
+            if ($IncludeGpu -and $repoTag -like 'nvcr.io/*') {
                 $imageRefsToExport += $repoTag
             }
         }
@@ -283,7 +326,7 @@ try {
     $imageRefsToExport = $imageRefsToExport | Select-Object -Unique
 
     if (@($imageRefsToExport).Count -eq 0) {
-        throw "[NodePkg] No image matching 'registry.k8s.io/* or docker.io/flannel/*' found in crictl output."
+        throw "[NodePkg] No container images were selected for export."
     }
 
     Write-Log "[NodePkg] Images selected for export: $($imageRefsToExport -join ', ')" -Console
@@ -334,6 +377,19 @@ try {
         -UserName  $sshUser `
         -UserPwd   $sshPwd
 
+    if ($IncludeGpu) {
+        Write-Log "[NodePkg] Copying GPU packages from VM to Windows..." -Console
+        Copy-FromRemoteComputerViaUserAndPwd `
+            -Source    "$remoteGpuPkgDir/*" `
+            -Target    $gpuPkgDir `
+            -IpAddress $guestIp `
+            -UserName  $sshUser `
+            -UserPwd   $sshPwd
+        
+        $localGpuDebCount = @(Get-ChildItem -Path $gpuPkgDir -Filter '*.deb' -File -ErrorAction SilentlyContinue).Count
+        Write-Log "[NodePkg] Local GPU package count: $localGpuDebCount" -Console
+    }
+
     Assert-PackagesDownloaded -K8sPath $k8sPkgDir -BuildahPath $buildahPkgDir
 
     # -----------------------------------------------------------------------
@@ -343,8 +399,15 @@ try {
     New-Item -Path $TargetDirectory -ItemType Directory -Force | Out-Null
     $zipTarget = Join-Path $TargetDirectory $ZipPackageFileName
     if (Test-Path $zipTarget) { Remove-Item $zipTarget -Force }
-    Compress-Archive -Path @($packagesDir, $imagesDir) -DestinationPath $zipTarget -Force
-    Write-Log "[NodePkg] Node package zip created: $zipTarget" -Console
+    
+    $zipContents = @($packagesDir, $imagesDir)
+    $gpuIncludedMsg = ''
+    if ($IncludeGpu) {
+        $gpuIncludedMsg = ' (with GPU support)'
+    }
+    
+    Compress-Archive -Path $zipContents -DestinationPath $zipTarget -Force
+    Write-Log "[NodePkg] Node package zip created${gpuIncludedMsg}: $zipTarget" -Console
     Write-Log "[NodePkg] Package creation for '$distributionKey' completed successfully." -Console
 }
 catch {

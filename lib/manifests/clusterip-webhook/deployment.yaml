@@ -13,6 +13,11 @@ metadata:
     app.kubernetes.io/part-of: k2s
 spec:
   replicas: 1
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 0
+      maxUnavailable: 1
   selector:
     matchLabels:
       app.kubernetes.io/name: clusterip-webhook
@@ -29,9 +34,38 @@ spec:
         - key: node-role.kubernetes.io/control-plane
           operator: Exists
           effect: NoSchedule
+      initContainers:
+        - name: init-cert
+          image: shsk2s.azurecr.io/clusterip-webhook:v1.3.5
+          imagePullPolicy: IfNotPresent
+          args:
+            - --init-cert
+            - --tls-cert=/certs/tls.crt
+            - --tls-key=/certs/tls.key
+            - --service-name=clusterip-webhook
+            - --namespace=k2s-webhook
+            - --webhook-name=k2s-webhook
+          volumeMounts:
+            - name: tls-certs
+              mountPath: /certs
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            runAsNonRoot: true
+            runAsUser: 65534
+            capabilities:
+              drop:
+                - ALL
+          resources:
+            requests:
+              cpu: 10m
+              memory: 32Mi
+            limits:
+              cpu: 100m
+              memory: 64Mi
       containers:
         - name: webhook
-          image: shsk2s.azurecr.io/clusterip-webhook:v1.1.0
+          image: shsk2s.azurecr.io/clusterip-webhook:v1.3.5
           imagePullPolicy: IfNotPresent
           args:
             - --addr=:8443
@@ -79,13 +113,7 @@ spec:
                 - ALL
       volumes:
         - name: tls-certs
-          secret:
-            secretName: clusterip-webhook-tls
-            items:
-              - key: cert
-                path: tls.crt
-              - key: key
-                path: tls.key
+          emptyDir: {}
 ---
 apiVersion: v1
 kind: Service
