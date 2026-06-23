@@ -32,6 +32,7 @@ $infraModule = "$PSScriptRoot/../../../lib/modules/k2s/k2s.infra.module/k2s.infr
 $clusterModule = "$PSScriptRoot/../../../lib/modules/k2s/k2s.cluster.module/k2s.cluster.module.psm1"
 $addonsModule = "$PSScriptRoot\..\..\addons.module.psm1"
 $gatewayModule = "$PSScriptRoot\nginx-gw.module.psm1"
+$dashboardModule = "$PSScriptRoot\..\..\dashboard\dashboard.module.psm1"
 
 Import-Module $infraModule, $clusterModule, $addonsModule, $gatewayModule
 
@@ -258,6 +259,20 @@ if (-not $OmitCertMgr) {
 
 # adapt other addons
 Update-Addons -AddonName $addonName
+
+if (Test-Path $dashboardModule) {
+    Import-Module $dashboardModule -Force
+    if (Get-Command Sync-HeadlampPlugins -ErrorAction SilentlyContinue) {
+        Write-Log '[Dashboard][Plugin] Syncing Headlamp plugins after ingress nginx-gw enable' -Console
+        try {
+            Sync-HeadlampPlugins
+        }
+        catch {
+            # Plugin sync is best-effort: a failure here must not fail the primary addon operation.
+            Write-Log "[Dashboard][Plugin] Headlamp plugin sync failed (ingress nginx-gw enable continues): $($_.Exception.Message)" -Console
+        }
+    }
+}
 
 Write-Log 'nginx-gw installed successfully' -Console
 
