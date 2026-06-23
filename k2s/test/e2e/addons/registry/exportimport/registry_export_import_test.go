@@ -151,6 +151,7 @@ var _ = Describe("registry addon export and import", Ordered, func() {
 		})
 
 		AfterAll(func(ctx context.Context) {
+			suite.K2sCli().Exec(ctx, "addons", "disable", "registry", "-o")
 			if restoreProxyEnvironment != nil {
 				restoreProxyEnvironment()
 			}
@@ -194,6 +195,39 @@ var _ = Describe("registry addon export and import", Ordered, func() {
 				"registry.module.psm1",
 			}
 			exportimport.VerifyImportedAddonFiles(registryImplDir, expectedFiles)
+		})
+
+		It("addon can be enabled while air-gapped", func(ctx context.Context) {
+			GinkgoWriter.Println(">>> TEST: addon can be enabled while air-gapped")
+			suite.K2sCli().MustExec(ctx, "addons", "enable", "registry", "-o")
+			k2s.VerifyAddonIsEnabled("registry")
+		})
+
+		It("can be enabled when only addons/common and addons/registry are present", func(ctx context.Context) {
+			GinkgoWriter.Println(">>> TEST: can be enabled when only addons/common and addons/registry are present")
+
+			GinkgoWriter.Println("[Test] Disabling registry to ensure clean re-enable path")
+			suite.K2sCli().Exec(ctx, "addons", "disable", "registry", "-o")
+
+			GinkgoWriter.Println("[Test] Staging addon isolation: keeping only common and registry")
+			restore, err := exportimport.StageAddonIsolation(suite.RootDir(), "registry")
+			Expect(err).ToNot(HaveOccurred(), "staging addon isolation should succeed")
+			DeferCleanup(func() {
+				Expect(restore()).To(Succeed(), "addon isolation restore must succeed to avoid a partial workspace state")
+			})
+			DeferCleanup(func() {
+				_, _ = suite.K2sCli().Exec(context.Background(), "addons", "disable", "registry", "-o")
+			})
+
+			GinkgoWriter.Println("[Test] Enabling registry with isolated addons directory")
+			output := suite.K2sCli().MustExec(ctx, "addons", "enable", "registry", "-o")
+
+			GinkgoWriter.Println("[Test] Verifying registry addon is enabled")
+			k2s.VerifyAddonIsEnabled("registry")
+
+			GinkgoWriter.Println("[Test] Verifying no PowerShell module-not-found signatures in output")
+			Expect(output).NotTo(ContainSubstring("no valid module file was found"), "enable output must not contain PowerShell module-not-found error")
+			Expect(output).NotTo(ContainSubstring("was not loaded"), "enable output must not contain PowerShell module-not-loaded error")
 		})
 	})
 

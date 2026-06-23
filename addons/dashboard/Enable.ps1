@@ -79,6 +79,13 @@ if ($EnableMetricsServer) {
     Enable-MetricsServer
 }
 
+# Enabling ingress can run nested scripts that force-reload dashboard.module in a
+# child scope; ensure dashboard commands are present in the current scope.
+if (-not (Get-Command Install-HeadlampViaHelm -ErrorAction SilentlyContinue)) {
+    Write-Log '[Dashboard] Re-importing dashboard module after nested addon execution' -Console
+    Import-Module $dashboardModule -Force
+}
+
 Write-Log '[Dashboard] Installing Headlamp via Helm' -Console
 
 try {
@@ -113,6 +120,19 @@ if ($headlampReady -ne $true) {
 &"$PSScriptRoot\Update.ps1" -PreferredIngress $(if ($Ingress -eq 'none') { 'auto' } else { $Ingress })
 
 Add-AddonToSetupJson -Addon ([pscustomobject] @{Name = 'dashboard' })
+
+Write-Log '[Dashboard] Syncing Headlamp plugins' -Console
+# Plugin activation is an optional, capability-driven enhancement layered on top of an
+# already-enabled dashboard (Helm release installed + addon registered in setup.json).
+# A transient sync failure (e.g. a kubectl patch error) must NOT leave the dashboard in
+# a registered-but-failed state: the plugin reconciliation is idempotent and re-runs on
+# every Update.ps1 and subsequent enable, so degrade gracefully with a warning instead.
+try {
+    Sync-HeadlampPlugins
+}
+catch {
+    Write-Log "[Dashboard] Headlamp plugin sync failed (dashboard remains enabled; plugins will reconcile on the next 'k2s addons enable dashboard' or update): $($_.Exception.Message)" -Console
+}
 
 Write-HeadlampUsageForUser
 Write-BrowserWarningForUser

@@ -184,7 +184,9 @@ Note: `PolicyException` support must be enabled in Kyverno before these resource
 
 ## Linkerd Compatibility
 
-When running Kyverno alongside Linkerd (enhanced security mode), be aware that Linkerd injects sidecar containers via its own admission webhook. If you write policies that validate container counts or specific container names, add a `PolicyException` for the `linkerd` namespace and any meshed namespaces, or scope your policies to exclude `linkerd.io/inject: enabled` pods until you have confirmed the policy behaves as expected for meshed workloads.
+In **enhanced security mode** the `kyverno` namespace is automatically meshed into Linkerd: it carries the `linkerd.io/inject: enabled` annotation so all Kyverno controllers run inside the zero-trust mTLS perimeter. The admission webhook port (`9443`) is excluded from inbound proxying (`config.linkerd.io/skip-inbound-ports: "9443"`) so the API server can continue to reach the Kyverno admission webhook directly. In **basic mode** Kyverno is left un-meshed and runs without a sidecar.
+
+When writing policies that validate container counts or specific container names, remember that meshed pods (including Kyverno's own controllers in enhanced mode) carry an additional `linkerd-proxy` sidecar. Add a `PolicyException` for the `linkerd` namespace and any meshed namespaces, or scope your policies to exclude `linkerd.io/inject: enabled` pods until you have confirmed the policy behaves as expected for meshed workloads.
 
 ## Further Reading
 

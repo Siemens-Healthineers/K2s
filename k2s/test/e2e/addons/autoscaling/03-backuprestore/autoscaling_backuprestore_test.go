@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/siemens-healthineers/k2s/internal/cli"
+	"github.com/siemens-healthineers/k2s/test/e2e/addons/exportimport"
 	"github.com/siemens-healthineers/k2s/test/framework"
 	"github.com/siemens-healthineers/k2s/test/framework/dsl"
 
@@ -200,5 +201,35 @@ var _ = Describe("'autoscaling' addon backup/restore", Ordered, func() {
 			output := suite.Kubectl().MustExec(ctx, "get", "configmap", testConfigMapName, "-n", testNamespace, "-o", "jsonpath={.data.test-key}")
 			Expect(output).To(Equal("test-value"))
 		})
+	})
+
+
+	It("can be enabled when only addons/common and addons/autoscaling are present", func(ctx context.Context) {
+		GinkgoWriter.Println(">>> TEST: can be enabled when only addons/common and addons/autoscaling are present")
+
+		GinkgoWriter.Println("[Test] Disabling autoscaling to ensure clean re-enable path")
+		suite.K2sCli().Exec(ctx, "addons", "disable", "autoscaling", "-o")
+
+		GinkgoWriter.Println("[Test] Staging addon isolation: keeping only common and autoscaling")
+		restore, err := exportimport.StageAddonIsolation(suite.RootDir(), "autoscaling")
+		Expect(err).ToNot(HaveOccurred(), "staging addon isolation should succeed")
+		DeferCleanup(func() {
+			Expect(restore()).To(Succeed(), "addon isolation restore must succeed to avoid a partial workspace state")
+		})
+		DeferCleanup(func(ctx context.Context) {
+			suite.K2sCli().Exec(ctx, "addons", "disable", "autoscaling", "-o")
+		})
+
+		GinkgoWriter.Println("[Test] Enabling autoscaling with isolated addons directory")
+		output := suite.K2sCli().MustExec(ctx, "addons", "enable", "autoscaling", "-o")
+
+		GinkgoWriter.Println("[Test] Verifying keda-admission deployment is available")
+		k2s.VerifyAddonIsEnabled("autoscaling")
+		suite.Cluster().ExpectDeploymentToBeAvailable("keda-admission", "autoscaling")
+		suite.Cluster().ExpectPodsInReadyState(ctx, "app=keda-admission-webhooks", "autoscaling")
+
+		GinkgoWriter.Println("[Test] Verifying no PowerShell module-not-found signatures in output")
+		Expect(output).NotTo(ContainSubstring("no valid module file was found"), "enable output must not contain PowerShell module-not-found error")
+		Expect(output).NotTo(ContainSubstring("was not loaded"), "enable output must not contain PowerShell module-not-loaded error")
 	})
 })

@@ -65,6 +65,10 @@ var _ = BeforeSuite(func(ctx context.Context) {
 })
 
 var _ = AfterSuite(func(ctx context.Context) {
+	if suite == nil {
+		return
+	}
+
 	suite.StatusChecker().IsK2sRunning(ctx)
 
 	GinkgoWriter.Println("Deleting workloads if necessary..")
@@ -85,11 +89,11 @@ var _ = AfterSuite(func(ctx context.Context) {
 	}
 
 	if isEnabled(addonName) {
-		suite.K2sCli().MustExec(ctx, "addons", "disable", addonName, "-o")
+		suite.K2sCli().Exec(ctx, "addons", "disable", addonName, "-o")
 	}
 
 	if isEnabled("ingress", "nginx") {
-		suite.K2sCli().MustExec(ctx, "addons", "disable", "ingress", "nginx", "-o")
+		suite.K2sCli().Exec(ctx, "addons", "disable", "ingress", "nginx", "-o")
 	}
 
 	suite.TearDown(ctx)
@@ -356,6 +360,11 @@ var _ = Describe("'security' addon tests", Ordered, Serial, func() {
 			Expect(output).To(ContainSubstring("ca-issuer-root-secret"))
 		})
 
+		It("meshes the kyverno namespace into Linkerd (enhanced security mode)", func(ctx context.Context) {
+			output := suite.Kubectl().MustExec(ctx, "get", "namespace", "kyverno", "-o", "jsonpath={.metadata.annotations.linkerd\\.io/inject}")
+			Expect(output).To(ContainSubstring("enabled"))
+		})
+
 		It("Deploy the workloads after enabling the security addon", func(ctx context.Context) {
 			DeployWorkloads(ctx)
 		})
@@ -549,9 +558,8 @@ var _ = Describe("'security' addon tests", Ordered, Serial, func() {
 			)))
 		})
 
-		AfterAll(func(ctx context.Context) {
+		It("disables the addon", func(ctx context.Context) {
 			suite.K2sCli().MustExec(ctx, "addons", "disable", addonName, "-o")
-			suite.K2sCli().MustExec(ctx, "addons", "disable", "ingress", "nginx", "-o")
 		})
 	})
 
@@ -609,11 +617,6 @@ var _ = Describe("'security' addon tests", Ordered, Serial, func() {
 				HaveField("Okay", gstruct.PointTo(BeTrue())),
 				HaveField("Message", gstruct.PointTo(ContainSubstring("The trust-manager API is ready"))),
 			)))
-		})
-
-		AfterAll(func(ctx context.Context) {
-			suite.K2sCli().MustExec(ctx, "addons", "disable", addonName, "-o")
-			suite.K2sCli().MustExec(ctx, "addons", "disable", "ingress", "nginx", "-o")
 		})
 	})
 })

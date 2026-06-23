@@ -10,10 +10,10 @@ metadata:
   name: fluent-bit
   namespace: logging
   labels:
-    helm.sh/chart: fluent-bit-0.57.5
+    helm.sh/chart: fluent-bit-0.57.7
     app.kubernetes.io/name: fluent-bit
     app.kubernetes.io/instance: fluent-bit
-    app.kubernetes.io/version: "5.0.6"
+    app.kubernetes.io/version: "5.0.7"
     app.kubernetes.io/managed-by: Helm
 roleRef:
   apiGroup: rbac.authorization.k8s.io

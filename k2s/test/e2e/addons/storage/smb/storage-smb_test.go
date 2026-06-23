@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText:  © 2025 Siemens Healthineers AG
+// SPDX-FileCopyrightText:  © 2026 Siemens Healthineers AG
 // SPDX-License-Identifier:   MIT
 
 package smb_share
@@ -47,11 +47,13 @@ const (
 	windowsManifestDir    = "workloads/windows"
 	accessModeManifestDir = "workloads/accessmode"
 	retainManifestDir     = "workloads/retain"
+	linuxPosixManifestDir = "workloads/linux-posix"
 
-	linuxWorkloadName1   = "smb-share-test-linux1"
-	linuxWorkloadName2   = "smb-share-test-linux2"
-	windowsWorkloadName1 = "smb-share-test-windows1"
-	windowsWorkloadName2 = "smb-share-test-windows2"
+	linuxWorkloadName1     = "smb-share-test-linux1"
+	linuxWorkloadName2     = "smb-share-test-linux2"
+	linuxPosixWorkloadName = "smb-share-test-linux-posix"
+	windowsWorkloadName1   = "smb-share-test-windows1"
+	windowsWorkloadName2   = "smb-share-test-windows2"
 
 	testConfigFileName = "test-config.json"
 
@@ -1034,6 +1036,60 @@ var _ = Describe(fmt.Sprintf("%s Addon, %s Implementation", addonName, implement
 				testFilePath := filepath.Join(storageConfig[2].WinMountPath, staticTestFileName)
 				_, err := bos.Stat(testFilePath)
 				Expect(err).ToNot(HaveOccurred(), "File should still exist with Retain reclaim policy")
+			})
+
+			It("disables the addon", func(ctx context.Context) {
+				disableAddon(ctx, "-f")
+			})
+		})
+	})
+
+	Describe("SMB 3.1.1 POSIX Extensions", func() {
+		When("a POSIX-enabled StorageClass is hosted on the Linux Samba host", func() {
+			posixPVCName := fmt.Sprintf("persistent-storage-%s-0", linuxPosixWorkloadName)
+
+			It("enables the addon with the Linux SMB host", func(ctx context.Context) {
+				output := suite.K2sCli().MustExec(ctx, "addons", "enable", addonName, implementationName, "-o", "-t", "linux")
+
+				expectEnableMessage(output, "linux")
+			})
+
+			It("generates POSIX mount options on the StorageClass", func(ctx context.Context) {
+				mountOptions := suite.Kubectl().MustExec(ctx, "get", "storageclass", storageConfig[3].StorageClassName, "-o", "jsonpath={.mountOptions}")
+				GinkgoWriter.Printf("Mount options for %s: %s\n", storageConfig[3].StorageClassName, mountOptions)
+
+				Expect(mountOptions).To(ContainSubstring("vers=3.1.1"), "POSIX StorageClass should request the configured SMB dialect")
+				Expect(mountOptions).NotTo(ContainSubstring("handletimeout"), "handletimeout is rejected by mount.cifs and conflicts with nobrl; it must not be in StorageClass mount options")
+				Expect(mountOptions).NotTo(ContainSubstring("noperm"), "POSIX mode should not emulate permissions via noperm")
+			})
+
+			It("deploys the POSIX Linux workload", func(ctx context.Context) {
+				suite.Kubectl().MustExec(ctx, "apply", "-k", linuxPosixManifestDir)
+			})
+
+			It("runs the POSIX Linux workload", func(ctx context.Context) {
+				suite.Cluster().ExpectStatefulSetToBeReady(linuxPosixWorkloadName, namespace, 1, ctx)
+			})
+
+			It("verifies the PVC is bound", func(ctx context.Context) {
+				output := suite.Kubectl().MustExec(ctx, "get", "pvc", posixPVCName, "-n", namespace, "-o", "jsonpath={.status.phase}")
+				Expect(output).To(Equal("Bound"), fmt.Sprintf("PVC %s should be Bound", posixPVCName))
+			})
+
+			It("verifies POSIX symlink semantics are negotiated", func(ctx context.Context) {
+				// The workload creates a symlink inside the SMB mount. A symlink can only be
+				// created over SMB when the POSIX mfsymlinks behavior is negotiated, so a
+				// resolvable symlink proves POSIX extensions are working end-to-end.
+				output := suite.Kubectl().MustExec(ctx, "exec", fmt.Sprintf("%s-0", linuxPosixWorkloadName), "-n", namespace, "--", "sh", "-c", "test -L /mnt/smb/marker.link && cat /mnt/smb/marker.link")
+				Expect(output).To(ContainSubstring("posix-marker"), "Symlink in the POSIX mount should resolve to the marker file")
+			})
+
+			It("deletes the POSIX Linux workload", func(ctx context.Context) {
+				suite.Kubectl().MustExec(ctx, "delete", "-k", linuxPosixManifestDir)
+			})
+
+			It("disposes the POSIX Linux workload", func(ctx context.Context) {
+				suite.Cluster().ExpectStatefulSetToBeDeleted(linuxPosixWorkloadName, namespace, ctx)
 			})
 
 			It("disables the addon", func(ctx context.Context) {

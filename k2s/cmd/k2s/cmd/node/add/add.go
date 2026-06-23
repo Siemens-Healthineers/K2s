@@ -31,7 +31,7 @@ const (
 	MachineRole               = "role"
 	MachineRoleFlagUsage      = "Role of the node"
 	NodePackagePath           = "node-package"
-	NodePackagePathFlagUsage  = "Path to a node package zip (offline installation). When provided, packages and images from the zip are used instead of downloading from the internet."
+	NodePackagePathFlagUsage  = "Path to a node package zip (offline installation). When provided, packages and images from the zip are used instead of downloading from the internet. If the package was created with --include-gpu and an NVIDIA GPU is detected on the target node, GPU support is automatically configured (NVIDIA Container Toolkit installed, CRI-O configured, node labeled)."
 )
 
 func NewCmd() *cobra.Command {
@@ -46,7 +46,11 @@ func NewCmd() *cobra.Command {
   k2s node add --ip-addr 192.168.1.50 --username admin --name worker-node-1
 
   # Add a Linux worker node offline using a node package
-  k2s node add --ip-addr 192.168.1.50 --username admin --node-package C:\packages\debian13-node.zip`,
+  k2s node add --ip-addr 192.168.1.50 --username admin --node-package C:\packages\debian13-node.zip
+
+  # GPU support is automatically configured when an NVIDIA GPU is detected on the node.
+  # For offline installations with GPU, use a package created with --include-gpu:
+  k2s node add --ip-addr 192.168.1.50 --username admin --node-package C:\packages\debian13-node-gpu.zip`,
 		RunE: addNode,
 	}
 	cmd.Flags().StringP(MachineIPAddress, "i", "", MachineIPAddressFlagUsage)

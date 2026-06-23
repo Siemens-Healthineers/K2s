@@ -8,6 +8,7 @@ package exportimport
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io/fs"
 	"os"
@@ -15,6 +16,8 @@ import (
 	"runtime"
 	"slices"
 	"strings"
+	"syscall"
+	"time"
 
 	"github.com/siemens-healthineers/k2s/internal/core/addons"
 	"github.com/siemens-healthineers/k2s/test/framework"
@@ -840,4 +843,192 @@ func ImportAddonRelativePath(ctx context.Context, suite *framework.K2sTestSuite,
 	suite.K2sCli().WorkingDir(workingDir).MustExec(ctx, "addons", "import", "-f", relativeFilePath, "-o")
 	GinkgoWriter.Println("[ImportRel] Import command completed successfully")
 	GinkgoWriter.Println("=== IMPORT ADDON (RELATIVE PATH) END ===")
+}
+
+// StageAddonIsolation moves every addon subdirectory under <rootDir>/addons to a unique
+// temporary directory, except "common", targetAddon, and any additional names supplied via
+// keepExtra, which are all left in place.
+// The returned restore function moves them all back, removes the temporary directory on full
+// success, and returns an aggregated error on any failure — the backup directory is preserved
+// when restoration is incomplete so that no staged addon is permanently lost.
+func StageAddonIsolation(rootDir, targetAddon string, keepExtra ...string) (restore func() error, err error) {
+	addonsDir := filepath.Join(rootDir, "addons")
+
+	// Validate required directories.
+	if _, statErr := os.Stat(addonsDir); os.IsNotExist(statErr) {
+		return nil, fmt.Errorf("[AddonIsolation] addons directory not found: %s", addonsDir)
+	}
+	if _, statErr := os.Stat(filepath.Join(addonsDir, "common")); os.IsNotExist(statErr) {
+		return nil, fmt.Errorf("[AddonIsolation] required 'common' directory not found under: %s", addonsDir)
+	}
+	if _, statErr := os.Stat(filepath.Join(addonsDir, targetAddon)); os.IsNotExist(statErr) {
+		return nil, fmt.Errorf("[AddonIsolation] target addon directory not found: %s", filepath.Join(addonsDir, targetAddon))
+	}
+
+	// Create a unique backup directory under <rootDir>/tmp (K2s e2e temp pattern)
+	// so it stays on the same filesystem volume as addonsDir and keeps rename atomic.
+	tmpParent := filepath.Join(rootDir, "tmp")
+	if mkErr := os.MkdirAll(tmpParent, 0o755); mkErr != nil {
+		return nil, fmt.Errorf("[AddonIsolation] failed to create tmp directory %s: %w", tmpParent, mkErr)
+	}
+	backupDir, tmpErr := os.MkdirTemp(tmpParent, "addon-isolation-")
+	if tmpErr != nil {
+		return nil, fmt.Errorf("[AddonIsolation] failed to create backup directory under %s: %w", tmpParent, tmpErr)
+	}
+
+	GinkgoWriter.Printf("[AddonIsolation] Staging isolation for addon %q; backup dir: %s\n", targetAddon, backupDir)
+
+	entries, readErr := os.ReadDir(addonsDir)
+	if readErr != nil {
+		_ = os.RemoveAll(backupDir)
+		return nil, fmt.Errorf("[AddonIsolation] failed to read addons directory %s: %w", addonsDir, readErr)
+	}
+
+	keep := map[string]bool{"common": true, targetAddon: true}
+	for _, extra := range keepExtra {
+		keep[extra] = true
+	}
+	var moved []string // names of directories successfully staged
+
+	for _, entry := range entries {
+		if !entry.IsDir() {
+			continue
+		}
+		name := entry.Name()
+		if keep[name] {
+			GinkgoWriter.Printf("[AddonIsolation] Keeping: %s\n", name)
+			continue
+		}
+
+		src := filepath.Join(addonsDir, name)
+		dst := filepath.Join(backupDir, name)
+		GinkgoWriter.Printf("[AddonIsolation] Staging: %s -> %s\n", src, dst)
+		if renameErr := renameWithRetry(src, dst); renameErr != nil {
+			stageErr := fmt.Errorf("[AddonIsolation] failed to stage addon directory %s: %w", src, renameErr)
+			var recoveryErrs []error
+			// Restore already-moved directories before propagating the error.
+			for _, m := range moved {
+				if rerr := renameWithRetry(filepath.Join(backupDir, m), filepath.Join(addonsDir, m)); rerr != nil {
+					GinkgoWriter.Printf("[AddonIsolation] WARNING: recovery rename failed for %s: %v\n", m, rerr)
+					recoveryErrs = append(recoveryErrs, fmt.Errorf("failed to recover staged addon directory %q: %w", m, rerr))
+				}
+			}
+			if len(recoveryErrs) > 0 {
+				return nil, errors.Join(stageErr, errors.Join(recoveryErrs...))
+			}
+			_ = os.RemoveAll(backupDir)
+			return nil, stageErr
+		}
+		moved = append(moved, name)
+	}
+
+	GinkgoWriter.Printf("[AddonIsolation] Staged %d addon directory(ies)\n", len(moved))
+
+	restore = func() error {
+		GinkgoWriter.Printf("[AddonIsolation] Restoring %d addon directory(ies) from: %s\n", len(moved), backupDir)
+		var errs []error
+		for _, name := range moved {
+			src := filepath.Join(backupDir, name)
+			dst := filepath.Join(addonsDir, name)
+			GinkgoWriter.Printf("[AddonIsolation] Restoring: %s -> %s\n", src, dst)
+			if _, statErr := os.Stat(dst); statErr == nil {
+				GinkgoWriter.Printf("[AddonIsolation] Destination %s already exists; removing before restore rename\n", dst)
+				if rmErr := removeDirWithRetry(dst); rmErr != nil {
+					GinkgoWriter.Printf("[AddonIsolation] ERROR: failed to remove existing destination %s: %v\n", dst, rmErr)
+					errs = append(errs, fmt.Errorf("failed to remove existing destination directory %q before restore: %w", dst, rmErr))
+					continue
+				}
+			}
+			if rerr := renameWithRetry(src, dst); rerr != nil {
+				GinkgoWriter.Printf("[AddonIsolation] ERROR: failed to restore %s: %v\n", name, rerr)
+				errs = append(errs, fmt.Errorf("failed to restore addon directory %q: %w", name, rerr))
+			}
+		}
+		if len(errs) > 0 {
+			GinkgoWriter.Printf("[AddonIsolation] Restore incomplete: %d error(s); backup dir preserved: %s\n", len(errs), backupDir)
+			return errors.Join(errs...)
+		}
+		if rerr := os.RemoveAll(backupDir); rerr != nil {
+			GinkgoWriter.Printf("[AddonIsolation] WARNING: failed to remove backup dir %s: %v\n", backupDir, rerr)
+			return fmt.Errorf("[AddonIsolation] failed to remove backup directory %s: %w", backupDir, rerr)
+		}
+		// Intentionally best-effort warning-only cleanup to preserve restore success and original error precedence.
+		if rerr := os.Remove(tmpParent); rerr != nil {
+			GinkgoWriter.Printf("[AddonIsolation] WARNING: failed to remove tmp dir %s: %v\n", tmpParent, rerr)
+		} else {
+			GinkgoWriter.Printf("[AddonIsolation] Removed empty tmp dir: %s\n", tmpParent)
+		}
+		GinkgoWriter.Println("[AddonIsolation] Restore complete")
+		return nil
+	}
+
+	return restore, nil
+}
+
+func renameWithRetry(src, dst string) error {
+	const maxRetries = 10
+	const retryDelay = 300 * time.Millisecond
+
+	var lastErr error
+	for attempt := 1; attempt <= maxRetries; attempt++ {
+		if err := os.Rename(src, dst); err != nil {
+			lastErr = err
+			if attempt == maxRetries {
+				GinkgoWriter.Printf("[AddonIsolation] ERROR: rename retries exhausted for %s -> %s after %d attempts; last error: %v\n", src, dst, maxRetries, lastErr)
+			}
+			if !isRetryableWindowsRenameError(err) || attempt == maxRetries {
+				return err
+			}
+			GinkgoWriter.Printf("[AddonIsolation] WARN: rename retry %d/%d for %s -> %s due to: %v\n", attempt, maxRetries, src, dst, err)
+			time.Sleep(retryDelay)
+			continue
+		}
+		return nil
+	}
+
+	return lastErr
+}
+
+func removeDirWithRetry(path string) error {
+	const maxRetries = 10
+	const retryDelay = 300 * time.Millisecond
+
+	var lastErr error
+	for attempt := 1; attempt <= maxRetries; attempt++ {
+		if err := os.RemoveAll(path); err != nil {
+			lastErr = err
+			if !isRetryableWindowsRenameError(err) || attempt == maxRetries {
+				return err
+			}
+			GinkgoWriter.Printf("[AddonIsolation] WARN: remove retry %d/%d for %s due to: %v\n", attempt, maxRetries, path, err)
+			time.Sleep(retryDelay)
+			continue
+		}
+		return nil
+	}
+
+	return lastErr
+}
+
+func isRetryableWindowsRenameError(err error) bool {
+	if runtime.GOOS != "windows" {
+		return false
+	}
+
+	var pathErr *os.PathError
+	if errors.As(err, &pathErr) {
+		err = pathErr.Err
+	}
+
+	if errno, ok := err.(syscall.Errno); ok {
+		// Windows errno values for transient file-lock conditions:
+		//   5   = ERROR_ACCESS_DENIED
+		//   32  = ERROR_SHARING_VIOLATION
+		//   33  = ERROR_LOCK_VIOLATION
+		//   145 = ERROR_DIR_NOT_EMPTY (raised by RemoveAll when dir still has handles)
+		return errno == 5 || errno == 32 || errno == 33 || errno == 145
+	}
+
+	msg := strings.ToLower(err.Error())
+	return strings.Contains(msg, "access is denied") || strings.Contains(msg, "being used by another process")
 }

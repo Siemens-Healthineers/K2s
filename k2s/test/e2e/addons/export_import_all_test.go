@@ -700,6 +700,8 @@ var _ = Describe("export and import a representative subset of addons and make s
 			GinkgoWriter.Println("[Test] OK: nginx implementation found")
 			Expect(manifestStr).To(ContainSubstring("traefik"), "Ingress manifest should contain traefik implementation")
 			GinkgoWriter.Println("[Test] OK: traefik implementation found")
+			Expect(manifestStr).To(ContainSubstring("nginx-gw"), "Ingress manifest should contain nginx-gw implementation")
+			GinkgoWriter.Println("[Test] OK: nginx-gw implementation found")
 
 			Expect(manifestStr).To(ContainSubstring("SPDX-FileCopyrightText"), "Manifest should preserve SPDX header")
 			Expect(manifestStr).To(ContainSubstring("SPDX-License-Identifier"), "Manifest should preserve license identifier")

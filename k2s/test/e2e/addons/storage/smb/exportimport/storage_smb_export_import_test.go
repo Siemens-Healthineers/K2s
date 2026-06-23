@@ -35,7 +35,7 @@ var (
 
 func TestStorageSmbExportImport(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "storage smb Addon Export/Import Tests", Label("addon", "addon-ilities", "acceptance", "internet-required", "setup-required", "invasive", "storage-smb", "export-import", "system-running"))
+	RunSpecs(t, "storage smb Addon Export/Import Tests", Label("addon", "addon-ilities", "acceptance", "internet-required", "setup-required", "invasive", "storage-smb", "export-import", "air-gapped", "system-running"))
 }
 
 var _ = BeforeSuite(func(ctx context.Context) {
@@ -141,11 +141,18 @@ var _ = Describe("storage smb addon export and import", Ordered, func() {
 	})
 
 	Describe("import storage smb addon", func() {
+		var restoreProxyEnvironment func()
+
 		BeforeAll(func(ctx context.Context) {
+			restoreProxyEnvironment = exportimport.PrepareAirGappedAddonImport(ctx, suite, controlPlaneIpAddress)
 			exportimport.ImportAddon(ctx, suite, exportedOciFile)
 		})
 
 		AfterAll(func(ctx context.Context) {
+			suite.K2sCli().Exec(ctx, "addons", "disable", "storage", "smb", "-o")
+			if restoreProxyEnvironment != nil {
+				restoreProxyEnvironment()
+			}
 			exportimport.CleanupExportedFiles(exportPath, exportedOciFile)
 		})
 
@@ -201,6 +208,39 @@ var _ = Describe("storage smb addon export and import", Ordered, func() {
 				filepath.Join(storageBaseDir, "config", "SmbStorage.json.license"),
 			}
 			exportimport.VerifyNoStrayFiles(unexpectedFiles)
+		})
+
+		It("addon can be enabled while air-gapped", func(ctx context.Context) {
+			GinkgoWriter.Println(">>> TEST: addon can be enabled while air-gapped")
+			suite.K2sCli().MustExec(ctx, "addons", "enable", "storage", "smb", "-o")
+			suite.Cluster().ExpectDeploymentToBeAvailable("csi-smb-controller", "storage-smb")
+		})
+
+		It("can be enabled when only addons/common and addons/storage are present", func(ctx context.Context) {
+			GinkgoWriter.Println(">>> TEST: can be enabled when only addons/common and addons/storage are present")
+
+			GinkgoWriter.Println("[Test] Disabling storage smb to ensure clean re-enable path")
+			suite.K2sCli().MustExec(ctx, "addons", "disable", "storage", "smb", "-o", "-f")
+
+			GinkgoWriter.Println("[Test] Staging addon isolation: keeping only common and storage")
+			restore, err := exportimport.StageAddonIsolation(suite.RootDir(), "storage")
+			Expect(err).ToNot(HaveOccurred(), "staging addon isolation should succeed")
+			DeferCleanup(func() {
+				Expect(restore()).To(Succeed(), "addon isolation restore must succeed to avoid a partial workspace state")
+			})
+			DeferCleanup(func() {
+				_, _ = suite.K2sCli().Exec(context.Background(), "addons", "disable", "storage", "smb", "-o", "-f")
+			})
+
+			GinkgoWriter.Println("[Test] Enabling storage smb with isolated addons directory")
+			output := suite.K2sCli().MustExec(ctx, "addons", "enable", "storage", "smb", "-o")
+
+			GinkgoWriter.Println("[Test] Verifying csi-smb-controller deployment is available")
+			suite.Cluster().ExpectDeploymentToBeAvailable("csi-smb-controller", "storage-smb")
+
+			GinkgoWriter.Println("[Test] Verifying no PowerShell module-not-found signatures in output")
+			Expect(output).NotTo(ContainSubstring("no valid module file was found"), "enable output must not contain PowerShell module-not-found error")
+			Expect(output).NotTo(ContainSubstring("was not loaded"), "enable output must not contain PowerShell module-not-loaded error")
 		})
 	})
 

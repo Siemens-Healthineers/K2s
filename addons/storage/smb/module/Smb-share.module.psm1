@@ -1,4 +1,4 @@
-﻿# SPDX-FileCopyrightText: © 2026 Siemens Healthineers AG
+# SPDX-FileCopyrightText: © 2026 Siemens Healthineers AG
 #
 # SPDX-License-Identifier: MIT
 
@@ -7,8 +7,9 @@ $clusterModule = "$PSScriptRoot/../../../../lib/modules/k2s/k2s.cluster.module/k
 $nodeModule = "$PSScriptRoot/../../../../lib/modules/k2s/k2s.node.module/k2s.node.module.psm1"
 $addonsModule = "$PSScriptRoot/../../../addons.module.psm1"
 $passwordModule = "$PSScriptRoot/password.module.psm1"
+$posixModule = "$PSScriptRoot/Smb-posix.module.psm1"
 
-Import-Module $clusterModule, $infraModule, $nodeModule, $addonsModule, $passwordModule
+Import-Module $clusterModule, $infraModule, $nodeModule, $addonsModule, $passwordModule, $posixModule
 
 $AddonName = 'storage'
 $ImplementationName = 'smb'
@@ -164,7 +165,12 @@ function New-SmbHostOnLinuxIfNotExisting {
     # download samba and rest
     (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute 'sudo DEBIAN_FRONTEND=noninteractive apt-get update -qq --yes').Output | Write-Log
 
-    Install-DebianPackages -addon 'storage' -implementation 'smb' -packages 'cifs-utils', 'samba'
+    $debPackages = @('cifs-utils', 'samba')
+    if ($Config.EnablePosixExtensions) {
+        # samba-vfs-modules ships streams_xattr.so, required by the POSIX 'vfs objects = streams_xattr' share config below (issue #2478).
+        $debPackages += 'samba-vfs-modules'
+    }
+    Install-DebianPackages -addon 'storage' -implementation 'smb' -packages $debPackages
 
     (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute "sudo adduser --no-create-home --disabled-password --disabled-login --gecos '' $smbUserName").Output | Write-Log
     (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute "(echo '$($creds.GetNetworkCredential().Password)'; echo '$($creds.GetNetworkCredential().Password)') | sudo smbpasswd -s -a $smbUserName" -NoLog).Output | Write-Log
@@ -180,7 +186,23 @@ function New-SmbHostOnLinuxIfNotExisting {
     (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute "sudo sh -c 'echo read only = no >> /etc/samba/smb.conf'").Output | Write-Log
     (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute "sudo sh -c 'echo create mask = 0777 >> /etc/samba/smb.conf'").Output | Write-Log
     (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute "sudo sh -c 'echo directory mask = 0777 >> /etc/samba/smb.conf'").Output | Write-Log
+    # Add POSIX extension config to Samba share if enabled
+    $posixLines = Get-SambaSharePosixConfig -Config $Config
+    foreach ($line in $posixLines) {
+        (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute "sudo sh -c 'echo `"$line`" >> /etc/samba/smb.conf'").Output | Write-Log
+    }
     (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute 'sudo systemctl restart smbd.service nmbd.service').Output | Write-Log
+
+    # POSIX runtime validation: confirm Samba advertises the streams_xattr settings we just wrote.
+    # smbd was just restarted above, so negotiation can take a few seconds to become serviceable; actively poll with a bounded retry budget. Still warn-not-fail.
+    if ($posixLines) {
+        if (Test-SambaPosixNegotiation -ShareName $Config.LinuxShareName -Retries 10 -RetryDelaySeconds 3) {
+            Write-Log " POSIX extensions negotiated successfully for Samba share '$($Config.LinuxShareName)'."
+        }
+        else {
+            Write-Log " WARNING: POSIX extensions were requested for Samba share '$($Config.LinuxShareName)' but could not be confirmed via testparm after waiting for smbd to become ready. Check 'vfs objects = streams_xattr' and 'store dos attributes = no' on the host." -Console
+        }
+    }
 
     Write-Log ' SMB host on Linux (Samba Share) set up.'
 }
@@ -263,6 +285,8 @@ function New-SharedFolderMountOnLinuxClient {
     $tempFstabFile = 'fstab.tmp'
     $tempMountOnLinuxClientScript = 'tmp_mountOnLinuxClientCmd.sh'
     $mountOnLinuxClientScript = 'mountOnLinuxClientCmd.sh'
+    $fstabVersOption = Get-FstabVersionOption -SmbDialect $Config.SmbDialect
+    $fstabVersSuffix = ",$fstabVersOption"
     $mountOnLinuxClientCmd = @"
         findmnt $($Config.LinuxMountPath) -D >/dev/null && sudo umount $($Config.LinuxMountPath)
         sudo rm -rf $($Config.LinuxMountPath)
@@ -273,7 +297,7 @@ function New-SharedFolderMountOnLinuxClient {
         sed -e /$($Config.WinShareName)/d < /etc/fstab > $tempFstabFile
         # add the new line to fstab
         echo '             Adding line for $($Config.LinuxMountPath) to /etc/fstab'
-        echo '//$(Get-ConfiguredKubeSwitchIP)/$($Config.WinShareName) $($Config.LinuxMountPath) cifs username=$smbUserName,password=$($creds.GetNetworkCredential().Password),rw,nobrl,soft,x-systemd.automount,file_mode=0666,dir_mode=0777,vers=3.0' | tee -a $tempFstabFile >/dev/null
+        echo '//$(Get-ConfiguredKubeSwitchIP)/$($Config.WinShareName) $($Config.LinuxMountPath) cifs username=$smbUserName,password=$($creds.GetNetworkCredential().Password),rw,nobrl,soft,x-systemd.automount,file_mode=0666,dir_mode=0777$fstabVersSuffix' | tee -a $tempFstabFile >/dev/null
         sudo sh -c "cat $tempFstabFile > /etc/fstab"
         sudo rm -f $tempFstabFile
         # immediately perform the mount
@@ -475,6 +499,10 @@ function New-SharedFolderMountOnLinuxHost {
 
     Write-Log 'Creating temporary mount script...'
 
+    # Linux Samba host historically pinned 'vers=3' (negotiates up to 3.1.1); preserve that default
+    # for 'auto' so existing shares are not downgraded to a fixed 3.0 (issue #2478, AC #1).
+    $fstabVersOption2 = Get-FstabVersionOption -SmbDialect $Config.SmbDialect -DefaultDialect '3'
+    $fstabVersSuffix2 = ",$fstabVersOption2"
     $fstabCmd = @"
         findmnt $($Config.LinuxMountPath) -D >/dev/null && sudo umount $($Config.LinuxMountPath)
         sudo rm -rf $($Config.LinuxMountPath)
@@ -485,7 +513,7 @@ function New-SharedFolderMountOnLinuxHost {
         sed -e /$($Config.LinuxShareName)/d < /etc/fstab > fstab.tmp
         # add the new line to fstab
         echo '             Adding line for $($Config.LinuxMountPath) to /etc/fstab'
-        echo '//$(Get-ConfiguredIPControlPlane)/$($Config.LinuxShareName) $($Config.LinuxMountPath) cifs username=$smbUserName,password=$($creds.GetNetworkCredential().Password),rw,nobrl,x-systemd.after=smbd.service,x-systemd.before=kubelet.service,file_mode=0666,dir_mode=0777,vers=3' | tee -a fstab.tmp >/dev/null
+        echo '//$(Get-ConfiguredIPControlPlane)/$($Config.LinuxShareName) $($Config.LinuxMountPath) cifs username=$smbUserName,password=$($creds.GetNetworkCredential().Password),rw,nobrl,x-systemd.after=smbd.service,x-systemd.before=kubelet.service,file_mode=0666,dir_mode=0777$fstabVersSuffix2' | tee -a fstab.tmp >/dev/null
         sudo sh -c "cat fstab.tmp > /etc/fstab"
         # immediately perform the mount
         echo '             Mount $($Config.LinuxMountPath) from /etc/fstab entry'
@@ -621,7 +649,9 @@ function New-StorageClassManifest {
         [parameter(Mandatory = $false)]
         [string]$StorageClassName = $(throw 'StorageClassName not specified'),
         [parameter(Mandatory = $false)]
-        [string]$ReclaimPolicy
+        [string]$ReclaimPolicy,
+        [parameter(Mandatory = $false)]
+        [pscustomobject]$Config
     )
 
     $manifestFileName = "$($generatedPrefix)$($StorageClassName).yaml"
@@ -639,7 +669,20 @@ function New-StorageClassManifest {
         $ReclaimPolicy = 'Delete'
     }
 
-    $manifestContent = $templateContent -replace $storageClassNamePlaceholder, $StorageClassName -replace $storageClassSourcePlaceholder, $remotePath -replace $storageClassReclaimPlaceholder, $ReclaimPolicy
+    # Generate dynamic mount options
+    if ($Config) {
+        $mountOpts = Get-StorageClassMountOptions -Config $Config
+    } else {
+        $defaultConfig = [PSCustomObject]@{ EnablePosixExtensions = $false; UseServerInode = $false; SmbDialect = 'auto' }
+        $mountOpts = Get-StorageClassMountOptions -Config $defaultConfig
+    }
+    $mountOptsYaml = ($mountOpts | ForEach-Object { "  - $_" }) -join "`n"
+
+    # Escape '$' so any literal dollar in the mount options is not interpreted as a
+    # regex replacement back-reference (e.g. $1) by the -replace below.
+    $mountOptsYamlSafe = $mountOptsYaml -replace '\$', '$$$$'
+
+    $manifestContent = $templateContent -replace $storageClassNamePlaceholder, $StorageClassName -replace $storageClassSourcePlaceholder, $remotePath -replace $storageClassReclaimPlaceholder, $ReclaimPolicy -replace '(?m)^MOUNT_OPTIONS\s*$', $mountOptsYamlSafe
 
     Set-Content -Value $manifestContent -Path $manifestPath -Force
 
@@ -708,7 +751,7 @@ function New-StorageClasses {
             $remotePath = $configEntry.LinuxHostRemotePath
         }
 
-        $manifest = New-StorageClassManifest -RemotePath $remotePath -StorageClassName $configEntry.StorageClassName -ReclaimPolicy $configEntry.StorageClassReclaimPolicy
+        $manifest = New-StorageClassManifest -RemotePath $remotePath -StorageClassName $configEntry.StorageClassName -ReclaimPolicy $configEntry.StorageClassReclaimPolicy -Config $configEntry
         $scManifests.Add($manifest) | Out-Null
     }
 
@@ -741,6 +784,26 @@ function Remove-StorageClasses {
 
     foreach ($configEntry in $Config) {
         Remove-PersistentVolumeClaimsForStorageClass -StorageClass $configEntry.StorageClassName | Write-Log
+    }
+
+    $scKustomizationPath = "$manifestStorageClassesDir\$scKustomizeFileName"
+    if (-not (Test-Path -Path $scKustomizationPath -PathType Leaf)) {
+        $manifestsForDelete = [System.Collections.ArrayList]@(
+            Get-ChildItem -Path $manifestStorageClassesDir -File -Filter "$generatedPrefix*.yaml" -ErrorAction SilentlyContinue | ForEach-Object { $_.Name }
+        )
+
+        if ($manifestsForDelete.Count -eq 0) {
+            foreach ($configEntry in $Config) {
+                if ($null -ne $configEntry.StorageClassName -and "$($configEntry.StorageClassName)".Length -gt 0) {
+                    $manifestsForDelete.Add("$generatedPrefix$($configEntry.StorageClassName).yaml") | Out-Null
+                }
+            }
+        }
+
+        if ($manifestsForDelete.Count -gt 0) {
+            Write-Log "StorageClass kustomization '$scKustomizationPath' missing, regenerating for cleanup.."
+            New-StorageClassKustomization -Manifests $manifestsForDelete
+        }
     }
 
     $params = 'delete', '-k', $manifestDir, '--force', '--ignore-not-found', '--grace-period=0'
@@ -869,7 +932,7 @@ function Remove-SmbShareAndFolder() {
     )
     Write-Log 'Removing SMB shares and folders..' -Console    
 
-    $smbHostType = Get-SmbHostType
+    $smbHostType = Get-SmbHostType -AllowUnspecified
 
     switch ($SmbHostType) {
         'windows' {
@@ -998,7 +1061,7 @@ function Enable-SmbShare {
     }
     
     Write-Log -Console '**                                                                                        **'
-    Write-Log -Console "** See '<root>\k2s\test\e2e\addons\storage\smb\workloads\' for example deployments.       **"
+    Write-Log -Console "** See '<root>\addons\storage\smb\README.md' for configuration and examples.              **"
     Write-Log -Console '********************************************************************************************'
 
     return @{Error = $null }
@@ -1115,12 +1178,35 @@ function Restore-SmbShareAndFolder {
 Reads the SMB host type from config
 
 .DESCRIPTION
-Reads the SMB host type from addons config file
+Reads the SMB host type from the addons config file
 #>
 function Get-SmbHostType {
+    param(
+        [parameter(Mandatory = $false)]
+        [switch]$AllowUnspecified = $false
+    )
     $config = Get-AddonConfig -Name $AddonName
 
-    return $config.SmbHostType
+    $validTypes = @('windows', 'linux')
+    $default = 'windows'
+
+    if ($null -eq $config -or $null -eq $config.SmbHostType) {
+        if ($AllowUnspecified) {
+            return ''
+        }
+        return $default
+    }
+
+    $normalized = ([string]$config.SmbHostType).Trim().ToLowerInvariant()
+
+    if ($validTypes -contains $normalized) {
+        return $normalized
+    }
+
+    if ($AllowUnspecified) {
+        return ''
+    }
+    return $default
 }
 
 function Get-Status {
@@ -1305,16 +1391,36 @@ function Get-StorageConfigFromRaw {
             $linuxShareName = $_.linuxShareName
             $winShareName = $_.winShareName
 
+            # Normalize optional SMB POSIX extension fields with safe defaults
+            $smbDialect = if ($_.smbDialect) { $_.smbDialect } else { 'auto' }
+            $enablePosix = if ($null -ne $_.enablePosixExtensions) { [bool]$_.enablePosixExtensions } else { $false }
+            $useServerInode = if ($null -ne $_.useServerInode) { [bool]$_.useServerInode } else { $false }
+
+            # Validate smbDialect
+            $validDialects = @('auto', '3', '3.0', '3.1.1')
+            if ($smbDialect -notin $validDialects) {
+                Write-Log "[SMB] Invalid smbDialect '$smbDialect', defaulting to 'auto'. Valid values: $($validDialects -join ', ')"
+                $smbDialect = 'auto'
+            }
+
+            # Warn if POSIX extensions requested with Windows host
+            if ($enablePosix -and (Get-SmbHostType) -eq 'windows') {
+                Write-Log "[SMB] Warning: POSIX extensions are not supported with Windows SMB host. POSIX options will be applied but may not work as expected."
+            }
+
             [pscustomobject]@{
-                StorageClassName    = $_.storageClassName
+                StorageClassName          = $_.storageClassName
                 # Default to 'Delete' if no reclaim policy is specified to ensure persistent volumes are cleaned up unless overridden.
                 StorageClassReclaimPolicy = if ($_.storageClassReclaimPolicy) { $_.storageClassReclaimPolicy } else { 'Delete' }
-                LinuxMountPath      = $_.linuxMountPath
-                WinMountPath        = $winMountPath
-                LinuxShareName      = $linuxShareName
-                WinShareName        = $winShareName
-                LinuxHostRemotePath = "\\$(Get-ConfiguredIPControlPlane)\$linuxShareName"
-                WinHostRemotePath   = "\\$(Get-ConfiguredKubeSwitchIP)\$winShareName"
+                LinuxMountPath            = $_.linuxMountPath
+                WinMountPath              = $winMountPath
+                LinuxShareName            = $linuxShareName
+                WinShareName              = $winShareName
+                LinuxHostRemotePath       = "\\$(Get-ConfiguredIPControlPlane)\$linuxShareName"
+                WinHostRemotePath         = "\\$(Get-ConfiguredKubeSwitchIP)\$winShareName"
+                SmbDialect                = $smbDialect
+                EnablePosixExtensions     = $enablePosix
+                UseServerInode            = $useServerInode
             }
         }   
     )
