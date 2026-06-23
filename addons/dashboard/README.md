@@ -108,6 +108,34 @@ k2s addons backup dashboard
 k2s addons restore dashboard -f C:\Temp\k2s\Addons\dashboard_backup_YYYYMMDD_HHMMSS.zip
 ```
 
+## Headlamp plugins (capability-based)
+
+Headlamp is extended with K2s‑owned **plugins** that light up extra UI views when the
+matching capability is present in the cluster. Plugins are **activated automatically** —
+there is nothing to enable per plugin:
+
+| Plugin | UI it adds | Activated when… |
+|--------|------------|-----------------|
+| cert-manager | cert-manager certificates/issuers view | the `cert-manager` capability is present (installed by `ingress nginx`/`traefik`/`nginx-gw` or `security`) |
+| flux | Flux GitOps view | the Flux capability is present (`rollout fluxcd` or external Flux) |
+| prometheus | Prometheus/metrics view | the monitoring capability is present |
+
+How it works:
+
+- Each plugin is an **OCI image** owned by K2s and published to
+  `shsk2s.azurecr.io/headlamp-plugin-<name>:<version>`.
+- When the `dashboard` addon is enabled, `Sync-HeadlampPlugins` detects available
+  capabilities and patches the Headlamp deployment with one **init‑container per detected
+  plugin** that copies the plugin into Headlamp's plugins volume. Removing a capability
+  removes the plugin on the next sync.
+- Activation never builds or downloads images at enable time. In offline installs the
+  plugin images travel inside the offline package.
+
+Plugin images are **built and published once** by the dashboard autoupdate CI workflow
+(`K2s-Support/ci/autoupdate/27-update-addons-dashboard.yaml`) from checksum‑pinned bundles.
+For the full producer/lifecycle/update documentation see
+[`build/README.md`](build/README.md).
+
 ## Further Reading
 
 - Headlamp Documentation: <https://headlamp.dev/docs/latest/>
