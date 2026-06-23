@@ -489,17 +489,17 @@ if ($SpecialSkippedFiles -contains 'Kubemaster-Base.vhdx') {
                     $copiedFiles = @()
                     
                     if ($filesToCopy.Count -gt 0 -and $debianPackageDiff.NewVmContext) {
-                        $guestConfigDir = Join-Path $stageDir 'guest-config'
-                        if (-not (Test-Path -LiteralPath $guestConfigDir)) {
-                            New-Item -ItemType Directory -Path $guestConfigDir | Out-Null
-                        }
-                        
+                        # Copy-GuestConfigFiles appends 'guest-config' to its -OutputDir (its documented
+                        # contract: "guest-config/ will be the root"). Pass the staging ROOT here so the
+                        # payload lands at '<stage>/guest-config/<abs-path>' (single nesting). Passing
+                        # '<stage>/guest-config' caused a '<stage>/guest-config/guest-config/...' double
+                        # nesting that did not match the manifest's GuestConfigRelativePath at apply time.
                         Write-Log "[GuestConfig] Copying $($filesToCopy.Count) config files from new VM..." -Console
                         $copyResult = Copy-GuestConfigFiles -VmContext $debianPackageDiff.NewVmContext `
                                                             -NewExtract $newExtract `
                                                             -OldExtract $oldExtract `
                                                             -FilePaths $filesToCopy `
-                                                            -OutputDir $guestConfigDir
+                                                            -OutputDir $stageDir
                         
                         if ($copyResult.Error) {
                             Write-Log "[GuestConfig] Warning: File copy had errors: $($copyResult.Error)" -Console

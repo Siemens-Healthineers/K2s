@@ -1891,10 +1891,22 @@ function Invoke-GuestConfigDeltaApply {
 		$relForward = (($rel -replace '\\', '/').TrimStart('/'))
 		$localPath = Join-Path $guestConfigDir ($relForward -replace '/', '\')
 		if (-not (Test-Path -LiteralPath $localPath)) {
-			Write-Log ("[GuestConfigApply][Warn] Staged file missing, cannot apply: {0}" -f $relForward) -Console:$consoleSwitch
-			$result.Failed += $relForward
-			$result.Success = $false
-			continue
+			# Resilience: tolerate packages whose payload is nested differently (e.g. an older
+			# double-nested 'guest-config/guest-config/...' layout). Search the payload tree for a
+			# file whose path ends with this candidate's relative path.
+			$leafRel = ($relForward -replace '/', '\')
+			$found = Get-ChildItem -LiteralPath $guestConfigDir -Recurse -File -ErrorAction SilentlyContinue |
+				Where-Object { $_.FullName.EndsWith('\' + $leafRel, [System.StringComparison]::OrdinalIgnoreCase) } |
+				Select-Object -First 1
+			if ($found) {
+				$localPath = $found.FullName
+				Write-Log ("[GuestConfigApply] Resolved staged file via recursive search: {0}" -f $localPath) -Console:$consoleSwitch
+			} else {
+				Write-Log ("[GuestConfigApply][Warn] Staged file missing, cannot apply: {0}" -f $relForward) -Console:$consoleSwitch
+				$result.Failed += $relForward
+				$result.Success = $false
+				continue
+			}
 		}
 		$remoteAbs = '/' + $relForward
 		$remoteDir = ($remoteAbs -replace '/[^/]+$', '')
