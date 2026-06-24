@@ -20,7 +20,7 @@ require (
 	github.com/google/uuid v1.6.0
 	github.com/hectane/go-acl v1.0.0
 	github.com/kdomanski/iso9660 v0.4.0
-	github.com/onsi/ginkgo/v2 v2.31.0
+	github.com/onsi/ginkgo/v2 v2.32.0
 	github.com/onsi/gomega v1.42.0
 	github.com/ory/hydra-client-go v1.11.8
 	github.com/pkg/errors v0.9.1
