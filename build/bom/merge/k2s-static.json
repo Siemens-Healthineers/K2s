@@ -766,7 +766,7 @@
     {
       "group": "https://github.com/grafana/grafana",
       "name": "grafana",
-      "version": "13.0.1",
+      "version": "13.0.3",
       "description": "Open-source analytics and monitoring platform - monitoring addon",
       "scope": "optional",
       "licenses": [
@@ -783,13 +783,13 @@
           "value": "k2s:addon:monitoring"
         }
       ],
-      "purl": "pkg:github/grafana/grafana@13.0.1",
+      "purl": "pkg:github/grafana/grafana@13.0.3",
       "type": "container"
     },
     {
       "group": "https://github.com/kiwigrid/k8s-sidecar",
       "name": "k8s-sidecar",
-      "version": "2.7.3",
+      "version": "2.8.0",
       "description": "Sidecar to collect config maps with a specified label from all namespaces - monitoring addon",
       "scope": "optional",
       "licenses": [
@@ -806,7 +806,7 @@
           "value": "k2s:addon:monitoring"
         }
       ],
-      "purl": "pkg:github/kiwigrid/k8s-sidecar@2.7.3",
+      "purl": "pkg:github/kiwigrid/k8s-sidecar@2.8.0",
       "type": "container"
     },
     {
