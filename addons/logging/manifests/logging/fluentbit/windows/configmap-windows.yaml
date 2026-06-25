@@ -155,8 +155,10 @@ data:
         # storage.path
         # ------------
         # absolute file system path to store filesystem data buffers (chunks).
+        # The placeholder below is substituted with the configured K2s log root
+        # at addon enable time (see addons/logging/Enable.ps1); defaults to C:\var\log.
         #
-        storage.path C:\\var\\log\\flb-storage
+        storage.path __LOG_ROOT__\\flb-storage
 
         # storage.sync
         # ------------
@@ -195,7 +197,7 @@ data:
 
     [INPUT]
         Name tail
-        Path C:\\var\\log\\bridge\\*.log
+        Path __LOG_ROOT__\\bridge\\*.log
         Tag bridge.*
         Parser nssm1
         Buffer_Chunk_Size 256KB
@@ -206,7 +208,7 @@ data:
 
     [INPUT]
         Name tail
-        Path C:\\var\\log\\k2s.log
+        Path __LOG_ROOT__\\k2s.log
         Tag centrallog.*
         Parser centrallog
         Buffer_Chunk_Size 256KB
@@ -228,7 +230,7 @@ data:
 
     [INPUT]
         Name tail
-        Path C:\\var\\log\\containerd\\*.log
+        Path __LOG_ROOT__\\containerd\\*.log
         Tag containerd.*
         Parser nssm1
         Buffer_Chunk_Size 256KB
@@ -239,7 +241,7 @@ data:
 
     [INPUT]
         Name tail
-        Path C:\\var\\log\\dnsproxy\\*.log
+        Path __LOG_ROOT__\\dnsproxy\\*.log
         Tag dnsproxy.*
         Parser dnsproxy
         Buffer_Chunk_Size 256KB
@@ -250,7 +252,7 @@ data:
 
     [INPUT]
         Name tail
-        Path C:\\var\\log\\dockerd\\*.log
+        Path __LOG_ROOT__\\dockerd\\*.log
         Tag dockerd.*
         Parser nssm1
         Buffer_Chunk_Size 256KB
@@ -261,7 +263,7 @@ data:
 
     [INPUT]
         Name tail
-        Path C:\\var\\log\\flanneld\\*.log
+        Path __LOG_ROOT__\\flanneld\\*.log
         Tag flanneld.*
         Parser nssm2
         Buffer_Chunk_Size 256KB
@@ -272,7 +274,7 @@ data:
 
     [INPUT]
         Name tail
-        Path C:\\var\\log\\httpproxy\\*.log
+        Path __LOG_ROOT__\\httpproxy\\*.log
         Tag httpproxy.*
         Parser nssm3
         Buffer_Chunk_Size 256KB
@@ -283,7 +285,7 @@ data:
 
     [INPUT]
         Name tail
-        Path C:\\var\\log\\kubelet\\*.log
+        Path __LOG_ROOT__\\kubelet\\*.log
         Tag kubelet.*
         Parser nssm2
         Buffer_Chunk_Size 256KB
@@ -294,7 +296,7 @@ data:
 
     [INPUT]
         Name tail
-        Path C:\\var\\log\\kubeproxy\\*.log
+        Path __LOG_ROOT__\\kubeproxy\\*.log
         Tag kubeproxy.*
         Parser kubeproxy
         Buffer_Chunk_Size 256KB
@@ -305,7 +307,7 @@ data:
 
     [INPUT]
         Name tail
-        Path C:\\var\\log\\vfprules\\*.log
+        Path __LOG_ROOT__\\vfprules\\*.log
         Tag vfprules.*
         Parser nssm1
         Buffer_Chunk_Size 256KB
@@ -316,7 +318,7 @@ data:
 
     [INPUT]
         Name tail
-        Path C:\\var\\log\\windows_exporter\\*.log
+        Path __LOG_ROOT__\\windows_exporter\\*.log
         Tag windowsexporter.*
         Parser nssm1
         Buffer_Chunk_Size 256KB

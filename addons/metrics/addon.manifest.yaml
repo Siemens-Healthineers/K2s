@@ -21,7 +21,7 @@ spec:
         windows:
           curl: []
           additionalImages:
-            - ghcr.io/prometheus-community/windows-exporter
+            - shsk2s.azurecr.io/prometheus-community/windows-exporter
           additionalImagesFiles:
             - ../common/manifests/windows-exporter/daemonset.yaml
       commands:
