@@ -2877,6 +2877,7 @@ SPDX-License-Identifier: MIT
 <h3 id="opting-out">Opting out</h3>
 <div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="go">k2s addons enable security --omitPolicyEnf</span>
 </code></pre></div>
+<p>In <strong>enhanced security mode</strong> the <code>kyverno</code> namespace is meshed into Linkerd (<code>linkerd.io/inject: enabled</code>), so the Kyverno controllers run inside the zero-trust mTLS perimeter; the admission webhook port (<code>9443</code>) is excluded from inbound proxying so the <abbr title="Application Programming Interface">API</abbr> server can still reach it. In basic mode Kyverno runs without a sidecar.</p>
 <p>For full usage examples, sample policies, and <code>PolicyException</code> guidance, see the <a href="../policy-enforcement/">Policy Enforcement Guide</a>.</p>
 <hr />
 <h2 id="sbom-generation">SBOM Generation</h2>

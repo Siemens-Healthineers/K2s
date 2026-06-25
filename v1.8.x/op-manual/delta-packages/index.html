@@ -1117,6 +1117,15 @@ You're not viewing the latest release version.
 </li>
         
           <li class="md-nav__item">
+  <a href="#where-the-installation-ends-up" class="md-nav__link">
+    <span class="md-ellipsis">
+      Where the installation ends up
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#application-steps" class="md-nav__link">
     <span class="md-ellipsis">
       Application Steps
@@ -2586,6 +2595,15 @@ You're not viewing the latest release version.
 </li>
         
           <li class="md-nav__item">
+  <a href="#where-the-installation-ends-up" class="md-nav__link">
+    <span class="md-ellipsis">
+      Where the installation ends up
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#application-steps" class="md-nav__link">
     <span class="md-ellipsis">
       Application Steps
@@ -3039,16 +3057,23 @@ SPDX-License-Identifier: MIT
 <li>Administrator privileges</li>
 <li>The delta package ZIP file</li>
 </ul>
+<h3 id="where-the-installation-ends-up">Where the installation ends up</h3>
+<p>When a delta package is applied, the <strong>extracted delta folder becomes the new active installation folder</strong>. After the update, <code>setup.json</code> (<code>InstallFolder</code>) points to this folder and the cluster services run from it.</p>
+<p>Because of this, extract the delta package to the location where you want the upgraded installation to live — typically a versioned folder such as <code>C:\k2s\&lt;new-version&gt;</code>:</p>
+<ul>
+<li>The previous installation folder is <strong>left untouched and retained for rollback</strong>. You may delete it after you have verified the upgrade.</li>
+<li>If you instead extract the delta on top of the current installation folder (so the extraction folder equals the existing <code>InstallFolder</code>), <em>K2s</em> falls back to the legacy in-place update and the installation folder does not change.</li>
+</ul>
 <h3 id="application-steps">Application Steps</h3>
 <ol>
 <li>
-<p>Extract the delta package to a temporary location:
-   <div class="highlight"><span class="filename">PowerShell</span><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="nb">Expand-Archive</span> <span class="n">-Path</span> <span class="s2">&quot;k2s-delta-v1.4.0-to-v1.5.0.zip&quot;</span> <span class="n">-DestinationPath</span> <span class="s2">&quot;C:\temp\delta&quot;</span>
+<p>Extract the delta package to the desired final installation location (a versioned folder is recommended):
+   <div class="highlight"><span class="filename">PowerShell</span><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="nb">Expand-Archive</span> <span class="n">-Path</span> <span class="s2">&quot;k2s-delta-v1.4.0-to-v1.5.0.zip&quot;</span> <span class="n">-DestinationPath</span> <span class="s2">&quot;C:\k2s\1.5.0&quot;</span>
 </code></pre></div></p>
 </li>
 <li>
 <p>Run the upgrade from the extracted delta folder:
-   <div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="go">cd C:\temp\delta</span>
+   <div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="go">cd C:\k2s\1.5.0</span>
 <a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="go">k2s system upgrade</span>
 </code></pre></div></p>
 </li>
@@ -3058,6 +3083,11 @@ SPDX-License-Identifier: MIT
 </code></pre></div></p>
 </li>
 </ol>
+<p>After a successful upgrade, <code>C:\k2s\1.5.0</code> is the active installation. The previous installation folder remains on disk for rollback and can be deleted once the upgrade is confirmed.</p>
+<div class="admonition note">
+<p class="admonition-title">Rollback scope</p>
+<p>If the update fails after the installation has been re-homed to the new folder, the Windows-side changes (service configuration, <code>setup.json</code>, kubeconfig) are automatically rolled back to the previous installation folder. Cluster/Linux-side changes (kubeadm upgrade, Debian package updates) are <strong>not</strong> reverted — this is consistent with the behavior of a full upgrade.</p>
+</div>
 <h2 id="node-packages">Node Packages</h2>
 <p>Node packages contain the Linux packages and container images required to run <em>K2s</em> worker nodes (kubelet, kubeadm, kubectl, <abbr title="Container Runtime Interface">CRI</abbr>-O, buildah). They are independent of the control-plane installation, allowing you to upgrade bare-metal or <abbr title="Virtual Machine">VM</abbr>-based Linux worker nodes without touching the cluster control plane.</p>
 <p>Both full node packages and node delta packages are created with the <code>--node-package</code> flag.</p>

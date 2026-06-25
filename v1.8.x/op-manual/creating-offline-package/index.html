@@ -1008,6 +1008,21 @@ You're not viewing the latest release version.
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="Node Package for Offline Node Add">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#gpu-enabled-node-package" class="md-nav__link">
+    <span class="md-ellipsis">
+      GPU-Enabled Node Package
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
         <li class="md-nav__item">
@@ -2204,6 +2219,21 @@ You're not viewing the latest release version.
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="Node Package for Offline Node Add">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#gpu-enabled-node-package" class="md-nav__link">
+    <span class="md-ellipsis">
+      GPU-Enabled Node Package
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
         <li class="md-nav__item">
@@ -2342,36 +2372,80 @@ SPDX-License-Identifier: MIT
 <p>The node package is intended for extending an existing cluster with a Linux worker node. It is separate from the full offline installation package used for installing <em>K2s</em> itself.</p>
 </div>
 <p>See <a href="../extending-k2s-cluster/">Extending K2s cluster</a> for the complete node onboarding workflow.</p>
+<h3 id="gpu-enabled-node-package">GPU-Enabled Node Package</h3>
+<p>To add a Linux worker node <strong>with GPU support</strong> in an air-gapped environment, include the NVIDIA Container Toolkit packages in the node package:</p>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="go">k2s system package --node-package --os debian13 --include-gpu --target-dir C:\output --name debian13-node-gpu.zip</span>
+</code></pre></div>
+<p>The <code>--include-gpu</code> flag downloads and bundles:</p>
+<table>
+<thead>
+<tr>
+<th>Component</th>
+<th>Purpose</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>libnvidia-container1</code></td>
+<td>Low-level library for container GPU access</td>
+</tr>
+<tr>
+<td><code>libnvidia-container-tools</code></td>
+<td><abbr title="Command-Line Interface">CLI</abbr> tools for NVIDIA container runtime</td>
+</tr>
+<tr>
+<td><code>nvidia-container-toolkit</code></td>
+<td>High-level toolkit and configuration</td>
+</tr>
+<tr>
+<td>GPU device plugin image</td>
+<td>Kubernetes device plugin for GPU scheduling</td>
+</tr>
+</tbody>
+</table>
+<p>When using a GPU-enabled node package:</p>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="go">k2s node add --ip-addr &lt;IPAddressOfNewNode&gt; --username &lt;UserNameForRemoteConnection&gt; --node-package C:\output\debian13-node-gpu.zip</span>
+</code></pre></div>
+<p>K2s automatically detects if the target node has an NVIDIA GPU and configures GPU support:</p>
+<ul>
+<li>If an NVIDIA GPU is detected → installs toolkit from package, configures <abbr title="Container Runtime Interface">CRI</abbr>-O, labels node</li>
+<li>If no NVIDIA GPU is detected → skips GPU configuration, node joins as regular worker</li>
+</ul>
+<div class="admonition warning">
+<p class="admonition-title">NVIDIA Drivers Required</p>
+<p>The target node must have NVIDIA kernel drivers pre-installed. Verify with <code>nvidia-smi</code> before running <code>k2s node add</code>. K2s does <strong>not</strong> install kernel drivers.</p>
+</div>
+<p>See <a href="../../user-guide/gpu-node/#external-gpu-worker-nodes">GPU Node addon</a> for complete GPU worker documentation.</p>
 <h2 id="addons-offline-package">Addons Offline Package</h2>
 <p>To enable addons without an internet connection being available, the required binaries can be exported to an offline package as well.</p>
 <h3 id="addons-export">Addons Export</h3>
 <p>To inspect all export options, run:
-<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="go">k2s addons export -h</span>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a><span class="go">k2s addons export -h</span>
 </code></pre></div></p>
 <p>Either specify one or more addons to export:
-<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="go">k2s addons export registry -d &lt;export-output-directory&gt;</span>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a><span class="go">k2s addons export registry -d &lt;export-output-directory&gt;</span>
 </code></pre></div></p>
 <p>Or export all addons:
-<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a><span class="go">k2s addons export -d &lt;export-output-directory&gt;</span>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a><span class="go">k2s addons export -d &lt;export-output-directory&gt;</span>
 </code></pre></div></p>
 <p>To export without container images (produces a lighter artifact):
-<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a><span class="go">k2s addons export registry -d &lt;export-output-directory&gt; --omit-images</span>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a><span class="go">k2s addons export registry -d &lt;export-output-directory&gt; --omit-images</span>
 </code></pre></div></p>
 <p>To export without packages (Debian, Linux, and Windows packages):
-<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a><span class="go">k2s addons export registry -d &lt;export-output-directory&gt; --omit-packages</span>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a><span class="go">k2s addons export registry -d &lt;export-output-directory&gt; --omit-packages</span>
 </code></pre></div></p>
 <p>Both flags can be combined to export only configuration, manifests, and scripts:
-<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a><span class="go">k2s addons export registry -d &lt;export-output-directory&gt; --omit-images --omit-packages</span>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-15-1" name="__codelineno-15-1" href="#__codelineno-15-1"></a><span class="go">k2s addons export registry -d &lt;export-output-directory&gt; --omit-images --omit-packages</span>
 </code></pre></div></p>
 <h3 id="addons-import">Addons Import</h3>
 <p>To inspect all export options, run:
-<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a><span class="go">k2s addons import -h</span>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-16-1" name="__codelineno-16-1" href="#__codelineno-16-1"></a><span class="go">k2s addons import -h</span>
 </code></pre></div></p>
 <p>Either specify one or more addons to import from the offline package:
-<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-15-1" name="__codelineno-15-1" href="#__codelineno-15-1"></a><span class="go">k2s addons import registry -f &lt;directory-containing-addons-archive&gt;\addons.zip</span>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-17-1" name="__codelineno-17-1" href="#__codelineno-17-1"></a><span class="go">k2s addons import registry -f &lt;directory-containing-addons-archive&gt;\addons.zip</span>
 </code></pre></div></p>
 <p>Or import all addons from the offline package:
-<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-16-1" name="__codelineno-16-1" href="#__codelineno-16-1"></a><span class="go">k2s addons import -f &lt;directory-containing-addons-archive&gt;\addons.zip</span>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-18-1" name="__codelineno-18-1" href="#__codelineno-18-1"></a><span class="go">k2s addons import -f &lt;directory-containing-addons-archive&gt;\addons.zip</span>
 </code></pre></div></p>
 <div class="admonition note">
 <p class="admonition-title">Note</p>

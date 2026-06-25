@@ -2309,7 +2309,7 @@ SPDX-License-Identifier: MIT
 <li>If any such Service has a ClusterIP in the Linux subnet (assigned by default before the Windows workload existed), the webhook <strong>deletes and recreates</strong> it without a <code>clusterIP</code>, triggering a new Service admission that now picks the correct Windows <abbr title="Internet Protocol">IP</abbr> from the cache.</li>
 </ol>
 <p>This reconciliation handles the common <code>kubectl apply -k</code> case where Services and Deployments are submitted simultaneously — Kubernetes processes Services first, before the backing workload exists. Workloads without a <code>kubernetes.io/os</code> nodeSelector are ignored since Services default to the Linux subnet anyway.</p>
-<p>TLS certificates for the webhook are generated automatically via init Jobs during cluster setup.</p>
+<p>TLS certificates for the webhook are generated automatically by an init container on each Pod startup. The init container creates a self-signed certificate (valid for one year) and patches the webhook configuration. Certificate renewal happens automatically whenever the webhook Pod is recreated — for example, via <code>k2s system certificate renew</code>, deployment rollout, or pod deletion.</p>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
 <p>You can still set <code>clusterIP</code> manually if needed (e.g., for infrastructure services in the reserved <code>.0–.49</code> range). The webhook will skip any Service that already has <code>clusterIP</code> set.</p>

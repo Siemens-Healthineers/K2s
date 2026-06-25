@@ -822,6 +822,66 @@ You're not viewing the latest release version.
 </li>
       
         <li class="md-nav__item">
+  <a href="#external-gpu-worker-nodes" class="md-nav__link">
+    <span class="md-ellipsis">
+      External GPU Worker Nodes
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="External GPU Worker Nodes">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#prerequisites-for-external-gpu-workers" class="md-nav__link">
+    <span class="md-ellipsis">
+      Prerequisites for External GPU Workers
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#online-workflow-internet-available" class="md-nav__link">
+    <span class="md-ellipsis">
+      Online Workflow (Internet Available)
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#offline-workflow-air-gapped-environment" class="md-nav__link">
+    <span class="md-ellipsis">
+      Offline Workflow (Air-Gapped Environment)
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#lifecycle-notes" class="md-nav__link">
+    <span class="md-ellipsis">
+      Lifecycle Notes
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#checking-gpu-workers" class="md-nav__link">
+    <span class="md-ellipsis">
+      Checking GPU Workers
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#disabling-the-addon" class="md-nav__link">
     <span class="md-ellipsis">
       Disabling the Addon
@@ -2348,6 +2408,66 @@ You're not viewing the latest release version.
 </li>
       
         <li class="md-nav__item">
+  <a href="#external-gpu-worker-nodes" class="md-nav__link">
+    <span class="md-ellipsis">
+      External GPU Worker Nodes
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="External GPU Worker Nodes">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#prerequisites-for-external-gpu-workers" class="md-nav__link">
+    <span class="md-ellipsis">
+      Prerequisites for External GPU Workers
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#online-workflow-internet-available" class="md-nav__link">
+    <span class="md-ellipsis">
+      Online Workflow (Internet Available)
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#offline-workflow-air-gapped-environment" class="md-nav__link">
+    <span class="md-ellipsis">
+      Offline Workflow (Air-Gapped Environment)
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#lifecycle-notes" class="md-nav__link">
+    <span class="md-ellipsis">
+      Lifecycle Notes
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#checking-gpu-workers" class="md-nav__link">
+    <span class="md-ellipsis">
+      Checking GPU Workers
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#disabling-the-addon" class="md-nav__link">
     <span class="md-ellipsis">
       Disabling the Addon
@@ -2471,7 +2591,7 @@ SPDX-License-Identifier: MIT
 </tr>
 <tr>
 <td><code>NodeGpuLabels</code></td>
-<td>Whether the node has <code>gpu=true</code> and <code>accelerator=nvidia</code> labels</td>
+<td>Whether the control-plane node has <code>gpu=true</code> and <code>accelerator=nvidia</code> labels</td>
 </tr>
 <tr>
 <td><code>GpuAllocatable</code></td>
@@ -2480,6 +2600,10 @@ SPDX-License-Identifier: MIT
 <tr>
 <td><code>GpuInUse</code></td>
 <td>Number of GPU slots currently held by running pods</td>
+</tr>
+<tr>
+<td><code>ExternalGpuWorkers</code></td>
+<td>Count and names of external GPU-capable worker nodes (auto-detected when NVIDIA GPU is present)</td>
 </tr>
 </tbody>
 </table>
@@ -2586,8 +2710,99 @@ SPDX-License-Identifier: MIT
 <a id="__codelineno-11-8" name="__codelineno-11-8" href="#__codelineno-11-8"></a><span class="go">k2s addons enable gpu-node</span>
 </code></pre></div>
 <hr />
+<h2 id="external-gpu-worker-nodes">External GPU Worker Nodes</h2>
+<p>In addition to the KubeMaster <abbr title="Virtual Machine">VM</abbr>, you can add external Linux machines with NVIDIA GPUs as GPU-capable worker nodes. This enables scaling GPU workloads across multiple physical machines.</p>
+<h3 id="prerequisites-for-external-gpu-workers">Prerequisites for External GPU Workers</h3>
+<table>
+<thead>
+<tr>
+<th>Requirement</th>
+<th>Details</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>NVIDIA kernel drivers</strong></td>
+<td>Must be pre-installed on the external Linux machine. Verify with <code>nvidia-smi</code>.</td>
+</tr>
+</tbody>
+</table>
+<div class="admonition warning">
+<p class="admonition-title">Driver Installation</p>
+<p>K2s does <strong>not</strong> install NVIDIA kernel drivers. Install them using your distribution's package manager or NVIDIA's official installer <strong>before</strong> running <code>k2s node add</code>.</p>
+</div>
+<h3 id="online-workflow-internet-available">Online Workflow (Internet Available)</h3>
+<p>When the target machine has internet access, GPU support is <strong>automatically detected and configured</strong>:</p>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a><span class="go">k2s node add --ip-addr 192.168.1.50 --username admin</span>
+</code></pre></div>
+<p><strong>What happens automatically when an NVIDIA GPU is detected:</strong></p>
+<ol>
+<li>Verifies NVIDIA drivers are functional (<code>nvidia-smi</code>)</li>
+<li>Downloads and installs NVIDIA Container Toolkit packages</li>
+<li>Configures <abbr title="Container Runtime Interface">CRI</abbr>-O runtime with CDI (Container Device Interface) support</li>
+<li>Labels the node with <code>gpu=true</code> and <code>accelerator=nvidia</code></li>
+</ol>
+<p>If no NVIDIA GPU is detected (or a non-NVIDIA GPU like AMD/Intel is present), GPU configuration is skipped and the node joins as a regular worker.</p>
+<h3 id="offline-workflow-air-gapped-environment">Offline Workflow (Air-Gapped Environment)</h3>
+<p>For environments without internet access, create a GPU-enabled node package first.</p>
+<p><strong>Step 1: Create the GPU node package</strong> (on a machine with internet)</p>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a><span class="go">k2s system package --node-package --os debian13 --include-gpu --target-dir C:\packages --name debian13-gpu.zip</span>
+</code></pre></div>
+<p>The <code>--include-gpu</code> flag downloads and bundles:</p>
+<ul>
+<li>NVIDIA Container Toolkit <code>.deb</code> packages (<code>libnvidia-container1</code>, <code>libnvidia-container-tools</code>, <code>nvidia-container-runtime</code>, <code>nvidia-container-toolkit</code>)</li>
+<li>GPU device plugin container image (<code>nvcr.io/nvidia/k8s-device-plugin</code>)</li>
+</ul>
+<p><strong>Step 2: Transfer the package</strong> to the air-gapped environment.</p>
+<p><strong>Step 3: Add the GPU worker node</strong></p>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a><span class="go">k2s node add --ip-addr 192.168.1.50 --username admin --node-package C:\packages\debian13-gpu.zip</span>
+</code></pre></div>
+<p>GPU support is configured automatically if:</p>
+<ul>
+<li>The target node has an NVIDIA GPU (detected via <code>nvidia-smi</code>)</li>
+<li>The node package includes GPU packages (created with <code>--include-gpu</code>)</li>
+</ul>
+<div class="admonition note">
+<p class="admonition-title">Without <code>--include-gpu</code></p>
+<p>If the node package was created <strong>without</strong> <code>--include-gpu</code>, GPU configuration will be skipped even if the target has an NVIDIA GPU. Create a new package with <code>--include-gpu</code> to enable GPU support.</p>
+</div>
+<h3 id="lifecycle-notes">Lifecycle Notes</h3>
+<table>
+<thead>
+<tr>
+<th>Scenario</th>
+<th>Behavior</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>GPU worker added <strong>before</strong> addon enabled</td>
+<td>Worker is labeled; device plugin deploys when addon is enabled</td>
+</tr>
+<tr>
+<td>GPU worker added <strong>after</strong> addon enabled</td>
+<td>Worker is labeled; device plugin pod starts automatically</td>
+</tr>
+<tr>
+<td>Addon disabled</td>
+<td>Device plugin removed; GPU labels preserved on workers</td>
+</tr>
+<tr>
+<td>Addon re-enabled</td>
+<td>Device plugin redeploys to all GPU-labeled nodes</td>
+</tr>
+</tbody>
+</table>
+<h3 id="checking-gpu-workers">Checking GPU Workers</h3>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-15-1" name="__codelineno-15-1" href="#__codelineno-15-1"></a><span class="gp"># </span>List<span class="w"> </span>all<span class="w"> </span>GPU-capable<span class="w"> </span>nodes
+<a id="__codelineno-15-2" name="__codelineno-15-2" href="#__codelineno-15-2"></a><span class="go">kubectl get nodes -l gpu=true</span>
+<a id="__codelineno-15-3" name="__codelineno-15-3" href="#__codelineno-15-3"></a>
+<a id="__codelineno-15-4" name="__codelineno-15-4" href="#__codelineno-15-4"></a><span class="gp"># </span>Check<span class="w"> </span>addon<span class="w"> </span>status<span class="w"> </span><span class="o">(</span>includes<span class="w"> </span>external<span class="w"> </span>worker<span class="w"> </span>count<span class="o">)</span>
+<a id="__codelineno-15-5" name="__codelineno-15-5" href="#__codelineno-15-5"></a><span class="go">k2s addons status gpu-node</span>
+</code></pre></div>
+<hr />
 <h2 id="disabling-the-addon">Disabling the Addon</h2>
-<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a><span class="go">k2s addons disable gpu-node</span>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-16-1" name="__codelineno-16-1" href="#__codelineno-16-1"></a><span class="go">k2s addons disable gpu-node</span>
 </code></pre></div>
 <p>This removes the Device Plugin and DCGM Exporter DaemonSets, uninstalls the NVIDIA Container Toolkit packages from the Linux <abbr title="Virtual Machine">VM</abbr>, reverts the GRUB boot entry to the default kernel (Hyper-V only), removes the GPU partition adapter from the <abbr title="Virtual Machine">VM</abbr> (Hyper-V only), and removes the <code>gpu=true</code> / <code>accelerator=nvidia</code> node labels.</p>
 <hr />
