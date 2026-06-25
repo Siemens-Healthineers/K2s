@@ -1,0 +1,28 @@
+# SPDX-FileCopyrightText: © 2026 Siemens Healthineers AG
+#
+# SPDX-License-Identifier: MIT
+
+# Configures argocd-repo-server to accept the K2s deploy layer media type so the
+# native OCI Application source (application-template.yaml) can extract it.
+#
+# ArgoCD natively accepts only a fixed set of OCI layer media types. The K2s deploy
+# layer uses application/vnd.k2s.addon.deploy.v1.tar+gzip, which must be added via
+# the ARGOCD_REPO_SERVER_OCI_LAYER_MEDIA_TYPES environment variable.
+#
+# Apply as a strategic-merge patch against the argocd-repo-server Deployment in the
+# rollout namespace, e.g.:
+#   kubectl patch deployment argocd-repo-server -n rollout --patch-file <this file>
+# then restart the deployment so the env takes effect.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: argocd-repo-server
+  namespace: rollout
+spec:
+  template:
+    spec:
+      containers:
+        - name: argocd-repo-server
+          env:
+            - name: ARGOCD_REPO_SERVER_OCI_LAYER_MEDIA_TYPES
+              value: "application/vnd.oci.image.layer.v1.tar+gzip,application/vnd.cncf.helm.chart.content.v1.tar+gzip,application/vnd.k2s.addon.deploy.v1.tar+gzip,application/vnd.k2s.addon.manifests.v1.tar+gzip"

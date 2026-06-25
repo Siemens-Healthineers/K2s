@@ -23,6 +23,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -449,6 +450,7 @@ var _ = Describe("'rollout argocd' GitOps addon sync", Ordered, func() {
 				aieJobInitial   = "addon-sync-aie-initial"
 				aieJobNoop      = "addon-sync-aie-noop"
 				aieJobForced    = "addon-sync-aie-forced"
+				aieJobFail      = "addon-sync-aie-lifecycle-fail"
 				aieExportSubDir = "gitops-sync-argocd-aie-e2e"
 			)
 
@@ -467,7 +469,7 @@ var _ = Describe("'rollout argocd' GitOps addon sync", Ordered, func() {
 				}
 
 				// Delete any leftover Jobs from prior runs of this block.
-				for _, jobName := range []string{aieJobInitial, aieJobNoop, aieJobForced} {
+				for _, jobName := range []string{aieJobInitial, aieJobNoop, aieJobForced, aieJobFail} {
 					suite.Kubectl().Exec(ctx, "delete", "job", jobName,
 						"-n", addonSyncNamespace, "--ignore-not-found=true")
 				}
@@ -510,7 +512,7 @@ var _ = Describe("'rollout argocd' GitOps addon sync", Ordered, func() {
 
 				DeferCleanup(func(ctx context.Context) {
 					// Remove all Jobs created during this block (best-effort).
-					for _, jobName := range []string{aieJobInitial, aieJobNoop, aieJobForced} {
+					for _, jobName := range []string{aieJobInitial, aieJobNoop, aieJobForced, aieJobFail} {
 						suite.Kubectl().Exec(ctx, "delete", "job", jobName,
 							"-n", addonSyncNamespace, "--ignore-not-found=true")
 					}
@@ -559,6 +561,13 @@ var _ = Describe("'rollout argocd' GitOps addon sync", Ordered, func() {
 					"Initial sync should report Synced: 1 confirming the addon was processed")
 				Expect(logs).To(ContainSubstring("[ApplyIfEnabled]"),
 					"Initial sync should log [ApplyIfEnabled] confirming the apply-if-enabled path was taken")
+
+				addonPhase := suite.Kubectl().MustExec(ctx,
+					"get", "configmap", "addon-sync-status",
+					"-n", addonSyncNamespace,
+					"-o", "jsonpath={.data.metrics}")
+				Expect(addonPhase).To(Equal("Synced"),
+					"addon-sync-status for metrics must be Synced after a successful initial sync")
 			})
 
 			It("no-op sync: unchanged digest causes skip; no [ApplyIfEnabled] in log", func(ctx context.Context) {
@@ -645,6 +654,65 @@ var _ = Describe("'rollout argocd' GitOps addon sync", Ordered, func() {
 					"Forced re-sync should report Synced: 1 confirming the addon was re-processed")
 				Expect(logs).To(ContainSubstring("[ApplyIfEnabled]"),
 					"Forced re-sync should log [ApplyIfEnabled] confirming the apply-if-enabled path was taken")
+
+				addonPhase := suite.Kubectl().MustExec(ctx,
+					"get", "configmap", "addon-sync-status",
+					"-n", addonSyncNamespace,
+					"-o", "jsonpath={.data.metrics}")
+				Expect(addonPhase).To(Equal("Synced"),
+					"addon-sync-status for metrics must be Synced after a successful forced re-sync")
+			})
+
+			It("lifecycle failure during ApplyIfEnabled is reported as Failed and not as Synced", func(ctx context.Context) {
+				originalSyncScript := getAddonSyncScriptFromConfigMap(ctx)
+				forcedFailureScript := strings.Replace(originalSyncScript,
+					"& $updateScript",
+					"throw 'E2E forced ApplyIfEnabled lifecycle failure'",
+					1)
+				Expect(forcedFailureScript).NotTo(Equal(originalSyncScript),
+					"Sync-Addons.ps1 should contain '& $updateScript' so lifecycle failure can be forced deterministically")
+
+				applyAddonSyncScriptToConfigMap(ctx, forcedFailureScript)
+				DeferCleanup(func(ctx context.Context) {
+					applyAddonSyncScriptToConfigMap(ctx, originalSyncScript)
+				})
+
+				digestFile := filepath.Join(suite.RootDir(), "addons", ".addon-sync-digests", testAddonName)
+				const fakeDigest = "sha256:1111111111111111111111111111111111111111111111111111111111111111"
+				Expect(os.WriteFile(digestFile, []byte(fakeDigest), 0644)).To(Succeed())
+
+				suite.Kubectl().MustExec(ctx,
+					"create", "job", aieJobFail,
+					"--from=cronjob/"+addonSyncPoller,
+					"-n", addonSyncNamespace)
+
+				gitopssync.WaitForJobToFinish(ctx, suite, addonSyncNamespace, aieJobFail)
+
+				condition, _ := suite.Kubectl().Exec(ctx,
+					"get", "job", aieJobFail,
+					"-n", addonSyncNamespace,
+					"-o", "jsonpath={.status.conditions[*].type}")
+				logs := gitopssync.GetJobLogs(ctx, suite, addonSyncNamespace, aieJobFail)
+
+				Expect(condition+logs).To(ContainSubstring("Failed"),
+					"Lifecycle failure must be surfaced as failed job/log status")
+				Expect(logs).To(ContainSubstring("[ApplyIfEnabled] Update failed for 'metrics'"),
+					"Sync log should include ApplyIfEnabled update failure for metrics")
+				Expect(logs).To(ContainSubstring("ApplyIfEnabled lifecycle failed for 'metrics' - marking sync as failed"),
+					"Sync log should mark metrics sync as failed after lifecycle failure")
+				Expect(logs).To(ContainSubstring("Failed: 1"),
+					"Sync summary should report one failed addon")
+				Expect(logs).To(ContainSubstring("Synced: 0"),
+					"Sync summary must report Synced: 0 when lifecycle fails")
+				Expect(logs).NotTo(ContainSubstring("[ApplyIfEnabled] 'metrics' updated to v"),
+					"Sync log must not emit success update message for metrics when lifecycle fails")
+
+				addonPhase := suite.Kubectl().MustExec(ctx,
+					"get", "configmap", "addon-sync-status",
+					"-n", addonSyncNamespace,
+					"-o", "jsonpath={.data.metrics}")
+				Expect(addonPhase).To(Equal("Failed"),
+					"addon-sync-status for metrics must be Failed when ApplyIfEnabled lifecycle fails")
 			})
 		})
 
@@ -728,8 +796,42 @@ var _ = Describe("'rollout argocd' GitOps addon sync", Ordered, func() {
 				// "Failed:" count in the summary, or it emits an [AddonSync][ERROR] log line.
 				// Silently returning Synced:1 with no error for a malformed artifact is a bug.
 				Expect(condition+logs).To(
-					Or(ContainSubstring("Failed"), ContainSubstring("[AddonSync][ERROR]")),
+					Or(ContainSubstring("Failed"), MatchRegexp("Failed:\\s+[1-9]"), ContainSubstring("[AddonSync][ERROR]")),
 					"sync system should signal failure for the malformed OCI artifact")
 			})
 		})
 })
+
+func getAddonSyncScriptFromConfigMap(ctx context.Context) string {
+	return suite.Kubectl().MustExec(ctx,
+		"get", "configmap", addonSyncScript,
+		"-n", addonSyncNamespace,
+		"-o", "jsonpath={.data['Sync-Addons\\.ps1']}")
+}
+
+func applyAddonSyncScriptToConfigMap(ctx context.Context, scriptContent string) {
+	scriptFile, err := os.CreateTemp("", "k2s-addon-sync-script-*.ps1")
+	Expect(err).ToNot(HaveOccurred())
+	defer os.Remove(scriptFile.Name())
+	defer scriptFile.Close()
+
+	_, err = scriptFile.WriteString(scriptContent)
+	Expect(err).ToNot(HaveOccurred())
+
+	cmYAML := suite.Kubectl().MustExec(ctx,
+		"create", "configmap", addonSyncScript,
+		"-n", addonSyncNamespace,
+		"--from-file=Sync-Addons.ps1="+scriptFile.Name(),
+		"--dry-run=client",
+		"-o", "yaml")
+
+	cmFile, err := os.CreateTemp("", "k2s-addon-sync-cm-*.yaml")
+	Expect(err).ToNot(HaveOccurred())
+	defer os.Remove(cmFile.Name())
+	defer cmFile.Close()
+
+	_, err = cmFile.WriteString(cmYAML)
+	Expect(err).ToNot(HaveOccurred())
+
+	suite.Kubectl().MustExec(ctx, "apply", "-f", cmFile.Name())
+}

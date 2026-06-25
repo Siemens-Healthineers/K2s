@@ -16,6 +16,7 @@ resources:
   - namespace.yaml
   - rbac.yaml
   - configmap.yaml
+  - addon-sync-status.yaml
 
 # Generates the ConfigMap mounting Sync-Addons.ps1 into every HostProcess container
 # (FluxCD per-addon sync Jobs and ArgoCD poller CronJob both mount it by name).

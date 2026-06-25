@@ -1,0 +1,35 @@
+# SPDX-FileCopyrightText: © 2026 Siemens Healthineers AG
+#
+# SPDX-License-Identifier: MIT
+
+# Per-addon NATIVE deploy OCIRepository template — one instance per addon.
+#
+# Unlike the host-plane sync OCIRepository (ocirepository-template.yaml, which drives
+# the Windows HostProcess Sync Job for scripts/config on disk), this source feeds the
+# cluster-plane Kustomization (deploy-kustomization-template.yaml). Flux extracts the
+# single deploy layer and applies the addon's Kubernetes resources DIRECTLY, giving
+# native drift correction / self-heal — no host Job involved.
+#
+# Placeholders must be replaced by the consumer before applying with kubectl:
+#   ADDON_NAME_PLACEHOLDER     — addon folder name (e.g. monitoring, rollout)
+#   REGISTRY_HOST_PLACEHOLDER  — registry host:port (e.g. k2s.registry.local:30500)
+#   INSECURE_PLACEHOLDER       — "true" or "false"
+apiVersion: source.toolkit.fluxcd.io/v1
+kind: OCIRepository
+metadata:
+  name: addon-deploy-ADDON_NAME_PLACEHOLDER
+  namespace: k2s-addon-sync
+  labels:
+    app.kubernetes.io/name: addon-sync
+    app.kubernetes.io/component: deploy-source
+    app.kubernetes.io/part-of: k2s
+    k2s.io/addon: ADDON_NAME_PLACEHOLDER
+spec:
+  interval: 1m
+  url: oci://REGISTRY_HOST_PLACEHOLDER/addons/ADDON_NAME_PLACEHOLDER
+  ref:
+    semver: ">=0.0.0-0"
+  insecure: INSECURE_PLACEHOLDER
+  layerSelector:
+    mediaType: application/vnd.k2s.addon.deploy.v1.tar+gzip
+    operation: extract

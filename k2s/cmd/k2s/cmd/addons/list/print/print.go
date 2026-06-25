@@ -113,12 +113,22 @@ func toPrintList(enabledAddonsList []EnabledAddon, allAddons addons.Addons) *pri
 
 			var enabledImplementations []Implementation
 			lo.ForEach(enabledImplementationNames, func(enabledImplementationName string, index int) {
-				enabledImplementations = append(enabledImplementations, Implementation{Name: enabledImplementationName, Description: lo.Filter(addon.Implementations, func(item Implementation, _ int) bool { return item.Name == enabledImplementationName })[0].Description})
+				matches := lo.Filter(addon.Implementations, func(item Implementation, _ int) bool { return item.Name == enabledImplementationName })
+				description := ""
+				if len(matches) > 0 {
+					description = matches[0].Description
+				}
+				enabledImplementations = append(enabledImplementations, Implementation{Name: enabledImplementationName, Description: description})
 			})
 
 			var disabledImplementations []Implementation
 			lo.ForEach(disabledImplementationNames, func(disabledImplementationName string, index int) {
-				disabledImplementations = append(disabledImplementations, Implementation{Name: disabledImplementationName, Description: lo.Filter(addon.Implementations, func(item Implementation, _ int) bool { return item.Name == disabledImplementationName })[0].Description})
+				matches := lo.Filter(addon.Implementations, func(item Implementation, _ int) bool { return item.Name == disabledImplementationName })
+				description := ""
+				if len(matches) > 0 {
+					description = matches[0].Description
+				}
+				disabledImplementations = append(disabledImplementations, Implementation{Name: disabledImplementationName, Description: description})
 			})
 
 			addon.Implementations = enabledImplementations

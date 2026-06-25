@@ -139,6 +139,7 @@ nav:
           - Submitting Changes: dev-guide/contributing/submitting-changes.md
       - Hosting Variants Features Matrix: dev-guide/hosting-variants-features-matrix.md
       - Architecture & Tools: dev-guide/architecture.md
+      - GitOps Addon-Sync Implementation Guide: dev-guide/gitops-addon-sync-changes.md
       - Linux Development: dev-guide/contributing/linux-development/linux-development.md
       - Training: dev-guide/training.md
   - Security:

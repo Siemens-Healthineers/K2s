@@ -14,3 +14,4 @@ metadata:
     app.kubernetes.io/name: addon-sync
     app.kubernetes.io/component: processor
     app.kubernetes.io/part-of: k2s
+automountServiceAccountToken: false

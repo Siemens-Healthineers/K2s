@@ -10,6 +10,14 @@
 #   and only pulls/installs addons whose digest changed since the last run.
 #   Works with any OCI Distribution Spec-compliant registry without configuration.
 #
+# For NATIVE cluster-plane self-heal, additionally register per-addon resources in
+# per-addon/:
+#   application-template.yaml          — ArgoCD Application with native oci:// source
+#                                        and automated prune + selfHeal.
+#   repo-server-oci-media-types.yaml   — patches argocd-repo-server to accept the
+#                                        deploy layer media type.
+# The CronJob poller then only delivers host-plane content (scripts/config on disk).
+#
 # Prerequisites:
 #   - rollout argocd addon enabled
 #   - Registry reachable from the Windows node

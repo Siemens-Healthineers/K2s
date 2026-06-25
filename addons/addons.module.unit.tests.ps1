@@ -1998,3 +1998,154 @@ Describe 'Remove-IngressForNginxGateway' -Tag 'unit', 'ci', 'addon' {
         }
     }
 }
+
+Describe 'Install-DebianPackages hardening' -Tag 'unit', 'ci', 'addon' {
+    Context 'invalid tokens are rejected before any SSH command execution' {
+        BeforeAll {
+            Mock -ModuleName $moduleName Get-DebianPackageAvailableOffline { return $false }
+            Mock -ModuleName $moduleName Invoke-CmdOnControlPlaneViaSSHKey { return [pscustomobject]@{ Output = 'unexpected' } }
+        }
+
+        It 'throws on invalid addon path segment and does not execute SSH helpers' {
+            InModuleScope -ModuleName $moduleName {
+                { Install-DebianPackages -addon 'ingress/../../x' -implementation 'nginx' -packages @('libc6') } | Should -Throw -ExpectedMessage '*Invalid path segment*'
+
+                Should -Invoke Get-DebianPackageAvailableOffline -Times 0 -Scope It
+                Should -Invoke Invoke-CmdOnControlPlaneViaSSHKey -Times 0 -Scope It
+            }
+        }
+
+        It 'throws on invalid Debian package token and does not execute SSH helpers' {
+            InModuleScope -ModuleName $moduleName {
+                { Install-DebianPackages -addon 'ingress' -implementation 'nginx' -packages @('libc6;rm -rf /') } | Should -Throw -ExpectedMessage '*Invalid Debian package token*'
+
+                Should -Invoke Get-DebianPackageAvailableOffline -Times 0 -Scope It
+                Should -Invoke Invoke-CmdOnControlPlaneViaSSHKey -Times 0 -Scope It
+            }
+        }
+    }
+
+    Context 'safe command composition for valid inputs' {
+        BeforeAll {
+            $script:capturedSshCommands = [System.Collections.ArrayList]@()
+            Mock -ModuleName $moduleName Get-DebianPackageAvailableOffline { return $false }
+            Mock -ModuleName $moduleName Write-Log { }
+            Mock -ModuleName $moduleName Invoke-CmdOnControlPlaneViaSSHKey {
+                $script:capturedSshCommands.Add($PSBoundParameters['CmdToExecute']) | Out-Null
+                return [pscustomobject]@{ Output = 'ok' }
+            }
+        }
+
+        BeforeEach {
+            $script:capturedSshCommands.Clear()
+        }
+
+        It 'builds SSH commands with quoted remote directory and safe package token usage' {
+            InModuleScope -ModuleName $moduleName -Parameters @{ capturedSshCommands = $script:capturedSshCommands } {
+                Install-DebianPackages -addon 'ingress' -implementation 'nginx' -packages @('libc6') -AllowRuntimeDownload
+
+                $capturedSshCommands.Count | Should -Be 4
+                $capturedSshCommands[0] | Should -Match "'\./ingress_nginx/libc6'"
+                $capturedSshCommands[1] | Should -Match "'\./ingress_nginx/libc6'"
+                $capturedSshCommands[2] | Should -Match "'\./ingress_nginx/libc6'"
+                $capturedSshCommands[3] | Should -Be "sudo dpkg -i './ingress_nginx/libc6'/*.deb 2>&1"
+                $capturedSshCommands[1] | Should -Match 'apt-get download -- libc6'
+            }
+        }
+    }
+
+    Context 'offline policy gate blocks runtime download by default' {
+        BeforeAll {
+            Mock -ModuleName $moduleName Get-DebianPackageAvailableOffline { return $false }
+            Mock -ModuleName $moduleName Invoke-CmdOnControlPlaneViaSSHKey { return [pscustomobject]@{ Output = 'unexpected' } }
+        }
+
+        BeforeEach {
+            $script:previousAllowRuntimeDebianDownload = [Environment]::GetEnvironmentVariable('K2S_ALLOW_RUNTIME_DEBIAN_DOWNLOAD', 'Process')
+            [Environment]::SetEnvironmentVariable('K2S_ALLOW_RUNTIME_DEBIAN_DOWNLOAD', $null, 'Process')
+        }
+
+        AfterEach {
+            [Environment]::SetEnvironmentVariable('K2S_ALLOW_RUNTIME_DEBIAN_DOWNLOAD', $script:previousAllowRuntimeDebianDownload, 'Process')
+        }
+
+        It 'throws deterministic offline policy error and does not invoke SSH command execution' {
+            InModuleScope -ModuleName $moduleName {
+                { Install-DebianPackages -addon 'ingress' -implementation 'nginx' -packages @('libc6') } | Should -Throw -ExpectedMessage '*Runtime download is blocked by offline policy*'
+
+                Should -Invoke Invoke-CmdOnControlPlaneViaSSHKey -Times 0 -Scope It
+            }
+        }
+    }
+
+    Context 'explicit allow path permits runtime download flow' {
+        BeforeAll {
+            Mock -ModuleName $moduleName Get-DebianPackageAvailableOffline { return $false }
+            Mock -ModuleName $moduleName Write-Log { }
+            Mock -ModuleName $moduleName Invoke-CmdOnControlPlaneViaSSHKey { return [pscustomobject]@{ Output = 'ok' } }
+        }
+
+        BeforeEach {
+            $script:previousAllowRuntimeDebianDownload = [Environment]::GetEnvironmentVariable('K2S_ALLOW_RUNTIME_DEBIAN_DOWNLOAD', 'Process')
+            [Environment]::SetEnvironmentVariable('K2S_ALLOW_RUNTIME_DEBIAN_DOWNLOAD', $null, 'Process')
+        }
+
+        AfterEach {
+            [Environment]::SetEnvironmentVariable('K2S_ALLOW_RUNTIME_DEBIAN_DOWNLOAD', $script:previousAllowRuntimeDebianDownload, 'Process')
+        }
+
+        It 'executes four SSH commands when runtime download is allowed by switch' {
+            InModuleScope -ModuleName $moduleName {
+                Install-DebianPackages -addon 'ingress' -implementation 'nginx' -packages @('libc6') -AllowRuntimeDownload
+
+                Should -Invoke Invoke-CmdOnControlPlaneViaSSHKey -Times 4 -Scope It
+            }
+        }
+
+        It 'executes four SSH commands when runtime download is allowed by environment variable' {
+            [Environment]::SetEnvironmentVariable('K2S_ALLOW_RUNTIME_DEBIAN_DOWNLOAD', 'true', 'Process')
+
+            InModuleScope -ModuleName $moduleName {
+                Install-DebianPackages -addon 'ingress' -implementation 'nginx' -packages @('libc6')
+
+                Should -Invoke Invoke-CmdOnControlPlaneViaSSHKey -Times 4 -Scope It
+            }
+        }
+    }
+}
+
+Describe 'Get-DebianPackageAvailableOffline hardening' -Tag 'unit', 'ci', 'addon' {
+    Context 'invalid tokens are rejected before ssh.exe invocation' {
+        BeforeAll {
+            $script:sshExeCallCount = 0
+            function global:ssh.exe {
+                $script:sshExeCallCount++
+                return $null
+            }
+            Mock -ModuleName $moduleName Write-Log { }
+        }
+
+        AfterAll {
+            Remove-Item function:\global\ssh.exe -ErrorAction SilentlyContinue
+        }
+
+        BeforeEach {
+            $script:sshExeCallCount = 0
+        }
+
+        It 'throws on invalid addon path segment before calling ssh.exe' {
+            InModuleScope -ModuleName $moduleName {
+                { Get-DebianPackageAvailableOffline -addon 'ingress/../x' -implementation 'nginx' -package 'libc6' } | Should -Throw -ExpectedMessage '*Invalid path segment*'
+            }
+            $script:sshExeCallCount | Should -Be 0
+        }
+
+        It 'throws on invalid Debian package token before calling ssh.exe' {
+            InModuleScope -ModuleName $moduleName {
+                { Get-DebianPackageAvailableOffline -addon 'ingress' -implementation 'nginx' -package 'libc6;rm -rf /' } | Should -Throw -ExpectedMessage '*Invalid Debian package token*'
+            }
+            $script:sshExeCallCount | Should -Be 0
+        }
+    }
+}
+

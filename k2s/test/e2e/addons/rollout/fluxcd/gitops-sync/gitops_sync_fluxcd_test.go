@@ -21,9 +21,12 @@ package fluxcdgitopssync
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"math"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 	"testing"
 	"time"
@@ -49,7 +52,7 @@ const (
 	registryHost           = "k2s.registry.local:30500"
 	ociRepoName            = "addon-sync-" + testAddonName
 	kustomizationName      = "addon-sync-" + testAddonName
-	syncJobName            = "addon-sync-" + testAddonName
+	syncCronJobName        = "addon-sync-" + testAddonName
 	testExportSubDir       = "gitops-sync-fluxcd-e2e"
 	perAddonTemplateSubDir = "addons/common/manifests/addon-sync/fluxcd/per-addon"
 )
@@ -64,7 +67,7 @@ func TestRolloutFluxCDAddonSync(t *testing.T) {
 	RegisterFailHandler(Fail)
 	RunSpecs(t, "rollout fluxcd GitOps Addon Sync Tests",
 		Label("addon", "addon-ilities", "acceptance", "setup-required", "invasive",
-			"rollout-fluxcd", "gitops-sync", "system-running"))
+			"rollout-fluxcd", "gitops-sync", "fluxcd", "system-running"))
 }
 
 var _ = BeforeSuite(func(ctx context.Context) {
@@ -425,7 +428,7 @@ var _ = Describe("'rollout fluxcd' GitOps addon sync", Ordered, func() {
 			GinkgoWriter.Printf("[Test] OCIRepository selected revision: %s\n", detectedRevision)
 		})
 
-		It("Kustomization reconciles and creates the per-addon sync Job within 10 minutes", func(ctx context.Context) {
+		It("Kustomization reconciles and creates the per-addon sync CronJob within 10 minutes", func(ctx context.Context) {
 			ociReadyPre, _ := suite.Kubectl().Exec(ctx,
 				"get", "ocirepository", ociRepoName,
 				"-n", addonSyncNamespace,
@@ -473,10 +476,10 @@ var _ = Describe("'rollout fluxcd' GitOps addon sync", Ordered, func() {
 				pollIteration++
 
 				output, _ := suite.Kubectl().Exec(ctx,
-					"get", "job", syncJobName,
+					"get", "cronjob", syncCronJobName,
 					"-n", addonSyncNamespace,
 					"-o", "jsonpath={.metadata.name}")
-				if output == syncJobName {
+				if output == syncCronJobName {
 					return output
 				}
 
@@ -493,8 +496,8 @@ var _ = Describe("'rollout fluxcd' GitOps addon sync", Ordered, func() {
 					"-n", addonSyncNamespace,
 					"-o", `jsonpath=Ready={.status.conditions[?(@.type=='Ready')].status} url={.status.artifact.url} rev={.status.artifact.revision}`)
 
-				GinkgoWriter.Printf("[Wait] iter=%d Job %s not yet created; Kustomization Ready=%q message=%q | OCIRepo: %s\n",
-					pollIteration, syncJobName, kReadyStatus, kReadyMessage, ociArtifact)
+				GinkgoWriter.Printf("[Wait] iter=%d CronJob %s not yet created; Kustomization Ready=%q message=%q | OCIRepo: %s\n",
+					pollIteration, syncCronJobName, kReadyStatus, kReadyMessage, ociArtifact)
 
 				kEvents, _ := suite.Kubectl().Exec(ctx,
 					"get", "events", "-n", addonSyncNamespace,
@@ -538,14 +541,16 @@ var _ = Describe("'rollout fluxcd' GitOps addon sync", Ordered, func() {
 				}
 
 				return output
-			}, 10*time.Minute, 15*time.Second, ctx).Should(Equal(syncJobName),
-				"Kustomization should create sync Job %s within 10 minutes", syncJobName)
+			}, 10*time.Minute, 15*time.Second, ctx).Should(Equal(syncCronJobName),
+				"Kustomization should create sync CronJob %s within 10 minutes", syncCronJobName)
 
-			GinkgoWriter.Printf("[Test] Sync Job %q created by Kustomization\n", syncJobName)
+			GinkgoWriter.Printf("[Test] Sync CronJob %q created by Kustomization\n", syncCronJobName)
 		})
 
-		It("sync Job completes without errors and reports successful processing in logs", func(ctx context.Context) {
-			GinkgoWriter.Printf("[Test] Waiting for Job %s to complete (timeout: 10m)\n", syncJobName)
+		It("sync CronJob spawns a Job that completes without errors and reports successful processing in logs", func(ctx context.Context) {
+			waitForFluxSyncCronJobCreated(ctx, 5*time.Minute)
+			syncJobName := waitForLatestFluxSyncJobCreated(ctx, 10*time.Minute)
+			GinkgoWriter.Printf("[Test] Waiting for spawned Job %s to complete (timeout: 10m)\n", syncJobName)
 			gitopssync.WaitForJobCompletion(ctx, suite, addonSyncNamespace, syncJobName)
 
 			// Explicit failure check visible in this spec body — not hidden in a helper.
@@ -578,6 +583,97 @@ var _ = Describe("'rollout fluxcd' GitOps addon sync", Ordered, func() {
 				"Job log should report Synced: 1 confirming the addon was processed, not skipped")
 			Expect(logs).NotTo(ContainSubstring("[AddonSync][ERROR]"),
 				"Job log should contain no ERROR-level messages")
+		})
+
+		It("restores addon content when host addon directory is deleted but repo artifact still exists", func(ctx context.Context) {
+			hostAddonDir := filepath.Join(suite.RootDir(), "addons", testAddonName)
+			hostManifestPath := filepath.Join(hostAddonDir, "addon.manifest.yaml")
+			previousJobName := getLatestFluxSyncJobName(ctx)
+
+			Expect(hostManifestPath).To(BeAnExistingFile(),
+				"metrics addon should exist on host after initial sync")
+
+			GinkgoWriter.Printf("[Test] Deleting host addon directory to validate restore: %s\n", hostAddonDir)
+			Expect(os.RemoveAll(hostAddonDir)).To(Succeed(),
+				"host addon directory deletion should succeed")
+			Expect(hostAddonDir).NotTo(BeADirectory(),
+				"host addon directory should be removed before reconciliation")
+
+			GinkgoWriter.Printf("[Test] Waiting for next CronJob run after host delete; previous Job=%q\n", previousJobName)
+			syncJobName := waitForNextFluxSyncJobCreated(ctx, previousJobName, 3*time.Minute)
+			gitopssync.WaitForJobCompletion(ctx, suite, addonSyncNamespace, syncJobName)
+
+			logs := gitopssync.GetJobLogs(ctx, suite, addonSyncNamespace, syncJobName)
+			GinkgoWriter.Printf("[Test] Restore run logs (trimmed):\n%s\n", gitopssync.SafeTrim(logs, 2000))
+
+			Eventually(func() bool {
+				_, err := os.Stat(hostManifestPath)
+				return err == nil
+			}, 3*time.Minute, 10*time.Second).Should(BeTrue(),
+				"addon manifest should be restored on host from repository artifact")
+
+			Expect(logs).To(ContainSubstring("digest unchanged but expected host addon content missing -- forcing re-sync"),
+				"sync log should explicitly report restore path when host content is missing")
+			Expect(logs).To(ContainSubstring("Synced: 1"),
+				"restore run should report one synced addon")
+			Expect(logs).To(ContainSubstring("Failed: 0"),
+				"restore run should complete without failures")
+		})
+
+		It("lifecycle failure during ApplyIfEnabled is reported as Failed and not as Synced", func(ctx context.Context) {
+			originalSyncScript := getAddonSyncScriptFromConfigMap(ctx)
+			forcedFailureScript := strings.Replace(originalSyncScript,
+				"& $updateScript",
+				"throw 'E2E forced ApplyIfEnabled lifecycle failure'",
+				1)
+			Expect(forcedFailureScript).NotTo(Equal(originalSyncScript),
+				"Sync-Addons.ps1 should contain '& $updateScript' so lifecycle failure can be forced deterministically")
+
+			applyAddonSyncScriptToConfigMap(ctx, forcedFailureScript)
+			DeferCleanup(func(ctx context.Context) {
+				applyAddonSyncScriptToConfigMap(ctx, originalSyncScript)
+			})
+
+			digestFile := filepath.Join(suite.RootDir(), "addons", ".addon-sync-digests", testAddonName)
+			const fakeDigest = "sha256:2222222222222222222222222222222222222222222222222222222222222222"
+			Expect(os.WriteFile(digestFile, []byte(fakeDigest), 0644)).To(Succeed())
+			cleanupFluxSyncJobs(ctx)
+
+			suite.Kubectl().MustExec(ctx,
+				"annotate", "kustomization", kustomizationName,
+				"-n", addonSyncNamespace,
+				"reconcile.fluxcd.io/requestedAt="+time.Now().UTC().Format(time.RFC3339Nano),
+				"--overwrite")
+
+			syncJobName := waitForLatestFluxSyncJobCreated(ctx, 5*time.Minute)
+
+			gitopssync.WaitForJobToFinish(ctx, suite, addonSyncNamespace, syncJobName)
+
+			condition, _ := suite.Kubectl().Exec(ctx,
+				"get", "job", syncJobName,
+				"-n", addonSyncNamespace,
+				"-o", "jsonpath={.status.conditions[*].type}")
+			logs := gitopssync.GetJobLogs(ctx, suite, addonSyncNamespace, syncJobName)
+
+			Expect(condition+logs).To(ContainSubstring("Failed"),
+				"Lifecycle failure must be surfaced as failed job/log status")
+			Expect(logs).To(ContainSubstring("[ApplyIfEnabled] Update failed for 'metrics'"),
+				"Sync log should include ApplyIfEnabled update failure for metrics")
+			Expect(logs).To(ContainSubstring("ApplyIfEnabled lifecycle failed for 'metrics' - marking sync as failed"),
+				"Sync log should mark metrics sync as failed after lifecycle failure")
+			Expect(logs).To(ContainSubstring("Failed: 1"),
+				"Sync summary should report one failed addon")
+			Expect(logs).To(ContainSubstring("Synced: 0"),
+				"Sync summary must report Synced: 0 when lifecycle fails")
+			Expect(logs).NotTo(ContainSubstring("[ApplyIfEnabled] 'metrics' updated to v"),
+				"Sync log must not emit success update message for metrics when lifecycle fails")
+
+			addonPhase := suite.Kubectl().MustExec(ctx,
+				"get", "configmap", "addon-sync-status",
+				"-n", addonSyncNamespace,
+				"-o", "jsonpath={.data.metrics}")
+			Expect(addonPhase).To(Equal("Failed"),
+				"addon-sync-status for metrics must be Failed when ApplyIfEnabled lifecycle fails")
 		})
 
 	})
@@ -724,6 +820,175 @@ var _ = Describe("'rollout fluxcd' GitOps addon sync", Ordered, func() {
 })
 
 // -----------------------------------------------------------------------
+// FluxCD apply-if-enabled parity and backoff tests.
+// Run with: --label-filter="registry && apply-if-enabled"
+// -----------------------------------------------------------------------
+var _ = Describe("FluxCD apply-if-enabled parity + backoff", Ordered,
+	Label("registry", "apply-if-enabled", "gitops-sync", "fluxcd"), func() {
+
+		It("initial sync: manual reconcile applies addon and logs [ApplyIfEnabled] with Synced: 1", func(ctx context.Context) {
+			ensureDigestFileReset(testAddonName)
+			cleanupFluxSyncJobs(ctx)
+
+			triggerFluxReconcile(ctx)
+			syncJobName := waitForLatestFluxSyncJobCreated(ctx, 5*time.Minute)
+			gitopssync.WaitForJobCompletion(ctx, suite, addonSyncNamespace, syncJobName)
+
+			logs := gitopssync.GetJobLogs(ctx, suite, addonSyncNamespace, syncJobName)
+			Expect(logs).To(ContainSubstring("Synced: 1"), "initial sync should process the addon")
+			Expect(logs).To(ContainSubstring("[ApplyIfEnabled]"), "initial sync should run apply-if-enabled lifecycle")
+		})
+
+		It("no-op unchanged: stable digest skips lifecycle", func(ctx context.Context) {
+			if _, statErr := os.Stat(digestFilePath(testAddonName)); statErr != nil {
+				Skip("digest file missing; run initial apply-if-enabled parity spec first")
+			}
+			cleanupFluxSyncJobs(ctx)
+
+			triggerFluxReconcile(ctx)
+			syncJobName := waitForLatestFluxSyncJobCreated(ctx, 5*time.Minute)
+			gitopssync.WaitForJobCompletion(ctx, suite, addonSyncNamespace, syncJobName)
+
+			logs := gitopssync.GetJobLogs(ctx, suite, addonSyncNamespace, syncJobName)
+			Expect(logs).To(Or(
+				ContainSubstring("unchanged"),
+				ContainSubstring("skipping"),
+				ContainSubstring("skip"),
+				ContainSubstring("no change"),
+			), "no-op sync should report unchanged/skipping behavior")
+			Expect(logs).NotTo(ContainSubstring("[ApplyIfEnabled]"),
+				"no-op sync must not run apply-if-enabled lifecycle")
+		})
+
+		It("forced re-sync: overwritten digest + manual reconcile re-runs lifecycle", func(ctx context.Context) {
+			const fakeDigest = "sha256:3333333333333333333333333333333333333333333333333333333333333333"
+			Expect(os.WriteFile(digestFilePath(testAddonName), []byte(fakeDigest), 0644)).To(Succeed())
+			cleanupFluxSyncJobs(ctx)
+
+			triggerFluxReconcile(ctx)
+			syncJobName := waitForLatestFluxSyncJobCreated(ctx, 5*time.Minute)
+			gitopssync.WaitForJobCompletion(ctx, suite, addonSyncNamespace, syncJobName)
+
+			logs := gitopssync.GetJobLogs(ctx, suite, addonSyncNamespace, syncJobName)
+			Expect(logs).To(Or(ContainSubstring("digest changed"), ContainSubstring("first sync run")),
+				"forced re-sync should report changed digest semantics")
+			Expect(logs).To(ContainSubstring("Synced: 1"), "forced re-sync should process the addon")
+			Expect(logs).To(ContainSubstring("[ApplyIfEnabled]"),
+				"forced re-sync should run apply-if-enabled lifecycle")
+		})
+
+		It("backoff: failure state is written with attemptCount and lastAttemptUtc", func(ctx context.Context) {
+			failureFile := failureStateFilePath()
+			_ = os.Remove(failureFile)
+
+			originalSyncScript := getAddonSyncScriptFromConfigMap(ctx)
+			forcedFailureScript := strings.Replace(originalSyncScript,
+				"& $updateScript",
+				"throw 'E2E forced ApplyIfEnabled lifecycle failure for backoff state test'",
+				1)
+			Expect(forcedFailureScript).NotTo(Equal(originalSyncScript))
+			applyAddonSyncScriptToConfigMap(ctx, forcedFailureScript)
+			DeferCleanup(func(ctx context.Context) {
+				applyAddonSyncScriptToConfigMap(ctx, originalSyncScript)
+			})
+
+			const fakeDigest = "sha256:4444444444444444444444444444444444444444444444444444444444444444"
+			Expect(os.WriteFile(digestFilePath(testAddonName), []byte(fakeDigest), 0644)).To(Succeed())
+			cleanupFluxSyncJobs(ctx)
+
+			triggerFluxReconcile(ctx)
+			syncJobName := waitForLatestFluxSyncJobCreated(ctx, 5*time.Minute)
+			gitopssync.WaitForJobToFinish(ctx, suite, addonSyncNamespace, syncJobName)
+
+			state := readFailureStateFromFile(failureFile)
+			Expect(state.AttemptCount).To(BeNumerically(">=", 1), "failure state should track attemptCount")
+			Expect(state.LastAttemptUtc).NotTo(BeEmpty(), "failure state should track lastAttemptUtc")
+			Expect(state.CurrentDigest).To(HavePrefix("sha256:"), "failure state should track current digest")
+		})
+
+		It("backoff: second poll within window is skipped for same digest", func(ctx context.Context) {
+			failureFile := failureStateFilePath()
+			if _, statErr := os.Stat(failureFile); statErr != nil {
+				Skip("failure state file missing; run prior backoff failure-state spec first")
+			}
+
+			cleanupFluxSyncJobs(ctx)
+			triggerFluxReconcile(ctx)
+			syncJobName := waitForLatestFluxSyncJobCreated(ctx, 5*time.Minute)
+			gitopssync.WaitForJobCompletion(ctx, suite, addonSyncNamespace, syncJobName)
+
+			logs := gitopssync.GetJobLogs(ctx, suite, addonSyncNamespace, syncJobName)
+			Expect(logs).To(ContainSubstring("Skipping "+testAddonName+" (backoff until"),
+				"same digest should be skipped within backoff window")
+			Expect(logs).To(ContainSubstring("Synced: 0"), "no addon should be synced during backoff skip")
+		})
+
+		It("backoff: new digest bypasses backoff and auto-recovers", func(ctx context.Context) {
+			failureFile := failureStateFilePath()
+			if _, statErr := os.Stat(failureFile); statErr != nil {
+				Skip("failure state file missing; cannot validate digest-bypass recovery")
+			}
+
+			const fakeDigest = "sha256:5555555555555555555555555555555555555555555555555555555555555555"
+			Expect(os.WriteFile(digestFilePath(testAddonName), []byte(fakeDigest), 0644)).To(Succeed())
+			cleanupFluxSyncJobs(ctx)
+
+			triggerFluxReconcile(ctx)
+			syncJobName := waitForLatestFluxSyncJobCreated(ctx, 5*time.Minute)
+			gitopssync.WaitForJobCompletion(ctx, suite, addonSyncNamespace, syncJobName)
+
+			logs := gitopssync.GetJobLogs(ctx, suite, addonSyncNamespace, syncJobName)
+			Expect(logs).To(ContainSubstring("digest changed"), "new digest should bypass backoff")
+			Expect(logs).To(ContainSubstring("Synced: 1"), "new digest should trigger successful sync")
+
+			_, statErr := os.Stat(failureFile)
+			Expect(os.IsNotExist(statErr)).To(BeTrue(), "failure state should be cleared after recovery")
+		})
+
+		It("backoff formula: min(2^attemptCount * 1 minute, 60 minutes)", func(ctx context.Context) {
+			failureFile := failureStateFilePath()
+			_ = os.Remove(failureFile)
+
+			now := time.Now().UTC()
+			cases := []struct {
+				name                string
+				attemptCount        int
+				minutesSinceAttempt float64
+				shouldSkip          bool
+			}{
+				{name: "attempt1-within-window", attemptCount: 1, minutesSinceAttempt: 1.0, shouldSkip: true},
+				{name: "attempt2-within-window", attemptCount: 2, minutesSinceAttempt: 1.0, shouldSkip: true},
+				{name: "attempt6-capped-at-60", attemptCount: 6, minutesSinceAttempt: 59.0, shouldSkip: true},
+				{name: "attempt6-outside-60", attemptCount: 6, minutesSinceAttempt: 61.0, shouldSkip: false},
+			}
+
+			for _, tc := range cases {
+				lastAttemptUtc := now.Add(-time.Duration(tc.minutesSinceAttempt * float64(time.Minute))).Format(time.RFC3339Nano)
+				writeFailureStateToFile(failureFile, addonFailureState{
+					CurrentDigest:  "sha256:6666666666666666666666666666666666666666666666666666666666666666",
+					AttemptCount:   tc.attemptCount,
+					LastAttemptUtc: lastAttemptUtc,
+				})
+
+				cleanupFluxSyncJobs(ctx)
+				triggerFluxReconcile(ctx)
+				syncJobName := waitForLatestFluxSyncJobCreated(ctx, 5*time.Minute)
+				gitopssync.WaitForJobCompletion(ctx, suite, addonSyncNamespace, syncJobName)
+
+				logs := gitopssync.GetJobLogs(ctx, suite, addonSyncNamespace, syncJobName)
+				computedMinutes := math.Min(math.Pow(2, float64(tc.attemptCount)), 60)
+				if tc.shouldSkip {
+					Expect(logs).To(ContainSubstring("Skipping "+testAddonName+" (backoff until"),
+						"%s should skip inside computed backoff window %.0f minutes", tc.name, computedMinutes)
+				} else {
+					Expect(logs).NotTo(ContainSubstring("Skipping "+testAddonName+" (backoff until"),
+						"%s should not skip outside computed backoff window %.0f minutes", tc.name, computedMinutes)
+				}
+			}
+
+			_ = os.Remove(failureFile)
+		})
+	}) // -----------------------------------------------------------------------
 // Helpers
 // -----------------------------------------------------------------------
 
@@ -756,8 +1021,8 @@ func renderTemplate(templatePath string, placeholders map[string]string) (string
 	return tmpFile.Name(), nil
 }
 
-// cleanupFluxCDResources removes per-addon OCIRepository, Kustomization, and
-// any sync Job spawned during the E2E test.
+// cleanupFluxCDResources removes per-addon OCIRepository, Kustomization, the
+// per-addon sync CronJob, and any spawned sync Jobs created during the E2E test.
 func cleanupFluxCDResources(ctx context.Context) {
 	GinkgoWriter.Printf("[Cleanup] Deleting per-addon FluxCD resources for %s\n", testAddonName)
 
@@ -772,9 +1037,11 @@ func cleanupFluxCDResources(ctx context.Context) {
 		"--ignore-not-found=true")
 
 	suite.Kubectl().Exec(ctx,
-		"delete", "job", syncJobName,
+		"delete", "cronjob", syncCronJobName,
 		"-n", addonSyncNamespace,
 		"--ignore-not-found=true")
+
+	cleanupFluxSyncJobs(ctx)
 
 	GinkgoWriter.Printf("[Cleanup] FluxCD resources for %s removed\n", testAddonName)
 }
@@ -786,4 +1053,210 @@ func cleanupTempYAMLFiles(files ...string) {
 			os.Remove(f)
 		}
 	}
+}
+
+func getAddonSyncScriptFromConfigMap(ctx context.Context) string {
+	return suite.Kubectl().MustExec(ctx,
+		"get", "configmap", addonSyncScript,
+		"-n", addonSyncNamespace,
+		"-o", "jsonpath={.data['Sync-Addons\\.ps1']}")
+}
+
+func applyAddonSyncScriptToConfigMap(ctx context.Context, scriptContent string) {
+	scriptFile, err := os.CreateTemp("", "k2s-addon-sync-script-*.ps1")
+	Expect(err).ToNot(HaveOccurred())
+	defer os.Remove(scriptFile.Name())
+	defer scriptFile.Close()
+
+	_, err = scriptFile.WriteString(scriptContent)
+	Expect(err).ToNot(HaveOccurred())
+
+	cmYAML := suite.Kubectl().MustExec(ctx,
+		"create", "configmap", addonSyncScript,
+		"-n", addonSyncNamespace,
+		"--from-file=Sync-Addons.ps1="+scriptFile.Name(),
+		"--dry-run=client",
+		"-o", "yaml")
+
+	cmFile, err := os.CreateTemp("", "k2s-addon-sync-cm-*.yaml")
+	Expect(err).ToNot(HaveOccurred())
+	defer os.Remove(cmFile.Name())
+	defer cmFile.Close()
+
+	_, err = cmFile.WriteString(cmYAML)
+	Expect(err).ToNot(HaveOccurred())
+
+	suite.Kubectl().MustExec(ctx, "apply", "-f", cmFile.Name())
+}
+
+type addonFailureState struct {
+	CurrentDigest  string `json:"CurrentDigest"`
+	AttemptCount   int    `json:"AttemptCount"`
+	LastAttemptUtc string `json:"LastAttemptUtc"`
+}
+
+func triggerFluxReconcile(ctx context.Context) {
+	waitForFluxSyncCronJobCreated(ctx, 5*time.Minute)
+	suite.Kubectl().MustExec(ctx,
+		"annotate", "kustomization", kustomizationName,
+		"-n", addonSyncNamespace,
+		"reconcile.fluxcd.io/requestedAt="+time.Now().UTC().Format(time.RFC3339Nano),
+		"--overwrite")
+}
+
+func waitForFluxSyncCronJobCreated(ctx context.Context, timeout time.Duration) {
+	Eventually(func() string {
+		output, _ := suite.Kubectl().Exec(ctx,
+			"get", "cronjob", syncCronJobName,
+			"-n", addonSyncNamespace,
+			"-o", "jsonpath={.metadata.name}")
+		return output
+	}, timeout, 15*time.Second, ctx).Should(Equal(syncCronJobName),
+		"kustomization should create sync CronJob %s", syncCronJobName)
+}
+
+func waitForLatestFluxSyncJobCreated(ctx context.Context, timeout time.Duration) string {
+	return waitForNextFluxSyncJobCreated(ctx, "", timeout)
+}
+
+func waitForNextFluxSyncJobCreated(ctx context.Context, previousJobName string, timeout time.Duration) string {
+	waitForFluxSyncCronJobCreated(ctx, timeout)
+
+	var latestJobName string
+	Eventually(func(g Gomega) string {
+		jobName, err := getLatestFluxSyncJobNameFromCluster(ctx)
+		g.Expect(err).NotTo(HaveOccurred())
+		g.Expect(jobName).NotTo(BeEmpty())
+		g.Expect(jobName).NotTo(Equal(previousJobName))
+		latestJobName = jobName
+		return jobName
+	}, timeout, 15*time.Second, ctx).ShouldNot(Equal(previousJobName),
+		"CronJob %s should spawn a new Job distinct from %q", syncCronJobName, previousJobName)
+
+	return latestJobName
+}
+
+func getLatestFluxSyncJobName(ctx context.Context) string {
+	jobName, err := getLatestFluxSyncJobNameFromCluster(ctx)
+	Expect(err).NotTo(HaveOccurred())
+	return jobName
+}
+
+func getLatestFluxSyncJobNameFromCluster(ctx context.Context) (string, error) {
+	output, exitCode := suite.Kubectl().Exec(ctx,
+		"get", "jobs",
+		"-n", addonSyncNamespace,
+		"-o", "json")
+	if exitCode != 0 {
+		return "", fmt.Errorf("kubectl get jobs exited with %d", exitCode)
+	}
+
+	type jobInfo struct {
+		Metadata struct {
+			Name              string    `json:"name"`
+			CreationTimestamp time.Time `json:"creationTimestamp"`
+			OwnerReferences   []struct {
+				Kind string `json:"kind"`
+				Name string `json:"name"`
+			} `json:"ownerReferences"`
+		} `json:"metadata"`
+	}
+	type jobList struct {
+		Items []jobInfo `json:"items"`
+	}
+
+	var jobs jobList
+	if err := json.Unmarshal([]byte(output), &jobs); err != nil {
+		return "", fmt.Errorf("parse jobs JSON: %w", err)
+	}
+
+	matchingJobs := make([]jobInfo, 0)
+	for _, job := range jobs.Items {
+		for _, owner := range job.Metadata.OwnerReferences {
+			if owner.Kind == "CronJob" && owner.Name == syncCronJobName {
+				matchingJobs = append(matchingJobs, job)
+				break
+			}
+		}
+	}
+
+	if len(matchingJobs) == 0 {
+		return "", nil
+	}
+
+	sort.Slice(matchingJobs, func(i, j int) bool {
+		if matchingJobs[i].Metadata.CreationTimestamp.Equal(matchingJobs[j].Metadata.CreationTimestamp) {
+			return matchingJobs[i].Metadata.Name < matchingJobs[j].Metadata.Name
+		}
+		return matchingJobs[i].Metadata.CreationTimestamp.Before(matchingJobs[j].Metadata.CreationTimestamp)
+	})
+
+	return matchingJobs[len(matchingJobs)-1].Metadata.Name, nil
+}
+
+func cleanupFluxSyncJobs(ctx context.Context) {
+	output, exitCode := suite.Kubectl().Exec(ctx,
+		"get", "jobs",
+		"-n", addonSyncNamespace,
+		"-o", "json")
+	if exitCode != 0 {
+		return
+	}
+
+	type jobMetadata struct {
+		Name            string `json:"name"`
+		OwnerReferences []struct {
+			Kind string `json:"kind"`
+			Name string `json:"name"`
+		} `json:"ownerReferences"`
+	}
+	type cleanupJobList struct {
+		Items []struct {
+			Metadata jobMetadata `json:"metadata"`
+		} `json:"items"`
+	}
+
+	var jobs cleanupJobList
+	if err := json.Unmarshal([]byte(output), &jobs); err != nil {
+		return
+	}
+
+	for _, job := range jobs.Items {
+		for _, owner := range job.Metadata.OwnerReferences {
+			if owner.Kind == "CronJob" && owner.Name == syncCronJobName {
+				suite.Kubectl().Exec(ctx,
+					"delete", "job", job.Metadata.Name,
+					"-n", addonSyncNamespace,
+					"--ignore-not-found=true")
+				break
+			}
+		}
+	}
+}
+
+func digestFilePath(addonName string) string {
+	return filepath.Join(suite.RootDir(), "addons", ".addon-sync-digests", addonName)
+}
+
+func failureStateFilePath() string {
+	return filepath.Join(suite.RootDir(), "addons", ".addon-sync-digests", testAddonName+".failure")
+}
+
+func ensureDigestFileReset(addonName string) {
+	_ = os.Remove(digestFilePath(addonName))
+}
+
+func readFailureStateFromFile(path string) addonFailureState {
+	content, err := os.ReadFile(path)
+	Expect(err).ToNot(HaveOccurred(), "should read failure state file %s", path)
+
+	var state addonFailureState
+	Expect(json.Unmarshal(content, &state)).To(Succeed(), "should parse failure state JSON from %s", path)
+	return state
+}
+
+func writeFailureStateToFile(path string, state addonFailureState) {
+	payload, err := json.Marshal(state)
+	Expect(err).ToNot(HaveOccurred())
+	Expect(os.WriteFile(path, payload, 0644)).To(Succeed())
 }

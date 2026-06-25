@@ -13,6 +13,13 @@
 # the paired Kustomization applies gitops-sync/sync-job.yaml from the extracted
 # manifests layer, which pulls and installs the addon on the Windows host.
 #
+# For NATIVE cluster-plane self-heal (Flux reconciles the addon's K8s resources
+# directly and corrects drift without the host Job), additionally register the
+# deploy templates in per-addon/:
+#   deploy-ocirepository-template.yaml + deploy-kustomization-template.yaml
+# These select the deploy layer (application/vnd.k2s.addon.deploy.v1.tar+gzip) and
+# apply it with prune + interval reconcile = automatic drift correction.
+#
 # Prerequisites:
 #   - rollout fluxcd addon enabled (Flux source-controller running)
 #   - Registry addon enabled (or external registry configured)

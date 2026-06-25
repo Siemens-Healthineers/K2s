@@ -7,6 +7,10 @@ kind: PersistentVolumeClaim
 metadata:
   name: registry-pvc
   namespace: registry
+  annotations:
+    # Protect data-bearing claim from GitOps prune/cascade-delete (no data loss).
+    kustomize.toolkit.fluxcd.io/prune: disabled
+    argocd.argoproj.io/sync-options: Prune=false,Delete=false
 spec:
   volumeName: registry-pv
   accessModes:

@@ -6,6 +6,10 @@ apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
   name: dicom-pvc
+  annotations:
+    # Protect data-bearing claim from GitOps prune/cascade-delete (no data loss).
+    kustomize.toolkit.fluxcd.io/prune: disabled
+    argocd.argoproj.io/sync-options: Prune=false,Delete=false
 spec:
   accessModes:
     - ReadWriteOnce

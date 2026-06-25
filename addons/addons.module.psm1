@@ -33,6 +33,89 @@ function Invoke-Script {
 	& $FilePath
 }
 
+function Assert-AddonPathToken {
+	param (
+		[parameter(Mandatory = $true)]
+		[string] $Value,
+		[parameter(Mandatory = $true)]
+		[string] $ParameterName
+	)
+
+	if ([string]::IsNullOrWhiteSpace($Value)) {
+		throw "Addon '$ParameterName' must not be empty."
+	}
+
+	if ($Value -notmatch '^[A-Za-z0-9._-]+$') {
+		throw "Invalid addon '$ParameterName' value '$Value'. Allowed characters: letters, digits, dot, underscore, dash."
+	}
+
+	return $Value
+}
+
+function Resolve-AddonImplementationToken {
+	param (
+		[parameter(Mandatory = $false)]
+		$Implementation,
+		[parameter(Mandatory = $true)]
+		[string] $AddonName
+	)
+
+	if ($null -eq $Implementation) {
+		return $null
+	}
+
+	if ($Implementation -is [System.Collections.IEnumerable] -and $Implementation -isnot [string]) {
+		# Evidence: legacy migration shapes existed where Implementation was emitted as an array,
+		# while re-enable uses strict token validation in Enable-AddonFromConfig.
+		$firstValidToken = $null
+		foreach ($candidate in $Implementation) {
+			if ($null -eq $candidate) {
+				continue
+			}
+
+			$candidateToken = [string]$candidate
+			if ([string]::IsNullOrWhiteSpace($candidateToken)) {
+				continue
+			}
+
+			if ($candidateToken -match '^[A-Za-z0-9._-]+$') {
+				$firstValidToken = $candidateToken
+				break
+			}
+		}
+
+		if ($null -eq $firstValidToken) {
+			Write-Log "[Addons] Addon '$AddonName' contains legacy implementation array without valid tokens. Ignoring implementation value."
+			return $null
+		}
+
+		Write-Log "[Addons] Addon '$AddonName' contains legacy implementation array. Using '$firstValidToken'."
+		return (Assert-AddonPathToken -Value $firstValidToken -ParameterName 'Implementation')
+	}
+
+	return (Assert-AddonPathToken -Value ([string]$Implementation) -ParameterName 'Implementation')
+}
+
+function Assert-AddonScriptPathWithinRoot {
+	param (
+		[parameter(Mandatory = $true)]
+		[string] $Root,
+		[parameter(Mandatory = $true)]
+		[string] $ScriptPath
+	)
+
+	$normalizedRoot = [System.IO.Path]::GetFullPath($Root)
+	$normalizedRoot = $normalizedRoot.TrimEnd([System.IO.Path]::DirectorySeparatorChar, [System.IO.Path]::AltDirectorySeparatorChar)
+	$normalizedScriptPath = [System.IO.Path]::GetFullPath($ScriptPath)
+	$rootPrefix = $normalizedRoot + [System.IO.Path]::DirectorySeparatorChar
+
+	if (($normalizedScriptPath -ne $normalizedRoot) -and (-not $normalizedScriptPath.StartsWith($rootPrefix, [System.StringComparison]::OrdinalIgnoreCase))) {
+		throw "Resolved addon script path '$normalizedScriptPath' escapes addon root '$normalizedRoot'."
+	}
+
+	return $normalizedScriptPath
+}
+
 function Get-AddonsConfig {
 	return (Get-ConfigValue -Path (Get-SetupConfigFilePath) -Key $ConfigKey_EnabledAddons)
 }
@@ -57,14 +140,18 @@ function Enable-AddonFromConfig {
 		$Root = Get-ScriptRoot
 	}
 
-	$dirName = $Config.Name
+	$Root = [System.IO.Path]::GetFullPath($Root)
+
+	$addonNameToken = Assert-AddonPathToken -Value $Config.Name -ParameterName 'Name'
+	$dirName = $addonNameToken
 	$addonName = $Config.Name
-	if ($null -ne $Config.Implementation) {
-		$dirName += "\$($Config.Implementation)"
-		$addonName += " $($Config.Implementation)"
+	$implementationToken = Resolve-AddonImplementationToken -Implementation $Config.Implementation -AddonName $Config.Name
+	if ($null -ne $implementationToken) {
+		$dirName += "\$implementationToken"
+		$addonName += " $implementationToken"
 	}
 
-	$enableCmdPath = "$Root\$dirName\Enable.ps1"
+	$enableCmdPath = Assert-AddonScriptPathWithinRoot -Root $Root -ScriptPath (Join-Path -Path $Root -ChildPath (Join-Path -Path $dirName -ChildPath 'Enable.ps1'))
 
 	if ((Test-Path $enableCmdPath) -ne $true) {
 		Write-Warning "Addon '$($Config.Name)' seems to be deprecated, skipping it."
@@ -120,8 +207,8 @@ function ConvertTo-NewConfigStructure {
 		if ($addon -is [string]) {
 			switch ($addon) {
 				'gateway-nginx' { $newAddon = [pscustomobject]@{Name = 'gateway-api' } }
-				'ingress-nginx' { $newAddon = [pscustomobject]@{Name = 'ingress'; Implementation = @('nginx') } }
-				'traefik' { $newAddon = [pscustomobject]@{Name = 'ingress'; Implementation = @('traefik') } }
+				'ingress-nginx' { $newAddon = [pscustomobject]@{Name = 'ingress'; Implementation = 'nginx' } }
+				'traefik' { $newAddon = [pscustomobject]@{Name = 'ingress'; Implementation = 'traefik' } }
 				'metrics-server' { $newAddon = [pscustomobject]@{Name = 'metrics' } }
 				Default { $newAddon = [pscustomobject]@{Name = $addon } }
 			}
@@ -342,7 +429,7 @@ function Remove-AddonFromSetupJson {
 		if ($null -ne $Addon.Implementation) {
 			$implementationExists = $addonExists | Where-Object { $_.Implementation -eq $Addon.Implementation }
 			if ($implementationExists) {
-				$newEnabledAddons = @($enabledAddons | Where-Object { $_.Implementation -ne $Addon.Implementation })
+				$newEnabledAddons = @($enabledAddons | Where-Object { -not (($_.Name -eq $Addon.Name) -and ($_.Implementation -eq $Addon.Implementation)) })
 			}
 		}
 		else {
@@ -378,27 +465,99 @@ function Install-DebianPackages {
 		[parameter()]
 		[string] $implementation = '',
 		[parameter()]
-		[string[]]$packages
+		[string[]]$packages,
+		[parameter()]
+		[switch] $AllowRuntimeDownload
 	)
 
+	function Assert-RemoteShellPathSegment {
+		param (
+			[parameter(Mandatory = $true)]
+			[string] $Value,
+			[parameter(Mandatory = $true)]
+			[string] $ParameterName
+		)
+
+		if ([string]::IsNullOrWhiteSpace($Value)) {
+			throw "Path segment '$ParameterName' must not be empty."
+		}
+
+		if ($Value -notmatch '^[A-Za-z0-9._-]+$') {
+			throw "Invalid path segment '$ParameterName' value '$Value'. Allowed characters: letters, digits, dot, underscore, dash."
+		}
+
+		return $Value
+	}
+
+	function Assert-DebianPackageToken {
+		param (
+			[parameter(Mandatory = $true)]
+			[string] $Value,
+			[parameter(Mandatory = $true)]
+			[string] $ParameterName
+		)
+
+		if ([string]::IsNullOrWhiteSpace($Value)) {
+			throw "Package '$ParameterName' must not be empty."
+		}
+
+		if ($Value -notmatch '^[A-Za-z0-9][A-Za-z0-9.+:-]*$') {
+			throw "Invalid Debian package token '$ParameterName' value '$Value'."
+		}
+
+		return $Value
+	}
+
+	function Test-ExplicitRuntimeDebianDownloadAllowed {
+		param (
+			[parameter(Mandatory = $false)]
+			[switch] $AllowBySwitch
+		)
+
+		if ($AllowBySwitch) {
+			return $true
+		}
+
+		$allowFromEnv = [Environment]::GetEnvironmentVariable('K2S_ALLOW_RUNTIME_DEBIAN_DOWNLOAD')
+		if ($allowFromEnv -and $allowFromEnv -match '^(?i:true|1|yes)$') {
+			return $true
+		}
+
+		return $false
+	}
+
+	# Evidence: addon/implementation/package values are injected into remote shell commands in this function and in Get-DebianPackageAvailableOffline.
+	$addon = Assert-RemoteShellPathSegment -Value $addon -ParameterName 'addon'
 	$dirName = $addon
 	if (($implementation -ne '') -and ($implementation -ne $addon)) {
+		$implementation = Assert-RemoteShellPathSegment -Value $implementation -ParameterName 'implementation'
 		$dirName += "_$implementation"
 	}
 
+	$runtimeDownloadAllowed = Test-ExplicitRuntimeDebianDownloadAllowed -AllowBySwitch:$AllowRuntimeDownload
+
 	foreach ($package in $packages) {
+		$package = Assert-DebianPackageToken -Value $package -ParameterName 'package'
+		$remotePackageDir = "./$dirName/$package"
+		$remotePackageDirQuoted = "'$remotePackageDir'"
+
 		if (!(Get-DebianPackageAvailableOffline -addon $addon -implementation $implementation -package $package)) {
-			(Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute "mkdir -p .${dirName}/${package} && cd .${dirName}/${package} && sudo chown -R _apt:root .").Output | Write-Log
-			(Invoke-CmdOnControlPlaneViaSSHKey -Retries 2 -Timeout 2 -CmdToExecute "cd .${dirName}/${package} && sudo apt-get download $package" -RepairCmd 'sudo dpkg --configure -a; sudo apt --fix-broken install').Output | Write-Log
+			if (-not $runtimeDownloadAllowed) {
+				throw "Package '$package' is not available in offline cache '$remotePackageDir'. Runtime download is blocked by offline policy. Re-import addon package content or explicitly allow runtime Debian downloads via -AllowRuntimeDownload or K2S_ALLOW_RUNTIME_DEBIAN_DOWNLOAD=true."
+			}
+
+			Write-Log "Offline cache missing for '$package'. Runtime download explicitly allowed; fetching package dependencies."
+			(Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute "mkdir -p $remotePackageDirQuoted && cd $remotePackageDirQuoted && sudo chown -R _apt:root .").Output | Write-Log
+			(Invoke-CmdOnControlPlaneViaSSHKey -Retries 2 -Timeout 2 -CmdToExecute "cd $remotePackageDirQuoted && sudo apt-get download -- $package" -RepairCmd 'sudo dpkg --configure -a; sudo apt --fix-broken install').Output | Write-Log
 			(Invoke-CmdOnControlPlaneViaSSHKey `
 				-Retries 2 `
 				-Timeout 2 `
-				-CmdToExecute "cd .${dirName}/${package} && sudo DEBIAN_FRONTEND=noninteractive apt-get --reinstall install -y --no-install-recommends --no-install-suggests --simulate ./${package}*.deb | grep 'Inst ' | cut -d ' ' -f 2 | sort -u | xargs sudo apt-get download" `
+				-CmdToExecute "cd $remotePackageDirQuoted && sudo DEBIAN_FRONTEND=noninteractive apt-get --reinstall install -y --no-install-recommends --no-install-suggests --simulate ./$package*.deb | grep 'Inst ' | cut -d ' ' -f 2 | sort -u | xargs -r sudo apt-get download --" `
 				-RepairCmd 'sudo dpkg --configure -a; sudo apt --fix-broken install').Output | Write-Log
 		}
 
 		Write-Log "Installing $package offline."
-		(Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute "sudo dpkg -i .${dirName}/${package}/*.deb 2>&1").Output | Write-Log
+		(Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute "sudo dpkg -i $remotePackageDirQuoted/*.deb 2>&1").Output | Write-Log
 	}
 }
 
@@ -412,14 +571,59 @@ function Get-DebianPackageAvailableOffline {
 		[string]$package
 	)
 
+	function Assert-RemoteShellPathSegment {
+		param (
+			[parameter(Mandatory = $true)]
+			[string] $Value,
+			[parameter(Mandatory = $true)]
+			[string] $ParameterName
+		)
+
+		if ([string]::IsNullOrWhiteSpace($Value)) {
+			throw "Path segment '$ParameterName' must not be empty."
+		}
+
+		if ($Value -notmatch '^[A-Za-z0-9._-]+$') {
+			throw "Invalid path segment '$ParameterName' value '$Value'. Allowed characters: letters, digits, dot, underscore, dash."
+		}
+
+		return $Value
+	}
+
+	function Assert-DebianPackageToken {
+		param (
+			[parameter(Mandatory = $true)]
+			[string] $Value,
+			[parameter(Mandatory = $true)]
+			[string] $ParameterName
+		)
+
+		if ([string]::IsNullOrWhiteSpace($Value)) {
+			throw "Package '$ParameterName' must not be empty."
+		}
+
+		if ($Value -notmatch '^[A-Za-z0-9][A-Za-z0-9.+:-]*$') {
+			throw "Invalid Debian package token '$ParameterName' value '$Value'."
+		}
+
+		return $Value
+	}
+
+	$addon = Assert-RemoteShellPathSegment -Value $addon -ParameterName 'addon'
+	$package = Assert-DebianPackageToken -Value $package -ParameterName 'package'
 	$dirName = $addon
 	if (($implementation -ne '') -and ($implementation -ne $addon)) {
+		$implementation = Assert-RemoteShellPathSegment -Value $implementation -ParameterName 'implementation'
 		$dirName += "_$implementation"
 	}
 
+	$remotePackageDir = "./$dirName/$package"
+	$remotePackageDirQuoted = "'$remotePackageDir'"
+
+	# Evidence: this module already uses Invoke-CmdOnControlPlaneViaSSHKey for remote package checks/install commands.
 	# TODO: NOTE: DO NOT USE `ExecCmdMaster` here to get the return value.
-	ssh.exe -n -o StrictHostKeyChecking=no -i (Get-SSHKeyControlPlane) (Get-ControlPlaneRemoteUser) "[ -d .${dirName}/${package} ]"
-	if (!$?) {
+	$remoteDirCheck = Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute "[ -d $remotePackageDirQuoted ]"
+	if (-not $remoteDirCheck.Success) {
 		return $false
 	}
 
@@ -449,17 +653,17 @@ function Test-IsAddonEnabled {
 	}
 
 	$enabledAddons = Get-AddonsConfig
+	$addonImplementation = [string]$Addon.Implementation
+	$hasAddonImplementation = -not [string]::IsNullOrWhiteSpace($addonImplementation)
 	foreach ($enabledAddon in $enabledAddons) {
 		if ($enabledAddon.Name -eq $Addon.Name) {
-			if ($null -eq $Addon.Implementation) {
+			if (-not $hasAddonImplementation) {
 				return $true
 			}
 
-			if ($enabledAddon.Implementation -eq $Addon.Implementation) {
+			if ($enabledAddon.Implementation -eq $addonImplementation) {
 				return $true
 			} 
-
-			return $false
 		}    
 	}
 	
@@ -565,9 +769,25 @@ function Remove-ScriptsFromHooksDir {
 		}
 
 		Write-Log 'Removing addons hooks..'
+		$resolvedHooksDir = [System.IO.Path]::GetFullPath($hooksDir)
+		$unsafeNamePattern = '[\\/:*?"<>|]'
 
 		foreach ($name in $ScriptNames) {
-			$path = "$hooksdir\$name"
+			$scriptName = [string]$name
+			if ([string]::IsNullOrWhiteSpace($scriptName) -or
+				$scriptName -match $unsafeNamePattern -or
+				$scriptName.Contains('..')) {
+				Write-Warning "Skipping invalid addon hook script name '$scriptName'."
+				continue
+			}
+
+			$path = Join-Path -Path $hooksDir -ChildPath $scriptName
+			$resolvedPath = [System.IO.Path]::GetFullPath($path)
+
+			if (-not $resolvedPath.StartsWith($resolvedHooksDir, [System.StringComparison]::OrdinalIgnoreCase)) {
+				Write-Warning "Skipping addon hook '$scriptName' because resolved path is outside hooks dir."
+				continue
+			}
 
 			if ((Test-Path -Path $path) -ne $true) {
 				Write-Warning "Cannot remove addon hook '$path' because it does not exist."
@@ -576,7 +796,7 @@ function Remove-ScriptsFromHooksDir {
 
 			Remove-Item -Path $path -Force
 
-			Write-Log "  Hook '$name' removed."
+			Write-Log "  Hook '$scriptName' removed."
 		}
 	}
 }
@@ -780,11 +1000,34 @@ function Add-HostEntries {
 		[string]
 		$Url = $(throw 'Url not specified')
 	)
+	function ConvertTo-ShSingleQuotedString {
+		param(
+			[Parameter(Mandatory = $true)]
+			[string] $Value
+		)
+		"'" + ($Value -replace "'", "'`"'`"'") + "'"
+	}
+
+	if ([string]::IsNullOrWhiteSpace($Url) -or $Url -notmatch '^[A-Za-z0-9._-]+$') {
+		throw "[Hosts] Invalid host token '$Url'."
+	}
+
+	$controlPlaneIp = Get-ConfiguredIPControlPlane
+	if (-not [System.Net.IPAddress]::TryParse($controlPlaneIp, [ref]([System.Net.IPAddress]$null))) {
+		throw "[Hosts] Invalid control plane IP '$controlPlaneIp'."
+	}
+
 	Write-Log "Adding host entry for '$Url'.." -Console
 
 	# add in control plane
-	$hostEntry = "$(Get-ConfiguredIPControlPlane) $Url"
-	(Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute "grep -qxF `'$hostEntry`' /etc/hosts || echo $hostEntry | sudo tee -a /etc/hosts").Output | Write-Log
+	$hostEntry = "$controlPlaneIp $Url"
+	if ($hostEntry -match '[\r\n]') {
+		throw '[Hosts] Invalid host entry format.'
+	}
+	$entryArg = ConvertTo-ShSingleQuotedString -Value $hostEntry
+	$hostsFileArg = ConvertTo-ShSingleQuotedString -Value '/etc/hosts'
+	$remoteCmd = "grep -qxF -- $entryArg $hostsFileArg || printf '%s\n' $entryArg | sudo tee -a $hostsFileArg > /dev/null"
+	(Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute $remoteCmd).Output | Write-Log
 
 	$hostFile = 'C:\Windows\System32\drivers\etc\hosts'
 
@@ -920,9 +1163,10 @@ function Update-Addons {
 			}
 
 			$props = Get-AddonProperties -Addon ([pscustomobject] @{ Name = $addonConfig.Name; Implementation = $addonConfig.Implementation })
+			$updateScriptPath = Assert-AddonScriptPathWithinRoot -Root $PSScriptRoot -ScriptPath (Join-Path -Path $PSScriptRoot -ChildPath (Join-Path -Path $props.Directory -ChildPath 'Update.ps1'))
 
-			if (Test-Path -Path "$PSScriptRoot\$($props.Directory)\Update.ps1") {
-				&"$PSScriptRoot\$($props.Directory)\Update.ps1"
+			if (Test-Path -Path $updateScriptPath) {
+				& $updateScriptPath
 			}
 		}
 	}
@@ -941,11 +1185,13 @@ function Get-AddonProperties {
 		throw "Addon does not contain a property with name 'Name'"
 	}
 
-	$addonName = $Addon.Name
-	$directory = $Addon.Name
-	if ($null -ne $Addon.Implementation) {
-		$addonName += " $($Addon.Implementation)"
-		$directory += "\$($Addon.Implementation)"
+	$addonNameToken = Assert-AddonPathToken -Value ([string]$Addon.Name) -ParameterName 'Name'
+	$addonName = $addonNameToken
+	$directory = $addonNameToken
+	$implementationToken = Resolve-AddonImplementationToken -Implementation $Addon.Implementation -AddonName $addonNameToken
+	if ($null -ne $implementationToken) {
+		$addonName += " $implementationToken"
+		$directory += "\$implementationToken"
 	}
 
 	return [pscustomobject]@{Name = $addonName; Directory = $directory }
@@ -1129,6 +1375,7 @@ function New-BackendCACertConfigMap {
 		try {
 			# Extract certificate from pod
 			$certPath = [System.IO.Path]::GetTempPath() + "$ConfigMapName.crt"
+			$configMapManifestPath = [System.IO.Path]::GetTempPath() + "$ConfigMapName.configmap.yaml"
 			$extractCmd = "echo | openssl s_client -connect localhost:$Port 2>&1 | openssl x509 -outform PEM"
 			
 			# Get container name from pod spec (first container that's not linkerd-proxy or linkerd-init)
@@ -1149,11 +1396,15 @@ function New-BackendCACertConfigMap {
 			
 			$cert | Out-File -FilePath $certPath -Encoding ascii
 			
+			# Evidence: Invoke-Kubectl uses the repo-controlled kubectl.exe path from k8s-api.module.psm1.
 			# Create ConfigMap with the certificate
-			(Invoke-Kubectl -Params 'create', 'configmap', $ConfigMapName, '-n', $Namespace, "--from-file=ca.crt=$certPath", '--dry-run=client', '-o', 'yaml').Output | & kubectl apply -f -
+			$configMapManifest = (Invoke-Kubectl -Params 'create', 'configmap', $ConfigMapName, '-n', $Namespace, "--from-file=ca.crt=$certPath", '--dry-run=client', '-o', 'yaml').Output
+			$configMapManifest | Out-File -FilePath $configMapManifestPath -Encoding ascii
+			(Invoke-Kubectl -Params 'apply', '-f', $configMapManifestPath).Output | Write-Log
 			
 			# Clean up temp file
 			Remove-Item -Path $certPath -ErrorAction SilentlyContinue
+			Remove-Item -Path $configMapManifestPath -ErrorAction SilentlyContinue
 			
 			Write-Log "CA certificate ConfigMap '$ConfigMapName' created successfully in namespace '$Namespace'" -Console
 		}

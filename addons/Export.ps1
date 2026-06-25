@@ -31,6 +31,123 @@ $ociModule = "$PSScriptRoot\oci.module.psm1"
 
 Import-Module $infraModule, $clusterModule, $nodeModule, $addonsModule, $exportModule, $ociModule
 
+function ConvertTo-SshShellSingleQuoted {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$Value
+    )
+
+    return "'" + ($Value -replace "'", "'`"'`"'") + "'"
+}
+
+function Assert-ValidDebianPackageToken {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$PackageName
+    )
+
+    # Evidence: offline_usage.linux.deb package entries in addon manifests are apt package tokens, not shell fragments.
+    if ($PackageName -notmatch '^[a-z0-9][a-z0-9+.-]*(?::[a-z0-9][a-z0-9+.-]*)?$') {
+        throw "Invalid debian package token '$PackageName'. Only apt package identifiers are allowed."
+    }
+
+    return $PackageName
+}
+
+function Assert-ValidRemotePackageDirectoryToken {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$DirectoryToken
+    )
+
+    # Evidence: export directory token comes from addon directory names and implementation suffixes.
+    if ($DirectoryToken -notmatch '^[A-Za-z0-9._-]+$') {
+        throw "Invalid export directory token '$DirectoryToken'. Allowed characters: A-Z, a-z, 0-9, dot, underscore, hyphen."
+    }
+
+    return $DirectoryToken
+}
+
+function Assert-ValidContainerImageReference {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$ImageReference
+    )
+
+    # Evidence: image references are collected from addon manifest input (offline_usage.additionalImages*)
+    # and YAML parsing, then used in pull operations in this script.
+    if ([string]::IsNullOrWhiteSpace($ImageReference)) {
+        throw 'Invalid image reference: value is empty.'
+    }
+
+    if ($ImageReference -match '\s' -or $ImageReference -match '[`"''$;|&<>\\\(\)\{\}]') {
+        throw "Invalid image reference '$ImageReference'. Disallowed whitespace or shell metacharacters detected."
+    }
+
+    # Accept standard container image forms with optional registry[:port], path components,
+    # optional :tag and optional @sha256:digest.
+    if ($ImageReference -notmatch '^(?:[A-Za-z0-9.-]+(?::[0-9]+)?/)?[A-Za-z0-9._-]+(?:/[A-Za-z0-9._-]+)*(?::[A-Za-z0-9_][A-Za-z0-9_.-]{0,127})?(?:@sha256:[A-Fa-f0-9]{64})?$') {
+        throw "Invalid image reference '$ImageReference'. Expected a standard container image reference."
+    }
+
+    return $ImageReference
+}
+
+function Assert-ValidRepoCommandFragment {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$RepoCommand
+    )
+
+    # Evidence: repo fragments are untrusted manifest input and are executed remotely via SSH.
+    # Enforce a strict token allow-list for generic fragments.
+    if ($RepoCommand -match '[\r\n]') {
+        throw 'Invalid repo command fragment: newlines are not allowed.'
+    }
+
+    if ($RepoCommand -match '(\|\||&&|[|&;`<>])') {
+        throw "Invalid repo command fragment '$RepoCommand'. Disallowed shell control/chaining tokens detected (|, ||, &, &&, ;, `, <, >)."
+    }
+
+    if ($RepoCommand -match '\$\(') {
+        throw "Invalid repo command fragment '$RepoCommand'. Command substitution is not allowed."
+    }
+
+    if ($RepoCommand -match '[\$\{\}]') {
+        throw "Invalid repo command fragment '$RepoCommand'. Variable interpolation tokens are not allowed."
+    }
+
+    return $RepoCommand
+}
+
+function Resolve-RepoSetupCommands {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$RepoCommand
+    )
+
+    # Evidence: addons/gpu-node/addon.manifest.yaml uses a single NVIDIA setup fragment with pipes and &&.
+    # For that known case, parse controlled URLs and compose fixed commands instead of executing manifest shell directly.
+    $nvidiaRepoPattern = "^curl --retry 3 --retry-all-errors -fsSL (?<gpgUrl>https://nvidia\.github\.io/libnvidia-container/gpgkey) -x (?<proxy>[^\s]+) \| sudo gpg --dearmor --batch --yes -o /usr/share/keyrings/nvidia-container-toolkit-keyring\.gpg && curl --retry 3 --retry-all-errors -s -L (?<listUrl>https://nvidia\.github\.io/libnvidia-container/stable/deb/nvidia-container-toolkit\.list) -x (?<proxy2>[^\s]+) \| sed 's#deb https://#deb \[signed-by=/usr/share/keyrings/nvidia-container-toolkit-keyring\.gpg\] https://#g' \| sudo tee /etc/apt/sources\.list\.d/nvidia-container-toolkit\.list$"
+
+    if ($RepoCommand -match $nvidiaRepoPattern) {
+        if ($Matches.proxy -ne $Matches.proxy2) {
+            throw "Invalid repo command fragment '$RepoCommand'. Proxy value mismatch detected in NVIDIA repo setup command."
+        }
+
+        $quotedGpgUrl = ConvertTo-SshShellSingleQuoted -Value $Matches.gpgUrl
+        $quotedListUrl = ConvertTo-SshShellSingleQuoted -Value $Matches.listUrl
+        $quotedProxy = ConvertTo-SshShellSingleQuoted -Value $Matches.proxy
+
+        return @(
+            "curl --retry 3 --retry-all-errors -fsSL $quotedGpgUrl -x $quotedProxy | sudo gpg --dearmor --batch --yes -o /usr/share/keyrings/nvidia-container-toolkit-keyring.gpg",
+            "curl --retry 3 --retry-all-errors -s -L $quotedListUrl -x $quotedProxy | sed 's#deb https://#deb [signed-by=/usr/share/keyrings/nvidia-container-toolkit-keyring.gpg] https://#g' | sudo tee /etc/apt/sources.list.d/nvidia-container-toolkit.list > /dev/null"
+        )
+    }
+
+    throw "Unsupported repo setup command fragment '$RepoCommand'. Only explicitly allowlisted safe patterns are supported for addon export."
+}
+
 # Read K2s version for export metadata and file naming
 $k2sVersion = Get-Content "$PSScriptRoot\..\VERSION" -Raw | ForEach-Object { $_.Trim() }
 
@@ -133,6 +250,21 @@ else {
 }
 
 $windowsHostIpAddress = Get-ConfiguredKubeSwitchIP
+
+# Evidence: this export flow sets http_proxy/https_proxy for image/package acquisition below.
+# To preserve offline/runtime pull guarantees, only internal IPv4 ranges are allowed as proxy endpoints.
+$isAllowedInternalProxyIp =
+    $windowsHostIpAddress -match '^127\.' -or # loopback 127.0.0.0/8
+    $windowsHostIpAddress -match '^10\.' -or # RFC1918 10.0.0.0/8
+    $windowsHostIpAddress -match '^172\.(1[6-9]|2[0-9]|3[0-1])\.' -or # RFC1918 172.16.0.0/12
+    $windowsHostIpAddress -match '^192\.168\.' -or # RFC1918 192.168.0.0/16
+    $windowsHostIpAddress -match '^169\.254\.' # link-local 169.254.0.0/16
+
+# Require a concrete IPv4 literal in one of the allowed internal ranges.
+if ($windowsHostIpAddress -notmatch '^((25[0-5]|2[0-4][0-9]|1?[0-9]{1,2})\.){3}(25[0-5]|2[0-4][0-9]|1?[0-9]{1,2})$' -or -not $isAllowedInternalProxyIp) {
+    throw "Invalid proxy host '$windowsHostIpAddress'. Only internal proxy IPs are allowed: 127.0.0.0/8, 10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16, 169.254.0.0/16. Public/external IPs are not allowed."
+}
+
 $Proxy = "http://$($windowsHostIpAddress):8181"
 
 $currentHttpProxy = $env:http_proxy
@@ -151,6 +283,17 @@ try {
 
     foreach ($manifest in $addonManifests) {
         foreach ($implementation in $manifest.spec.implementations) {
+            # Validate addon and implementation names to prevent path traversal
+            # Evidence: addon names and implementation names come from addon.manifest.yaml (external input)
+            # and are used in Join-Path and directory composition below. Pattern: lowercase alnum, dot, underscore, dash.
+            $addonNameValue = $manifest.metadata.name
+            if ($addonNameValue -notmatch '^[a-z0-9][a-z0-9._-]*$') {
+                throw "Invalid addon name '$addonNameValue'. Allowed: lowercase alphanumeric, dot, underscore, dash (must start with alphanumeric)."
+            }
+            if ($implementation.name -notmatch '^[a-z0-9][a-z0-9._-]*$') {
+                throw "Invalid implementation name '$($implementation.name)'. Allowed: lowercase alphanumeric, dot, underscore, dash (must start with alphanumeric)."
+            }
+
             # there are more than one implementation
             $addonName = $manifest.metadata.name
             $dirName = $manifest.dir.name
@@ -173,12 +316,14 @@ try {
              # Create staging directories for OCI layers
              $configStaging = Join-Path $artifactPath 'config-staging'
              $manifestsStaging = Join-Path $artifactPath 'manifests-staging'
+             $deployStaging = Join-Path $artifactPath 'deploy-staging'
              $scriptsStaging = Join-Path $artifactPath 'scripts-staging'
              $packagesStaging = Join-Path $artifactPath 'packages-staging'
              $imagesStaging = Join-Path $artifactPath 'images-staging'
              
              New-Item -ItemType Directory -Path $configStaging -Force | Out-Null
              New-Item -ItemType Directory -Path $manifestsStaging -Force | Out-Null
+             New-Item -ItemType Directory -Path $deployStaging -Force | Out-Null
              New-Item -ItemType Directory -Path $scriptsStaging -Force | Out-Null
              New-Item -ItemType Directory -Path $packagesStaging -Force | Out-Null
              New-Item -ItemType Directory -Path $imagesStaging -Force | Out-Null
@@ -188,6 +333,19 @@ try {
                  $manifestFiles = @(Get-ChildItem -Path $sourceManifestsDir -Recurse -File)
                  Write-Log "Copying $($manifestFiles.Count) files from addon manifests directory"
                  Copy-Item -Path (Join-Path $sourceManifestsDir '*') -Destination $manifestsStaging -Recurse -Force -ErrorAction SilentlyContinue
+
+                 # Deploy layer: cluster-plane manifests reconciled NATIVELY by Flux/ArgoCD (self-heal).
+                 # Mirrors the addon's manifests/ tree but excludes the host-plane gitops-sync/ Job
+                 # template (injected below) and the helm chart/ subfolder (reconciled via HelmRelease).
+                 Copy-Item -Path (Join-Path $sourceManifestsDir '*') -Destination $deployStaging -Recurse -Force -ErrorAction SilentlyContinue
+                 $deployChartDir = Join-Path $deployStaging 'chart'
+                 if (Test-Path $deployChartDir) {
+                     Remove-Item -Path $deployChartDir -Recurse -Force -ErrorAction SilentlyContinue
+                 }
+                 $deployGitopsSyncDir = Join-Path $deployStaging 'gitops-sync'
+                 if (Test-Path $deployGitopsSyncDir) {
+                     Remove-Item -Path $deployGitopsSyncDir -Recurse -Force -ErrorAction SilentlyContinue
+                 }
              } else {
                  Write-Log "No manifests directory found at $sourceManifestsDir"
              }
@@ -444,8 +602,12 @@ try {
 
             Write-Log "[AddonExport] === PULLING LINUX IMAGES ==="
             foreach ($image in $linuxImages) {
-                Write-Log "Pulling linux image $image"
-                $pull = Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -Retries 5 -CmdToExecute "sudo buildah pull $image 2>&1"
+                $safeImageReference = Assert-ValidContainerImageReference -ImageReference $image
+                Write-Log "Pulling linux image $safeImageReference"
+                $quotedImageReference = ConvertTo-SshShellSingleQuoted -Value $safeImageReference
+                # Use array-based command to prevent shell injection: each argument is a separate array element
+                $cmdArray = @('sudo', 'buildah', 'pull', '--', $quotedImageReference, '2>&1')
+                $pull = Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -Retries 5 -CmdToExecute $cmdArray
                 Write-Log "[AddonExport] Pull result for $image : Success=$($pull.Success) Output='$($pull.Output)'"
                 Write-Log $pull.Output
                 if (!$pull.Success) {
@@ -462,10 +624,11 @@ try {
             }
 
             foreach ($image in $windowsImages) {
-                Write-Log "Pulling windows image $image"
+                $safeImageReference = Assert-ValidContainerImageReference -ImageReference $image
+                Write-Log "Pulling windows image $safeImageReference"
                 $kubeBinPath = Get-KubeBinPath
-                &$(Get-NerdctlExe) -n 'k8s.io' pull $image --all-platforms 2>&1 | Out-Null
-                &$(Get-CrictlExe) --config $kubeBinPath\crictl.yaml pull $image
+                &$(Get-NerdctlExe) -n 'k8s.io' pull $safeImageReference --all-platforms 2>&1 | Out-Null
+                &$(Get-CrictlExe) --config $kubeBinPath\crictl.yaml pull $safeImageReference
                 if (!$?) {
                     $errMsg = "Pulling linux image $image failed"
                     if ($EncodeStructuredOutput -eq $true) {
@@ -591,6 +754,7 @@ try {
                 Write-Log '---'
                 Write-Log "Downloading packages for addon $addonName" -Console
                 $linuxPackages = $implementation.offline_usage.linux
+                $safeRemoteDirName = Assert-ValidRemotePackageDirectoryToken -DirectoryToken $dirName
 
                 # adding repos for debian packages download
                 $repos = $linuxPackages.repos
@@ -598,7 +762,10 @@ try {
                     Write-Log 'Adding repos for debian packages download'
                     foreach ($repo in $repos) {
                         $repoWithReplacedHttpProxyPlaceHolder = $repo.Replace('__LOCAL_HTTP_PROXY__', "$(Get-ConfiguredKubeSwitchIP):8181")
-                        (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute "$repoWithReplacedHttpProxyPlaceHolder").Output | Write-Log
+                        $repoSetupCommands = Resolve-RepoSetupCommands -RepoCommand $repoWithReplacedHttpProxyPlaceHolder
+                        foreach ($repoSetupCommand in $repoSetupCommands) {
+                            (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute $repoSetupCommand).Output | Write-Log
+                        }
                     }
 
                     (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute 'sudo apt-get update > /dev/null 2>&1').Output | Write-Log
@@ -610,10 +777,18 @@ try {
                     (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute 'sudo apt-get clean > /dev/null 2>&1').Output | Write-Log
                     foreach ($package in $debianPackages) {
                         if (!(Get-DebianPackageAvailableOffline -addon $manifest.metadata.name -implementation $implementation.name -package $package)) {
+                            $safePackageToken = Assert-ValidDebianPackageToken -PackageName $package
+                            $quotedPackage = ConvertTo-SshShellSingleQuoted -Value $safePackageToken
+                            $remotePackageDir = "./${safeRemoteDirName}/${safePackageToken}"
+                            $quotedRemotePackageDir = ConvertTo-SshShellSingleQuoted -Value $remotePackageDir
                             Write-Log "Downloading debian package `"$package`" with dependencies"
-                            (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute "sudo DEBIAN_FRONTEND=noninteractive apt-get --download-only reinstall -y $package > /dev/null 2>&1").Output | Write-Log
-                            (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute "mkdir -p .$dirName/${package}").Output | Write-Log
-                            (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute "sudo cp /var/cache/apt/archives/*.deb .$dirName/${package}").Output | Write-Log
+                            # Use array-based commands to prevent shell injection: each argument is a separate array element
+                            $aptGetCmdArray = @('sudo', 'DEBIAN_FRONTEND=noninteractive', 'apt-get', '--download-only', 'reinstall', '-y', '--', $quotedPackage, '>', '/dev/null', '2>&1')
+                            (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute $aptGetCmdArray).Output | Write-Log
+                            $mkdirCmdArray = @('mkdir', '-p', '--', $quotedRemotePackageDir)
+                            (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute $mkdirCmdArray).Output | Write-Log
+                            $cpCmdArray = @('sudo', 'cp', '/var/cache/apt/archives/*.deb', $quotedRemotePackageDir)
+                            (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute $cpCmdArray).Output | Write-Log
                             (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute 'sudo apt-get clean > /dev/null 2>&1').Output | Write-Log
                         }
                     }
@@ -621,7 +796,7 @@ try {
                     $targetDebianPkgDir = "${packagesStaging}\debianpackages"
 
                     mkdir -Force $targetDebianPkgDir | Out-Null
-                    Copy-FromControlPlaneViaSSHKey -Source ".$dirName/*" -Target $targetDebianPkgDir
+                    Copy-FromControlPlaneViaSSHKey -Source "./${safeRemoteDirName}/*" -Target $targetDebianPkgDir
                 }
 
                 # download linux packages via curl
@@ -713,6 +888,27 @@ try {
                     }
                     Write-Log "Created empty manifests layer: $($blobResult.Digest)"
                 }
+            }
+            
+            # Layer (deploy): Cluster-plane manifests reconciled natively by Flux/ArgoCD - store in blobs.
+            # Single self-contained layer that GitOps engines apply directly for drift correction (self-heal).
+            $deployStageCount = (Get-ChildItem $deployStaging -ErrorAction SilentlyContinue | Measure-Object).Count
+            if ($deployStageCount -gt 0) {
+                $deployTarPath = Join-Path $artifactPath 'deploy.tar.gz'
+                if (New-TarGzArchive -SourcePath $deployStaging -DestinationPath $deployTarPath -ArchiveContents) {
+                    $blobResult = Add-ContentToBlobs -BlobsDir $blobsDir -SourcePath $deployTarPath -Move
+                    $ociLayerDescriptors += @{
+                        mediaType = $ociMediaTypes.Deploy
+                        size = $blobResult.Size
+                        digest = $blobResult.Digest
+                        annotations = @{ 'org.opencontainers.image.title' = 'deploy.tar.gz' }
+                    }
+                    Write-Log "Created deploy layer: $($blobResult.Digest)"
+                } else {
+                    Write-Log "Warning: New-TarGzArchive returned false for deploy layer" -Console
+                }
+            } else {
+                Write-Log "No deploy content for $addonName; skipping deploy layer"
             }
             
             # Layer 2: Helm Charts (if chart subfolder exists) - store in blobs

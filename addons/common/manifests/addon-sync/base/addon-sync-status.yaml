@@ -1,0 +1,16 @@
+# SPDX-FileCopyrightText: © 2026 Siemens Healthineers AG
+#
+# SPDX-License-Identifier: MIT
+
+# Per-addon sync status, patched at runtime by Sync-Addons.ps1 (Set-AddonStatusConfigMap).
+# Created empty here so the merge patch (kubectl patch ... --type merge) always has a
+# target. Keys are added per addon (e.g. monitoring: Synced) by the sync Job/CronJob.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: addon-sync-status
+  namespace: k2s-addon-sync
+  labels:
+    app.kubernetes.io/name: addon-sync
+    app.kubernetes.io/part-of: k2s
+data: {}

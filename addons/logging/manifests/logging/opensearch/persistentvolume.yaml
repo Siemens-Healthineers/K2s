@@ -7,7 +7,12 @@ kind: PersistentVolume
 metadata:
   name: opensearch-cluster-master-pv
   namespace: logging
+  annotations:
+    # Protect data-bearing volume from GitOps prune/cascade-delete (no data loss).
+    kustomize.toolkit.fluxcd.io/prune: disabled
+    argocd.argoproj.io/sync-options: Prune=false,Delete=false
 spec:
+  persistentVolumeReclaimPolicy: Retain
   capacity:
     storage: 5Gi
   accessModes:

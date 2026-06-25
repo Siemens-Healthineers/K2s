@@ -60,11 +60,15 @@ $InsecureBool = $Insecure -eq 'true' -or $Insecure -eq '$true' -or $Insecure -eq
 $CheckDigestBool = $CheckDigest -eq 'true' -or $CheckDigest -eq '$true' -or $CheckDigest -eq '1'
 $ApplyIfEnabledBool = $ApplyIfEnabled -eq 'true' -or $ApplyIfEnabled -eq '$true' -or $ApplyIfEnabled -eq '1'
 
-# Resolve oras executable path - fall back to PATH if the specified path doesn't exist
+# Resolve oras executable path - only allow controlled fallback to K2s bin directory
 if (-not (Test-Path $OrasExe)) {
-    $orasOnPath = Get-Command 'oras' -ErrorAction SilentlyContinue
-    if ($orasOnPath) {
-        $OrasExe = $orasOnPath.Source
+    # Try controlled fallback location: $K2sInstallDir/bin/oras.exe
+    $controlledOrasPath = Join-Path -Path $K2sInstallDir -ChildPath 'bin' | Join-Path -ChildPath 'oras.exe'
+    if (Test-Path $controlledOrasPath) {
+        $OrasExe = $controlledOrasPath
+    } else {
+        # Fail explicitly rather than falling back to unchecked PATH lookup (PATH hijacking prevention)
+        throw "oras executable not found at '$OrasExe' and not available in controlled location '$controlledOrasPath'. Please provide a valid oras executable path or ensure oras.exe exists in K2s bin directory."
     }
 }
 
@@ -85,6 +89,16 @@ function Write-SyncLog {
     # Write-Host is intentional: this script runs inside a HostProcess container where
     # k2s.infra.module (and Write-Log) are not available. Stdout is the only log channel.
     Write-Host "$ts $prefix $Message"
+}
+
+function Get-SanitizedRegistryUrl {
+    param([string]$Url)
+
+    if ($Url -match '@') {
+        return $Url -replace '^.*@', '<credentials>@'
+    }
+
+    return $Url
 }
 
 # ---------------------------------------------------------------------------
@@ -127,9 +141,77 @@ function Expand-TarGz {
         [Parameter(Mandatory)] [string]$Archive,
         [Parameter(Mandatory)] [string]$Destination
     )
+    function Test-IsSafeTarEntryPath {
+        param(
+            [Parameter(Mandatory)] [string]$EntryPath,
+            [Parameter(Mandatory)] [string]$DestinationRoot
+        )
+
+        if ([string]::IsNullOrWhiteSpace($EntryPath)) { return $false }
+
+        $trimmed = $EntryPath.Trim()
+        if ($trimmed.StartsWith('/') -or $trimmed.StartsWith('\\')) { return $false }
+        if ($trimmed -match '^[A-Za-z]:') { return $false }
+
+        $entrySegments = $trimmed -split '[\\/]'
+        if ($entrySegments -contains '..') { return $false }
+
+        $relative = $trimmed -replace '/', '\\'
+        try {
+            $candidatePath = [System.IO.Path]::GetFullPath((Join-Path $DestinationRoot $relative))
+            $normalizedRoot = [System.IO.Path]::GetFullPath($DestinationRoot)
+            if (-not $normalizedRoot.EndsWith([System.IO.Path]::DirectorySeparatorChar)) {
+                $normalizedRoot += [System.IO.Path]::DirectorySeparatorChar
+            }
+            return $candidatePath.StartsWith($normalizedRoot, [System.StringComparison]::OrdinalIgnoreCase)
+        } catch {
+            return $false
+        }
+    }
+
+    function Test-TarArchiveSafeForExtraction {
+        param(
+            [Parameter(Mandatory)] [string]$ArchivePath,
+            [Parameter(Mandatory)] [string]$DestinationRoot
+        )
+
+        $listResult = & tar -tvzf $ArchivePath 2>&1
+        if ($LASTEXITCODE -ne 0) { throw "tar list failed: $listResult" }
+
+        foreach ($rawLine in $listResult) {
+            $line = $rawLine.ToString()
+            if ([string]::IsNullOrWhiteSpace($line)) { continue }
+
+            if ($line.Length -lt 1) { throw "Invalid tar entry metadata: '$line'" }
+            $entryType = $line.Substring(0, 1)
+
+            if ($entryType -eq 'l' -or $entryType -eq 'h') {
+                throw "Unsafe tar entry type '$entryType' rejected (link entries are not allowed): $line"
+            }
+
+            # Parse common tar -tv output and validate the extracted path stays under destination.
+            $entryMatch = [regex]::Match($line, '^[^\s]+\s+\d+\s+\S+\s+\S+\s+\d+\s+\w+\s+\d+\s+[\d:]+\s+(?<path>.+)$')
+            if (-not $entryMatch.Success) {
+                throw "Unable to parse tar entry metadata: $line"
+            }
+
+            $entryPath = $entryMatch.Groups['path'].Value
+            if ($entryPath.Contains(' -> ')) {
+                $entryPath = $entryPath.Split(@(' -> '), 2, [System.StringSplitOptions]::None)[0]
+            }
+
+            if (-not (Test-IsSafeTarEntryPath -EntryPath $entryPath -DestinationRoot $DestinationRoot)) {
+                throw "Unsafe tar entry path rejected: $entryPath"
+            }
+        }
+    }
+
     if (-not (Test-Path $Destination)) {
         New-Item -ItemType Directory -Path $Destination -Force | Out-Null
     }
+
+    Test-TarArchiveSafeForExtraction -ArchivePath $Archive -DestinationRoot $Destination
+
     $saved = Get-Location
     try {
         Set-Location $Destination
@@ -228,6 +310,54 @@ function Select-AddonTag {
     return $lexicalTag
 }
 
+function Test-HostAddonPresentForRepo {
+    param(
+        [Parameter(Mandatory)] [string]$AddonsDir,
+        [Parameter(Mandatory)] [string]$RepoName
+    )
+
+    # Evidence: repository names are already validated with this token policy before
+    # composing registry refs/paths in the main loop; reuse the same guard for host-path checks.
+    if (-not (Test-IsValidAddonNameToken -Token $RepoName)) {
+        return $false
+    }
+
+    function Test-HostAddonContentPresent {
+        param([Parameter(Mandatory)] [string]$AddonPath)
+
+        if (-not (Test-Path $AddonPath -PathType Container)) {
+            return $false
+        }
+
+        if (Test-Path (Join-Path $AddonPath 'addon.manifest.yaml') -PathType Leaf) {
+            return $true
+        }
+
+        if (Test-Path (Join-Path $AddonPath 'manifests') -PathType Container) {
+            return $true
+        }
+
+        return (Get-ChildItem -Path $AddonPath -Filter '*.ps1' -File -ErrorAction SilentlyContinue | Select-Object -First 1) -ne $null
+    }
+
+    $directPath = Join-Path $AddonsDir $RepoName
+    if (Test-HostAddonContentPresent -AddonPath $directPath) {
+        return $true
+    }
+
+    if ($RepoName -like '*-*') {
+        $splitParts = $RepoName.Split('-', 2)
+        if ($splitParts.Count -eq 2) {
+            $splitPath = Join-Path (Join-Path $AddonsDir $splitParts[0]) $splitParts[1]
+            if (Test-HostAddonContentPresent -AddonPath $splitPath) {
+                return $true
+            }
+        }
+    }
+
+    return $false
+}
+
 # ===========================================================================
 # Helper: Validate an OCI Image Layout directory and extract addon layers 0-3
 # into the K2s addons directory. Mirrors Import.ps1 layer-processing logic.
@@ -283,6 +413,58 @@ function Sync-AddonFromOciLayout {
 
     if ($exportedAddons.Count -eq 0) { throw 'No addons found in OCI artifact index' }
 
+    function Test-IsValidPathToken {
+        param([string]$Token)
+
+        # Evidence: annotation values are composed into filesystem paths below in this function;
+        # only allow a strict token character set to prevent path traversal/special path segments.
+        return -not [string]::IsNullOrWhiteSpace($Token) -and ($Token -cmatch '^[a-z0-9][a-z0-9._-]*$')
+    }
+
+    function Test-IsContainedPath {
+        param(
+            [Parameter(Mandatory)] [string]$BaseRoot,
+            [Parameter(Mandatory)] [string]$CandidatePath
+        )
+
+        function Normalize-PathForContainment {
+            param([Parameter(Mandatory)] [string]$Path)
+
+            $fullPath = [System.IO.Path]::GetFullPath($Path)
+            $pathRoot = [System.IO.Path]::GetPathRoot($fullPath)
+            $normalizedPath = $fullPath
+
+            # Keep drive/volume root intact (e.g., C:\), but trim trailing separators elsewhere.
+            while (
+                $normalizedPath.Length -gt $pathRoot.Length -and
+                ($normalizedPath.EndsWith([string][System.IO.Path]::DirectorySeparatorChar) -or
+                 $normalizedPath.EndsWith([string][System.IO.Path]::AltDirectorySeparatorChar))
+            ) {
+                $normalizedPath = $normalizedPath.Substring(0, $normalizedPath.Length - 1)
+            }
+
+            return $normalizedPath
+        }
+
+        try {
+            $normalizedRoot = Normalize-PathForContainment -Path $BaseRoot
+            $normalizedCandidate = Normalize-PathForContainment -Path $CandidatePath
+
+            # Evidence: single-implementation addons resolve implementationPath to the addon root
+            # itself, so the containment check must accept exact path equality before descendant checks.
+            if ($normalizedCandidate.Equals($normalizedRoot, [System.StringComparison]::OrdinalIgnoreCase)) {
+                return $true
+            }
+
+            if (-not $normalizedRoot.EndsWith([string][System.IO.Path]::DirectorySeparatorChar)) {
+                $normalizedRoot += [System.IO.Path]::DirectorySeparatorChar
+            }
+            return $normalizedCandidate.StartsWith($normalizedRoot, [System.StringComparison]::OrdinalIgnoreCase)
+        } catch {
+            return $false
+        }
+    }
+
     foreach ($addon in $exportedAddons) {
         Write-SyncLog "  Processing addon: $($addon.Name)"
         $ociManifest = Get-JsonBlobContent -BlobsDir $blobsDir -Digest $addon.Digest
@@ -292,17 +474,28 @@ function Sync-AddonFromOciLayout {
         # This is more reliable than parsing the addon name for a '-' separator:
         #   - single-impl: Name='monitoring', Implementation='monitoring'  → dest: addons\monitoring
         #   - multi-impl:  Name='ingress',    Implementation='nginx'        → dest: addons\ingress\nginx
-        $implementationName = $null
         $baseAddonName = $addon.Name
+        if (-not (Test-IsValidPathToken -Token $baseAddonName)) {
+            throw "Invalid addon name annotation '$baseAddonName' for digest $($addon.Digest). Allowed pattern: ^[a-z0-9][a-z0-9._-]*$"
+        }
+
+        $implementationName = $null
         if ($addon.Implementation -and $addon.Implementation -ne $addon.Name) {
+            if (-not (Test-IsValidPathToken -Token $addon.Implementation)) {
+                throw "Invalid addon implementation annotation '$($addon.Implementation)' for addon '$baseAddonName'. Allowed pattern: ^[a-z0-9][a-z0-9._-]*$"
+            }
             $implementationName = $addon.Implementation
         }
 
-        $destinationPath = $AddonsDir
-        foreach ($part in ($baseAddonName -split '\s+')) {
-            $destinationPath = Join-Path $destinationPath $part
+        $destinationPath = Join-Path $AddonsDir $baseAddonName
+        if (-not (Test-IsContainedPath -BaseRoot $AddonsDir -CandidatePath $destinationPath)) {
+            throw "Computed addon destination '$destinationPath' is outside addons root '$AddonsDir' for addon '$baseAddonName'"
         }
+
         $implementationPath = if ($implementationName) { Join-Path $destinationPath $implementationName } else { $destinationPath }
+        if (-not (Test-IsContainedPath -BaseRoot $destinationPath -CandidatePath $implementationPath)) {
+            throw "Computed implementation destination '$implementationPath' is outside addon root '$destinationPath' for addon '$baseAddonName'"
+        }
 
         if (-not (Test-Path $destinationPath)) { New-Item -ItemType Directory -Path $destinationPath -Force | Out-Null }
         if ($implementationName -and -not (Test-Path $implementationPath)) {
@@ -466,6 +659,7 @@ function Invoke-AddonUpdateLifecycle {
     $restoreScript = Join-Path $addonDir 'Restore.ps1'
     $backupDir     = $null
     $hasBackup     = Test-Path $backupScript
+    $shouldRetainBackup = $false
 
     if ($hasBackup) {
         $backupDir = Join-Path $env:TEMP "addon-backup-${LocalAddonName}-$(Get-Date -Format 'HHmmss')"
@@ -474,8 +668,12 @@ function Invoke-AddonUpdateLifecycle {
         try {
             & $backupScript -BackupDir $backupDir
         } catch {
-            Write-SyncLog "[ApplyIfEnabled] Backup failed for '$LocalAddonName': $_ - continuing without backup" -Warning
-            $hasBackup = $false
+            # Data-loss guard: a declared Backup.ps1 that fails leaves no recovery
+            # point. Abort BEFORE running Update.ps1 so the addon enters backoff and
+            # retries next cycle instead of updating unprotected data.
+            Write-SyncLog "[ApplyIfEnabled] Backup failed for '$LocalAddonName': $_ - aborting update (no recovery point)" -IsError
+            Remove-Item -Path $backupDir -Recurse -Force -ErrorAction SilentlyContinue
+            return $false
         }
     }
 
@@ -487,6 +685,12 @@ function Invoke-AddonUpdateLifecycle {
         return $true
     } catch {
         Write-SyncLog "[ApplyIfEnabled] Update failed for '$LocalAddonName': $_" -IsError
+        
+        # Decide whether to retain backup: retain if Update failed AND no Restore.ps1 exists
+        if ($hasBackup -and -not (Test-Path $restoreScript)) {
+            $shouldRetainBackup = $true
+        }
+        
         if ($hasBackup -and $backupDir -and (Test-Path $restoreScript)) {
             Write-SyncLog "[ApplyIfEnabled] Attempting restore for '$LocalAddonName'"
             try {
@@ -499,7 +703,30 @@ function Invoke-AddonUpdateLifecycle {
         return $false
     } finally {
         if ($backupDir) {
-            Remove-Item -Path $backupDir -Recurse -Force -ErrorAction SilentlyContinue
+            if ($shouldRetainBackup) {
+                # Backup retention: move to .addon-sync-backups/<AddonName>/<timestamp>/
+                $backupsDir = Join-Path $addonsDir '.addon-sync-backups'
+                if (-not (Test-Path $backupsDir)) {
+                    New-Item -ItemType Directory -Path $backupsDir -Force | Out-Null
+                }
+
+                $addonBackupDir = Join-Path $backupsDir $LocalAddonName
+                if (-not (Test-Path $addonBackupDir)) {
+                    New-Item -ItemType Directory -Path $addonBackupDir -Force | Out-Null
+                }
+
+                $timestamp = Get-Date -Format 'yyyyMMdd-HHmmss'
+                $retainedBackupPath = Join-Path $addonBackupDir $timestamp
+                try {
+                    Move-Item -Path $backupDir -Destination $retainedBackupPath -Force
+                    Write-SyncLog "[addon-sync] Backup retained for $LocalAddonName (no Restore.ps1 available)"
+                } catch {
+                    Write-SyncLog "[addon-sync] Failed to retain backup for '$LocalAddonName': $_" -Warning
+                    Remove-Item -Path $backupDir -Recurse -Force -ErrorAction SilentlyContinue
+                }
+            } else {
+                Remove-Item -Path $backupDir -Recurse -Force -ErrorAction SilentlyContinue
+            }
         }
     }
 }
@@ -519,6 +746,15 @@ function Get-SanitizedMessage {
     return $Message -replace '[A-Za-z0-9+/]{40,}={0,2}', '<redacted>'
 }
 
+function Test-IsValidAddonNameToken {
+    param([string]$Token)
+
+    # Evidence: addon/repository names are composed into registry refs, filesystem paths,
+    # digest filenames, and status keys throughout this script. Require full-token match.
+    # Pattern keeps existing repo conventions (lowercase alnum with dot/underscore/hyphen).
+    return -not [string]::IsNullOrWhiteSpace($Token) -and ($Token -cmatch '^[a-z0-9][a-z0-9._-]*$')
+}
+
 function Set-AddonStatusConfigMap {
     param(
         [Parameter(Mandatory)] [string]$StateKey,
@@ -527,7 +763,14 @@ function Set-AddonStatusConfigMap {
     # Best-effort: status reporting must never abort the main sync loop.
     try {
         $kubectl     = Get-KubectlPath
-        $patchJson   = "{`"data`":{`"$StateKey`":`"$Phase`"}}"
+        if (-not (Test-IsValidAddonNameToken -Token $StateKey)) {
+            Write-SyncLog "[Status] Skipping ConfigMap patch for invalid state key token" -Warning
+            return
+        }
+
+        $patchObj = @{ data = @{} }
+        $patchObj.data[$StateKey] = $Phase
+        $patchJson = $patchObj | ConvertTo-Json -Compress
         $maxAttempts = 5
 
         for ($attempt = 1; $attempt -le $maxAttempts; $attempt++) {
@@ -556,6 +799,122 @@ function Set-AddonStatusConfigMap {
 }
 
 # ===========================================================================
+# Backoff State Management — exponential backoff with digest-keyed state
+# ===========================================================================
+
+function Get-AddonFailureState {
+    param([Parameter(Mandatory)] [string]$AddonName)
+
+    if (-not (Test-IsValidAddonNameToken -Token $AddonName)) {
+        Write-SyncLog "[Backoff] Invalid addon name token for Get-AddonFailureState: $AddonName" -Warning
+        return $null
+    }
+
+    $failureFile = Join-Path $stateDir "$AddonName.failure"
+    if (-not (Test-Path $failureFile)) {
+        return $null
+    }
+
+    try {
+        $json = Get-Content -Path $failureFile -Raw | ConvertFrom-Json
+        return $json
+    } catch {
+        Write-SyncLog "[Backoff] Failed to parse failure state for '$AddonName': $_" -Warning
+        return $null
+    }
+}
+
+function Set-AddonFailureState {
+    param(
+        [Parameter(Mandatory)] [string]$AddonName,
+        [Parameter(Mandatory)] [string]$CurrentDigest
+    )
+
+    if (-not (Test-IsValidAddonNameToken -Token $AddonName)) {
+        Write-SyncLog "[Backoff] Invalid addon name token for Set-AddonFailureState: $AddonName" -Warning
+        return
+    }
+
+    $failureFile = Join-Path $stateDir "$AddonName.failure"
+    $existingState = Get-AddonFailureState -AddonName $AddonName
+    $attemptCount = if ($existingState -and $existingState.CurrentDigest -eq $CurrentDigest) {
+        $existingState.AttemptCount + 1
+    } else {
+        1
+    }
+
+    $failureState = @{
+        CurrentDigest  = $CurrentDigest
+        AttemptCount   = $attemptCount
+        LastAttemptUtc = [DateTime]::UtcNow.ToString('O')
+    }
+
+    try {
+        $failureState | ConvertTo-Json -Depth 10 | Set-Content -Path $failureFile -Encoding UTF8 -Force
+    } catch {
+        Write-SyncLog "[Backoff] Failed to write failure state for '$AddonName': $_" -Warning
+    }
+}
+
+function Clear-AddonFailureState {
+    param([Parameter(Mandatory)] [string]$AddonName)
+
+    if (-not (Test-IsValidAddonNameToken -Token $AddonName)) {
+        Write-SyncLog "[Backoff] Invalid addon name token for Clear-AddonFailureState: $AddonName" -Warning
+        return
+    }
+
+    $failureFile = Join-Path $stateDir "$AddonName.failure"
+    if (Test-Path $failureFile) {
+        try {
+            Remove-Item -Path $failureFile -Force
+            Write-SyncLog "[addon-sync] Cleared failure state for $AddonName"
+        } catch {
+            Write-SyncLog "[Backoff] Failed to delete failure state for '$AddonName': $_" -Warning
+        }
+    }
+}
+
+function Test-ShouldSkipForBackoff {
+    param(
+        [Parameter(Mandatory)] [string]$AddonName,
+        [Parameter(Mandatory)] [string]$CurrentDigest
+    )
+
+    $failureState = Get-AddonFailureState -AddonName $AddonName
+    if (-not $failureState) {
+        return $false
+    }
+
+    # Different digest → new attempt, don't skip
+    if ($failureState.CurrentDigest -ne $CurrentDigest) {
+        return $false
+    }
+
+    # Same digest → check backoff window
+    try {
+        $lastAttemptUtc = [DateTime]::Parse($failureState.LastAttemptUtc, [System.Globalization.CultureInfo]::InvariantCulture, [System.Globalization.DateTimeStyles]::RoundtripKind)
+    } catch {
+        Write-SyncLog "[Backoff] Failed to parse LastAttemptUtc for '$AddonName': $_ - treating as immediate retry" -Warning
+        return $false
+    }
+
+    # Exponential backoff: min(2^attemptCount * 1 minute, 60 minutes)
+    $attemptCount = $failureState.AttemptCount
+    $backoffMinutes = [Math]::Min([Math]::Pow(2, $attemptCount), 60)
+    $backoffWindow = [TimeSpan]::FromMinutes($backoffMinutes)
+    $nextRetryTime = $lastAttemptUtc.Add($backoffWindow)
+    $now = [DateTime]::UtcNow
+
+    if ($now -lt $nextRetryTime) {
+        Write-SyncLog "[addon-sync] Skipping $AddonName (backoff until $($nextRetryTime.ToString('O')))"
+        return $true
+    }
+
+    return $false
+}
+
+# ===========================================================================
 # Main
 # ===========================================================================
 
@@ -563,8 +922,13 @@ function Set-AddonStatusConfigMap {
 # REGISTRY_URL is the base registry (e.g. k2s.registry.local:30500).
 # Per-addon repos are discovered via: oras repo ls <registryBase> | addons/*
 $registryBase = $RegistryUrl -replace '^oci://', ''
+$sanitizedRegistryBase = Get-SanitizedRegistryUrl $registryBase
 
-Write-SyncLog "Starting per-addon sync from $registryBase"
+if ($InsecureBool) {
+    Write-SyncLog 'Insecure plain-HTTP registry connections enabled (expected for the local K2s NodePort registry which has no TLS).' -Warning
+}
+
+Write-SyncLog "Starting per-addon sync from $sanitizedRegistryBase"
 Write-SyncLog "K2s install dir: $K2sInstallDir"
 if ($CheckDigestBool) {
     Write-SyncLog "Digest-check mode enabled - only syncing changed addons"
@@ -579,14 +943,22 @@ if (-not (Test-Path $addonsDir)) {
 $digestDir = Join-Path $addonsDir '.addon-sync-digests'
 if (-not (Test-Path $digestDir)) { New-Item -ItemType Directory -Path $digestDir -Force | Out-Null }
 
+# Per-addon failure state tracking: one file per addon under .addon-sync-state/
+$stateDir = Join-Path $addonsDir '.addon-sync-state'
+if (-not (Test-Path $stateDir)) { New-Item -ItemType Directory -Path $stateDir -Force | Out-Null }
+
 # ---------------------------------------------------------------------------
 # Step 1: Discover per-addon repositories at <registryBase>/addons/<name>
 # ---------------------------------------------------------------------------
+$invalidDiscoveredReposCount = 0
 if ($AddonName -ne '') {
+    if (-not (Test-IsValidAddonNameToken -Token $AddonName)) {
+        throw "Invalid AddonName '$AddonName'. Allowed pattern: ^[a-z0-9][a-z0-9._-]*$"
+    }
     Write-SyncLog "AddonName filter set - syncing only '$AddonName'"
     $addonRepos = @($AddonName)
 } else {
-    Write-SyncLog "Discovering addon repositories under $registryBase/addons/"
+    Write-SyncLog "Discovering addon repositories under $sanitizedRegistryBase/addons/"
 
     $repoListArgs = @('repo', 'ls', $registryBase)
     if ($InsecureBool) { $repoListArgs += '--plain-http' }
@@ -595,14 +967,31 @@ if ($AddonName -ne '') {
         $allRepos = & $OrasExe @repoListArgs 2>&1
         if ($LASTEXITCODE -ne 0) { throw "oras repo ls failed (exit $LASTEXITCODE): $allRepos" }
     } catch {
-        Write-SyncLog "Failed to list repositories at $registryBase : $_" -IsError
+        Write-SyncLog "Failed to list repositories at $sanitizedRegistryBase : $(Get-SanitizedRegistryUrl ($_ | Out-String))" -IsError
         throw
     }
 
-    $addonRepos = @($allRepos | Where-Object { $_ -match '^addons/' } | ForEach-Object { $_ -replace '^addons/', '' })
+    $discoveredAddonRepos = @($allRepos | Where-Object { $_ -match '^addons/' } | ForEach-Object { $_ -replace '^addons/', '' })
+    $addonRepos = @()
+    foreach ($discoveredAddonRepo in $discoveredAddonRepos) {
+        if (Test-IsValidAddonNameToken -Token $discoveredAddonRepo) {
+            $addonRepos += $discoveredAddonRepo
+            continue
+        }
+
+        Write-SyncLog "Skipping discovered addon repository with invalid name token" -Warning
+        $invalidDiscoveredReposCount++
+    }
     if ($addonRepos.Count -eq 0) {
-        Write-SyncLog "No addon repositories found at $registryBase/addons/ - push addons first" -Warning
+        if ($invalidDiscoveredReposCount -gt 0) {
+            Write-SyncLog "No valid addon repositories found at $sanitizedRegistryBase/addons/ ($invalidDiscoveredReposCount invalid name token(s) rejected)" -Warning
+        } else {
+            Write-SyncLog "No addon repositories found at $sanitizedRegistryBase/addons/ - push addons first" -Warning
+        }
         [System.Environment]::Exit(0)
+    }
+    if ($invalidDiscoveredReposCount -gt 0) {
+        Write-SyncLog "Rejected $invalidDiscoveredReposCount discovered addon repository name token(s)" -Warning
     }
 }
 Write-SyncLog "Found $($addonRepos.Count) addon repo(s): $($addonRepos -join ', ')"
@@ -611,12 +1000,19 @@ Write-SyncLog "Found $($addonRepos.Count) addon repo(s): $($addonRepos -join ', 
 # Step 2: For each addon repo - check digest, pull if changed, extract
 # ---------------------------------------------------------------------------
 $syncedCount  = 0
-$skippedCount = 0
+$skippedCount = $invalidDiscoveredReposCount
 $failedCount  = 0
 
 foreach ($addonRepoName in $addonRepos) {
+    if (-not (Test-IsValidAddonNameToken -Token $addonRepoName)) {
+        Write-SyncLog "Skipping addon with invalid name token before processing loop" -Warning
+        $failedCount++
+        continue
+    }
+
     $addonRef = "$registryBase/addons/$addonRepoName"
-    Write-SyncLog "Processing '$addonRepoName' ($addonRef)"
+    $sanitizedAddonRef = Get-SanitizedRegistryUrl $addonRef
+    Write-SyncLog "Processing '$addonRepoName' ($sanitizedAddonRef)"
 
     # Discover tag: prefer 'latest', otherwise deterministic semver-desc / lexical-desc
     $tagListArgs = @('repo', 'tags', $addonRef)
@@ -629,6 +1025,15 @@ foreach ($addonRepoName in $addonRepos) {
         continue
     }
     if (-not $tagsOutput) {
+        if ($AddonName -ne '') {
+            # Per-addon mode (Flux sync Job) expects exactly one concrete addon repository.
+            # If no tags are published this is a configuration/runtime error, not a benign skip.
+            Write-SyncLog "  No tags published for '$addonRepoName' in per-addon mode - failing sync (push a versioned tag first)" -IsError
+            Set-AddonStatusConfigMap -StateKey $addonRepoName -Phase 'Failed'
+            $failedCount++
+            continue
+        }
+
         Write-SyncLog "  No tags published for '$addonRepoName' - skipping (push a versioned tag first)" -Warning
         $skippedCount++
         continue
@@ -643,83 +1048,117 @@ foreach ($addonRepoName in $addonRepos) {
         continue
     }
     $fullRef = "${addonRef}:${selectedTag}"
+    $sanitizedFullRef = Get-SanitizedRegistryUrl $fullRef
+
+    # Fetch current digest (needed for both digest-check and backoff logic)
+    $currentDigest = $null
+    $digestFetchFailed = $false
+    try {
+        $fetchArgs = @('manifest', 'fetch', '--descriptor', $fullRef)
+        if ($InsecureBool) { $fetchArgs += '--plain-http' }
+        $descriptorJson = & $OrasExe @fetchArgs 2>&1
+        if ($LASTEXITCODE -eq 0) {
+            $currentDigest = ($descriptorJson | Out-String | ConvertFrom-Json).digest
+        } else {
+            Write-SyncLog "  Digest fetch failed for '$addonRepoName' (exit $LASTEXITCODE): $(Get-SanitizedRegistryUrl ($descriptorJson | Out-String))" -Warning
+            $digestFetchFailed = $true
+        }
+    } catch {
+        Write-SyncLog "  Digest fetch error for '$addonRepoName': $(Get-SanitizedRegistryUrl ($_ | Out-String))" -Warning
+        $digestFetchFailed = $true
+    }
 
     # Per-addon digest check - skip if unchanged
     $digestFile = Join-Path $digestDir $addonRepoName
-    if ($CheckDigestBool) {
-        $fetchArgs = @('manifest', 'fetch', '--descriptor', $fullRef)
-        if ($InsecureBool) { $fetchArgs += '--plain-http' }
-        try {
-            $descriptorJson = & $OrasExe @fetchArgs 2>&1
-            if ($LASTEXITCODE -eq 0) {
-                $currentDigest = ($descriptorJson | Out-String | ConvertFrom-Json).digest
-                if (Test-Path $digestFile) {
-                    $lastDigest = (Get-Content $digestFile -Raw).Trim()
-                    if ($currentDigest -eq $lastDigest) {
-                        # Digest matches — but only skip if the addon directory actually
-                        # exists on disk. If content was deleted after the last sync the
-                        # stale digest file would otherwise prevent re-extraction forever.
-                        $expectedAddonDir = Join-Path $addonsDir $addonRepoName
-                        if (Test-Path $expectedAddonDir) {
-                            Write-SyncLog "  '$addonRepoName' unchanged (digest: $currentDigest), skipping"
-                            $skippedCount++
-                            continue
-                        }
-                        Write-SyncLog "  '$addonRepoName' digest unchanged but addon directory missing -- forcing re-sync"
-                    } else {
-                        Write-SyncLog "  '$addonRepoName' digest changed (was: $lastDigest)"
-                    }
-                } else {
-                    Write-SyncLog "  '$addonRepoName' first sync run"
+    if ($CheckDigestBool -and $currentDigest) {
+        if (Test-Path $digestFile) {
+            $lastDigest = (Get-Content $digestFile -Raw).Trim()
+            if ($currentDigest -eq $lastDigest) {
+                if (Test-HostAddonPresentForRepo -AddonsDir $addonsDir -RepoName $addonRepoName) {
+                    Write-SyncLog "  '$addonRepoName' unchanged (digest: $currentDigest), skipping"
+                    $skippedCount++
+                    continue
                 }
+                Write-SyncLog "  '$addonRepoName' digest unchanged but expected host addon content missing -- forcing re-sync"
+            } else {
+                Write-SyncLog "  '$addonRepoName' digest changed (was: $lastDigest)"
             }
-        } catch {
-            Write-SyncLog "  Digest check failed for '$addonRepoName': $_ - proceeding with sync" -Warning
+        } else {
+            Write-SyncLog "  '$addonRepoName' first sync run"
         }
+    }
+
+    # Backoff check - skip if same digest and within backoff window
+    if ($currentDigest -and (Test-ShouldSkipForBackoff -AddonName $addonRepoName -CurrentDigest $currentDigest)) {
+        if ($AddonName -ne '') {
+            Write-SyncLog "  Backoff is active for '$addonRepoName' in per-addon mode - failing sync" -IsError
+            Set-AddonStatusConfigMap -StateKey $addonRepoName -Phase 'Failed'
+            $failedCount++
+            continue
+        }
+
+        $skippedCount++
+        continue
     }
 
     # Pull per-addon OCI artifact into a temp OCI layout directory
     $addonTmpDir = Join-Path $env:TEMP "addon-sync-${addonRepoName}-$(Get-Date -Format 'HHmmss')"
     New-Item -ItemType Directory -Path $addonTmpDir -Force | Out-Null
 
-    Write-SyncLog "  Pulling $fullRef"
+    Write-SyncLog "  Pulling $sanitizedFullRef"
     $orasArgs = @('copy', $fullRef, '--to-oci-layout', "${addonTmpDir}:${selectedTag}")
     if ($InsecureBool) { $orasArgs += '--from-plain-http' }
 
     try {
         $pullResult = & $OrasExe @orasArgs 2>&1
         if ($LASTEXITCODE -ne 0) { throw "oras copy failed (exit $LASTEXITCODE): $pullResult" }
-        Write-SyncLog "  Pull completed: $pullResult"
+        Write-SyncLog "  Pull completed: $(Get-SanitizedRegistryUrl ($pullResult | Out-String))"
 
         # Extract layers 0-3 into the addons directory
         Sync-AddonFromOciLayout -OciLayoutDir $addonTmpDir -AddonsDir $addonsDir
 
+        $syncRunSucceeded = $true
         if ($ApplyIfEnabledBool) {
             $lifecycleOk = Invoke-AddonUpdateLifecycle -LocalAddonName $addonRepoName -AddonVersion $selectedTag
             if (-not $lifecycleOk) {
-                Write-SyncLog "  [ApplyIfEnabled] Lifecycle returned failure for '$addonRepoName' - sync still recorded" -Warning
+                Write-SyncLog "  ApplyIfEnabled lifecycle failed for '$addonRepoName' - marking sync as failed" -IsError
+                $syncRunSucceeded = $false
             }
         }
 
-        # Save per-addon digest after successful sync
-        if ($CheckDigestBool) {
-            try {
-                $fetchArgs = @('manifest', 'fetch', '--descriptor', $fullRef)
-                if ($InsecureBool) { $fetchArgs += '--plain-http' }
-                $descriptorJson = & $OrasExe @fetchArgs 2>&1
-                if ($LASTEXITCODE -eq 0) {
-                    $digest = ($descriptorJson | Out-String | ConvertFrom-Json).digest
-                    Set-Content -Path $digestFile -Value $digest -NoNewline -Encoding UTF8 -Force
-                    Write-SyncLog "  Saved digest for '$addonRepoName': $digest"
+        if ($syncRunSucceeded) {
+            # Save per-addon digest after successful sync
+            if ($CheckDigestBool -and $currentDigest) {
+                try {
+                    Set-Content -Path $digestFile -Value $currentDigest -NoNewline -Encoding UTF8 -Force
+                    Write-SyncLog "  Saved digest for '$addonRepoName': $currentDigest"
+                } catch {
+                    Write-SyncLog "  Failed to save digest for '$addonRepoName': $_" -Warning
                 }
-            } catch {
-                Write-SyncLog "  Failed to save digest for '$addonRepoName': $_" -Warning
             }
+
+            Clear-AddonFailureState -AddonName $addonRepoName
+            Write-SyncLog "[addon-sync] $addonRepoName synced successfully, backoff cleared"
+
+            Set-AddonStatusConfigMap -StateKey $addonRepoName -Phase 'Synced'
+            $syncedCount++
+        } else {
+            if ($currentDigest) {
+                Set-AddonFailureState -AddonName $addonRepoName -CurrentDigest $currentDigest
+                Write-SyncLog "[addon-sync] Update failed for $addonRepoName, entering backoff"
+            }
+
+            Set-AddonStatusConfigMap -StateKey $addonRepoName -Phase 'Failed'
+            $failedCount++
         }
-        Set-AddonStatusConfigMap -StateKey $addonRepoName -Phase 'Synced'
-        $syncedCount++
     } catch {
         Write-SyncLog "  Failed to sync '$addonRepoName': $_" -IsError
+        
+        if ($currentDigest) {
+            Set-AddonFailureState -AddonName $addonRepoName -CurrentDigest $currentDigest
+            Write-SyncLog "[addon-sync] Update failed for $addonRepoName, entering backoff"
+        }
+
         Set-AddonStatusConfigMap -StateKey $addonRepoName -Phase 'Failed'
         $failedCount++
     } finally {

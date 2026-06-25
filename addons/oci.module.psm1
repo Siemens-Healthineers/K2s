@@ -16,6 +16,7 @@ Media Types:
 - application/vnd.k2s.addon.config.v1+json     - Addon metadata configuration (JSON)
 - application/vnd.k2s.addon.configfiles.v1.tar+gzip - Addon configuration files (addon.manifest.yaml, values.yaml, etc.)
 - application/vnd.k2s.addon.manifests.v1.tar+gzip - Kubernetes manifests
+- application/vnd.k2s.addon.deploy.v1.tar+gzip - Cluster-plane deployable manifests (native Flux/ArgoCD reconcile)
 - application/vnd.cncf.helm.chart.content.v1.tar+gzip - Helm charts
 - application/vnd.k2s.addon.scripts.v1.tar+gzip - Enable/Disable scripts
 - application/vnd.oci.image.layer.v1.tar       - Linux container images
@@ -31,6 +32,7 @@ $script:MediaTypes = @{
     Config      = 'application/vnd.k2s.addon.config.v1+json'
     ConfigFiles = 'application/vnd.k2s.addon.configfiles.v1.tar+gzip'
     Manifests   = 'application/vnd.k2s.addon.manifests.v1.tar+gzip'
+    Deploy      = 'application/vnd.k2s.addon.deploy.v1.tar+gzip'
     Charts      = 'application/vnd.cncf.helm.chart.content.v1.tar+gzip'
     Scripts     = 'application/vnd.k2s.addon.scripts.v1.tar+gzip'
     ImagesLinux = 'application/vnd.oci.image.layer.v1.tar'

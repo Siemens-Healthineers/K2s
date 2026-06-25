@@ -1,0 +1,38 @@
+# SPDX-FileCopyrightText: © 2026 Siemens Healthineers AG
+#
+# SPDX-License-Identifier: MIT
+
+# Per-addon NATIVE deploy Kustomization template — one instance per addon.
+#
+# Applies the addon's cluster-plane Kubernetes resources extracted from the deploy
+# layer (deploy-ocirepository-template.yaml). Flux re-applies on every interval and
+# prunes resources removed from the source, so manual drift (e.g. a deleted
+# Deployment or edited replica count) is corrected automatically WITHOUT manual
+# intervention — this is the self-heal path.
+#
+# Placeholders must be replaced by the consumer before applying with kubectl:
+#   ADDON_NAME_PLACEHOLDER       — addon folder name (e.g. monitoring, rollout)
+#   ADDON_NAMESPACE_PLACEHOLDER  — namespace the addon installs into (e.g. monitoring)
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: addon-deploy-ADDON_NAME_PLACEHOLDER
+  namespace: k2s-addon-sync
+  labels:
+    app.kubernetes.io/name: addon-sync
+    app.kubernetes.io/component: deploy-kustomization
+    app.kubernetes.io/part-of: k2s
+    k2s.io/addon: ADDON_NAME_PLACEHOLDER
+spec:
+  interval: 1m
+  retryInterval: 1m
+  sourceRef:
+    kind: OCIRepository
+    name: addon-deploy-ADDON_NAME_PLACEHOLDER
+  # Root of the extracted deploy layer (cluster-plane manifests only; the host-plane
+  # gitops-sync/ Job and helm chart/ subfolder are excluded at export time).
+  path: ./
+  prune: true
+  wait: true
+  timeout: 10m
+  targetNamespace: ADDON_NAMESPACE_PLACEHOLDER

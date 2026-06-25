@@ -118,6 +118,16 @@ ArgoCD cannot natively watch raw OCI artifact layers (unlike FluxCD's `OCIReposi
 6. After the sync completes, the addon appears in `k2s addons ls`
 7. The **consumer manually enables** the addon with `k2s addons enable <ADDON_NAME>` to deploy its workloads
 
+### ApplyIfEnabled safety behavior
+
+When addon-sync runs with `-ApplyIfEnabled true` for an already-enabled addon:
+
+- If `Backup.ps1` exists and fails, addon-sync aborts the update lifecycle before
+    running `Update.ps1` (safe-fail, no unprotected update).
+- If `Update.ps1` fails and no `Restore.ps1` is available, backup content is retained
+    under `.addon-sync-backups/<addon>/<timestamp>/` for manual recovery.
+- Failures are recorded in digest-keyed backoff state so retries are visible and bounded.
+
 !!! important "Push and enable are manual consumer steps"
     The poller automates the download and extraction of addon artifacts. Pushing artifacts to the registry **and** enabling addons are both deliberate actions taken by the consumer.
 

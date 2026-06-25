@@ -1,0 +1,56 @@
+# SPDX-FileCopyrightText: © 2026 Siemens Healthineers AG
+#
+# SPDX-License-Identifier: MIT
+
+# Per-addon NATIVE ArgoCD Application template — one instance per addon.
+#
+# Uses ArgoCD's native OCI source (oci://) to reconcile the addon's cluster-plane
+# Kubernetes resources directly from the registry. With automated prune + selfHeal,
+# ArgoCD restores manually deleted/edited resources to the desired state WITHOUT
+# manual intervention — the self-heal path. This replaces the CronJob poller for
+# cluster-plane workloads; the poller (addon-sync-poller.yaml) remains responsible
+# only for host-plane content (scripts/config on the Windows filesystem).
+#
+# Requires the argocd-repo-server to accept the K2s deploy layer media type via env
+# ARGOCD_REPO_SERVER_OCI_LAYER_MEDIA_TYPES (see repo-server-oci-media-types.yaml).
+#
+# Placeholders must be replaced by the consumer before applying with kubectl:
+#   ADDON_NAME_PLACEHOLDER       — addon folder name (e.g. monitoring, rollout)
+#   REGISTRY_HOST_PLACEHOLDER    — registry host:port (e.g. k2s.registry.local:30500)
+#   ADDON_NAMESPACE_PLACEHOLDER  — namespace the addon installs into (e.g. monitoring)
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: addon-deploy-ADDON_NAME_PLACEHOLDER
+  # Must match the namespace ArgoCD is installed into (the rollout addon namespace).
+  namespace: rollout
+  labels:
+    app.kubernetes.io/name: addon-sync
+    app.kubernetes.io/component: deploy-application
+    app.kubernetes.io/part-of: k2s
+    k2s.io/addon: ADDON_NAME_PLACEHOLDER
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: default
+  source:
+    repoURL: oci://REGISTRY_HOST_PLACEHOLDER/addons/ADDON_NAME_PLACEHOLDER
+    # Highest matching immutable semver tag; ArgoCD tracks the resolved digest.
+    targetRevision: ">=0.0.0-0"
+    path: .
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: ADDON_NAMESPACE_PLACEHOLDER
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      - ServerSideApply=true
+    retry:
+      limit: 5
+      backoff:
+        duration: 30s
+        factor: 2
+        maxDuration: 5m

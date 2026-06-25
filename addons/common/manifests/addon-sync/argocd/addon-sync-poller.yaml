@@ -75,7 +75,7 @@ spec:
               command:
                 - powershell.exe
                 - -ExecutionPolicy
-                - Bypass
+                - RemoteSigned
                 - -NonInteractive
                 - -File
                 - C:\scripts\Sync-Addons.ps1
