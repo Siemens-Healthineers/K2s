@@ -1491,12 +1491,92 @@ Describe 'Restore-SmbShareAndFolder' -Tag 'unit', 'ci', 'addon', 'storage smb' {
 
 Describe 'Get-SmbHostType' -Tag 'unit', 'ci', 'addon', 'storage smb' {
     BeforeAll {
-        Mock -ModuleName $moduleName Get-AddonConfig { return [PSCustomObject]@{Name = 'addon1'; SmbHostType = 'my-type' } } -ParameterFilter { $Name -match $AddonName }
+        Mock -ModuleName $moduleName Get-AddonConfig { }
     }
 
-    It 'returns SMB host' {
-        InModuleScope $moduleName {
-            Get-SmbHostType | Should -Be 'my-type'
+    It "returns 'windows' unchanged when configured" {
+        InModuleScope -ModuleName $moduleName {
+            Mock Get-AddonConfig { return [PSCustomObject]@{Name = 'addon1'; SmbHostType = 'windows' } }
+            Get-SmbHostType | Should -Be 'windows'
+        }
+    }
+
+    It "returns 'linux' unchanged when configured (protects #2478 Linux-host path)" {
+        InModuleScope -ModuleName $moduleName {
+            Mock Get-AddonConfig { return [PSCustomObject]@{Name = 'addon1'; SmbHostType = 'linux' } }
+            Get-SmbHostType | Should -Be 'linux'
+        }
+    }
+
+    It 'normalizes case and surrounding whitespace of a valid value' {
+        InModuleScope -ModuleName $moduleName {
+            Mock Get-AddonConfig { return [PSCustomObject]@{Name = 'addon1'; SmbHostType = '  Linux  ' } }
+            Get-SmbHostType | Should -Be 'linux'
+        }
+    }
+
+    It "defaults to 'windows' when SmbHostType is empty" {
+        InModuleScope -ModuleName $moduleName {
+            Mock Get-AddonConfig { return [PSCustomObject]@{Name = 'addon1'; SmbHostType = '' } }
+            Get-SmbHostType | Should -Be 'windows'
+        }
+    }
+
+    It "defaults to 'windows' when SmbHostType is whitespace only" {
+        InModuleScope -ModuleName $moduleName {
+            Mock Get-AddonConfig { return [PSCustomObject]@{Name = 'addon1'; SmbHostType = '   ' } }
+            Get-SmbHostType | Should -Be 'windows'
+        }
+    }
+
+    It "defaults to 'windows' when SmbHostType property is null" {
+        InModuleScope -ModuleName $moduleName {
+            Mock Get-AddonConfig { return [PSCustomObject]@{Name = 'addon1'; SmbHostType = $null } }
+            Get-SmbHostType | Should -Be 'windows'
+        }
+    }
+
+    It "defaults to 'windows' when config is null" {
+        InModuleScope -ModuleName $moduleName {
+            Mock Get-AddonConfig { return $null }
+            Get-SmbHostType | Should -Be 'windows'
+        }
+    }
+
+    It "returns 'windows' when configured SmbHostType is invalid (not in windows,linux)" {
+        InModuleScope -ModuleName $moduleName {
+            Mock Get-AddonConfig { return [PSCustomObject]@{Name = 'addon1'; SmbHostType = 'my-type' } }
+            Get-SmbHostType | Should -Be 'windows'
+        }
+    }
+
+    Context '-AllowUnspecified (disable-cleanup path, protects #2605 "remove both host types")' {
+        It "returns the configured value unchanged when valid" {
+            InModuleScope -ModuleName $moduleName {
+                Mock Get-AddonConfig { return [PSCustomObject]@{Name = 'addon1'; SmbHostType = 'linux' } }
+                Get-SmbHostType -AllowUnspecified | Should -Be 'linux'
+            }
+        }
+
+        It "returns empty (not 'windows') when SmbHostType is empty" {
+            InModuleScope -ModuleName $moduleName {
+                Mock Get-AddonConfig { return [PSCustomObject]@{Name = 'addon1'; SmbHostType = '' } }
+                Get-SmbHostType -AllowUnspecified | Should -Be ''
+            }
+        }
+
+        It "returns empty (not 'windows') when config is null" {
+            InModuleScope -ModuleName $moduleName {
+                Mock Get-AddonConfig { return $null }
+                Get-SmbHostType -AllowUnspecified | Should -Be ''
+            }
+        }
+
+        It "returns empty (not 'windows') when configured value is invalid" {
+            InModuleScope -ModuleName $moduleName {
+                Mock Get-AddonConfig { return [PSCustomObject]@{Name = 'addon1'; SmbHostType = 'my-type' } }
+                Get-SmbHostType -AllowUnspecified | Should -Be ''
+            }
         }
     }
 }

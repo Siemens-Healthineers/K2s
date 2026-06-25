@@ -10,7 +10,7 @@ metadata:
   name: otel
   namespace: logging
   labels:
-    helm.sh/chart: fluent-bit-0.57.6
+    helm.sh/chart: fluent-bit-0.57.7
     app.kubernetes.io/name: fluent-bit
     app.kubernetes.io/instance: fluent-bit
     app.kubernetes.io/version: "5.0.7"

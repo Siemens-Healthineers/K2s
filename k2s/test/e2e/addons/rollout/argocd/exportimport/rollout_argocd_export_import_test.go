@@ -202,6 +202,34 @@ var _ = Describe("rollout argocd addon export and import", Ordered, func() {
 			suite.Cluster().ExpectDeploymentToBeAvailable("argocd-repo-server", "rollout")
 			suite.Cluster().ExpectDeploymentToBeAvailable("argocd-server", "rollout")
 		})
+
+		It("can be enabled when only addons/common and addons/rollout are present", func(ctx context.Context) {
+			GinkgoWriter.Println(">>> TEST: can be enabled when only addons/common and addons/rollout are present")
+
+			GinkgoWriter.Println("[Test] Disabling rollout argocd to ensure clean re-enable path")
+			suite.K2sCli().MustExec(ctx, "addons", "disable", "rollout", "argocd", "-o")
+
+			GinkgoWriter.Println("[Test] Staging addon isolation: keeping only common and rollout")
+			restore, err := exportimport.StageAddonIsolation(suite.RootDir(), "rollout")
+			Expect(err).ToNot(HaveOccurred(), "staging addon isolation should succeed")
+			DeferCleanup(func() {
+				Expect(restore()).To(Succeed(), "addon isolation restore must succeed to avoid a partial workspace state")
+			})
+			DeferCleanup(func() {
+				_, _ = suite.K2sCli().Exec(context.Background(), "addons", "disable", "rollout", "argocd", "-o")
+			})
+
+			GinkgoWriter.Println("[Test] Enabling rollout argocd with isolated addons directory")
+			output := suite.K2sCli().MustExec(ctx, "addons", "enable", "rollout", "argocd", "-o")
+
+			GinkgoWriter.Println("[Test] Verifying argocd deployments are available")
+			suite.Cluster().ExpectDeploymentToBeAvailable("argocd-repo-server", "rollout")
+			suite.Cluster().ExpectDeploymentToBeAvailable("argocd-server", "rollout")
+
+			GinkgoWriter.Println("[Test] Verifying no PowerShell module-not-found signatures in output")
+			Expect(output).NotTo(ContainSubstring("no valid module file was found"), "enable output must not contain PowerShell module-not-found error")
+			Expect(output).NotTo(ContainSubstring("was not loaded"), "enable output must not contain PowerShell module-not-loaded error")
+		})
 	})
 
 	Describe("export and import with relative paths", func() {
