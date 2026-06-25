@@ -195,7 +195,9 @@ function Install-NvidiaContainerToolkitOnline {
     if (![string]::IsNullOrWhiteSpace($Proxy)) {
         $curlProxy = "-x $Proxy"
         Write-Log "[GPU] Configuring apt proxy: http://$Proxy"
-        $aptProxyCmd = "printf 'Acquire::http::Proxy `"%s`";\nAcquire::https::Proxy `"%s`";\n' 'http://$Proxy' 'http://$Proxy' | sudo tee /etc/apt/apt.conf.d/95k2s-proxy"
+        $aptProxyConf = "Acquire::http::Proxy `"http://$Proxy`";`nAcquire::https::Proxy `"http://$Proxy`";`n"
+        $aptProxyConfBase64 = [Convert]::ToBase64String([System.Text.Encoding]::UTF8.GetBytes($aptProxyConf))
+        $aptProxyCmd = "echo '$aptProxyConfBase64' | base64 -d | sudo tee /etc/apt/apt.conf.d/95k2s-proxy"
         (Invoke-CmdOnVmViaSSHKey -CmdToExecute $aptProxyCmd -UserName $UserName -IpAddress $IpAddress -IgnoreErrors).Output | Write-Log
     }
 
