@@ -133,16 +133,25 @@ The `delta-manifest.json` file describes the changes between versions. A typical
 - Administrator privileges
 - The delta package ZIP file
 
+### Where the installation ends up
+
+When a delta package is applied, the **extracted delta folder becomes the new active installation folder**. After the update, `setup.json` (`InstallFolder`) points to this folder and the cluster services run from it.
+
+Because of this, extract the delta package to the location where you want the upgraded installation to live — typically a versioned folder such as `C:\k2s\<new-version>`:
+
+- The previous installation folder is **left untouched and retained for rollback**. You may delete it after you have verified the upgrade.
+- If you instead extract the delta on top of the current installation folder (so the extraction folder equals the existing `InstallFolder`), *K2s* falls back to the legacy in-place update and the installation folder does not change.
+
 ### Application Steps
 
-1. Extract the delta package to a temporary location:
+1. Extract the delta package to the desired final installation location (a versioned folder is recommended):
    ```powershell
-   Expand-Archive -Path "k2s-delta-v1.4.0-to-v1.5.0.zip" -DestinationPath "C:\temp\delta"
+   Expand-Archive -Path "k2s-delta-v1.4.0-to-v1.5.0.zip" -DestinationPath "C:\k2s\1.5.0"
    ```
 
 2. Run the upgrade from the extracted delta folder:
    ```console
-   cd C:\temp\delta
+   cd C:\k2s\1.5.0
    k2s system upgrade
    ```
 
@@ -150,6 +159,11 @@ The `delta-manifest.json` file describes the changes between versions. A typical
    ```console
    k2s system status
    ```
+
+   After a successful upgrade, `C:\k2s\1.5.0` is the active installation. The previous installation folder remains on disk for rollback and can be deleted once the upgrade is confirmed.
+
+!!! note "Rollback scope"
+    If the update fails after the installation has been re-homed to the new folder, the Windows-side changes (service configuration, `setup.json`, kubeconfig) are automatically rolled back to the previous installation folder. Cluster/Linux-side changes (kubeadm upgrade, Debian package updates) are **not** reverted — this is consistent with the behavior of a full upgrade.
 
 ## Node Packages
 

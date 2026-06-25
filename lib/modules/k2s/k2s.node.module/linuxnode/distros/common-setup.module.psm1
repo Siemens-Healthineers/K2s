@@ -407,8 +407,13 @@ Function Install-KubernetesArtifacts {
 
 Function Copy-KubernetesImagesFromControlPlaneNodeToWindowsHost {
     param (
-        [string] $TargetPath = $(throw 'Argument missing: TargetPath')
+        [string] $TargetPath = $(throw 'Argument missing: TargetPath'),
+        [string] $K8sVersion = $kubernetesVersion
     )
+
+    if ([string]::IsNullOrWhiteSpace($K8sVersion)) {
+        throw 'K8sVersion is required but was not provided and $kubernetesVersion is not set.'
+    }
 
     $executeRemoteCommand = { 
         param(
@@ -436,31 +441,35 @@ Function Copy-KubernetesImagesFromControlPlaneNodeToWindowsHost {
     else {
         New-Item -Path $imagesPath -ItemType Directory -Force -ErrorAction Stop | Out-Null
         
-        $retrieveImagesCmd = 'sudo crictl images | grep -e "registry.k8s.io" -e "docker.io/flannel" | grep -v "\<none\>" | awk ''{ print $1\":\"$2\" \"$3 }'''
-        $cmdExecutionResult = $(&$executeRemoteCommand -Command $retrieveImagesCmd -ReturnCommandOutput)
+        $kubeadmImagesCmd = "sudo kubeadm config images list --kubernetes-version $K8sVersion | grep -E '^[^[:space:]]+/[^[:space:]]+:[^[:space:]]+$'"
+        $cmdExecutionResult = $(&$executeRemoteCommand -Command $kubeadmImagesCmd -ReturnCommandOutput)
 
         if (!$cmdExecutionResult.Success) {
-            throw 'Could not retrieve images from control plane'
+            throw "Could not retrieve kubeadm image list for Kubernetes version '$K8sVersion' from control plane"
         }
-        $imagesFound = $cmdExecutionResult.Output
+        $imageRefsToExport = @($cmdExecutionResult.Output | ForEach-Object { $_.Trim() } | Where-Object { ![string]::IsNullOrWhiteSpace($_) })
 
-        Write-Host $imagesFound
+        $retrieveAdditionalImagesCmd = 'sudo crictl images | grep -e "docker.io/flannel" | grep -v "\<none\>" | awk ''{ print $1":"$2 }'''
+        $additionalImagesResult = $(&$executeRemoteCommand -Command $retrieveAdditionalImagesCmd -ReturnCommandOutput -IgnoreErrors)
+        if ($additionalImagesResult.Success) {
+            $imageRefsToExport += @($additionalImagesResult.Output | ForEach-Object { $_.Trim() } | Where-Object { ![string]::IsNullOrWhiteSpace($_) })
+        }
+
+        $imageRefsToExport = @($imageRefsToExport | Select-Object -Unique)
+        Write-Host $imageRefsToExport
         
-        if ([string]::IsNullOrWhiteSpace($imagesFound)) {
-            throw "No image matching 'registry.k8s.io or docker.io/flannel' could be found in the control plane."
+        if (@($imageRefsToExport).Count -eq 0) {
+            throw "No kubeadm or flannel images could be found in the control plane."
         }
 
-        foreach ($imageFound in $imagesFound) {
-            $splitImageFoundInfo = $imageFound.Split(' ')
-            $imageFullName = $splitImageFoundInfo[0]
-            $imageId = $splitImageFoundInfo[1]
+        foreach ($imageFullName in $imageRefsToExport) {
             $finalExportPath = "$imagesPath/$($imageFullName.Replace('/','_').Replace(':', '__')).tar"
 
-            $targetFilePath = "/tmp/${imageId}.tar"
-            &$executeRemoteCommand "sudo buildah push ${imageId} oci-archive:${targetFilePath}:${imageFullName} 2>&1"
+            $targetFilePath = "/tmp/$($imageFullName.Replace('/','_').Replace(':', '__')).tar"
+            &$executeRemoteCommand "sudo buildah push ${imageFullName} oci-archive:${targetFilePath}:${imageFullName} 2>&1"
             Copy-FromRemoteComputerViaSSHKey -Source $targetFilePath -Target $finalExportPath -UserName $controlPlaneUserName -IpAddress $controlPlaneIpAddress
             
-            &$executeRemoteCommand "cd /tmp && sudo rm -rf ${imageId}.tar"
+            &$executeRemoteCommand "sudo rm -f ${targetFilePath}"
         } 
     }
 }
@@ -711,6 +720,8 @@ Function Install-Tools {
     &$executeRemoteCommand 'sudo systemctl daemon-reload'
     &$executeRemoteCommand 'sudo systemctl restart crio'
 
+    Install-HelmAndYqOnKubeMaster -UserName $UserName -UserPwd $UserPwd -IpAddress $IpAddress
+
     Write-Log 'Finished installing tools in Linux'
 
 }
@@ -891,7 +902,7 @@ function Get-ClusterIPWebhookImages {
 
     Write-Log 'Get images used by clusterip-webhook'
 
-    &$executeRemoteCommand 'sudo crictl pull shsk2s.azurecr.io/clusterip-webhook:v1.3.0'
+    &$executeRemoteCommand 'sudo crictl pull shsk2s.azurecr.io/clusterip-webhook:v1.3.5'
 }
 
 function AddRegistryMirrors {
@@ -1123,8 +1134,17 @@ Function Deploy-ClusterIPWebhook {
     &$ExecuteRemoteCommand "kubectl apply -f $remoteDir/namespace.yaml" -Retries 3
     &$ExecuteRemoteCommand "kubectl apply -f $remoteDir/rbac.yaml" -Retries 3
 
-    Write-Log '[ClusterIP-Webhook] Applying MutatingWebhookConfiguration'
-    &$ExecuteRemoteCommand "kubectl apply -f $remoteDir/webhook-config.yaml" -Retries 3
+    # Only create webhook config if it doesn't exist yet.
+    # On upgrade, re-applying would reset the caBundle to empty, causing TLS
+    # errors until the init container re-patches it (race condition).
+    Write-Log '[ClusterIP-Webhook] Checking MutatingWebhookConfiguration'
+    &$ExecuteRemoteCommand 'kubectl get mutatingwebhookconfiguration k2s-webhook' -IgnoreErrors
+    if ($LASTEXITCODE -ne 0) {
+        Write-Log '[ClusterIP-Webhook] Creating MutatingWebhookConfiguration'
+        &$ExecuteRemoteCommand "kubectl apply -f $remoteDir/webhook-config.yaml" -Retries 3
+    } else {
+        Write-Log '[ClusterIP-Webhook] MutatingWebhookConfiguration already exists — skipping to preserve caBundle'
+    }
 
     Write-Log '[ClusterIP-Webhook] Applying Deployment and Service'
     &$ExecuteRemoteCommand "kubectl apply -f $remoteDir/deployment.yaml" -Retries 3
@@ -1721,7 +1741,6 @@ function New-VmImageForControlPlaneNode {
             GatewayIpAddress     = $GatewayIpAddress
         }
         Edit-SupportForWSL @supportForWSLParams
-        Install-HelmAndYqOnKubeMaster -UserName $vmUserName -UserPwd $vmUserPwd -IpAddress $IpAddress
 
         if ($EnableDynamicMemory) {
             $dynamicMemoryParams = @{

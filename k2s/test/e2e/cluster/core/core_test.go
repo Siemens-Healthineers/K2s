@@ -4,12 +4,16 @@
 package core
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"strings"
 	"testing"
 	"time"
 
+	contracts "github.com/siemens-healthineers/k2s/internal/contracts/ssh"
+	"github.com/siemens-healthineers/k2s/internal/definitions"
+	"github.com/siemens-healthineers/k2s/internal/providers/ssh"
 	"github.com/siemens-healthineers/k2s/test/framework"
 	"github.com/siemens-healthineers/k2s/test/framework/dsl"
 	"github.com/siemens-healthineers/k2s/test/framework/watcher"
@@ -274,6 +278,29 @@ var _ = Describe("Cluster Core", func() {
 		Describe("System Deployments", func() {
 			It("coredns is available", func() {
 				suite.Cluster().ExpectDeploymentToBeAvailable("coredns", systemNamespace)
+			})
+		})
+
+		Describe("Control Plane Tools", func() {
+			sshExec := func(cmd string) error {
+				var buf bytes.Buffer
+				opts := contracts.ConnectionOptions{
+					IpAddress:         suite.SetupInfo().Config.ControlPlane().IpAddress(),
+					Port:              definitions.SSHDefaultPort,
+					RemoteUser:        definitions.SSHRemoteUser,
+					SshPrivateKeyPath: suite.SetupInfo().Config.Host().SshConfig().CurrentPrivateKeyPath(),
+					Timeout:           time.Minute,
+					StdOutWriter:      &buf,
+				}
+				return ssh.Exec(cmd, opts)
+			}
+
+			It("helm is installed on control-plane", func() {
+				Expect(sshExec("helm version")).To(Succeed())
+			})
+
+			It("yq is installed on control-plane", func() {
+				Expect(sshExec("yq --version")).To(Succeed())
 			})
 		})
 

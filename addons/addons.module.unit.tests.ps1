@@ -1998,4 +1998,3 @@ Describe 'Remove-IngressForNginxGateway' -Tag 'unit', 'ci', 'addon' {
         }
     }
 }
-
