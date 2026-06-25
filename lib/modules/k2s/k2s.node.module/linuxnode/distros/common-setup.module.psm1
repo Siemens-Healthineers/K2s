@@ -828,7 +828,9 @@ function Get-NvidiaGpuDebPackagesFromInternet {
     if (![string]::IsNullOrWhiteSpace($Proxy)) {
         $curlProxy = "-x $Proxy"
         Write-Log "[GpuPkg] Configuring apt proxy: $Proxy"
-        $aptProxyCmd = "printf 'Acquire::http::Proxy `"%s`";\nAcquire::https::Proxy `"%s`";\n' '$Proxy' '$Proxy' | sudo tee /etc/apt/apt.conf.d/95k2s-proxy"
+        $aptProxyConf = "Acquire::http::Proxy `"$Proxy`";`nAcquire::https::Proxy `"$Proxy`";`n"
+        $aptProxyConfBase64 = [Convert]::ToBase64String([System.Text.Encoding]::UTF8.GetBytes($aptProxyConf))
+        $aptProxyCmd = "echo '$aptProxyConfBase64' | base64 -d | sudo tee /etc/apt/apt.conf.d/95k2s-proxy"
         (Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute $aptProxyCmd -RemoteUser $remoteUser -RemoteUserPwd $UserPwd -IgnoreErrors).Output | Write-Log
     }
 
