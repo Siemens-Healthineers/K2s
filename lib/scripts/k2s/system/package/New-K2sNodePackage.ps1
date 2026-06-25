@@ -28,19 +28,20 @@
     File name for the resulting zip archive (must end in .zip).
 
 .PARAMETER Proxy
-    HTTP proxy to use for package downloads inside the VM. For node package creation, use
-    the local cluster proxy http://172.19.1.1:8181.
+    Optional HTTP proxy to use for package downloads inside the VM. When omitted, the
+    local cluster transparent proxy (http://<KubeSwitchIP>:8181, e.g. http://172.19.1.1:8181)
+    is used by default. Node package creation requires an installed and running K2s cluster.
 
 .PARAMETER ShowLogs
     When set, all log output is also printed to the console.
 
 .EXAMPLE
-    # Download Debian 12 node packages
-    k2s system package --node-package --os debian12 --target-dir "C:\out" --name "debian12-node.zip" -p http://172.19.1.1:8181
+    # Download Debian 12 node packages (uses the cluster proxy by default)
+    k2s system package --node-package --os debian12 --target-dir "C:\out" --name "debian12-node.zip"
 
 .EXAMPLE
-    # Download Debian 13 node packages through the local cluster proxy
-    k2s system package --node-package --os debian13 --target-dir "C:\out" --name "debian13-node.zip" -p http://172.19.1.1:8181
+    # Download Debian 13 node packages (uses the cluster proxy by default)
+    k2s system package --node-package --os debian13 --target-dir "C:\out" --name "debian13-node.zip"
 #>
 
 param (
