@@ -21,7 +21,7 @@ require (
 	github.com/hectane/go-acl v1.0.0
 	github.com/kdomanski/iso9660 v0.4.0
 	github.com/onsi/ginkgo/v2 v2.32.0
-	github.com/onsi/gomega v1.42.0
+	github.com/onsi/gomega v1.42.1
 	github.com/ory/hydra-client-go v1.11.8
 	github.com/pkg/errors v0.9.1
 	github.com/pkg/sftp v1.13.10
@@ -143,7 +143,7 @@ require (
 	golang.org/x/arch v0.22.0 // indirect
 	golang.org/x/exp v0.0.0-20250819193227-8b4c13bb791b // indirect
 	golang.org/x/mod v0.36.0 // indirect
-	golang.org/x/net v0.55.0 // indirect
+	golang.org/x/net v0.56.0 // indirect
 	golang.org/x/oauth2 v0.34.0 // indirect
 	golang.org/x/sync v0.21.0 // indirect
 	golang.org/x/time v0.14.0 // indirect
