@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: © 2025 Siemens Healthineers AG
+# SPDX-FileCopyrightText: © 2026 Siemens Healthineers AG
 # SPDX-License-Identifier: MIT
 
 #Requires -RunAsAdministrator
@@ -39,44 +39,44 @@ Param(
     [parameter(Mandatory = $false, HelpMessage = 'Message type of the encoded structure; applies only if EncodeStructuredOutput was set to $true')]
     [string] $MessageType
 )
-
+$script = $MyInvocation.MyCommand.Name
 $infraModule = "$PSScriptRoot/../../../lib/modules/k2s/k2s.infra.module/k2s.infra.module.psm1"
 $clusterModule = "$PSScriptRoot/../../../lib/modules/k2s/k2s.cluster.module/k2s.cluster.module.psm1"
 $addonsModule = "$PSScriptRoot\..\..\addons.module.psm1"
 $validationModule = "$PSScriptRoot\..\storage-validation.module.psm1"
-
+$addonName = 'storage'
 Import-Module $infraModule, $clusterModule, $addonsModule, $validationModule
 
 Initialize-Logging -ShowLogs:$ShowLogs
 
-Write-Log "[Ceph] Enabling Ceph CSI storage addon" -Console
-
-# If no config object is provided by the caller, fall back to the local Ceph config file.
-if ($Config -eq $null) {
-  $cephConfigPath = "$PSScriptRoot\config\ceph-config.json"
-  if (Test-Path -LiteralPath $cephConfigPath) {
-    try {
-      $Config = Get-Content -LiteralPath $cephConfigPath -Raw | ConvertFrom-Json
-      Write-Log "[Ceph] Loaded configuration from '$cephConfigPath'" -Console
-    }
-    catch {
-      Write-Log "[Ceph] WARNING: Failed to parse config file '$cephConfigPath'. Falling back to CLI flags only. Error: $($_.Exception.Message)" -Console
-    }
-  }
-}
+# get addon name from folder path
+$addonName = Get-AddonNameFromFolderPath -BaseFolderPath $PSScriptRoot
 
 # Validate no conflicting storage implementation is enabled
 $conflictError = Test-ConflictingStorageImplementation -RequestedImplementation 'ceph'
 if ($conflictError) {
-    Write-Log "[Ceph] ERROR: $conflictError" -Console -Error
+    Write-Log "[$script] ERROR: $conflictError" -Console -Error
     if ($EncodeStructuredOutput -eq $true) {
         Send-ToCli -MessageType $MessageType -Message @{Error = (New-Error -Code 'storage-conflict' -Message $conflictError) }
+        return
     }
     exit 1
 }
 
-# Get addon name
-$addonName = Get-AddonNameFromFolderPath -BaseFolderPath $PSScriptRoot
+if ((Test-IsAddonEnabled -Addon ([pscustomobject] @{Name = $AddonName })) -eq $true) {
+    $err = New-Error -Severity Warning -Code (Get-ErrCodeAddonAlreadyEnabled) -Message "Addon '$AddonName' is already enabled, nothing to do." 
+    return @{Error = $err }
+}
+
+$setupInfo = Get-SetupInfo
+
+if ($setupInfo.Name -ne 'k2s') {
+    $err = New-Error -Severity Warning -Code (Get-ErrCodeWrongSetupType) -Message "Addon '$AddonName' can only be enabled for 'k2s' setup type."  
+    return @{Error = $err }
+}
+
+Write-Log "[Ceph] Enabling Ceph storage addon" -Console
+
 
 function Convert-ToYamlSingleQuoted {
   param(
@@ -96,14 +96,44 @@ function New-CephStructuredError {
   return (New-Error -Code 'addon-enable-failed' -Message $Message)
 }
 
-# (no polling helpers needed — kubectl wait is used directly below)
+function Wait-ForPodPrefixReady {
+  param(
+    [Parameter(Mandatory = $true)]
+    [string]$Namespace,
+    [Parameter(Mandatory = $true)]
+    [string]$PodPrefix,
+    [int]$TimeoutSeconds = 300
+  )
 
-# Resolve config values (config file values override CLI parameters)
+  $deadline = (Get-Date).AddSeconds($TimeoutSeconds)
+  do {
+    $podNames = (& kubectl get pods -n $Namespace -o name --ignore-not-found 2>$null)
+    $matchingPods = @($podNames -split "`r?`n" | Where-Object { $_ -like "pod/$PodPrefix*" -and $_ -ne '' })
+    if ($matchingPods.Count -gt 0) {
+      foreach ($pod in $matchingPods) {
+        & kubectl wait --for=condition=Ready $pod -n $Namespace --timeout=60s 2>&1 | Write-Log
+        if ($LASTEXITCODE -ne 0) {
+          return $false
+        }
+      }
+      return $true
+    }
+
+    Start-Sleep -Seconds 2
+  } while ((Get-Date) -lt $deadline)
+
+  return $false
+}
+
+function Read-ValidateStorageConfig {
+param (
+		[pscustomobject]$Config
+	)
 $cephUser = 'client.admin'
 $clusterId = 'k2s-ceph'
 $cephfsFilesystem = 'cephfs'
 
-if ($Config -ne $null) {
+if ($null -ne $Config) {
   if (-not [string]::IsNullOrWhiteSpace($Config.monitorEndpoints)) {
     Write-Log "[Ceph] Using monitor endpoints from addon config" -Console
     $MonitorEndpoints = $Config.monitorEndpoints
@@ -135,7 +165,6 @@ if ($Config -ne $null) {
 
 Write-Log "[Ceph] Validating Ceph configuration" -Console
 
-# Validate inputs
 if (-not $MonitorEndpoints) {
     Write-Log "[Ceph] ERROR: Monitor endpoints are required. Provide via --monitorEndpoints flag or config file" -Console -Error
     if ($EncodeStructuredOutput -eq $true) {
@@ -152,84 +181,42 @@ if (-not $AdminKey) {
     exit 1
 }
 
+$AdminKey = $AdminKey.Trim()
+if ([string]::IsNullOrWhiteSpace($AdminKey)) {
+  Write-Log "[Ceph] ERROR: Admin keyring resolved to empty value after trimming" -Console -Error
+  if ($EncodeStructuredOutput -eq $true) {
+    Send-ToCli -MessageType $MessageType -Message @{Error = (New-CephStructuredError -Message "Admin keyring resolved to empty value") }
+  }
+  exit 1
+}
+
 Write-Log "[Ceph] Monitor endpoints: $MonitorEndpoints" -Console
 Write-Log "[Ceph] CephFS pool: $CephfsPool" -Console
 Write-Log "[Ceph] Ceph user: $cephUser" -Console
 Write-Log "[Ceph] Ceph cluster ID: $clusterId" -Console
 Write-Log "[Ceph] CephFS filesystem: $cephfsFilesystem" -Console
-
-# Check cluster availability
-Write-Log "[Ceph] Checking cluster status" -Console
-$systemError = Test-SystemAvailability -Structured
-if ($systemError) {
-    Write-Log "[Ceph] ERROR: Cluster not available: $systemError" -Console -Error
-    if ($EncodeStructuredOutput -eq $true) {
-        Send-ToCli -MessageType $MessageType -Message @{Error = $systemError }
-    }
-    exit 1
 }
 
-# Safety net: if a prior disable is still in progress, wait for its resources to be gone.
-Write-Log "[Ceph] Checking for terminating Ceph resources from previous disable" -Console
-$waitTargets = @(
-    'namespace/ceph-csi-operator-system',
-    'namespace/ceph-csi-cephfs',
-    'crd/cephconnections.csi.ceph.io',
-    'crd/clientprofiles.csi.ceph.io',
-    'crd/clientprofilemappings.csi.ceph.io'
-)
-foreach ($target in $waitTargets) {
-    $kind, $name = $target -split '/', 2
-    $exists = (& kubectl get $kind $name --ignore-not-found -o name 2>$null)
-    if ([string]::IsNullOrWhiteSpace($exists)) { continue }
-
-    Write-Log "[Ceph] Waiting for $target to be deleted" -Console
-    & kubectl wait --for=delete $target --timeout=120s 2>$null
-    $still = (& kubectl get $kind $name --ignore-not-found -o name 2>$null)
-    if (-not [string]::IsNullOrWhiteSpace($still)) {
-        $waitErrMsg = "$target is still present after waiting 120s. Please check for stuck finalizers and retry."
-        Write-Log "[Ceph] ERROR: $waitErrMsg" -Console -Error
-        if ($EncodeStructuredOutput -eq $true) {
-            Send-ToCli -MessageType $MessageType -Message @{Error = (New-CephStructuredError -Message $waitErrMsg) }
-        }
-        exit 1
-    }
-}
+Read-ValidateStorageConfig -Config $Config
 
 # Create Ceph CSI namespaces
-Write-Log "[Ceph] Creating Ceph CSI namespaces" -Console
-$null = kubectl create namespace ceph-csi-cephfs --dry-run=client -o yaml | kubectl apply -f -
+# Write-Log "[Ceph] Creating Ceph CSI namespaces" -Console
+# $null = kubectl create namespace ceph-csi-cephfs --dry-run=client -o yaml | kubectl apply -f -
 
-if ($LASTEXITCODE -ne 0) {
-    Write-Log "[Ceph] ERROR: Failed to create namespaces" -Console -Error
-    if ($EncodeStructuredOutput -eq $true) {
-        Send-ToCli -MessageType $MessageType -Message @{Error = (New-CephStructuredError -Message "Failed to create namespaces") }
-    }
-    exit 1
-}
+# if ($LASTEXITCODE -ne 0) {
+#     Write-Log "[Ceph] ERROR: Failed to create namespaces" -Console -Error
+#     if ($EncodeStructuredOutput -eq $true) {
+#         Send-ToCli -MessageType $MessageType -Message @{Error = (New-CephStructuredError -Message "Failed to create namespaces") }
+#     }
+#     exit 1
+# }
 
-Write-Log "[Ceph] Namespaces created successfully" -Console
+# Write-Log "[Ceph] Namespaces created successfully" -Console
 
 # Apply Ceph CSI operator manifests (CRDs first, then RBAC/operator resources)
 $cephManifestsDir = "$PSScriptRoot\manifests"
-$cephCrdsManifest = "$cephManifestsDir\crds\crd.yaml"
+$cephCrdsManifest = "$cephManifestsDir\crds\ceph-crd.yaml"
 $cephKustomization = "$cephManifestsDir\kustomization.yaml"
-
-if (-not (Test-Path -Path $cephCrdsManifest)) {
-  Write-Log "[Ceph] ERROR: CRD manifest not found at $cephCrdsManifest" -Console -Error
-  if ($EncodeStructuredOutput -eq $true) {
-    Send-ToCli -MessageType $MessageType -Message @{Error = (New-CephStructuredError -Message "Ceph CRD manifest not found") }
-  }
-  exit 1
-}
-
-if (-not (Test-Path -Path $cephKustomization)) {
-  Write-Log "[Ceph] ERROR: Kustomization manifest not found at $cephKustomization" -Console -Error
-  if ($EncodeStructuredOutput -eq $true) {
-    Send-ToCli -MessageType $MessageType -Message @{Error = (New-CephStructuredError -Message "Ceph kustomization manifest not found") }
-  }
-  exit 1
-}
 
 Write-Log "[Ceph] Applying Ceph CSI CRDs" -Console
 & kubectl apply --server-side -f "$cephCrdsManifest" 2>&1 | Write-Log
@@ -258,7 +245,6 @@ $kustomizationWorkDir = Join-Path ([System.IO.Path]::GetTempPath()) ("k2s-ceph-k
 New-Item -Path $kustomizationWorkDir -ItemType Directory -ErrorAction Stop | Out-Null
 Copy-Item -Path (Join-Path $cephManifestsDir '*') -Destination $kustomizationWorkDir -Recurse -Force
 
-$cephClientId = $cephUser -replace '^client\.', ''
 $monitorList = @()
 foreach ($monitor in ($MonitorEndpoints -split ',')) {
     $trimmed = $monitor.Trim()
@@ -312,9 +298,8 @@ metadata:
   name: ceph-secret
   namespace: ceph-csi-cephfs
 type: Opaque
-data:
-  key: $AdminKey
 stringData:
+  key: $AdminKey
   admin_id: $cephUser
   monitors: "$MonitorEndpoints"
 "@
@@ -367,6 +352,37 @@ if ($LASTEXITCODE -ne 0) {
 }
 
 Write-Log "[Ceph] StorageClasses created successfully" -Console
+
+# Wait for Ceph CSI workloads to become ready before reporting success.
+$allReady = $true
+try {
+  Write-Log "[Ceph] Waiting for Ceph operator pod readiness" -Console
+  $operatorReady = Wait-ForPodCondition -Condition Ready -Label 'control-plane=ceph-csi-op-controller-manager' -Namespace 'ceph-csi-operator-system' -TimeoutSeconds 300
+  $allReady = ($allReady -and $operatorReady)
+
+  Write-Log "[Ceph] Waiting for CephFS CSI controller pod readiness" -Console
+  $cephfsCtrlReady = Wait-ForPodPrefixReady -Namespace 'ceph-csi-operator-system' -PodPrefix 'cephfs.csi.ceph.com-ctrlplugin-' -TimeoutSeconds 300
+
+  Write-Log "[Ceph] Waiting for CephFS CSI nodeplugin pod readiness" -Console
+  $cephfsNodeReady = Wait-ForPodPrefixReady -Namespace 'ceph-csi-operator-system' -PodPrefix 'cephfs.csi.ceph.com-nodeplugin-' -TimeoutSeconds 300
+
+  $allReady = ($allReady -and $cephfsCtrlReady -and $cephfsNodeReady)
+}
+catch {
+  $allReady = $false
+  Write-Log "[Ceph] ERROR: Pod readiness wait failed: $($_.Exception.Message)" -Console -Error
+}
+
+if (-not $allReady) {
+  $readyErrMsg = 'Ceph CSI pods did not become Ready within the timeout. Check kubectl get pods -A and pod logs for details.'
+  Write-Log "[Ceph] ERROR: $readyErrMsg" -Console -Error
+  if ($EncodeStructuredOutput -eq $true) {
+    Send-ToCli -MessageType $MessageType -Message @{Error = (New-CephStructuredError -Message $readyErrMsg) }
+  }
+  exit 1
+}
+
+Write-Log "[Ceph] Ceph CSI pods are Ready" -Console
 
 # Mark Ceph as enabled and SMB as disabled in registry
 Update-StorageImplementationRegistry -Implementation 'ceph' -Enabled $true

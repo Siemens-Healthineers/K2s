@@ -40,153 +40,47 @@ $addonsModule = "$PSScriptRoot\..\..\addons.module.psm1"
 $validationModule = "$PSScriptRoot\..\storage-validation.module.psm1"
 
 Import-Module $infraModule, $clusterModule, $addonsModule, $validationModule
-
 Initialize-Logging -ShowLogs:$ShowLogs
-
-function Clear-CephFinalizers {
-    # Proactively removes all operator-managed finalizers from Ceph CRD instances
-    # and the CRDs themselves so that subsequent deletes never block.
-    param(
-        [string[]]$Namespaces,
-        [string[]]$CrdNames
-    )
-
-    foreach ($ns in $Namespaces) {
-        $nsExists = (& kubectl get namespace $ns --ignore-not-found -o name 2>$null)
-        if ([string]::IsNullOrWhiteSpace($nsExists)) { continue }
-
-        foreach ($crd in $CrdNames) {
-            $instances = (& kubectl get $crd -n $ns -o name --ignore-not-found 2>$null)
-            foreach ($instance in ($instances -split "`r?`n" | Where-Object { $_ -ne '' })) {
-                & kubectl patch $instance -n $ns --type=merge -p '{"metadata":{"finalizers":null}}' 2>$null | Out-Null
-            }
-        }
-    }
-
-    foreach ($crd in $CrdNames) {
-        & kubectl patch crd $crd --type=merge -p '{"metadata":{"finalizers":null}}' 2>$null | Out-Null
-    }
-}
-
-function Remove-NamespaceFinalizer {
-    # Last-resort: force-finalize a namespace that is stuck in Terminating.
-    param([string]$Namespace)
-
-    $nsJson = (& kubectl get namespace $Namespace -o json 2>$null)
-    if ([string]::IsNullOrWhiteSpace($nsJson)) { return }
-
-    $tmpFile = Join-Path ([System.IO.Path]::GetTempPath()) ("k2s-ceph-ns-$Namespace.json")
-    try {
-        $obj = $nsJson | ConvertFrom-Json
-        $obj.spec.finalizers = @()
-        $obj | ConvertTo-Json -Depth 100 | Out-File -FilePath $tmpFile -Encoding Ascii
-        & kubectl replace --raw "/api/v1/namespaces/$Namespace/finalize" -f $tmpFile 2>&1 | Write-Log
-    }
-    finally {
-        Remove-Item $tmpFile -Force -ErrorAction SilentlyContinue
-    }
-}
-
-Write-Log "[Ceph] Disabling Ceph CSI storage addon" -Console
-
+Write-Log 'Checking cluster status' -Console
+# get addon name from folder path
 $addonName = Get-AddonNameFromFolderPath -BaseFolderPath $PSScriptRoot
 
-# Check for PersistentVolumes if no flag provided
-if (-not $Force -and -not $Keep) {
-    Write-Log "[Ceph] Checking for PersistentVolumes" -Console
-    $pvs = @(kubectl get pv -o json 2>$null | ConvertFrom-Json -ErrorAction SilentlyContinue | Select-Object -ExpandProperty items | Where-Object { $_.spec.storageClassName -like "ceph-*" } 2>$null)
-    
-    if ($pvs.Count -gt 0) {
-        Write-Log "[Ceph] Found $($pvs.Count) PersistentVolumes using Ceph storage" -Console
-        Write-Log "[Ceph] Options: 1) Delete all data, 2) Keep all data, 3) Cancel" -Console
-        
-        $choice = $null
-        while (-not $choice) {
-            $choice = Read-Host "Enter your choice (1/2/3)"
-            if ($choice -eq "1") {
-                $Force = $true
-            }
-            elseif ($choice -eq "2") {
-                $Keep = $true
-            }
-            elseif ($choice -eq "3") {
-                Write-Log "[Ceph] Addon disable cancelled" -Console
-                if ($EncodeStructuredOutput -eq $true) {
-                    Send-ToCli -MessageType $MessageType -Message @{Error = (New-Error -Code 'op-cancelled-by-user' -Message "Operation cancelled by user") }
-                }
-                return
-            }
-            else {
-                Write-Log "[Ceph] Invalid choice. Please enter 1, 2, or 3." -Console -Error
-                $choice = $null
-            }
-        }
+$systemError = Test-SystemAvailability -Structured
+if ($systemError) {
+    if ($EncodeStructuredOutput -eq $true) {
+        Send-ToCli -MessageType $MessageType -Message @{Error = $systemError }
+        return
     }
+    Write-Log $systemError.Message -Error
+    exit 1
 }
 
-$cephManifestsDir = "$PSScriptRoot\manifests"
-$cephKustomization = "$cephManifestsDir\kustomization.yaml"
-$cephCrdsManifest = "$cephManifestsDir\crds\crd.yaml"
-$cephNamespaces = @('ceph-csi-operator-system', 'ceph-csi-cephfs')
-$legacyCephNamespaces = @('ceph-csi-rbd')
-$cephCrds = @('cephconnections.csi.ceph.io', 'clientprofiles.csi.ceph.io', 'clientprofilemappings.csi.ceph.io')
-
-# Clear operator-managed finalizers before any deletes so nothing can block
-Write-Log "[Ceph] Clearing Ceph operator finalizers" -Console
-Clear-CephFinalizers -Namespaces $cephNamespaces -CrdNames $cephCrds
-
-Write-Log "[Ceph] Removing Ceph CSI operator manifests" -Console
-if (Test-Path -Path $cephKustomization) {
-    $kustomizationWorkDir = Join-Path ([System.IO.Path]::GetTempPath()) ("k2s-ceph-kustomize-delete-" + [guid]::NewGuid().ToString())
-    New-Item -Path $kustomizationWorkDir -ItemType Directory -ErrorAction Stop | Out-Null
-    Copy-Item -Path (Join-Path $cephManifestsDir '*') -Destination $kustomizationWorkDir -Recurse -Force
-
-    $runtimeKustomization = @(
-        'apiVersion: kustomize.config.k8s.io/v1beta1',
-        'kind: Kustomization',
-        '',
-        'resources:',
-        '  - csi-rbac.yaml',
-        '  - operator.yaml',
-        '  - cephfs-driver.yaml',
-        '  - ceph-connection.yaml',
-        '  - client-profile.yaml'
-    )
-    Set-Content -Path (Join-Path $kustomizationWorkDir 'kustomization.yaml') -Value ($runtimeKustomization -join "`r`n") -Encoding UTF8
-
-    & kubectl delete -k "$kustomizationWorkDir" --ignore-not-found=true 2>&1 | Write-Log
-    Remove-Item -Path $kustomizationWorkDir -Recurse -Force -ErrorAction SilentlyContinue
-}
-else {
-    Write-Log "[Ceph] WARNING: Ceph kustomization not found at $cephKustomization" -Console
-}
-
-Write-Log "[Ceph] Removing Ceph CSI CRDs" -Console
-if (Test-Path -Path $cephCrdsManifest) {
-    & kubectl delete -f "$cephCrdsManifest" --ignore-not-found=true 2>&1 | Write-Log
-}
-else {
-    Write-Log "[Ceph] WARNING: Ceph CRD manifest not found at $cephCrdsManifest" -Console
-}
-
-Write-Log "[Ceph] Removing Ceph CSI provisioners" -Console
-& kubectl delete namespace $cephNamespaces --ignore-not-found=true 2>&1 | Write-Log
-& kubectl delete namespace $legacyCephNamespaces --ignore-not-found=true 2>&1 | Write-Log
-if (-not $Keep) {
-    & kubectl delete storageclass ceph-rbd ceph-cephfs --ignore-not-found=true 2>$null | Out-Null
-}
-
-# Wait for namespaces to be fully gone; if a namespace controller is still stuck,
-# force-clear its finalizer as a last resort.
-$nsArgs = ($cephNamespaces + $legacyCephNamespaces) | ForEach-Object { "namespace/$_" }
-& kubectl wait --for=delete $nsArgs --timeout=120s 2>$null
-foreach ($ns in ($cephNamespaces + $legacyCephNamespaces)) {
-    $still = (& kubectl get namespace $ns --ignore-not-found -o name 2>$null)
-    if (-not [string]::IsNullOrWhiteSpace($still)) {
-        Write-Log "[Ceph] Namespace '$ns' still terminating; forcing namespace finalizer removal" -Console
-        Remove-NamespaceFinalizer -Namespace $ns
+Write-Log 'Check whether storage ceph addon is already disabled'
+if ($null -eq (Invoke-Kubectl -Params 'get', 'namespace', 'ceph-csi-operator-system', '--ignore-not-found').Output -and (Test-IsAddonEnabled -Addon ([pscustomobject] @{Name = 'storage'; Implementation = 'ceph' })) -ne $true) {
+    $errMsg = "Addon 'storage ceph' is already disabled, nothing to do."
+    if ($EncodeStructuredOutput -eq $true) {
+        $err = New-Error -Severity Warning -Code (Get-ErrCodeAddonAlreadyDisabled) -Message $errMsg
+        Send-ToCli -MessageType $MessageType -Message @{Error = $err }
+        return
     }
+    Write-Log $errMsg -Error
+    exit 1
 }
+
+Write-Log 'Uninstalling storage ceph' -Console
+
+$CrdsDirectory = "$PSScriptRoot\manifests\crds"
+(Invoke-Kubectl -Params 'delete', '-f', $CrdsDirectory).Output | Write-Log
+
+$cephStorageYamlDir = "$PSScriptRoot\manifests"
+(Invoke-Kubectl -Params 'delete', '-k', $cephStorageYamlDir, '--ignore-not-found').Output | Write-Log
+
+(Invoke-Kubectl -Params 'delete', 'namespace', 'ceph-csi-operator-system', '--ignore-not-found').Output | Write-Log
+
+(Invoke-Kubectl -Params 'delete', 'namespace', 'ceph-csi-cephfs', '--ignore-not-found').Output | Write-Log
+
+$gatewayApiCrds = "$PSScriptRoot\common\manifests\crds\crd.yaml"
+(Invoke-Kubectl -Params 'delete', '--ignore-not-found', '--timeout=30s', '-f', $gatewayApiCrds).Output | Write-Log
 
 # Mark Ceph as disabled in registry
 Update-StorageImplementationRegistry -Implementation 'ceph' -Enabled $false
@@ -196,7 +90,7 @@ Write-Log "[Ceph] Addon disabled successfully" -Console
 if ($EncodeStructuredOutput -eq $true) {
     Send-ToCli -MessageType $MessageType -Message @{
         Error = $null
-        Status = "Ceph CSI addon disabled successfully"
+        Status = "Storage ceph addon disabled successfully"
         AddonName = $addonName
         DataAction = if ($Force) { "deleted" } elseif ($Keep) { "preserved" } else { "prompted" }
     }
