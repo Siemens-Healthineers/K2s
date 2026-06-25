@@ -824,11 +824,12 @@ function Get-NvidiaGpuDebPackagesFromInternet {
 
     Write-Log '[GpuPkg] Downloading NVIDIA Container Toolkit packages'
 
-    $proxyEnv = ''
     $curlProxy = ''
     if (![string]::IsNullOrWhiteSpace($Proxy)) {
-        $proxyEnv = "http_proxy=$Proxy https_proxy=$Proxy "
         $curlProxy = "-x $Proxy"
+        Write-Log "[GpuPkg] Configuring apt proxy: $Proxy"
+        $aptProxyCmd = "printf 'Acquire::http::Proxy `"%s`";\nAcquire::https::Proxy `"%s`";\n' '$Proxy' '$Proxy' | sudo tee /etc/apt/apt.conf.d/95k2s-proxy"
+        (Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute $aptProxyCmd -RemoteUser $remoteUser -RemoteUserPwd $UserPwd -IgnoreErrors).Output | Write-Log
     }
 
     # Add NVIDIA Container Toolkit repository
@@ -836,8 +837,7 @@ function Get-NvidiaGpuDebPackagesFromInternet {
     Write-Log '[GpuPkg] Setting up NVIDIA repository...'
     (Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute $repoSetupCmd -RemoteUser $remoteUser -RemoteUserPwd $UserPwd -IgnoreErrors).Output | Write-Log
 
-    # Update apt
-    $updateCmd = "${proxyEnv}sudo apt-get update"
+    $updateCmd = 'sudo apt-get update'
     (Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute $updateCmd -RemoteUser $remoteUser -RemoteUserPwd $UserPwd -IgnoreErrors).Output | Write-Log
 
     # Create target directory
@@ -847,11 +847,11 @@ function Get-NvidiaGpuDebPackagesFromInternet {
     foreach ($pkg in $gpuPackages) {
         Write-Log "[GpuPkg] Downloading GPU package: $pkg"
         # Download the package
-        $downloadCmd = "cd $TargetPath && ${proxyEnv}sudo apt-get download $pkg 2>&1"
+        $downloadCmd = "cd $TargetPath && sudo apt-get download $pkg 2>&1"
         (Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute $downloadCmd -RemoteUser $remoteUser -RemoteUserPwd $UserPwd -IgnoreErrors).Output | Write-Log
         
         # Download dependencies
-        $depsCmd = "cd $TargetPath && ${proxyEnv}sudo DEBIAN_FRONTEND=noninteractive apt-get --reinstall install -y --no-install-recommends --no-install-suggests --simulate ./${pkg}*.deb 2>/dev/null | grep 'Inst ' | cut -d ' ' -f 2 | sort -u | xargs -r ${proxyEnv}sudo apt-get download 2>&1 || true"
+        $depsCmd = "cd $TargetPath && sudo DEBIAN_FRONTEND=noninteractive apt-get --reinstall install -y --no-install-recommends --no-install-suggests --simulate ./${pkg}*.deb 2>/dev/null | grep 'Inst ' | cut -d ' ' -f 2 | sort -u | xargs -r sudo apt-get download 2>&1 || true"
         (Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute $depsCmd -RemoteUser $remoteUser -RemoteUserPwd $UserPwd -IgnoreErrors).Output | Write-Log
     }
 
@@ -880,7 +880,8 @@ function Get-GpuContainerImages {
         [string]$UserName = $(throw 'Argument missing: UserName'),
         [string]$UserPwd = $(throw 'Argument missing: UserPwd'),
         [ValidateScript({ Get-IsValidIPv4Address($_) })]
-        [string]$IpAddress = $(throw 'Argument missing: IpAddress')
+        [string]$IpAddress = $(throw 'Argument missing: IpAddress'),
+        [string]$Proxy = ''
     )
     $remoteUser = "$UserName@$IpAddress"
     $remoteUserPwd = $UserPwd
@@ -891,8 +892,16 @@ function Get-GpuContainerImages {
 
     Write-Log '[GpuImg] Pulling GPU container images (device plugin, DCGM exporter)'
 
-    &$executeRemoteCommand 'sudo buildah pull nvcr.io/nvidia/k8s-device-plugin:v0.19.1'
-    &$executeRemoteCommand 'sudo buildah pull nvcr.io/nvidia/k8s/dcgm-exporter:4.5.2-4.8.1-ubi9'
+    # Proxy env vars must be placed AFTER 'sudo': sudo sanitizes the environment and drops
+    # variables set as a prefix before it, which would leave buildah without a proxy and make
+    # it fail to resolve the external registry (nvcr.io).
+    $proxyEnv = ''
+    if (![string]::IsNullOrWhiteSpace($Proxy)) {
+        $proxyEnv = "http_proxy=$Proxy https_proxy=$Proxy HTTP_PROXY=$Proxy HTTPS_PROXY=$Proxy "
+    }
+
+    &$executeRemoteCommand "sudo ${proxyEnv}buildah pull nvcr.io/nvidia/k8s-device-plugin:v0.19.1"
+    &$executeRemoteCommand "sudo ${proxyEnv}buildah pull nvcr.io/nvidia/k8s/dcgm-exporter:4.5.2-4.8.1-ubi9"
 
     Write-Log '[GpuImg] Finished pulling GPU container images'
 }
