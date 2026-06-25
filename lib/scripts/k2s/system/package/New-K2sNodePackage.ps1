@@ -288,7 +288,8 @@ try {
         Get-GpuContainerImages `
             -UserName  $sshUser `
             -UserPwd   $sshPwd `
-            -IpAddress $guestIp
+            -IpAddress $guestIp `
+            -Proxy     $Proxy
     }
 
     (Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute "mkdir -p $remoteImagesExportDir" -RemoteUser $remoteUser -RemoteUserPwd $sshPwd -IgnoreErrors).Output | Write-Log
