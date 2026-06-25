@@ -705,10 +705,8 @@ function Copy-ToRemoteComputerViaUserAndPwd($Source, $Target, $IpAddress,
     [Parameter(Mandatory = $false)]
     [uint16]$Retries = 3,
     [Parameter(Mandatory = $false)]
-    [uint16]$RetryDelay = 2,
-    [Parameter(Mandatory = $false)]
-    [uint16]$TimeoutMinutes = 30) {
-    Write-Log "Copying '$Source' to '$Target', ignoring errors: '$IgnoreErrors', timeout: ${TimeoutMinutes}min"
+    [uint16]$RetryDelay = 2) {
+    Write-Log "Copying '$Source' to '$Target', ignoring errors: '$IgnoreErrors'"
 
     $attempt = 0
     $output = $null

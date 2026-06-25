@@ -666,8 +666,8 @@ Function New-RootfsForWSL {
 
     $target = '/tmp/rootfs/'
     $filename = Split-Path $VhdxFile -Leaf
-    # Use longer timeout for large VHDX file transfer (3GB+), disable retries since we want to wait
-    Copy-ToRemoteComputerViaUserAndPwd -Source $VhdxFile -Target $target -IpAddress $IpAddress -Retries 2 -TimeoutMinutes 60
+    # Allow a couple of retries for the large VHDX file transfer (3GB+) to tolerate transient SCP failures.
+    Copy-ToRemoteComputerViaUserAndPwd -Source $VhdxFile -Target $target -IpAddress $IpAddress -Retries 2
 
     &$executeRemoteCommand "cd /tmp/rootfs && sudo mkdir mntfs"
     &$executeRemoteCommand "cd /tmp/rootfs && sudo modprobe nbd"
