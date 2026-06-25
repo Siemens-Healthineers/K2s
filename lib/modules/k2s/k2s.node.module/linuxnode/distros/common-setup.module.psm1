@@ -556,6 +556,7 @@ Function Remove-KubernetesArtifacts {
     &$executeRemoteCommand 'sudo rm -f /etc/sysctl.d/k8s.conf'
     &$executeRemoteCommand 'sudo rm -f /etc/modules-load.d/k8s.conf'
     &$executeRemoteCommand 'sudo sysctl --system'
+    &$executeRemoteCommand 'sudo rm -f /etc/apt/apt.conf.d/95k2s-proxy'
 
     &$executeRemoteCommand 'sudo DEBIAN_FRONTEND=noninteractive dpkg -P cri-o' 
     &$executeRemoteCommand 'sudo DEBIAN_FRONTEND=noninteractive dpkg -P buildah' 

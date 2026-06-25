@@ -170,6 +170,12 @@ Then use:
 <#
 .SYNOPSIS
     Installs NVIDIA Container Toolkit packages from the internet.
+.PARAMETER UserName
+    SSH username for the remote node.
+.PARAMETER IpAddress
+    IP address of the remote node.
+.PARAMETER Proxy
+    Optional HTTP proxy as 'host:port' WITHOUT a scheme (e.g. '172.19.1.1:8181').
 #>
 function Install-NvidiaContainerToolkitOnline {
     param (
@@ -191,6 +197,9 @@ function Install-NvidiaContainerToolkitOnline {
         }
     }
 
+    $Proxy = $Proxy -replace '^https?://', ''
+
+    $aptProxyConfigured = $false
     $curlProxy = ''
     if (![string]::IsNullOrWhiteSpace($Proxy)) {
         $curlProxy = "-x $Proxy"
@@ -199,31 +208,42 @@ function Install-NvidiaContainerToolkitOnline {
         $aptProxyConfBase64 = [Convert]::ToBase64String([System.Text.Encoding]::UTF8.GetBytes($aptProxyConf))
         $aptProxyCmd = "echo '$aptProxyConfBase64' | base64 -d | sudo tee /etc/apt/apt.conf.d/95k2s-proxy"
         (Invoke-CmdOnVmViaSSHKey -CmdToExecute $aptProxyCmd -UserName $UserName -IpAddress $IpAddress -IgnoreErrors).Output | Write-Log
+        $aptProxyConfigured = $true
     }
 
-    Write-Log "[GPU] Setting up NVIDIA apt repository (proxy='$Proxy')" -Console
-    
-    $repoSetupCmd = "curl --retry 3 --retry-all-errors -fsSL https://nvidia.github.io/libnvidia-container/gpgkey $curlProxy | sudo gpg --dearmor --batch --yes -o /usr/share/keyrings/nvidia-container-toolkit-keyring.gpg && curl --retry 3 --retry-all-errors -s -L https://nvidia.github.io/libnvidia-container/stable/deb/nvidia-container-toolkit.list $curlProxy | sed 's#deb https://#deb [signed-by=/usr/share/keyrings/nvidia-container-toolkit-keyring.gpg] https://#g' | sudo tee /etc/apt/sources.list.d/nvidia-container-toolkit.list"
-    
-    $repoResult = Invoke-CmdOnVmViaSSHKey -CmdToExecute $repoSetupCmd -UserName $UserName -IpAddress $IpAddress
-    Write-Log "[GPU] Repo setup result - Success: $($repoResult.Success), Output: $($repoResult.Output)"
-    if (!$repoResult.Success) {
-        throw "[GPU] Failed to set up NVIDIA repository on $IpAddress. Ensure the node has internet access or use --node-package for offline installation."
+    try {
+        Write-Log "[GPU] Setting up NVIDIA apt repository (proxy='$Proxy')" -Console
+
+        $repoSetupCmd = "curl --retry 3 --retry-all-errors -fsSL https://nvidia.github.io/libnvidia-container/gpgkey $curlProxy | sudo gpg --dearmor --batch --yes -o /usr/share/keyrings/nvidia-container-toolkit-keyring.gpg && curl --retry 3 --retry-all-errors -s -L https://nvidia.github.io/libnvidia-container/stable/deb/nvidia-container-toolkit.list $curlProxy | sed 's#deb https://#deb [signed-by=/usr/share/keyrings/nvidia-container-toolkit-keyring.gpg] https://#g' | sudo tee /etc/apt/sources.list.d/nvidia-container-toolkit.list"
+
+        $repoResult = Invoke-CmdOnVmViaSSHKey -CmdToExecute $repoSetupCmd -UserName $UserName -IpAddress $IpAddress
+        Write-Log "[GPU] Repo setup result - Success: $($repoResult.Success), Output: $($repoResult.Output)"
+        if (!$repoResult.Success) {
+            throw "[GPU] Failed to set up NVIDIA repository on $IpAddress. Ensure the node has internet access or use --node-package for offline installation."
+        }
+
+        $verifySourcesCmd = 'cat /etc/apt/sources.list.d/nvidia-container-toolkit.list 2>/dev/null || echo "FILE_NOT_FOUND"'
+        $verifyResult = Invoke-CmdOnVmViaSSHKey -CmdToExecute $verifySourcesCmd -UserName $UserName -IpAddress $IpAddress -IgnoreErrors
+
+        # Proxy is taken from /etc/apt/apt.conf.d/95k2s-proxy when configured above
+        $updateCmd = 'sudo apt-get update'
+        (Invoke-CmdOnVmViaSSHKey -CmdToExecute $updateCmd -UserName $UserName -IpAddress $IpAddress -IgnoreErrors).Output | Write-Log
+
+        $installCmd = 'sudo DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends libnvidia-container1 libnvidia-container-tools nvidia-container-runtime nvidia-container-toolkit'
+        $installResult = Invoke-CmdOnVmViaSSHKey -CmdToExecute $installCmd -UserName $UserName -IpAddress $IpAddress
+        $installResult.Output | Write-Log
+
+        if (!$installResult.Success) {
+            throw "[GPU] Failed to install NVIDIA Container Toolkit packages on $IpAddress"
+        }
     }
-
-    $verifySourcesCmd = 'cat /etc/apt/sources.list.d/nvidia-container-toolkit.list 2>/dev/null || echo "FILE_NOT_FOUND"'
-    $verifyResult = Invoke-CmdOnVmViaSSHKey -CmdToExecute $verifySourcesCmd -UserName $UserName -IpAddress $IpAddress -IgnoreErrors
-
-    # Proxy is taken from /etc/apt/apt.conf.d/95k2s-proxy when configured above
-    $updateCmd = 'sudo apt-get update'
-    (Invoke-CmdOnVmViaSSHKey -CmdToExecute $updateCmd -UserName $UserName -IpAddress $IpAddress -IgnoreErrors).Output | Write-Log
-
-    $installCmd = 'sudo DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends libnvidia-container1 libnvidia-container-tools nvidia-container-runtime nvidia-container-toolkit'
-    $installResult = Invoke-CmdOnVmViaSSHKey -CmdToExecute $installCmd -UserName $UserName -IpAddress $IpAddress
-    $installResult.Output | Write-Log
-
-    if (!$installResult.Success) {
-        throw "[GPU] Failed to install NVIDIA Container Toolkit packages on $IpAddress"
+    finally {
+        # Remove the temporary apt proxy config so future apt operations on this
+        # (potentially long-lived) node do not depend on the K2s proxy being reachable.
+        if ($aptProxyConfigured) {
+            Write-Log '[GPU] Removing temporary apt proxy configuration (/etc/apt/apt.conf.d/95k2s-proxy)'
+            (Invoke-CmdOnVmViaSSHKey -CmdToExecute 'sudo rm -f /etc/apt/apt.conf.d/95k2s-proxy' -UserName $UserName -IpAddress $IpAddress -IgnoreErrors).Output | Write-Log
+        }
     }
 }
 
