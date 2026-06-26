@@ -17,7 +17,7 @@ metadata:
     helm.sh/chart: fluent-bit-0.57.7
     app.kubernetes.io/name: fluent-bit
     app.kubernetes.io/instance: fluent-bit
-    app.kubernetes.io/version: "5.0.7"
+    app.kubernetes.io/version: "5.0.8"
     app.kubernetes.io/managed-by: Helm
 data:
   custom_parsers.conf: |

@@ -432,7 +432,7 @@ try {
         Write-Log '[gpu-node] Pre-pulling images via SSH tunnel (buildah)' -Console
 
         $images = @(
-            'nvcr.io/nvidia/k8s-device-plugin:v0.19.2'
+            'nvcr.io/nvidia/k8s-device-plugin:v0.19.3'
             'nvcr.io/nvidia/k8s/dcgm-exporter:4.5.2-4.8.1-ubi9'
         )
         foreach ($image in $images) {
