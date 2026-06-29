@@ -120,7 +120,7 @@ sudo DEBIAN_FRONTEND=noninteractive \
 log_info "Downloading Debian 13 networking packages: netavark, aardvark-dns, nftables"
 for pkg in netavark aardvark-dns nftables; do
     for attempt in 1 2; do
-        if (cd "$BUILDAH_DEB_PACKAGES_PATH" && sudo apt-get download "$pkg" 2>/dev/null); then
+        if download_packages "$pkg"; then
             break
         fi
 
@@ -130,6 +130,25 @@ for pkg in netavark aardvark-dns nftables; do
 
         if [ "$attempt" -eq 2 ]; then
             log_info "WARNING: failed to download $pkg after 2 attempts"
+        fi
+    done
+done
+
+# Ensure nftables runtime libraries are present in offline bundle.
+# They may be omitted when dependency simulation does not emit them reliably.
+log_info "Ensuring nftables runtime libraries are available"
+for dep in libnftables1 libnftnl11 libmnl0 libxtables12 libjansson4; do
+    for attempt in 1 2; do
+        if (cd "$BUILDAH_DEB_PACKAGES_PATH" && sudo apt-get download "$dep" 2>/dev/null); then
+            break
+        fi
+
+        log_info "$dep download attempt $attempt failed; running repair"
+        sudo dpkg --configure -a >/dev/null 2>&1 || true
+        sudo apt --fix-broken install -y >/dev/null 2>&1 || true
+
+        if [ "$attempt" -eq 2 ]; then
+            log_info "WARNING: failed to download $dep after 2 attempts"
         fi
     done
 done
