@@ -893,18 +893,40 @@ function Get-GpuContainerImages {
         (Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute $Command -RemoteUser "$remoteUser" -RemoteUserPwd "$remoteUserPwd").Output | Write-Log
     }
 
-    Write-Log '[GpuImg] Pulling GPU container images (device plugin, DCGM exporter)'
-
-    # Proxy env vars must be placed AFTER 'sudo': sudo sanitizes the environment and drops
-    # variables set as a prefix before it, which would leave buildah without a proxy and make
-    # it fail to resolve the external registry (nvcr.io).
-    $proxyEnv = ''
-    if (![string]::IsNullOrWhiteSpace($Proxy)) {
-        $proxyEnv = "http_proxy=$Proxy https_proxy=$Proxy HTTP_PROXY=$Proxy HTTPS_PROXY=$Proxy "
+    # Resolve manifest path relative to this module's location
+    $repoRoot = (Get-Item -Path $PSScriptRoot).Parent.Parent.Parent.Parent.Parent.Parent.FullName
+    $manifestPath = Join-Path -Path $repoRoot -ChildPath 'addons\gpu-node\addon.manifest.yaml'
+    
+    if (!(Test-Path -Path $manifestPath)) {
+        throw "[GpuImg] GPU addon manifest not found at: $manifestPath"
     }
+    
+    $manifestContent = Get-Content -Path $manifestPath -Raw
+    if ([string]::IsNullOrWhiteSpace($manifestContent)) {
+        throw "[GpuImg] GPU addon manifest is empty: $manifestPath"
+    }
+    
+    $images = @([regex]::Matches($manifestContent, 'nvcr\.io/nvidia/[A-Za-z0-9_./-]+:[A-Za-z0-9_.-]+') | ForEach-Object { $_.Value } | Select-Object -Unique)
 
-    &$executeRemoteCommand "sudo ${proxyEnv}buildah pull nvcr.io/nvidia/k8s-device-plugin:v0.19.1"
-    &$executeRemoteCommand "sudo ${proxyEnv}buildah pull nvcr.io/nvidia/k8s/dcgm-exporter:4.5.2-4.8.1-ubi9"
+    if ($images.Count -eq 0) {
+        Write-Log '[GpuImg] No NVIDIA container images found in addon manifest (GPU addon may not be updated)' -Console
+        return
+    }
+    
+    $devicePluginVersion = ($images | Where-Object { $_ -match '^nvcr\.io/nvidia/k8s-device-plugin:' } | Select-Object -First 1) -replace '^.*:', ''
+    $dcgmExporterVersion = ($images | Where-Object { $_ -match '^nvcr\.io/nvidia/k8s/dcgm-exporter:' } | Select-Object -First 1) -replace '^.*:', ''
+
+    Write-Log "[GpuImg] k8s-device-plugin version from addon manifest: $devicePluginVersion"
+    Write-Log "[GpuImg] dcgm-exporter version from addon manifest: $dcgmExporterVersion"
+    Write-Log "[GpuImg] Pulling GPU container images from addon manifest: $($images -join ', ')"
+
+    foreach ($image in $images) {
+        if (![string]::IsNullOrWhiteSpace($Proxy)) {
+            &$executeRemoteCommand "sudo HTTPS_PROXY=$Proxy HTTP_PROXY=$Proxy buildah pull '$image'"
+        } else {
+            &$executeRemoteCommand "sudo buildah pull '$image'"
+        }
+    }
 
     Write-Log '[GpuImg] Finished pulling GPU container images'
 }
