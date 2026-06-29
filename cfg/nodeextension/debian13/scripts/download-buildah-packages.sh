@@ -114,9 +114,11 @@ sudo DEBIAN_FRONTEND=noninteractive \
 # Explicitly download Debian 13 networking stack packages for buildah.
 # netavark is the default network backend for buildah 1.35+ (replaces CNI);
 # aardvark-dns provides DNS resolution within buildah-managed networks.
-# Both are recommended packages and therefore not captured by --no-install-recommends.
-log_info "Downloading Debian 13 networking packages: netavark, aardvark-dns"
-for pkg in netavark aardvark-dns; do
+# nftables provides the 'nft' binary that netavark invokes to program firewall
+# rules; without it builds fail with "unable to execute nft: No such file or directory".
+# All are recommended/runtime packages and therefore not captured by --no-install-recommends.
+log_info "Downloading Debian 13 networking packages: netavark, aardvark-dns, nftables"
+for pkg in netavark aardvark-dns nftables; do
     for attempt in 1 2; do
         if (cd "$BUILDAH_DEB_PACKAGES_PATH" && sudo apt-get download "$pkg" 2>/dev/null); then
             break
