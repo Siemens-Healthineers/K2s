@@ -28,6 +28,36 @@ Import-Module $infraModule, $clusterModule
 $script:GpuLabelKey = 'gpu'
 $script:AcceleratorLabel = 'accelerator'
 
+function Get-GpuAddonNvidiaImages {
+    $repoRoot = (Get-Item -Path $PSScriptRoot).Parent.Parent.Parent.Parent.Parent.Parent.FullName
+    $manifestPath = Join-Path -Path $repoRoot -ChildPath 'addons\gpu-node\addon.manifest.yaml'
+    
+    if (!(Test-Path -Path $manifestPath)) {
+        throw "[GPU] GPU addon manifest not found at: $manifestPath"
+    }
+    
+    $manifestContent = Get-Content -Path $manifestPath -Raw
+    if ([string]::IsNullOrWhiteSpace($manifestContent)) {
+        throw "[GPU] GPU addon manifest is empty: $manifestPath"
+    }
+    
+    $imageMatches = [regex]::Matches($manifestContent, 'nvcr\.io/nvidia/[A-Za-z0-9_./-]+:[A-Za-z0-9_.-]+')
+    $images = @($imageMatches | ForEach-Object { $_.Value } | Select-Object -Unique)
+
+    if ($images.Count -eq 0) {
+        throw "[GPU] No NVIDIA container images found in addon manifest at: $manifestPath"
+    }
+    
+    $devicePluginVersion = ($images | Where-Object { $_ -match '^nvcr\.io/nvidia/k8s-device-plugin:' } | Select-Object -First 1) -replace '^.*:', ''
+    $dcgmExporterVersion = ($images | Where-Object { $_ -match '^nvcr\.io/nvidia/k8s/dcgm-exporter:' } | Select-Object -First 1) -replace '^.*:', ''
+
+    Write-Log "[GPU] k8s-device-plugin version from addon manifest: $devicePluginVersion" -Console
+    Write-Log "[GPU] dcgm-exporter version from addon manifest: $dcgmExporterVersion" -Console
+    Write-Log "[GPU] Using NVIDIA images from addon manifest: $($images -join ', ')"
+
+    return $images
+}
+
 <#
 .SYNOPSIS
     Installs and configures the NVIDIA Container Toolkit on the target Linux node.
@@ -334,11 +364,9 @@ function Install-GpuDevicePluginImages {
 
     Write-Log "[GPU] Ensuring device plugin images are available on $IpAddress" -Console
 
-    # Images required for GPU support (same as Enable.ps1)
-    $images = @(
-        'nvcr.io/nvidia/k8s-device-plugin:v0.19.1'
-        'nvcr.io/nvidia/k8s/dcgm-exporter:4.5.2-4.8.1-ubi9'
-    )
+    # Resolve image versions from gpu-node addon manifest so automation that scans
+    # addon files (Enable.ps1/addon.manifest.yaml) stays the source of truth.
+    $images = Get-GpuAddonNvidiaImages
 
     # If no proxy specified, use K2s's HTTP proxy
     if ([string]::IsNullOrWhiteSpace($Proxy)) {
