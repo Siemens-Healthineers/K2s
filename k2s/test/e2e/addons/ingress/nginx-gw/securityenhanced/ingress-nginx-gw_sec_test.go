@@ -119,12 +119,31 @@ var _ = Describe("'ingress-nginx-gw and security enhanced' addons", Ordered, fun
 			GinkgoWriter.Println(">>> TEST: Albums connectivity verified")
 		})
 
+		It("creates nginx-gw HTTPRoutes for keycloak and oauth2-proxy plus shared ReferenceGrant", func(ctx context.Context) {
+			// Scenario A: both backends present -> both HTTPRoutes + shared ReferenceGrant created.
+			kc := suite.Kubectl().MustExec(ctx, "get", "httproute", "keycloak-nginx-gw-cluster-local", "-n", "security", "--ignore-not-found")
+			Expect(kc).To(ContainSubstring("keycloak-nginx-gw-cluster-local"))
+			o2p := suite.Kubectl().MustExec(ctx, "get", "httproute", "oauth2-proxy-nginx-gw-cluster-local", "-n", "security", "--ignore-not-found")
+			Expect(o2p).To(ContainSubstring("oauth2-proxy-nginx-gw-cluster-local"))
+			rg := suite.Kubectl().MustExec(ctx, "get", "referencegrant", "security-to-nginx-gw", "-n", "nginx-gw", "--ignore-not-found")
+			Expect(rg).To(ContainSubstring("security-to-nginx-gw"))
+		})
+
 		It("Deactivates all the addons", func(ctx context.Context) {
 			GinkgoWriter.Println(">>> TEST: Deactivating all addons")
 			suite.Kubectl().MustExec(ctx, "delete", "-k", "..\\workloads")
 			suite.K2sCli().MustExec(ctx, "addons", "disable", "ingress", "nginx-gw", "-o")
 			suite.K2sCli().MustExec(ctx, "addons", "disable", "security", "-o")
 			GinkgoWriter.Println(">>> TEST: All addons deactivated")
+		})
+
+		It("removes nginx-gw split security ingress resources on disable", func(ctx context.Context) {
+			kc, _ := suite.Kubectl().Exec(ctx, "get", "httproute", "keycloak-nginx-gw-cluster-local", "-n", "security", "--ignore-not-found")
+			Expect(kc).To(BeEmpty())
+			o2p, _ := suite.Kubectl().Exec(ctx, "get", "httproute", "oauth2-proxy-nginx-gw-cluster-local", "-n", "security", "--ignore-not-found")
+			Expect(o2p).To(BeEmpty())
+			rg, _ := suite.Kubectl().Exec(ctx, "get", "referencegrant", "security-to-nginx-gw", "-n", "nginx-gw", "--ignore-not-found")
+			Expect(rg).To(BeEmpty())
 		})
 
 		It("retains cmctl.exe, the cert-manager CLI", func(ctx context.Context) {
