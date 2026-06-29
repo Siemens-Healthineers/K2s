@@ -380,7 +380,9 @@ function Install-GpuDevicePluginImages {
     # Build proxy environment if provided.
     $proxyEnv = ''
     if (![string]::IsNullOrWhiteSpace($Proxy)) {
-        $proxyEnv = "HTTPS_PROXY=http://$Proxy HTTP_PROXY=http://$Proxy "
+        # Normalize proxy URL - strip existing scheme to avoid duplication
+        $proxyHost = $Proxy -replace '^https?://', ''
+        $proxyEnv = "HTTPS_PROXY=http://$proxyHost HTTP_PROXY=http://$proxyHost "
     }
 
     foreach ($image in $images) {
