@@ -922,7 +922,9 @@ function Get-GpuContainerImages {
 
     foreach ($image in $images) {
         if (![string]::IsNullOrWhiteSpace($Proxy)) {
-            &$executeRemoteCommand "sudo HTTPS_PROXY=$Proxy HTTP_PROXY=$Proxy buildah pull '$image'"
+            # Normalize proxy URL - strip existing scheme and ensure http:// prefix
+            $proxyHost = $Proxy -replace '^https?://', ''
+            &$executeRemoteCommand "sudo HTTPS_PROXY=http://$proxyHost HTTP_PROXY=http://$proxyHost buildah pull '$image'"
         } else {
             &$executeRemoteCommand "sudo buildah pull '$image'"
         }
