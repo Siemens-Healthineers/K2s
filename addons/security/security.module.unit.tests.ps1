@@ -88,25 +88,20 @@ Describe 'Enable-IngressForSecurity' -Tag 'unit', 'ci', 'addon', 'security' {
 }
 
 Describe 'Remove-IngressForSecurity' -Tag 'unit', 'ci', 'addon', 'security' {
-    Context 'split manifests exist, legacy combined manifests absent' {
-        It 'deletes all split manifests safely' {
+    Context 'split per-component manifests present on disk' {
+        It 'deletes every split manifest (keycloak + oauth2-proxy + shared) safely' {
             InModuleScope $moduleName { Remove-IngressForSecurity }
 
             Should -Invoke -ModuleName $moduleName Invoke-Kubectl -Times 8 -Exactly -ParameterFilter { $Params -contains 'delete' }
         }
-    }
 
-    Context 'legacy combined manifests do not exist' {
-        BeforeAll {
-            # Real Test-Path: only split manifests are present on disk; legacy files removed.
-            Mock -ModuleName $moduleName Test-Path { return $false } -ParameterFilter { $Path -like '*-ingress.yaml' }
-        }
+        It 'never references the obsolete combined ingress manifests' {
+            InModuleScope $moduleName { Remove-IngressForSecurity }
 
-        It 'does not delete legacy manifests and does not throw' {
-            InModuleScope $moduleName { { Remove-IngressForSecurity } | Should -Not -Throw }
-
+            # The combined manifests (traefik-ingress.yaml / nginx-ingress.yaml / nginx-gw-ingress.yaml)
+            # were replaced by per-component split files and must no longer be referenced.
             Should -Invoke -ModuleName $moduleName Invoke-Kubectl -Times 0 -Exactly -ParameterFilter {
-                ($Params -contains 'delete') -and (($Params -join ' ') -match 'traefik-ingress\.yaml|nginx-ingress\.yaml|nginx-gw-ingress\.yaml') }
+                ($Params -contains 'delete') -and (($Params -join ' ') -match '[\\/](traefik-ingress|nginx-ingress|nginx-gw-ingress)\.yaml') }
         }
     }
 }
