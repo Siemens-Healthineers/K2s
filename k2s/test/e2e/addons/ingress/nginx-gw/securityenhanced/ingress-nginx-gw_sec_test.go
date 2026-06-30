@@ -127,6 +127,21 @@ var _ = Describe("'ingress-nginx-gw and security enhanced' addons", Ordered, fun
 			Expect(o2p).To(ContainSubstring("oauth2-proxy-nginx-gw-cluster-local"))
 			rg := suite.Kubectl().MustExec(ctx, "get", "referencegrant", "security-to-nginx-gw", "-n", "nginx-gw", "--ignore-not-found")
 			Expect(rg).To(ContainSubstring("security-to-nginx-gw"))
+
+			// Scenario A also creates the Linkerd Server / ServerAuthorization policies and the
+			// shared SnippetsFilter (Gateway API / enhanced-mode flavour only).
+			kcAuth := suite.Kubectl().MustExec(ctx, "get", "serverauthorization", "keycloak-allow-all", "-n", "security", "--ignore-not-found")
+			Expect(kcAuth).To(ContainSubstring("keycloak-allow-all"))
+			o2pAuth := suite.Kubectl().MustExec(ctx, "get", "serverauthorization", "oauth2-proxy-allow-all", "-n", "security", "--ignore-not-found")
+			Expect(o2pAuth).To(ContainSubstring("oauth2-proxy-allow-all"))
+			snip := suite.Kubectl().MustExec(ctx, "get", "snippetsfilter", "oauth2-shared-locations", "-n", "security", "--ignore-not-found")
+			Expect(snip).To(ContainSubstring("oauth2-shared-locations"))
+
+			// nginx-gw mode must NOT create the Traefik-specific Ingress/Middleware resources.
+			traefikIngress, _ := suite.Kubectl().Exec(ctx, "get", "ingress", "oauth2-proxy", "-n", "security", "--ignore-not-found")
+			Expect(traefikIngress).To(BeEmpty())
+			traefikMw, _ := suite.Kubectl().Exec(ctx, "get", "middleware", "oauth2-proxy-forwarder-signin", "-n", "security", "--ignore-not-found")
+			Expect(traefikMw).To(BeEmpty())
 		})
 
 		It("Deactivates all the addons", func(ctx context.Context) {
@@ -144,6 +159,8 @@ var _ = Describe("'ingress-nginx-gw and security enhanced' addons", Ordered, fun
 			Expect(o2p).To(BeEmpty())
 			rg, _ := suite.Kubectl().Exec(ctx, "get", "referencegrant", "security-to-nginx-gw", "-n", "nginx-gw", "--ignore-not-found")
 			Expect(rg).To(BeEmpty())
+			snip, _ := suite.Kubectl().Exec(ctx, "get", "snippetsfilter", "oauth2-shared-locations", "-n", "security", "--ignore-not-found")
+			Expect(snip).To(BeEmpty())
 		})
 
 		It("retains cmctl.exe, the cert-manager CLI", func(ctx context.Context) {

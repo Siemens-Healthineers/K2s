@@ -330,20 +330,6 @@ function Remove-IngressForSecurity {
             (Invoke-Kubectl -Params 'delete', '-f', $path, '--ignore-not-found').Output | Write-Log
         }
     }
-
-    # Legacy combined manifests (pre-split) -- delete if still present on upgraded clusters
-    # so resources created by an older addon version are cleaned up as well.
-    $legacyManifests = @(
-        'nginx-ingress.yaml',
-        'traefik-ingress.yaml',
-        'nginx-gw-ingress.yaml'
-    )
-    foreach ($manifest in $legacyManifests) {
-        $path = "$manifestDir\$manifest"
-        if (Test-Path $path) {
-            (Invoke-Kubectl -Params 'delete', '-f', $path, '--ignore-not-found').Output | Write-Log
-        }
-    }
 }
 
 <#
