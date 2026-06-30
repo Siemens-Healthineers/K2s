@@ -115,8 +115,9 @@ function Get-LinuxWorkerNodeProvisioningContext {
     Write-Log $osMessage -Console
     Test-SupportedWorkerOS -OS $installedDistribution
 
-    $clusterState = (Invoke-Kubectl -Params @('get', 'nodes', '-o', 'wide')).Output
-    if ($clusterState -match $k8sFormattedNodeName) {
+    # Check only node names (not entire output) to avoid false positives from OS-IMAGE column
+    $existingNodeNames = @((Invoke-Kubectl -Params @('get', 'nodes', '-o', 'jsonpath={.items[*].metadata.name}')).Output -split '\s+' | Where-Object { $_ })
+    if ($existingNodeNames -contains $k8sFormattedNodeName) {
         throw "$LogPrefix Precondition not met: node '$k8sFormattedNodeName' is already part of the cluster."
     }
 
