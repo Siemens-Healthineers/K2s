@@ -556,6 +556,7 @@ Function Remove-KubernetesArtifacts {
     &$executeRemoteCommand 'sudo rm -f /etc/sysctl.d/k8s.conf'
     &$executeRemoteCommand 'sudo rm -f /etc/modules-load.d/k8s.conf'
     &$executeRemoteCommand 'sudo sysctl --system'
+    &$executeRemoteCommand 'sudo rm -f /etc/apt/apt.conf.d/95k2s-proxy'
 
     &$executeRemoteCommand 'sudo DEBIAN_FRONTEND=noninteractive dpkg -P cri-o' 
     &$executeRemoteCommand 'sudo DEBIAN_FRONTEND=noninteractive dpkg -P buildah' 
@@ -824,40 +825,52 @@ function Get-NvidiaGpuDebPackagesFromInternet {
 
     Write-Log '[GpuPkg] Downloading NVIDIA Container Toolkit packages'
 
-    $proxyEnv = ''
+    $aptProxyConfigured = $false
     $curlProxy = ''
     if (![string]::IsNullOrWhiteSpace($Proxy)) {
-        $proxyEnv = "http_proxy=$Proxy https_proxy=$Proxy "
         $curlProxy = "-x $Proxy"
+        Write-Log "[GpuPkg] Configuring apt proxy: $Proxy"
+        $aptProxyConf = "Acquire::http::Proxy `"$Proxy`";`nAcquire::https::Proxy `"$Proxy`";`n"
+        $aptProxyConfBase64 = [Convert]::ToBase64String([System.Text.Encoding]::UTF8.GetBytes($aptProxyConf))
+        $aptProxyCmd = "echo '$aptProxyConfBase64' | base64 -d | sudo tee /etc/apt/apt.conf.d/95k2s-proxy"
+        (Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute $aptProxyCmd -RemoteUser $remoteUser -RemoteUserPwd $UserPwd -IgnoreErrors).Output | Write-Log
+        $aptProxyConfigured = $true
     }
 
-    # Add NVIDIA Container Toolkit repository
-    $repoSetupCmd = "curl --retry 3 --retry-all-errors -fsSL https://nvidia.github.io/libnvidia-container/gpgkey $curlProxy | sudo gpg --dearmor --batch --yes -o /usr/share/keyrings/nvidia-container-toolkit-keyring.gpg && curl --retry 3 --retry-all-errors -s -L https://nvidia.github.io/libnvidia-container/stable/deb/nvidia-container-toolkit.list $curlProxy | sed 's#deb https://#deb [signed-by=/usr/share/keyrings/nvidia-container-toolkit-keyring.gpg] https://#g' | sudo tee /etc/apt/sources.list.d/nvidia-container-toolkit.list"
-    Write-Log '[GpuPkg] Setting up NVIDIA repository...'
-    (Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute $repoSetupCmd -RemoteUser $remoteUser -RemoteUserPwd $UserPwd -IgnoreErrors).Output | Write-Log
+    try {
+        # Add NVIDIA Container Toolkit repository
+        $repoSetupCmd = "curl --retry 3 --retry-all-errors -fsSL https://nvidia.github.io/libnvidia-container/gpgkey $curlProxy | sudo gpg --dearmor --batch --yes -o /usr/share/keyrings/nvidia-container-toolkit-keyring.gpg && curl --retry 3 --retry-all-errors -s -L https://nvidia.github.io/libnvidia-container/stable/deb/nvidia-container-toolkit.list $curlProxy | sed 's#deb https://#deb [signed-by=/usr/share/keyrings/nvidia-container-toolkit-keyring.gpg] https://#g' | sudo tee /etc/apt/sources.list.d/nvidia-container-toolkit.list"
+        Write-Log '[GpuPkg] Setting up NVIDIA repository...'
+        (Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute $repoSetupCmd -RemoteUser $remoteUser -RemoteUserPwd $UserPwd -IgnoreErrors).Output | Write-Log
 
-    # Update apt
-    $updateCmd = "${proxyEnv}sudo apt-get update"
-    (Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute $updateCmd -RemoteUser $remoteUser -RemoteUserPwd $UserPwd -IgnoreErrors).Output | Write-Log
+        $updateCmd = 'sudo apt-get update'
+        (Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute $updateCmd -RemoteUser $remoteUser -RemoteUserPwd $UserPwd -IgnoreErrors).Output | Write-Log
 
-    # Create target directory
-    (Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute "mkdir -p $TargetPath && cd $TargetPath && sudo chown -R _apt:root ." -RemoteUser $remoteUser -RemoteUserPwd $UserPwd).Output | Write-Log
+        # Create target directory
+        (Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute "mkdir -p $TargetPath && cd $TargetPath && sudo chown -R _apt:root ." -RemoteUser $remoteUser -RemoteUserPwd $UserPwd).Output | Write-Log
 
-    $gpuPackages = @('libnvidia-container1', 'libnvidia-container-tools', 'nvidia-container-toolkit-base', 'nvidia-container-runtime', 'nvidia-container-toolkit')
-    foreach ($pkg in $gpuPackages) {
-        Write-Log "[GpuPkg] Downloading GPU package: $pkg"
-        # Download the package
-        $downloadCmd = "cd $TargetPath && ${proxyEnv}sudo apt-get download $pkg 2>&1"
-        (Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute $downloadCmd -RemoteUser $remoteUser -RemoteUserPwd $UserPwd -IgnoreErrors).Output | Write-Log
-        
-        # Download dependencies
-        $depsCmd = "cd $TargetPath && ${proxyEnv}sudo DEBIAN_FRONTEND=noninteractive apt-get --reinstall install -y --no-install-recommends --no-install-suggests --simulate ./${pkg}*.deb 2>/dev/null | grep 'Inst ' | cut -d ' ' -f 2 | sort -u | xargs -r ${proxyEnv}sudo apt-get download 2>&1 || true"
-        (Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute $depsCmd -RemoteUser $remoteUser -RemoteUserPwd $UserPwd -IgnoreErrors).Output | Write-Log
+        $gpuPackages = @('libnvidia-container1', 'libnvidia-container-tools', 'nvidia-container-toolkit-base', 'nvidia-container-runtime', 'nvidia-container-toolkit')
+        foreach ($pkg in $gpuPackages) {
+            Write-Log "[GpuPkg] Downloading GPU package: $pkg"
+            # Download the package
+            $downloadCmd = "cd $TargetPath && sudo apt-get download $pkg 2>&1"
+            (Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute $downloadCmd -RemoteUser $remoteUser -RemoteUserPwd $UserPwd -IgnoreErrors).Output | Write-Log
+            
+            # Download dependencies
+            $depsCmd = "cd $TargetPath && sudo DEBIAN_FRONTEND=noninteractive apt-get --reinstall install -y --no-install-recommends --no-install-suggests --simulate ./${pkg}*.deb 2>/dev/null | grep 'Inst ' | cut -d ' ' -f 2 | sort -u | xargs -r sudo apt-get download 2>&1 || true"
+            (Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute $depsCmd -RemoteUser $remoteUser -RemoteUserPwd $UserPwd -IgnoreErrors).Output | Write-Log
+        }
+
+        $remoteGpuDebCount = (Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute "ls -1 $TargetPath/*.deb 2>/dev/null | wc -l" -RemoteUser $remoteUser -RemoteUserPwd $UserPwd -IgnoreErrors).Output
+        Write-Log "[GpuPkg] GPU packages downloaded: $($remoteGpuDebCount.Trim())"
+        Write-Log '[GpuPkg] Finished downloading NVIDIA Container Toolkit packages'
     }
-
-    $remoteGpuDebCount = (Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute "ls -1 $TargetPath/*.deb 2>/dev/null | wc -l" -RemoteUser $remoteUser -RemoteUserPwd $UserPwd -IgnoreErrors).Output
-    Write-Log "[GpuPkg] GPU packages downloaded: $($remoteGpuDebCount.Trim())"
-    Write-Log '[GpuPkg] Finished downloading NVIDIA Container Toolkit packages'
+    finally {
+        if ($aptProxyConfigured) {
+            Write-Log '[GpuPkg] Removing temporary apt proxy configuration (/etc/apt/apt.conf.d/95k2s-proxy)'
+            (Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute 'sudo rm -f /etc/apt/apt.conf.d/95k2s-proxy' -RemoteUser $remoteUser -RemoteUserPwd $UserPwd -IgnoreErrors).Output | Write-Log
+        }
+    }
 }
 
 <#
@@ -880,7 +893,8 @@ function Get-GpuContainerImages {
         [string]$UserName = $(throw 'Argument missing: UserName'),
         [string]$UserPwd = $(throw 'Argument missing: UserPwd'),
         [ValidateScript({ Get-IsValidIPv4Address($_) })]
-        [string]$IpAddress = $(throw 'Argument missing: IpAddress')
+        [string]$IpAddress = $(throw 'Argument missing: IpAddress'),
+        [string]$Proxy = ''
     )
     $remoteUser = "$UserName@$IpAddress"
     $remoteUserPwd = $UserPwd
@@ -889,10 +903,42 @@ function Get-GpuContainerImages {
         (Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute $Command -RemoteUser "$remoteUser" -RemoteUserPwd "$remoteUserPwd").Output | Write-Log
     }
 
-    Write-Log '[GpuImg] Pulling GPU container images (device plugin, DCGM exporter)'
+    # Resolve manifest path relative to this module's location
+    $repoRoot = (Get-Item -Path $PSScriptRoot).Parent.Parent.Parent.Parent.Parent.Parent.FullName
+    $manifestPath = Join-Path -Path $repoRoot -ChildPath 'addons\gpu-node\addon.manifest.yaml'
+    
+    if (!(Test-Path -Path $manifestPath)) {
+        throw "[GpuImg] GPU addon manifest not found at: $manifestPath"
+    }
+    
+    $manifestContent = Get-Content -Path $manifestPath -Raw
+    if ([string]::IsNullOrWhiteSpace($manifestContent)) {
+        throw "[GpuImg] GPU addon manifest is empty: $manifestPath"
+    }
+    
+    $images = @([regex]::Matches($manifestContent, 'nvcr\.io/nvidia/[A-Za-z0-9_./-]+:[A-Za-z0-9_.-]+') | ForEach-Object { $_.Value } | Select-Object -Unique)
 
-    &$executeRemoteCommand 'sudo buildah pull nvcr.io/nvidia/k8s-device-plugin:v0.19.1'
-    &$executeRemoteCommand 'sudo buildah pull nvcr.io/nvidia/k8s/dcgm-exporter:4.5.2-4.8.1-ubi9'
+    if ($images.Count -eq 0) {
+        Write-Log '[GpuImg] No NVIDIA container images found in addon manifest (GPU addon may not be updated)' -Console
+        return
+    }
+    
+    $devicePluginVersion = ($images | Where-Object { $_ -match '^nvcr\.io/nvidia/k8s-device-plugin:' } | Select-Object -First 1) -replace '^.*:', ''
+    $dcgmExporterVersion = ($images | Where-Object { $_ -match '^nvcr\.io/nvidia/k8s/dcgm-exporter:' } | Select-Object -First 1) -replace '^.*:', ''
+
+    Write-Log "[GpuImg] k8s-device-plugin version from addon manifest: $devicePluginVersion"
+    Write-Log "[GpuImg] dcgm-exporter version from addon manifest: $dcgmExporterVersion"
+    Write-Log "[GpuImg] Pulling GPU container images from addon manifest: $($images -join ', ')"
+
+    foreach ($image in $images) {
+        if (![string]::IsNullOrWhiteSpace($Proxy)) {
+            # Normalize proxy URL - strip existing scheme and ensure http:// prefix
+            $proxyHost = $Proxy -replace '^https?://', ''
+            &$executeRemoteCommand "sudo HTTPS_PROXY=http://$proxyHost HTTP_PROXY=http://$proxyHost buildah pull '$image'"
+        } else {
+            &$executeRemoteCommand "sudo buildah pull '$image'"
+        }
+    }
 
     Write-Log '[GpuImg] Finished pulling GPU container images'
 }

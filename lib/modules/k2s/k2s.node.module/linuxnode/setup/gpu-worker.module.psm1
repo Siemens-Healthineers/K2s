@@ -28,6 +28,36 @@ Import-Module $infraModule, $clusterModule
 $script:GpuLabelKey = 'gpu'
 $script:AcceleratorLabel = 'accelerator'
 
+function Get-GpuAddonNvidiaImages {
+    $repoRoot = (Get-Item -Path $PSScriptRoot).Parent.Parent.Parent.Parent.Parent.Parent.FullName
+    $manifestPath = Join-Path -Path $repoRoot -ChildPath 'addons\gpu-node\addon.manifest.yaml'
+    
+    if (!(Test-Path -Path $manifestPath)) {
+        throw "[GPU] GPU addon manifest not found at: $manifestPath"
+    }
+    
+    $manifestContent = Get-Content -Path $manifestPath -Raw
+    if ([string]::IsNullOrWhiteSpace($manifestContent)) {
+        throw "[GPU] GPU addon manifest is empty: $manifestPath"
+    }
+    
+    $imageMatches = [regex]::Matches($manifestContent, 'nvcr\.io/nvidia/[A-Za-z0-9_./-]+:[A-Za-z0-9_.-]+')
+    $images = @($imageMatches | ForEach-Object { $_.Value } | Select-Object -Unique)
+
+    if ($images.Count -eq 0) {
+        throw "[GPU] No NVIDIA container images found in addon manifest at: $manifestPath"
+    }
+    
+    $devicePluginVersion = ($images | Where-Object { $_ -match '^nvcr\.io/nvidia/k8s-device-plugin:' } | Select-Object -First 1) -replace '^.*:', ''
+    $dcgmExporterVersion = ($images | Where-Object { $_ -match '^nvcr\.io/nvidia/k8s/dcgm-exporter:' } | Select-Object -First 1) -replace '^.*:', ''
+
+    Write-Log "[GPU] k8s-device-plugin version from addon manifest: $devicePluginVersion" -Console
+    Write-Log "[GPU] dcgm-exporter version from addon manifest: $dcgmExporterVersion" -Console
+    Write-Log "[GPU] Using NVIDIA images from addon manifest: $($images -join ', ')"
+
+    return $images
+}
+
 <#
 .SYNOPSIS
     Installs and configures the NVIDIA Container Toolkit on the target Linux node.
@@ -170,6 +200,14 @@ Then use:
 <#
 .SYNOPSIS
     Installs NVIDIA Container Toolkit packages from the internet.
+.PARAMETER UserName
+    SSH username for the remote node.
+.PARAMETER IpAddress
+    IP address of the remote node.
+.PARAMETER Proxy
+    Optional HTTP proxy URI (for example 'http://172.19.1.1:8181').
+    For backward compatibility, values provided as 'host:port' are also accepted
+    and normalized to 'http://host:port'.
 #>
 function Install-NvidiaContainerToolkitOnline {
     param (
@@ -183,46 +221,68 @@ function Install-NvidiaContainerToolkitOnline {
 
     Write-Log "[GPU] Installing NVIDIA Container Toolkit (online) on $IpAddress" -Console
 
-    # If no proxy specified, use K2s's HTTP proxy (same as gpu-node addon)
-    # Worker nodes on the internal K2s network need the proxy to reach the internet
     if ([string]::IsNullOrWhiteSpace($Proxy)) {
         $kubeSwitchIp = Get-ConfiguredKubeSwitchIP
         if (![string]::IsNullOrWhiteSpace($kubeSwitchIp)) {
-            $Proxy = "${kubeSwitchIp}:8181"
+            $Proxy = "http://${kubeSwitchIp}:8181"
             Write-Log "[GPU] Using K2s HTTP proxy: $Proxy"
         }
     }
 
-    $proxyEnv = ''
+    if (![string]::IsNullOrWhiteSpace($Proxy) -and ($Proxy -notmatch '^https?://')) {
+        $Proxy = "http://$Proxy"
+        Write-Log "[GPU] Normalized proxy to URI format: $Proxy"
+    }
+
+    $aptProxyConfigured = $false
     $curlProxy = ''
     if (![string]::IsNullOrWhiteSpace($Proxy)) {
-        # apt-get requires full URL with http:// prefix for proxy environment variables
-        $proxyEnv = "http_proxy=http://$Proxy https_proxy=http://$Proxy "
         $curlProxy = "-x $Proxy"
+        Write-Log "[GPU] Configuring apt proxy: $Proxy"
+        $aptProxyConf = "Acquire::http::Proxy `"$Proxy`";`nAcquire::https::Proxy `"$Proxy`";`n"
+        $aptProxyConfBase64 = [Convert]::ToBase64String([System.Text.Encoding]::UTF8.GetBytes($aptProxyConf))
+        $aptProxyCmd = "echo '$aptProxyConfBase64' | base64 -d | sudo tee /etc/apt/apt.conf.d/95k2s-proxy"
+        (Invoke-CmdOnVmViaSSHKey -CmdToExecute $aptProxyCmd -UserName $UserName -IpAddress $IpAddress -IgnoreErrors).Output | Write-Log
+        $aptProxyConfigured = $true
     }
 
-    Write-Log "[GPU] Setting up NVIDIA apt repository (proxy='$Proxy')" -Console
-    
-    $repoSetupCmd = "curl --retry 3 --retry-all-errors -fsSL https://nvidia.github.io/libnvidia-container/gpgkey $curlProxy | sudo gpg --dearmor --batch --yes -o /usr/share/keyrings/nvidia-container-toolkit-keyring.gpg && curl --retry 3 --retry-all-errors -s -L https://nvidia.github.io/libnvidia-container/stable/deb/nvidia-container-toolkit.list $curlProxy | sed 's#deb https://#deb [signed-by=/usr/share/keyrings/nvidia-container-toolkit-keyring.gpg] https://#g' | sudo tee /etc/apt/sources.list.d/nvidia-container-toolkit.list"
-    
-    $repoResult = Invoke-CmdOnVmViaSSHKey -CmdToExecute $repoSetupCmd -UserName $UserName -IpAddress $IpAddress
-    Write-Log "[GPU] Repo setup result - Success: $($repoResult.Success), Output: $($repoResult.Output)"
-    if (!$repoResult.Success) {
-        throw "[GPU] Failed to set up NVIDIA repository on $IpAddress. Ensure the node has internet access or use --node-package for offline installation."
+    try {
+        Write-Log "[GPU] Setting up NVIDIA apt repository (proxy='$Proxy')" -Console
+
+        $repoSetupCmd = "curl --retry 3 --retry-all-errors -fsSL https://nvidia.github.io/libnvidia-container/gpgkey $curlProxy | sudo gpg --dearmor --batch --yes -o /usr/share/keyrings/nvidia-container-toolkit-keyring.gpg && curl --retry 3 --retry-all-errors -s -L https://nvidia.github.io/libnvidia-container/stable/deb/nvidia-container-toolkit.list $curlProxy | sed 's#deb https://#deb [signed-by=/usr/share/keyrings/nvidia-container-toolkit-keyring.gpg] https://#g' | sudo tee /etc/apt/sources.list.d/nvidia-container-toolkit.list"
+
+        $repoResult = Invoke-CmdOnVmViaSSHKey -CmdToExecute $repoSetupCmd -UserName $UserName -IpAddress $IpAddress
+        Write-Log "[GPU] Repo setup result - Success: $($repoResult.Success), Output: $($repoResult.Output)"
+        if (!$repoResult.Success) {
+            throw "[GPU] Failed to set up NVIDIA repository on $IpAddress. Ensure the node has internet access or use --node-package for offline installation."
+        }
+
+        $verifySourcesCmd = 'cat /etc/apt/sources.list.d/nvidia-container-toolkit.list 2>/dev/null || echo "FILE_NOT_FOUND"'
+        $verifyResult = Invoke-CmdOnVmViaSSHKey -CmdToExecute $verifySourcesCmd -UserName $UserName -IpAddress $IpAddress -IgnoreErrors
+        $verifyResult.Output | Write-Log
+        if ($verifyResult.Output -match 'FILE_NOT_FOUND') {
+            Write-Log '[GPU] WARNING: NVIDIA repository file /etc/apt/sources.list.d/nvidia-container-toolkit.list was not created.' -Console
+        }
+
+        # Proxy is taken from /etc/apt/apt.conf.d/95k2s-proxy when configured above
+        $updateCmd = 'sudo apt-get update'
+        (Invoke-CmdOnVmViaSSHKey -CmdToExecute $updateCmd -UserName $UserName -IpAddress $IpAddress -IgnoreErrors).Output | Write-Log
+
+        $installCmd = 'sudo DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends libnvidia-container1 libnvidia-container-tools nvidia-container-runtime nvidia-container-toolkit'
+        $installResult = Invoke-CmdOnVmViaSSHKey -CmdToExecute $installCmd -UserName $UserName -IpAddress $IpAddress
+        $installResult.Output | Write-Log
+
+        if (!$installResult.Success) {
+            throw "[GPU] Failed to install NVIDIA Container Toolkit packages on $IpAddress"
+        }
     }
-
-    $verifySourcesCmd = 'cat /etc/apt/sources.list.d/nvidia-container-toolkit.list 2>/dev/null || echo "FILE_NOT_FOUND"'
-    $verifyResult = Invoke-CmdOnVmViaSSHKey -CmdToExecute $verifySourcesCmd -UserName $UserName -IpAddress $IpAddress -IgnoreErrors
-
-    $updateCmd = "${proxyEnv}sudo apt-get update"
-    (Invoke-CmdOnVmViaSSHKey -CmdToExecute $updateCmd -UserName $UserName -IpAddress $IpAddress -IgnoreErrors).Output | Write-Log
-
-    $installCmd = "${proxyEnv}sudo DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends libnvidia-container1 libnvidia-container-tools nvidia-container-runtime nvidia-container-toolkit"
-    $installResult = Invoke-CmdOnVmViaSSHKey -CmdToExecute $installCmd -UserName $UserName -IpAddress $IpAddress
-    $installResult.Output | Write-Log
-
-    if (!$installResult.Success) {
-        throw "[GPU] Failed to install NVIDIA Container Toolkit packages on $IpAddress"
+    finally {
+        # Remove the temporary apt proxy config so future apt operations on this
+        # (potentially long-lived) node do not depend on the K2s proxy being reachable.
+        if ($aptProxyConfigured) {
+            Write-Log '[GPU] Removing temporary apt proxy configuration (/etc/apt/apt.conf.d/95k2s-proxy)'
+            (Invoke-CmdOnVmViaSSHKey -CmdToExecute 'sudo rm -f /etc/apt/apt.conf.d/95k2s-proxy' -UserName $UserName -IpAddress $IpAddress -IgnoreErrors).Output | Write-Log
+        }
     }
 }
 
@@ -313,25 +373,25 @@ function Install-GpuDevicePluginImages {
 
     Write-Log "[GPU] Ensuring device plugin images are available on $IpAddress" -Console
 
-    # Images required for GPU support (same as Enable.ps1)
-    $images = @(
-        'nvcr.io/nvidia/k8s-device-plugin:v0.19.1'
-        'nvcr.io/nvidia/k8s/dcgm-exporter:4.5.2-4.8.1-ubi9'
-    )
+    # Resolve image versions from gpu-node addon manifest so automation that scans
+    # addon files (Enable.ps1/addon.manifest.yaml) stays the source of truth.
+    $images = Get-GpuAddonNvidiaImages
 
     # If no proxy specified, use K2s's HTTP proxy
     if ([string]::IsNullOrWhiteSpace($Proxy)) {
         $kubeSwitchIp = Get-ConfiguredKubeSwitchIP
         if (![string]::IsNullOrWhiteSpace($kubeSwitchIp)) {
-            $Proxy = "${kubeSwitchIp}:8181"
+            $Proxy = "http://${kubeSwitchIp}:8181"
             Write-Log "[GPU] Using K2s HTTP proxy for image pulls: $Proxy"
         }
     }
 
-    # Build proxy environment if provided
+    # Build proxy environment if provided.
     $proxyEnv = ''
     if (![string]::IsNullOrWhiteSpace($Proxy)) {
-        $proxyEnv = "HTTPS_PROXY=http://$Proxy HTTP_PROXY=http://$Proxy "
+        # Normalize proxy URL - strip existing scheme to avoid duplication
+        $proxyHost = $Proxy -replace '^https?://', ''
+        $proxyEnv = "HTTPS_PROXY=http://$proxyHost HTTP_PROXY=http://$proxyHost "
     }
 
     foreach ($image in $images) {
@@ -346,14 +406,14 @@ function Install-GpuDevicePluginImages {
         Write-Log "[GPU] Pulling image: $image" -Console
 
         # Try buildah pull (shares storage with CRI-O)
-        $pullCmd = "${proxyEnv}sudo buildah pull '$image' 2>&1"
+        $pullCmd = "sudo ${proxyEnv}buildah pull '$image' 2>&1"
         $pullResult = Invoke-CmdOnVmViaSSHKey -CmdToExecute $pullCmd -UserName $UserName -IpAddress $IpAddress -IgnoreErrors
         $pullResult.Output | Write-Log
 
         if (!$pullResult.Success) {
             # Fallback: try crictl pull
             Write-Log "[GPU] buildah pull failed, trying crictl pull..." -Console
-            $crictlCmd = "${proxyEnv}sudo crictl pull '$image' 2>&1"
+            $crictlCmd = "sudo ${proxyEnv}crictl pull '$image' 2>&1"
             $crictlResult = Invoke-CmdOnVmViaSSHKey -CmdToExecute $crictlCmd -UserName $UserName -IpAddress $IpAddress -IgnoreErrors
             $crictlResult.Output | Write-Log
 
