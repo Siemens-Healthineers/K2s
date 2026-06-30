@@ -595,7 +595,7 @@ function Convert-VhdxToRootfs {
     # Provide more disk than the control plane defaults to avoid scp 'write failure'
     # / 'no space left on device' errors as the produced image grows in size.
     $sourceVhdxSizeBytes = (Get-Item -Path $SourceVhdxPath).Length
-    $requiredDiskSize = [uint64]($sourceVhdxSizeBytes * 6) + 20GB
+    $requiredDiskSize = [uint64]$sourceVhdxSizeBytes * 6 + 20GB
     $rootfsVmDiskSize = [System.Math]::Max([uint64]$VMDiskSize, $requiredDiskSize)
     $rootfsVmMemory = [System.Math]::Max([long]$VMMemoryStartupBytes, [long]8GB)
     $sourceVhdxSizeGB = [System.Math]::Round($sourceVhdxSizeBytes / 1GB, 2)
