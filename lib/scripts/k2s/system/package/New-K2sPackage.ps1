@@ -112,6 +112,7 @@ $exclusionList += "$kubePath\k2s\cmd\httpproxy\httpproxy.exe"
 $exclusionList += "$kubePath\k2s\cmd\devgon\devgon.exe"
 $exclusionList += "$kubePath\k2s\cmd\bridge\bridge.exe"
 $exclusionList += "$kubePath\bin\debian-12-genericcloud-amd64.qcow2"  # Large guest cloud image not needed in package
+$exclusionList += "$kubePath\bin\debian-13-genericcloud-amd64.qcow2"  # Large guest cloud image not needed in package
 
 # Inclusion list (whitelist) - initialized empty; may be populated per profile
 $inclusionList = @()
