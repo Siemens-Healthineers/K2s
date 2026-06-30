@@ -13,7 +13,8 @@
     apt-get download, copies the packages back to the Windows host, and creates a zip archive.
 
     Node package creation requires an existing K2s cluster on the machine where the command
-    runs and the local cluster proxy http://172.19.1.1:8181.
+    runs. When -Proxy is omitted, the local cluster proxy
+    (http://<KubeSwitchIP>:8181, e.g. http://172.19.1.1:8181) is used automatically.
 
     The -TargetDirectory and -ZipPackageFileName flags are required and control
     where the resulting zip is written and what it is named.
@@ -109,7 +110,11 @@ if ($systemError) {
 }
 
 if ([string]::IsNullOrWhiteSpace($Proxy)) {
-    $Proxy = "http://$(Get-ConfiguredKubeSwitchIP):8181"
+    $kubeSwitchIp = Get-ConfiguredKubeSwitchIP
+    if ([string]::IsNullOrWhiteSpace($kubeSwitchIp)) {
+        throw '[NodePkg] Could not determine KubeSwitch IP for default proxy.'
+    }
+    $Proxy = "http://${kubeSwitchIp}:8181"
     Write-Log "[NodePkg] No proxy specified. Defaulting to K2s transparent proxy '$Proxy'." -Console
 }
 

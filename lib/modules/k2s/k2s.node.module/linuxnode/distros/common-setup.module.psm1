@@ -825,6 +825,7 @@ function Get-NvidiaGpuDebPackagesFromInternet {
 
     Write-Log '[GpuPkg] Downloading NVIDIA Container Toolkit packages'
 
+    $aptProxyConfigured = $false
     $curlProxy = ''
     if (![string]::IsNullOrWhiteSpace($Proxy)) {
         $curlProxy = "-x $Proxy"
@@ -833,34 +834,43 @@ function Get-NvidiaGpuDebPackagesFromInternet {
         $aptProxyConfBase64 = [Convert]::ToBase64String([System.Text.Encoding]::UTF8.GetBytes($aptProxyConf))
         $aptProxyCmd = "echo '$aptProxyConfBase64' | base64 -d | sudo tee /etc/apt/apt.conf.d/95k2s-proxy"
         (Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute $aptProxyCmd -RemoteUser $remoteUser -RemoteUserPwd $UserPwd -IgnoreErrors).Output | Write-Log
+        $aptProxyConfigured = $true
     }
 
-    # Add NVIDIA Container Toolkit repository
-    $repoSetupCmd = "curl --retry 3 --retry-all-errors -fsSL https://nvidia.github.io/libnvidia-container/gpgkey $curlProxy | sudo gpg --dearmor --batch --yes -o /usr/share/keyrings/nvidia-container-toolkit-keyring.gpg && curl --retry 3 --retry-all-errors -s -L https://nvidia.github.io/libnvidia-container/stable/deb/nvidia-container-toolkit.list $curlProxy | sed 's#deb https://#deb [signed-by=/usr/share/keyrings/nvidia-container-toolkit-keyring.gpg] https://#g' | sudo tee /etc/apt/sources.list.d/nvidia-container-toolkit.list"
-    Write-Log '[GpuPkg] Setting up NVIDIA repository...'
-    (Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute $repoSetupCmd -RemoteUser $remoteUser -RemoteUserPwd $UserPwd -IgnoreErrors).Output | Write-Log
+    try {
+        # Add NVIDIA Container Toolkit repository
+        $repoSetupCmd = "curl --retry 3 --retry-all-errors -fsSL https://nvidia.github.io/libnvidia-container/gpgkey $curlProxy | sudo gpg --dearmor --batch --yes -o /usr/share/keyrings/nvidia-container-toolkit-keyring.gpg && curl --retry 3 --retry-all-errors -s -L https://nvidia.github.io/libnvidia-container/stable/deb/nvidia-container-toolkit.list $curlProxy | sed 's#deb https://#deb [signed-by=/usr/share/keyrings/nvidia-container-toolkit-keyring.gpg] https://#g' | sudo tee /etc/apt/sources.list.d/nvidia-container-toolkit.list"
+        Write-Log '[GpuPkg] Setting up NVIDIA repository...'
+        (Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute $repoSetupCmd -RemoteUser $remoteUser -RemoteUserPwd $UserPwd -IgnoreErrors).Output | Write-Log
 
-    $updateCmd = 'sudo apt-get update'
-    (Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute $updateCmd -RemoteUser $remoteUser -RemoteUserPwd $UserPwd -IgnoreErrors).Output | Write-Log
+        $updateCmd = 'sudo apt-get update'
+        (Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute $updateCmd -RemoteUser $remoteUser -RemoteUserPwd $UserPwd -IgnoreErrors).Output | Write-Log
 
-    # Create target directory
-    (Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute "mkdir -p $TargetPath && cd $TargetPath && sudo chown -R _apt:root ." -RemoteUser $remoteUser -RemoteUserPwd $UserPwd).Output | Write-Log
+        # Create target directory
+        (Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute "mkdir -p $TargetPath && cd $TargetPath && sudo chown -R _apt:root ." -RemoteUser $remoteUser -RemoteUserPwd $UserPwd).Output | Write-Log
 
-    $gpuPackages = @('libnvidia-container1', 'libnvidia-container-tools', 'nvidia-container-toolkit-base', 'nvidia-container-runtime', 'nvidia-container-toolkit')
-    foreach ($pkg in $gpuPackages) {
-        Write-Log "[GpuPkg] Downloading GPU package: $pkg"
-        # Download the package
-        $downloadCmd = "cd $TargetPath && sudo apt-get download $pkg 2>&1"
-        (Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute $downloadCmd -RemoteUser $remoteUser -RemoteUserPwd $UserPwd -IgnoreErrors).Output | Write-Log
-        
-        # Download dependencies
-        $depsCmd = "cd $TargetPath && sudo DEBIAN_FRONTEND=noninteractive apt-get --reinstall install -y --no-install-recommends --no-install-suggests --simulate ./${pkg}*.deb 2>/dev/null | grep 'Inst ' | cut -d ' ' -f 2 | sort -u | xargs -r sudo apt-get download 2>&1 || true"
-        (Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute $depsCmd -RemoteUser $remoteUser -RemoteUserPwd $UserPwd -IgnoreErrors).Output | Write-Log
+        $gpuPackages = @('libnvidia-container1', 'libnvidia-container-tools', 'nvidia-container-toolkit-base', 'nvidia-container-runtime', 'nvidia-container-toolkit')
+        foreach ($pkg in $gpuPackages) {
+            Write-Log "[GpuPkg] Downloading GPU package: $pkg"
+            # Download the package
+            $downloadCmd = "cd $TargetPath && sudo apt-get download $pkg 2>&1"
+            (Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute $downloadCmd -RemoteUser $remoteUser -RemoteUserPwd $UserPwd -IgnoreErrors).Output | Write-Log
+            
+            # Download dependencies
+            $depsCmd = "cd $TargetPath && sudo DEBIAN_FRONTEND=noninteractive apt-get --reinstall install -y --no-install-recommends --no-install-suggests --simulate ./${pkg}*.deb 2>/dev/null | grep 'Inst ' | cut -d ' ' -f 2 | sort -u | xargs -r sudo apt-get download 2>&1 || true"
+            (Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute $depsCmd -RemoteUser $remoteUser -RemoteUserPwd $UserPwd -IgnoreErrors).Output | Write-Log
+        }
+
+        $remoteGpuDebCount = (Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute "ls -1 $TargetPath/*.deb 2>/dev/null | wc -l" -RemoteUser $remoteUser -RemoteUserPwd $UserPwd -IgnoreErrors).Output
+        Write-Log "[GpuPkg] GPU packages downloaded: $($remoteGpuDebCount.Trim())"
+        Write-Log '[GpuPkg] Finished downloading NVIDIA Container Toolkit packages'
     }
-
-    $remoteGpuDebCount = (Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute "ls -1 $TargetPath/*.deb 2>/dev/null | wc -l" -RemoteUser $remoteUser -RemoteUserPwd $UserPwd -IgnoreErrors).Output
-    Write-Log "[GpuPkg] GPU packages downloaded: $($remoteGpuDebCount.Trim())"
-    Write-Log '[GpuPkg] Finished downloading NVIDIA Container Toolkit packages'
+    finally {
+        if ($aptProxyConfigured) {
+            Write-Log '[GpuPkg] Removing temporary apt proxy configuration (/etc/apt/apt.conf.d/95k2s-proxy)'
+            (Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute 'sudo rm -f /etc/apt/apt.conf.d/95k2s-proxy' -RemoteUser $remoteUser -RemoteUserPwd $UserPwd -IgnoreErrors).Output | Write-Log
+        }
+    }
 }
 
 <#
