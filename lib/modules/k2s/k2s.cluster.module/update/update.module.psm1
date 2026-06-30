@@ -592,9 +592,12 @@ function Set-K2sInstallationHome {
 					if ($current -is [Array]) { $current = ($current -join ' ') }
 					if ($current.IndexOf($fromTrim, [System.StringComparison]::OrdinalIgnoreCase) -lt 0) { continue }
 					$newValue = [regex]::Replace($current, $fromPattern, $toTrim, [System.Text.RegularExpressions.RegexOptions]::IgnoreCase)
-					& $nssmPath set $svc $parameter $newValue | Out-Null
-					if ($LASTEXITCODE -ne 0) {
-						Write-Log ("[Update][Warn] nssm fallback failed (exit {0}) re-pointing service '{1}' parameter '{2}'" -f $LASTEXITCODE, $svc, $parameter) -Console
+					# Write directly to the registry (see Update-NssmServiceInstallPath) instead of 'nssm.exe set'
+					# to avoid the native-command quoting bug for installation paths that contain spaces.
+					try {
+						Set-ItemProperty -Path $regKey -Name $parameter -Value $newValue -ErrorAction Stop
+					} catch {
+						Write-Log ("[Update][Warn] nssm fallback failed re-pointing service '{0}' parameter '{1}': {2}" -f $svc, $parameter, $_.Exception.Message) -Console
 						continue
 					}
 					$repointedCount++
