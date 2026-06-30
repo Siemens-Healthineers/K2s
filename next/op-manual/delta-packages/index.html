@@ -3769,10 +3769,10 @@ SPDX-License-Identifier: MIT
 <h3 id="node-delta-package">Node Delta Package</h3>
 <p>A node delta package contains only the Debian packages and container images that changed between two node package versions — significantly reducing transfer size for incremental upgrades.</p>
 <div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="go">k2s system package --node-package --delta-package `</span>
-<a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a><span class="go">    --package-version-from C:\packages\debian12-node-v1.7.0.zip `</span>
-<a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a><span class="go">    --package-version-to C:\packages\debian12-node-v1.8.0.zip `</span>
-<a id="__codelineno-8-4" name="__codelineno-8-4" href="#__codelineno-8-4"></a><span class="go">    -d C:\packages `</span>
-<a id="__codelineno-8-5" name="__codelineno-8-5" href="#__codelineno-8-5"></a><span class="go">    -n debian12-node-delta-v1.7.0-to-v1.8.0.zip</span>
+<a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a><span class="go">  --package-version-from C:\packages\debian13-node-v1.7.0.zip `</span>
+<a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a><span class="go">  --package-version-to C:\packages\debian13-node-v1.8.0.zip `</span>
+<a id="__codelineno-8-4" name="__codelineno-8-4" href="#__codelineno-8-4"></a><span class="go">  -d C:\packages `</span>
+<a id="__codelineno-8-5" name="__codelineno-8-5" href="#__codelineno-8-5"></a><span class="go">  -n debian13-node-delta-v1.7.0-to-v1.8.0.zip</span>
 </code></pre></div>
 <p>The <code>--os</code> flag is optional in delta mode — the <abbr title="Operating System">OS</abbr> folder is auto-detected from the ZIP structure. Specify it explicitly only when both input ZIPs contain multiple <abbr title="Operating System">OS</abbr> directories.</p>
 <h4 id="node-delta-package-parameters">Node Delta Package Parameters</h4>
@@ -3834,7 +3834,7 @@ SPDX-License-Identifier: MIT
 <a id="__codelineno-9-4" name="__codelineno-9-4" href="#__codelineno-9-4"></a>├── apply-node-delta.sh      # Manual application helper (Linux node)
 <a id="__codelineno-9-5" name="__codelineno-9-5" href="#__codelineno-9-5"></a>├── verify-node-delta.sh     # Manual verification helper (Linux node)
 <a id="__codelineno-9-6" name="__codelineno-9-6" href="#__codelineno-9-6"></a>├── packages/
-<a id="__codelineno-9-7" name="__codelineno-9-7" href="#__codelineno-9-7"></a>│   └── debian12/            # Changed and added .deb files only
+<a id="__codelineno-9-7" name="__codelineno-9-7" href="#__codelineno-9-7"></a>│   └── debian13/            # Changed and added .deb files only
 <a id="__codelineno-9-8" name="__codelineno-9-8" href="#__codelineno-9-8"></a>│       ├── kubelet_1.35.2-1.1_amd64.deb
 <a id="__codelineno-9-9" name="__codelineno-9-9" href="#__codelineno-9-9"></a>│       └── ...
 <a id="__codelineno-9-10" name="__codelineno-9-10" href="#__codelineno-9-10"></a>├── images/                  # Changed and added container image archives
@@ -3852,10 +3852,10 @@ SPDX-License-Identifier: MIT
 <li>No <code>delta-manifest.json</code> present → <strong>full upgrade</strong><br />
   (installs all packages present in the ZIP)</li>
 </ul>
-<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a><span class="go">k2s system upgrade --node k2s-nodepkg-debian12 --path &quot;C:\ws\DeltaPackage\debian12-node-delta-v1.7.0-to-v1.8.0.zip&quot; -o</span>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a><span class="go">k2s system upgrade --node k2s-nodepkg-debian13 --path &quot;C:\ws\DeltaPackage\debian13-node-delta-v1.7.0-to-v1.8.0.zip&quot; -o</span>
 </code></pre></div>
 <p>The same command works for full node packages:</p>
-<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a><span class="go">k2s system upgrade --node k2s-nodepkg-debian12 --path &quot;C:\ws\DeltaPackage\debian12-node-v1.8.0.zip&quot; -o</span>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a><span class="go">k2s system upgrade --node k2s-nodepkg-debian13 --path &quot;C:\ws\DeltaPackage\debian13-node-v1.8.0.zip&quot; -o</span>
 </code></pre></div>
 <h4 id="k2s-system-upgrade-node-flags"><code>k2s system upgrade --node</code> Flags</h4>
 <table>
