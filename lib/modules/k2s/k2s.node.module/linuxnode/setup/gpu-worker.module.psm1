@@ -254,6 +254,10 @@ function Install-NvidiaContainerToolkitOnline {
 
         $verifySourcesCmd = 'cat /etc/apt/sources.list.d/nvidia-container-toolkit.list 2>/dev/null || echo "FILE_NOT_FOUND"'
         $verifyResult = Invoke-CmdOnVmViaSSHKey -CmdToExecute $verifySourcesCmd -UserName $UserName -IpAddress $IpAddress -IgnoreErrors
+        $verifyResult.Output | Write-Log
+        if ($verifyResult.Output -match 'FILE_NOT_FOUND') {
+            Write-Log '[GPU] WARNING: NVIDIA repository file /etc/apt/sources.list.d/nvidia-container-toolkit.list was not created.' -Console
+        }
 
         # Proxy is taken from /etc/apt/apt.conf.d/95k2s-proxy when configured above
         $updateCmd = 'sudo apt-get update'
