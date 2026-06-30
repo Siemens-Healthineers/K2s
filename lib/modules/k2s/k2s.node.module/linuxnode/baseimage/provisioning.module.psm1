@@ -589,6 +589,19 @@ function Convert-VhdxToRootfs {
 
     $vmName = $RootfsWslProvisioningVmName
 
+    # The rootfs creation VM must temporarily hold, under /tmp/rootfs, the copied source vhdx,
+    # the fully extracted (uncompressed) root filesystem and the resulting tarball all at once.
+    # Provide more memory and disk than the control plane defaults to avoid scp 'write failure'
+    # / 'no space left on device' errors as the produced image grows in size.
+    $sourceVhdxSizeBytes = (Get-Item -Path $SourceVhdxPath).Length
+    $requiredDiskSize = [uint64]($sourceVhdxSizeBytes * 6) + 20GB
+    $rootfsVmDiskSize = [System.Math]::Max([uint64]$VMDiskSize, $requiredDiskSize)
+    $rootfsVmMemory = [System.Math]::Max([long]$VMMemoryStartupBytes, [long]8GB)
+    $sourceVhdxSizeGB = [System.Math]::Round($sourceVhdxSizeBytes / 1GB, 2)
+    $rootfsVmDiskSizeGB = [System.Math]::Round($rootfsVmDiskSize / 1GB, 2)
+    $rootfsVmMemoryGB = [System.Math]::Round($rootfsVmMemory / 1GB, 2)
+    Write-Log "Rootfs creation VM '$vmName': source vhdx ${sourceVhdxSizeGB}GB -> using disk ${rootfsVmDiskSizeGB}GB, memory ${rootfsVmMemoryGB}GB" -Console
+
     $Hook = {
         New-RootfsForWSL -IpAddress $(Get-VmIpForProvisioningKubeNode) -UserName $(Get-DefaultUserNameKubeNode) -UserPwd $(Get-DefaultUserPwdKubeNode) -VhdxFile $SourceVhdxPath -TargetFilePath $TargetRootfsFilePath
     }
@@ -597,8 +610,8 @@ function Convert-VhdxToRootfs {
         VhdxPath=$rootfsCreatorHostVhdxPath
         VmName=$vmName
         Hook = $Hook
-        VMDiskSize = $VMDiskSize
-        VMMemoryStartupBytes = $VMMemoryStartupBytes
+        VMDiskSize = $rootfsVmDiskSize
+        VMMemoryStartupBytes = $rootfsVmMemory
         VMProcessorCount = $VMProcessorCount
     }
     Start-VmBasedOnKubenodeBaseImage @vmBasedOnKubenodeBaseImageStartParams
@@ -663,6 +676,14 @@ Function New-RootfsForWSL {
     &$executeRemoteCommand "sudo mkdir -p /tmp/rootfs"
     &$executeRemoteCommand "sudo chmod 755 /tmp/rootfs"
     &$executeRemoteCommand "sudo chown $UserName /tmp/rootfs"
+
+    # Grow the root partition/filesystem so the enlarged virtual disk is actually usable.
+    # Resize-VHD only enlarges the vhdx container; the guest ext4 partition that holds /tmp must be
+    # expanded too, otherwise the larger disk provides no extra space for the staged files.
+    Write-Log "Expanding root filesystem of rootfs creation VM to use the full virtual disk..."
+    &$executeRemoteCommand 'ROOT_SRC=$(findmnt -n -o SOURCE /); ROOT_DISK=$(lsblk -no PKNAME "$ROOT_SRC"); PART_NUM=$(echo "$ROOT_SRC" | grep -oE "[0-9]+$"); sudo growpart "/dev/$ROOT_DISK" "$PART_NUM"; sudo resize2fs "$ROOT_SRC"' -IgnoreErrors
+    Write-Log "Available space on rootfs creation VM before copying the vhdx:"
+    &$executeRemoteCommand "df -h /tmp"
 
     $target = '/tmp/rootfs/'
     $filename = Split-Path $VhdxFile -Leaf

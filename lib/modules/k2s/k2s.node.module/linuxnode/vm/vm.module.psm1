@@ -710,23 +710,40 @@ function Copy-ToRemoteComputerViaUserAndPwd($Source, $Target, $IpAddress,
 
     $attempt = 0
     $output = $null
+    $exitCode = 0
+    $exceptionMessage = $null
 
     do {
         $attempt++
-        $output = Invoke-ExeWithAsciiEncoding -ExePath $scpExe -Arguments @('-ssh','-4','-q','-r','-pw',$UserPwd,"$Source","${UserName}@${IpAddress}:$Target") -PipeInput 'yes'
+        $exceptionMessage = $null
+        try {
+            $output = Invoke-ExeWithAsciiEncoding -ExePath $scpExe -Arguments @('-ssh','-4','-q','-r','-pw',$UserPwd,"$Source","${UserName}@${IpAddress}:$Target") -PipeInput 'yes'
+            $exitCode = $LASTEXITCODE
+        }
+        catch {
+            # Capture the exact exception thrown while invoking pscp.
+            $exceptionMessage = $_.Exception.Message
+            $exitCode = if ($LASTEXITCODE) { $LASTEXITCODE } else { 1 }
+            Write-Log "[SCP] Attempt $attempt threw an exception: $exceptionMessage" -Console
+        }
 
-        if ($LASTEXITCODE -eq 0) {
+        if ($exitCode -eq 0) {
             break
         }
 
+        $detail = "$output $exceptionMessage".Trim()
+        Write-Log "[SCP] Attempt $attempt failed (exit code $exitCode). Detailed pscp output: $detail" -Console
+
         if ($attempt -le $Retries) {
-            Write-Log "[SCP] Attempt $attempt failed (exit code $LASTEXITCODE), retrying in $RetryDelay seconds..."
+            Write-Log "[SCP] Retrying in $RetryDelay seconds..."
             Start-Sleep -Seconds $RetryDelay
         }
     } while ($attempt -le $Retries)
 
-    if ($LASTEXITCODE -ne 0 -and !$IgnoreErrors) {
-        throw "Could not copy '$Source' to '$Target': $output"
+    if ($exitCode -ne 0 -and !$IgnoreErrors) {
+        $detail = "$output $exceptionMessage".Trim()
+        Write-Log "[SCP] Copy of '$Source' to '${UserName}@${IpAddress}:$Target' failed after $attempt attempt(s) (last exit code $exitCode). Detailed pscp output: $detail" -Console
+        throw "Could not copy '$Source' to '$Target' after $attempt attempt(s) (exit code $exitCode): $detail"
     }
     Write-Log $output
 }
