@@ -205,7 +205,9 @@ Then use:
 .PARAMETER IpAddress
     IP address of the remote node.
 .PARAMETER Proxy
-    Optional HTTP proxy as 'host:port' WITHOUT a scheme (e.g. '172.19.1.1:8181').
+    Optional HTTP proxy URI (for example 'http://172.19.1.1:8181').
+    For backward compatibility, values provided as 'host:port' are also accepted
+    and normalized to 'http://host:port'.
 #>
 function Install-NvidiaContainerToolkitOnline {
     param (
@@ -225,6 +227,11 @@ function Install-NvidiaContainerToolkitOnline {
             $Proxy = "http://${kubeSwitchIp}:8181"
             Write-Log "[GPU] Using K2s HTTP proxy: $Proxy"
         }
+    }
+
+    if (![string]::IsNullOrWhiteSpace($Proxy) -and ($Proxy -notmatch '^https?://')) {
+        $Proxy = "http://$Proxy"
+        Write-Log "[GPU] Normalized proxy to URI format: $Proxy"
     }
 
     $aptProxyConfigured = $false
@@ -374,7 +381,7 @@ function Install-GpuDevicePluginImages {
     if ([string]::IsNullOrWhiteSpace($Proxy)) {
         $kubeSwitchIp = Get-ConfiguredKubeSwitchIP
         if (![string]::IsNullOrWhiteSpace($kubeSwitchIp)) {
-            $Proxy = "${kubeSwitchIp}:8181"
+            $Proxy = "http://${kubeSwitchIp}:8181"
             Write-Log "[GPU] Using K2s HTTP proxy for image pulls: $Proxy"
         }
     }
