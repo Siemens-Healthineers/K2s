@@ -4627,7 +4627,7 @@ SPDX-License-Identifier: MIT
 <tr>
 <td><code>--proxy</code></td>
 <td><code>-p</code></td>
-<td><abbr title="Hypertext Transfer Protocol">HTTP</abbr> proxy. Required for <code>--node-package</code>; use the local cluster proxy <code>http://172.19.1.1:8181</code></td>
+<td><abbr title="Hypertext Transfer Protocol">HTTP</abbr> proxy. Optional for <code>--node-package</code>; when omitted the local cluster proxy <code>http://172.19.1.1:8181</code> is used by default</td>
 </tr>
 <tr>
 <td><code>--k8s-bins</code></td>
@@ -4637,7 +4637,7 @@ SPDX-License-Identifier: MIT
 <tr>
 <td><code>--node-package</code></td>
 <td></td>
-<td>Create a Linux worker node package. Requires an existing <em>K2s</em> cluster and <code>-p http://172.19.1.1:8181</code></td>
+<td>Create a Linux worker node package. Requires an installed and running <em>K2s</em> cluster. The local cluster proxy is used by default; override with <code>-p</code> if needed</td>
 </tr>
 <tr>
 <td><code>--os</code></td>
@@ -4652,10 +4652,10 @@ SPDX-License-Identifier: MIT
 </tbody>
 </table>
 <p>Example for node package creation:</p>
-<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-32-1" name="__codelineno-32-1" href="#__codelineno-32-1"></a><span class="go">k2s system package --node-package --os debian12 --target-dir &quot;C:\out&quot; --name &quot;debian12-node.zip&quot; -p http://172.19.1.1:8181</span>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-32-1" name="__codelineno-32-1" href="#__codelineno-32-1"></a><span class="go">k2s system package --node-package --os debian12 --target-dir &quot;C:\out&quot; --name &quot;debian12-node.zip&quot;</span>
 </code></pre></div>
 <p>Example for node package with GPU support:</p>
-<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-33-1" name="__codelineno-33-1" href="#__codelineno-33-1"></a><span class="go">k2s system package --node-package --os debian13 --include-gpu --target-dir &quot;C:\out&quot; --name &quot;debian13-gpu.zip&quot; -p http://172.19.1.1:8181</span>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-33-1" name="__codelineno-33-1" href="#__codelineno-33-1"></a><span class="go">k2s system package --node-package --os debian13 --include-gpu --target-dir &quot;C:\out&quot; --name &quot;debian13-gpu.zip&quot;</span>
 </code></pre></div>
 <h3 id="system-backup">system backup</h3>
 <p>Back up the cluster (resources, persistent volumes, user images).</p>
@@ -4864,7 +4864,7 @@ SPDX-License-Identifier: MIT
 </tr>
 </tbody>
 </table>
-<p>Use <code>--node-package</code> together with a node package created through <code>k2s system package --node-package --os ... -p http://172.19.1.1:8181</code> on an existing <em>K2s</em> cluster when adding a Linux worker node without internet access.</p>
+<p>Use <code>--node-package</code> together with a node package created through <code>k2s system package --node-package --os ...</code> on an installed <em>K2s</em> cluster when adding a Linux worker node without internet access.</p>
 <h3 id="node-remove">node remove</h3>
 <p>Remove a node from the cluster.</p>
 <div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-43-1" name="__codelineno-43-1" href="#__codelineno-43-1"></a><span class="go">k2s node remove [flags]</span>

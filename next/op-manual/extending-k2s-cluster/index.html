@@ -3173,15 +3173,15 @@ This key must be copied to the Linux physical host or <abbr title="Virtual Machi
 <li>Use that package while running <code>k2s node add</code> against the target machine.</li>
 </ol>
 <h3 id="1-create-the-node-package">1. Create the node package</h3>
-<p>Generate an <abbr title="Operating System">OS</abbr>-specific node package. This step requires an installed <em>K2s</em> cluster on the machine where you run the command, and it must use the local cluster proxy <code>http://172.19.1.1:8181</code>.</p>
+<p>Generate an <abbr title="Operating System">OS</abbr>-specific node package. This step requires an installed and running <em>K2s</em> cluster on the machine where you run the command. The local cluster proxy <code>http://172.19.1.1:8181</code> is used by default, so <code>--proxy</code> can be omitted; pass <code>-p</code> only to override it.</p>
 <p>Example using <code>k2s.exe</code> directly from a local directory:</p>
-<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="go">.\k2s.exe system package --node-package --os debian12 --target-dir &quot;D:\Linuxpackagetest&quot; --name &quot;debian12.zip&quot; --proxy http://172.19.1.1:8181</span>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="go">.\k2s.exe system package --node-package --os debian12 --target-dir &quot;D:\Linuxpackagetest&quot; --name &quot;debian12.zip&quot;</span>
 </code></pre></div>
 <p>You can also generate the package on an existing <em>K2s</em> host:</p>
-<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="go">k2s system package --node-package --os debian12 --target-dir &quot;C:\out&quot; --name &quot;debian12-node.zip&quot; -p http://172.19.1.1:8181</span>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="go">k2s system package --node-package --os debian12 --target-dir &quot;C:\out&quot; --name &quot;debian12-node.zip&quot;</span>
 </code></pre></div>
 <p>For Debian 13 nodes, create a Debian 13 package instead:</p>
-<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="go">k2s system package --node-package --os debian13 --target-dir &quot;C:\out&quot; --name &quot;debian13-node.zip&quot; -p http://172.19.1.1:8181</span>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="go">k2s system package --node-package --os debian13 --target-dir &quot;C:\out&quot; --name &quot;debian13-node.zip&quot;</span>
 </code></pre></div>
 <div class="admonition note">
 <p class="admonition-title">Note</p>

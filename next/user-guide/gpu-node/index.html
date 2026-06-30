@@ -3314,9 +3314,13 @@ SPDX-License-Identifier: MIT
 <p>If no NVIDIA GPU is detected (or a non-NVIDIA GPU like AMD/Intel is present), GPU configuration is skipped and the node joins as a regular worker.</p>
 <h3 id="offline-workflow-air-gapped-environment">Offline Workflow (Air-Gapped Environment)</h3>
 <p>For environments without internet access, create a GPU-enabled node package first.</p>
-<p><strong>Step 1: Create the GPU node package</strong> (on a machine with internet)</p>
+<p><strong>Step 1: Create the GPU node package</strong> (on a machine with an installed and running <em>K2s</em> cluster)</p>
 <div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a><span class="go">k2s system package --node-package --os debian13 --include-gpu --target-dir C:\packages --name debian13-gpu.zip</span>
 </code></pre></div>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Node package creation requires an installed and running <em>K2s</em> cluster. The local cluster proxy <code>http://172.19.1.1:8181</code> is used by default to download the GPU artifacts, so <code>--proxy</code> does not need to be specified; pass <code>-p</code> only to override it.</p>
+</div>
 <p>The <code>--include-gpu</code> flag downloads and bundles:</p>
 <ul>
 <li>NVIDIA Container Toolkit <code>.deb</code> packages (<code>libnvidia-container1</code>, <code>libnvidia-container-tools</code>, <code>nvidia-container-runtime</code>, <code>nvidia-container-toolkit</code>)</li>
