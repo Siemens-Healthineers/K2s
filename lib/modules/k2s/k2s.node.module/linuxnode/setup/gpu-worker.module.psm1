@@ -222,19 +222,17 @@ function Install-NvidiaContainerToolkitOnline {
     if ([string]::IsNullOrWhiteSpace($Proxy)) {
         $kubeSwitchIp = Get-ConfiguredKubeSwitchIP
         if (![string]::IsNullOrWhiteSpace($kubeSwitchIp)) {
-            $Proxy = "${kubeSwitchIp}:8181"
+            $Proxy = "http://${kubeSwitchIp}:8181"
             Write-Log "[GPU] Using K2s HTTP proxy: $Proxy"
         }
     }
-
-    $Proxy = $Proxy -replace '^https?://', ''
 
     $aptProxyConfigured = $false
     $curlProxy = ''
     if (![string]::IsNullOrWhiteSpace($Proxy)) {
         $curlProxy = "-x $Proxy"
-        Write-Log "[GPU] Configuring apt proxy: http://$Proxy"
-        $aptProxyConf = "Acquire::http::Proxy `"http://$Proxy`";`nAcquire::https::Proxy `"http://$Proxy`";`n"
+        Write-Log "[GPU] Configuring apt proxy: $Proxy"
+        $aptProxyConf = "Acquire::http::Proxy `"$Proxy`";`nAcquire::https::Proxy `"$Proxy`";`n"
         $aptProxyConfBase64 = [Convert]::ToBase64String([System.Text.Encoding]::UTF8.GetBytes($aptProxyConf))
         $aptProxyCmd = "echo '$aptProxyConfBase64' | base64 -d | sudo tee /etc/apt/apt.conf.d/95k2s-proxy"
         (Invoke-CmdOnVmViaSSHKey -CmdToExecute $aptProxyCmd -UserName $UserName -IpAddress $IpAddress -IgnoreErrors).Output | Write-Log
