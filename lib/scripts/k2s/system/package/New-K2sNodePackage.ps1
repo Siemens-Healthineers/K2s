@@ -109,6 +109,24 @@ if ($systemError) {
     exit 1
 }
 
+# Clean up stale node-package NATs and switches from previous failed runs.
+# Without this, random subnet selection can collide with a stale NAT/route,
+# causing New-NetIPAddress to fail and host-to-VM SSH to time out.
+$staleNetworkNamePattern = 'k2s-nodepkg-debian*'
+Write-Log "[NodePkg] Cleaning stale network artifacts matching '$staleNetworkNamePattern'" -Console
+Get-NetNat -ErrorAction SilentlyContinue |
+    Where-Object Name -like $staleNetworkNamePattern |
+    ForEach-Object {
+        Write-Log "[NodePkg] Removing stale NetNat '$($_.Name)'"
+        Remove-NetNat -Name $_.Name -Confirm:$false -ErrorAction SilentlyContinue
+    }
+Get-VMSwitch -ErrorAction SilentlyContinue |
+    Where-Object Name -like $staleNetworkNamePattern |
+    ForEach-Object {
+        Write-Log "[NodePkg] Removing stale VMSwitch '$($_.Name)'"
+        Remove-VMSwitch -Name $_.Name -Force -ErrorAction SilentlyContinue
+    }
+
 if ([string]::IsNullOrWhiteSpace($Proxy)) {
     $kubeSwitchIp = Get-ConfiguredKubeSwitchIP
     if ([string]::IsNullOrWhiteSpace($kubeSwitchIp)) {
