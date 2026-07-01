@@ -13,7 +13,8 @@
     apt-get download, copies the packages back to the Windows host, and creates a zip archive.
 
     Node package creation requires an existing K2s cluster on the machine where the command
-    runs and the local cluster proxy http://172.19.1.1:8181.
+    runs. When -Proxy is omitted, the local cluster proxy
+    (http://<KubeSwitchIP>:8181, e.g. http://172.19.1.1:8181) is used automatically.
 
     The -TargetDirectory and -ZipPackageFileName flags are required and control
     where the resulting zip is written and what it is named.
@@ -28,19 +29,20 @@
     File name for the resulting zip archive (must end in .zip).
 
 .PARAMETER Proxy
-    HTTP proxy to use for package downloads inside the VM. For node package creation, use
-    the local cluster proxy http://172.19.1.1:8181.
+    Optional HTTP proxy to use for package downloads inside the VM. When omitted, the
+    local cluster transparent proxy (http://<KubeSwitchIP>:8181, e.g. http://172.19.1.1:8181)
+    is used by default. Node package creation requires an installed and running K2s cluster.
 
 .PARAMETER ShowLogs
     When set, all log output is also printed to the console.
 
 .EXAMPLE
-    # Download Debian 12 node packages
-    k2s system package --node-package --os debian12 --target-dir "C:\out" --name "debian12-node.zip" -p http://172.19.1.1:8181
+    # Download Debian 12 node packages (uses the cluster proxy by default)
+    k2s system package --node-package --os debian12 --target-dir "C:\out" --name "debian12-node.zip"
 
 .EXAMPLE
-    # Download Debian 13 node packages through the local cluster proxy
-    k2s system package --node-package --os debian13 --target-dir "C:\out" --name "debian13-node.zip" -p http://172.19.1.1:8181
+    # Download Debian 13 node packages (uses the cluster proxy by default)
+    k2s system package --node-package --os debian13 --target-dir "C:\out" --name "debian13-node.zip"
 #>
 
 param (
@@ -56,6 +58,9 @@ param (
     [Parameter(Mandatory = $false, HelpMessage = 'HTTP proxy for package downloads inside the VM')]
     [string] $Proxy = '',
 
+    [Parameter(Mandatory = $false, HelpMessage = 'Include NVIDIA Container Toolkit packages for GPU support')]
+    [switch] $IncludeGpu = $false,
+
     [Parameter(Mandatory = $false, HelpMessage = 'Show all logs in terminal')]
     [switch] $ShowLogs = $false,
 
@@ -68,10 +73,11 @@ param (
 
 $infraModule = "$PSScriptRoot/../../../../modules/k2s/k2s.infra.module/k2s.infra.module.psm1"
 $nodeModule  = "$PSScriptRoot/../../../../modules/k2s/k2s.node.module/k2s.node.module.psm1"
+$clusterModule = "$PSScriptRoot/../../../../modules/k2s/k2s.cluster.module/k2s.cluster.module.psm1"
 $vmProvisioningHelper = "$PSScriptRoot\New-K2sNodePackage.VmProvisioning.ps1"
 $puttyToolsHelper = "$PSScriptRoot\New-K2sPackage.PuttyTools.ps1"
 
-Import-Module $infraModule, $nodeModule
+Import-Module $infraModule, $nodeModule, $clusterModule
 . $vmProvisioningHelper
 . $puttyToolsHelper
 
@@ -88,18 +94,46 @@ Write-Log "[NodePkg] Distribution key: $distributionKey" -Console
 Write-Log "[NodePkg] Target directory: $TargetDirectory" -Console
 Write-Log "[NodePkg] Output zip: $ZipPackageFileName" -Console
 
+# ---------------------------------------------------------------------------
+# Pre-check: node package creation requires a running K2s cluster. The cluster
+# provides the transparent proxy (httpproxy.exe) at <KubeSwitchIP>:8181 that the
+# ephemeral VM uses to download packages from the internet. Fail fast otherwise.
+# ---------------------------------------------------------------------------
+$systemError = Test-SystemAvailability -Structured
+if ($systemError) {
+    if ($EncodeStructuredOutput -eq $true) {
+        Send-ToCli -MessageType $MessageType -Message @{Error = $systemError }
+        return
+    }
+    Write-Log $systemError.Message -Error
+    exit 1
+}
+
 # Clean up stale node-package NATs and switches from previous failed runs.
 # Without this, random subnet selection can collide with a stale NAT/route,
-# causing New-NetIPAddress to silently fail so the host cannot reach the VM (SSH timeout).
+# causing New-NetIPAddress to fail and host-to-VM SSH to time out.
 $staleNetworkNamePattern = 'k2s-nodepkg-debian*'
-Write-Log "[NodePkg] Cleaning up stale NATs and switches matching '$staleNetworkNamePattern' from previous runs..." -Console
-Get-NetNat | Where-Object Name -like $staleNetworkNamePattern | ForEach-Object {
-    Write-Log "[NodePkg] Removing stale NAT: $($_.Name) ($($_.InternalIPInterfaceAddressPrefix))" -Console
-    Remove-NetNat -Name $_.Name -Confirm:$false -ErrorAction SilentlyContinue
-}
-Get-VMSwitch | Where-Object Name -like $staleNetworkNamePattern | ForEach-Object {
-    Write-Log "[NodePkg] Removing stale vSwitch: $($_.Name)" -Console
-    Remove-VMSwitch -Name $_.Name -Force -ErrorAction SilentlyContinue
+Write-Log "[NodePkg] Cleaning stale network artifacts matching '$staleNetworkNamePattern'" -Console
+Get-NetNat -ErrorAction SilentlyContinue |
+    Where-Object Name -like $staleNetworkNamePattern |
+    ForEach-Object {
+        Write-Log "[NodePkg] Removing stale NetNat '$($_.Name)'"
+        Remove-NetNat -Name $_.Name -Confirm:$false -ErrorAction SilentlyContinue
+    }
+Get-VMSwitch -ErrorAction SilentlyContinue |
+    Where-Object Name -like $staleNetworkNamePattern |
+    ForEach-Object {
+        Write-Log "[NodePkg] Removing stale VMSwitch '$($_.Name)'"
+        Remove-VMSwitch -Name $_.Name -Force -ErrorAction SilentlyContinue
+    }
+
+if ([string]::IsNullOrWhiteSpace($Proxy)) {
+    $kubeSwitchIp = Get-ConfiguredKubeSwitchIP
+    if ([string]::IsNullOrWhiteSpace($kubeSwitchIp)) {
+        throw '[NodePkg] Could not determine KubeSwitch IP for default proxy.'
+    }
+    $Proxy = "http://${kubeSwitchIp}:8181"
+    Write-Log "[NodePkg] No proxy specified. Defaulting to K2s transparent proxy '$Proxy'." -Console
 }
 
 # Initialize variables for VM and network provisioning
@@ -120,9 +154,11 @@ $packagesDir = Join-Path $stagingDir "packages"
 $packagesByOsDir = Join-Path $packagesDir $distributionKey
 $k8sPkgDir = Join-Path $packagesByOsDir "kubernetes"
 $buildahPkgDir = Join-Path $packagesByOsDir "buildah"
+$gpuPkgDir = Join-Path $packagesByOsDir "nvidia-gpu"
 $imagesDir = Join-Path $stagingDir "images"
 $remoteK8sPkgDir = "/tmp/k2s-k8s-packages"
 $remoteBuildahPkgDir = "/tmp/k2s-buildah-packages"
+$remoteGpuPkgDir = "/tmp/k2s-gpu-packages"
 $remoteImagesExportDir = "/tmp/k2s-images"
 $vmProvisioningStarted = $false
 
@@ -131,6 +167,9 @@ New-Item -Path $packagesDir -ItemType Directory -Force | Out-Null
 New-Item -Path $packagesByOsDir -ItemType Directory -Force | Out-Null
 New-Item -Path $k8sPkgDir -ItemType Directory -Force | Out-Null
 New-Item -Path $buildahPkgDir -ItemType Directory -Force | Out-Null
+if ($IncludeGpu) {
+    New-Item -Path $gpuPkgDir -ItemType Directory -Force | Out-Null
+}
 
 # ---------------------------------------------------------------------------
 # Validate inputs
@@ -243,6 +282,19 @@ try {
         -InstalledDistribution $distributionKey
 
     # -----------------------------------------------------------------------
+    # Phase 7.5 (optional) - Download NVIDIA Container Toolkit packages
+    # -----------------------------------------------------------------------
+    if ($IncludeGpu) {
+        Write-Log "[NodePkg] === Phase 7.5: Downloading NVIDIA Container Toolkit packages (GPU support) ===" -Console
+        Get-NvidiaGpuDebPackagesFromInternet `
+            -UserName   $sshUser `
+            -UserPwd    $sshPwd `
+            -IpAddress  $guestIp `
+            -Proxy      $Proxy `
+            -TargetPath $remoteGpuPkgDir
+    }
+
+    # -----------------------------------------------------------------------
     # Phase 8 - Pull and export Kubernetes/flannel images from VM
     # -----------------------------------------------------------------------
     Write-Log "[NodePkg] === Phase 8: Pulling and exporting container images inside VM ===" -Console
@@ -262,20 +314,43 @@ try {
         -UserPwd   $sshPwd `
         -IpAddress $guestIp
 
+    # Pull GPU images if --include-gpu is specified
+    if ($IncludeGpu) {
+        Get-GpuContainerImages `
+            -UserName  $sshUser `
+            -UserPwd   $sshPwd `
+            -IpAddress $guestIp `
+            -Proxy     $Proxy
+    }
+
     (Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute "mkdir -p $remoteImagesExportDir" -RemoteUser $remoteUser -RemoteUserPwd $sshPwd -IgnoreErrors).Output | Write-Log
 
-    # Build export list from crictl JSON to avoid fragile text parsing.
+    # Kubeadm is the source of truth for Kubernetes images, including pause.
+    $kubeadmImagesOutput = (Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute "sudo kubeadm config images list --kubernetes-version $k8sVersion" -RemoteUser $remoteUser -RemoteUserPwd $sshPwd -IgnoreErrors).Output
+    $kubeadmImageRefs = @($kubeadmImagesOutput | ForEach-Object { $_.Trim() } | Where-Object { $_ -match '^[^\s]+/[^\s]+:[^\s]+$' })
+
+    if (@($kubeadmImageRefs).Count -eq 0) {
+        throw "[NodePkg] Could not resolve Kubernetes images with kubeadm for version '$k8sVersion'."
+    }
+
+    Write-Log "[NodePkg] Kubeadm images selected for export: $($kubeadmImageRefs -join ', ')" -Console
+
+    # Build non-kubeadm export list from crictl JSON to avoid fragile text parsing.
     $imagesJsonOutput = (Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute 'sudo crictl images -o json' -RemoteUser $remoteUser -RemoteUserPwd $sshPwd -IgnoreErrors).Output
     $imagesJsonText = ($imagesJsonOutput -join "`n")
     $imagesDoc = $imagesJsonText | ConvertFrom-Json
 
-    $imageRefsToExport = @()
+    $imageRefsToExport = @($kubeadmImageRefs)
     foreach ($img in @($imagesDoc.images)) {
         foreach ($repoTag in @($img.repoTags)) {
             if ([string]::IsNullOrWhiteSpace($repoTag) -or $repoTag -match '<none>') {
                 continue
             }
-            if ($repoTag -like 'registry.k8s.io/*' -or $repoTag -like 'docker.io/flannel/*') {
+            if ($repoTag -like 'docker.io/flannel/*') {
+                $imageRefsToExport += $repoTag
+            }
+            # Include GPU images when --include-gpu is specified
+            if ($IncludeGpu -and $repoTag -like 'nvcr.io/*') {
                 $imageRefsToExport += $repoTag
             }
         }
@@ -283,7 +358,7 @@ try {
     $imageRefsToExport = $imageRefsToExport | Select-Object -Unique
 
     if (@($imageRefsToExport).Count -eq 0) {
-        throw "[NodePkg] No image matching 'registry.k8s.io/* or docker.io/flannel/*' found in crictl output."
+        throw "[NodePkg] No container images were selected for export."
     }
 
     Write-Log "[NodePkg] Images selected for export: $($imageRefsToExport -join ', ')" -Console
@@ -334,6 +409,19 @@ try {
         -UserName  $sshUser `
         -UserPwd   $sshPwd
 
+    if ($IncludeGpu) {
+        Write-Log "[NodePkg] Copying GPU packages from VM to Windows..." -Console
+        Copy-FromRemoteComputerViaUserAndPwd `
+            -Source    "$remoteGpuPkgDir/*" `
+            -Target    $gpuPkgDir `
+            -IpAddress $guestIp `
+            -UserName  $sshUser `
+            -UserPwd   $sshPwd
+        
+        $localGpuDebCount = @(Get-ChildItem -Path $gpuPkgDir -Filter '*.deb' -File -ErrorAction SilentlyContinue).Count
+        Write-Log "[NodePkg] Local GPU package count: $localGpuDebCount" -Console
+    }
+
     Assert-PackagesDownloaded -K8sPath $k8sPkgDir -BuildahPath $buildahPkgDir
 
     # -----------------------------------------------------------------------
@@ -343,8 +431,15 @@ try {
     New-Item -Path $TargetDirectory -ItemType Directory -Force | Out-Null
     $zipTarget = Join-Path $TargetDirectory $ZipPackageFileName
     if (Test-Path $zipTarget) { Remove-Item $zipTarget -Force }
-    Compress-Archive -Path @($packagesDir, $imagesDir) -DestinationPath $zipTarget -Force
-    Write-Log "[NodePkg] Node package zip created: $zipTarget" -Console
+    
+    $zipContents = @($packagesDir, $imagesDir)
+    $gpuIncludedMsg = ''
+    if ($IncludeGpu) {
+        $gpuIncludedMsg = ' (with GPU support)'
+    }
+    
+    Compress-Archive -Path $zipContents -DestinationPath $zipTarget -Force
+    Write-Log "[NodePkg] Node package zip created${gpuIncludedMsg}: $zipTarget" -Console
     Write-Log "[NodePkg] Package creation for '$distributionKey' completed successfully." -Console
 }
 catch {

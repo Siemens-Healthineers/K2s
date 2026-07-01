@@ -662,7 +662,10 @@ function Get-DebianPackagesFromVHDX {
         [switch] $AllowPartialAcquisition,
         [switch] $QueryBuildahImages,
         [switch] $QueryConfigHashes,
-        [switch] $KeepVmAlive
+        [switch] $KeepVmAlive,
+        # Optional HTTP proxy forwarded to the guest for offline .deb acquisition (corporate environments).
+        # Empty (default) = guest downloads directly through the host NAT using injected nameservers.
+        [string] $Proxy = ''
     )
     $result = [pscustomobject]@{ Packages=$null; Error=$null; Method='hyperv-ssh'; DownloadedDebs=@(); Resolutions=@(); BuildahImages=@(); ConfigHashes=@{}; VmContext=$null }
     if (-not (Test-Path -LiteralPath $VhdxPath)) { $result.Error = "VHDX not found: $VhdxPath"; return $result }
@@ -900,8 +903,8 @@ function Get-DebianPackagesFromVHDX {
             if (-not $DownloadLocalDir) { throw 'DownloadLocalDir not specified for offline acquisition' }
             if (-not (Test-Path -LiteralPath $DownloadLocalDir)) { New-Item -ItemType Directory -Path $DownloadLocalDir -Force | Out-Null }
             $remoteDebDir = '/tmp/k2s-delta-debs'
-            Write-Log ("[DebPkg] Starting per-package offline acquisition ({0} specs)" -f $DownloadPackageSpecs.Count) -Console
-            $acq = Invoke-GuestDebAcquisition -RemoteDir $remoteDebDir -PackageSpecs $DownloadPackageSpecs -SshClient $sshClient -UsingPlink:$usingPlink -PlinkHostKey $plinkHostKey -SshUser $sshUser -GuestIp $guestIp -SshKey $sshKey -SshPassword $sshPwd
+            Write-Log ("[DebPkg] Starting per-package offline acquisition ({0} specs){1}" -f $DownloadPackageSpecs.Count, $(if ([string]::IsNullOrWhiteSpace($Proxy)) { '' } else { " via apt proxy $Proxy" })) -Console
+            $acq = Invoke-GuestDebAcquisition -RemoteDir $remoteDebDir -PackageSpecs $DownloadPackageSpecs -SshClient $sshClient -UsingPlink:$usingPlink -PlinkHostKey $plinkHostKey -SshUser $sshUser -GuestIp $guestIp -SshKey $sshKey -SshPassword $sshPwd -Proxy $Proxy
             if ($acq.Failures.Count -gt 0) { Write-Log ("[DebPkg][DL][Warning] Failed specs: {0}" -f ($acq.Failures -join ', ')) -Console }
             $downloaded = Invoke-K2sGuestDebCopy -AcquisitionResult $acq -NewExtract $NewExtract -OldExtract $OldExtract -UsingPlink:$usingPlink -PlinkHostKey $plinkHostKey -SshUser $sshUser -GuestIp $guestIp -SshKey $sshKey -SshPassword $sshPwd -RemoteDir $remoteDebDir -DownloadLocalDir $DownloadLocalDir
             if ($downloaded.Count -eq 0) {

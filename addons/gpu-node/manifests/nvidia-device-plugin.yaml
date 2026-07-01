@@ -35,7 +35,7 @@ spec:
       # See https://kubernetes.io/docs/tasks/administer-cluster/guaranteed-scheduling-critical-addon-pods/
       priorityClassName: "system-node-critical"
       containers:
-      - image: nvcr.io/nvidia/k8s-device-plugin:v0.19.2
+      - image: nvcr.io/nvidia/k8s-device-plugin:v0.19.3
         imagePullPolicy: IfNotPresent
         name: nvidia-device-plugin-ctr
         args:
@@ -146,3 +146,8 @@ spec:
           name: time-slicing-config
       nodeSelector:
         "kubernetes.io/os": linux
+        # Only schedule on nodes explicitly labeled as GPU-capable.
+        # This label is applied by:
+        # - The gpu-node addon Enable.ps1 (for KubeMaster)
+        # - k2s node add (automatically when NVIDIA GPU is detected on external Linux workers)
+        "gpu": "true"

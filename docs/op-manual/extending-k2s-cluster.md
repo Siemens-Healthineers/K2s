@@ -107,24 +107,24 @@ The offline workflow has two phases:
 
 ### 1. Create the node package
 
-Generate an OS-specific node package. This step requires an installed *K2s* cluster on the machine where you run the command, and it must use the local cluster proxy `http://172.19.1.1:8181`.
+Generate an OS-specific node package. This step requires an installed and running *K2s* cluster on the machine where you run the command. The local cluster proxy `http://172.19.1.1:8181` is used by default, so `--proxy` can be omitted; pass `-p` only to override it.
 
 Example using `k2s.exe` directly from a local directory:
 
 ```console
-.\k2s.exe system package --node-package --os debian12 --target-dir "D:\Linuxpackagetest" --name "debian12.zip" --proxy http://172.19.1.1:8181
+.\k2s.exe system package --node-package --os debian12 --target-dir "D:\Linuxpackagetest" --name "debian12.zip"
 ```
 
 You can also generate the package on an existing *K2s* host:
 
 ```console
-k2s system package --node-package --os debian12 --target-dir "C:\out" --name "debian12-node.zip" -p http://172.19.1.1:8181
+k2s system package --node-package --os debian12 --target-dir "C:\out" --name "debian12-node.zip"
 ```
 
 For Debian 13 nodes, create a Debian 13 package instead:
 
 ```console
-k2s system package --node-package --os debian13 --target-dir "C:\out" --name "debian13-node.zip" -p http://172.19.1.1:8181
+k2s system package --node-package --os debian13 --target-dir "C:\out" --name "debian13-node.zip"
 ```
 
 !!! note
@@ -135,6 +135,27 @@ k2s system package --node-package --os debian13 --target-dir "C:\out" --name "de
 
 !!! note
     The same workflow applies whether the target Linux node is a physical host or an existing VM.
+
+### GPU Support for Offline Nodes
+
+To add a GPU-capable worker node offline, create the node package with the `--include-gpu` flag:
+
+```console
+k2s system package --node-package --os debian13 --include-gpu --target-dir C:\output --name debian13-gpu.zip
+```
+
+Then add the node as usual:
+
+```console
+k2s node add --ip-addr <IPAddressOfNewNode> --username <UserNameForRemoteConnection> --node-package C:\output\debian13-gpu.zip
+```
+
+K2s automatically detects the NVIDIA GPU and configures GPU support using the bundled packages. If the target has no NVIDIA GPU, it joins as a regular worker.
+
+!!! warning "Prerequisites"
+    NVIDIA kernel drivers must be pre-installed on the target node. Verify with `nvidia-smi` before running `k2s node add`.
+
+See [GPU Node addon](../user-guide/gpu-node.md#external-gpu-worker-nodes) for complete GPU worker documentation.
 
 ### 2. Prepare SSH access to the target node
 

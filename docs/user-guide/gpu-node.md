@@ -73,9 +73,10 @@ The status output reports:
 |----------|-------------|
 | `IsDevicePluginRunning` | Whether the NVIDIA Device Plugin DaemonSet is ready |
 | `IsDCGMExporterRunning` | Whether the DCGM metrics exporter is running (see [Known Limitations](#known-limitations)) |
-| `NodeGpuLabels` | Whether the node has `gpu=true` and `accelerator=nvidia` labels |
+| `NodeGpuLabels` | Whether the control-plane node has `gpu=true` and `accelerator=nvidia` labels |
 | `GpuAllocatable` | Number of GPU slots advertised to Kubernetes (reflects time-slicing replicas) |
 | `GpuInUse` | Number of GPU slots currently held by running pods |
+| `ExternalGpuWorkers` | Count and names of external GPU-capable worker nodes (auto-detected when NVIDIA GPU is present) |
 
 ---
 
@@ -191,6 +192,91 @@ k2s addons import gpu-node -f C:\Exports\gpu-node_*.oci.tar
 
 # Now enable normally — no internet required:
 k2s addons enable gpu-node
+```
+
+---
+
+## External GPU Worker Nodes
+
+In addition to the KubeMaster VM, you can add external Linux machines with NVIDIA GPUs as GPU-capable worker nodes. This enables scaling GPU workloads across multiple physical machines.
+
+### Prerequisites for External GPU Workers
+
+| Requirement | Details |
+|-------------|---------|
+| **NVIDIA kernel drivers** | Must be pre-installed on the external Linux machine. Verify with `nvidia-smi`. |
+
+!!! warning "Driver Installation"
+    K2s does **not** install NVIDIA kernel drivers. Install them using your distribution's package manager or NVIDIA's official installer **before** running `k2s node add`.
+
+### Online Workflow (Internet Available)
+
+When the target machine has internet access, GPU support is **automatically detected and configured**:
+
+```console
+k2s node add --ip-addr 192.168.1.50 --username admin
+```
+
+**What happens automatically when an NVIDIA GPU is detected:**
+
+1. Verifies NVIDIA drivers are functional (`nvidia-smi`)
+2. Downloads and installs NVIDIA Container Toolkit packages
+3. Configures CRI-O runtime with CDI (Container Device Interface) support
+4. Labels the node with `gpu=true` and `accelerator=nvidia`
+
+If no NVIDIA GPU is detected (or a non-NVIDIA GPU like AMD/Intel is present), GPU configuration is skipped and the node joins as a regular worker.
+
+### Offline Workflow (Air-Gapped Environment)
+
+For environments without internet access, create a GPU-enabled node package first.
+
+**Step 1: Create the GPU node package** (on a machine with an installed and running *K2s* cluster)
+
+```console
+k2s system package --node-package --os debian13 --include-gpu --target-dir C:\packages --name debian13-gpu.zip
+```
+
+!!! note
+    Node package creation requires an installed and running *K2s* cluster. The local cluster proxy `http://172.19.1.1:8181` is used by default to download the GPU artifacts, so `--proxy` does not need to be specified; pass `-p` only to override it.
+
+The `--include-gpu` flag downloads and bundles:
+
+- NVIDIA Container Toolkit `.deb` packages (`libnvidia-container1`, `libnvidia-container-tools`, `nvidia-container-runtime`, `nvidia-container-toolkit`)
+- GPU device plugin container image (`nvcr.io/nvidia/k8s-device-plugin`)
+
+**Step 2: Transfer the package** to the air-gapped environment.
+
+**Step 3: Add the GPU worker node**
+
+```console
+k2s node add --ip-addr 192.168.1.50 --username admin --node-package C:\packages\debian13-gpu.zip
+```
+
+GPU support is configured automatically if:
+
+- The target node has an NVIDIA GPU (detected via `nvidia-smi`)
+- The node package includes GPU packages (created with `--include-gpu`)
+
+!!! note "Without `--include-gpu`"
+    If the node package was created **without** `--include-gpu`, GPU configuration will be skipped even if the target has an NVIDIA GPU. Create a new package with `--include-gpu` to enable GPU support.
+
+### Lifecycle Notes
+
+| Scenario | Behavior |
+|----------|----------|
+| GPU worker added **before** addon enabled | Worker is labeled; device plugin deploys when addon is enabled |
+| GPU worker added **after** addon enabled | Worker is labeled; device plugin pod starts automatically |
+| Addon disabled | Device plugin removed; GPU labels preserved on workers |
+| Addon re-enabled | Device plugin redeploys to all GPU-labeled nodes |
+
+### Checking GPU Workers
+
+```console
+# List all GPU-capable nodes
+kubectl get nodes -l gpu=true
+
+# Check addon status (includes external worker count)
+k2s addons status gpu-node
 ```
 
 ---

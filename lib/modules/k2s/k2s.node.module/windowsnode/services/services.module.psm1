@@ -142,7 +142,92 @@ function Start-WSL() {
     Start-Process wsl -WindowStyle Hidden
 }
 
+<#
+.SYNOPSIS
+    Re-points an nssm-managed service from one installation path to another.
+.DESCRIPTION
+    Reads the service's Application, AppDirectory and AppParameters values from the
+    nssm registry parameters and replaces every occurrence of the old installation path
+    with the new one. This is used when relocating a K2s installation (e.g. after a delta
+    update) so that services launch their executables from the new installation folder.
+
+    The replacement is case-insensitive so that minor casing differences in the stored
+    paths (e.g. 'C:\k' vs 'c:\k') are handled correctly.
+.PARAMETER Name
+    Name of the Windows service managed by nssm (e.g. 'containerd', 'flanneld').
+.PARAMETER OldPath
+    The current installation path that is baked into the service configuration. Trailing
+    backslashes are ignored (the value is trimmed before matching).
+.PARAMETER NewPath
+    The new installation path that should replace the old one. Trailing backslashes are
+    ignored (the value is trimmed before substitution).
+.PARAMETER NssmPath
+    Optional full path to nssm.exe. Defaults to the nssm.exe in the module's bin path, or
+    'nssm.exe' (resolved via PATH) when the module bin path could not be determined.
+.OUTPUTS
+    [hashtable] Map of changed nssm parameter names to their previous values (for rollback).
+    Returns an empty hashtable when the service does not exist or nothing changed.
+#>
+function Update-NssmServiceInstallPath {
+    param (
+        [Parameter(Mandatory = $true)]
+        [string] $Name,
+        [Parameter(Mandatory = $true)]
+        [string] $OldPath,
+        [Parameter(Mandatory = $true)]
+        [string] $NewPath,
+        [Parameter(Mandatory = $false)]
+        [string] $NssmPath = $(if ($kubeBinPath) { "$kubeBinPath\nssm.exe" } else { 'nssm.exe' })
+    )
+
+    # Trim trailing separators so callers passing a path with a trailing backslash still match
+    # the values stored in the nssm registry parameters.
+    $OldPath = $OldPath.TrimEnd('\')
+    $NewPath = $NewPath.TrimEnd('\')
+
+    $previousValues = @{}
+
+    if (-not (Get-Service -Name $Name -ErrorAction SilentlyContinue)) {
+        return $previousValues
+    }
+
+    $regKey = "HKLM:\SYSTEM\CurrentControlSet\Services\$Name\Parameters"
+    if (-not (Test-Path -LiteralPath $regKey)) {
+        return $previousValues
+    }
+
+    $props = Get-ItemProperty -Path $regKey -ErrorAction SilentlyContinue
+    $oldPathPattern = [regex]::Escape($OldPath)
+
+    foreach ($parameter in @('Application', 'AppDirectory', 'AppParameters')) {
+        $current = $props.$parameter
+        if ($null -eq $current) { continue }
+        if ($current -is [Array]) { $current = ($current -join ' ') }
+        if ($current.IndexOf($OldPath, [System.StringComparison]::OrdinalIgnoreCase) -lt 0) { continue }
+
+        $newValue = [regex]::Replace($current, $oldPathPattern, $NewPath, [System.Text.RegularExpressions.RegexOptions]::IgnoreCase)
+        Write-Log ("Re-pointing service '{0}' parameter '{1}' to new installation path" -f $Name, $parameter)
+        # Write the value DIRECTLY to the registry instead of via 'nssm.exe set'. nssm reads its
+        # configuration from these registry values, so a direct write is equivalent - and it avoids a
+        # PowerShell native-command quoting bug: when the installation path contains spaces (e.g.
+        # 'C:\Program Files\k2s'), an AppParameters value such as --config-path="C:\Program Files\...\x.yaml"
+        # mixes spaces with embedded double quotes. Passing that string as a native argument to nssm.exe
+        # makes PowerShell wrap it in quotes without escaping the embedded ones, so nssm stores a mangled
+        # value and the service fails to start. Set-ItemProperty writes the exact string verbatim.
+        try {
+            Set-ItemProperty -Path $regKey -Name $parameter -Value $newValue -ErrorAction Stop
+        } catch {
+            Write-Log ("[Update][Warn] Failed to write nssm registry value for service '{0}' parameter '{1}'; not recording for rollback: {2}" -f $Name, $parameter, $_.Exception.Message)
+            continue
+        }
+        $previousValues[$parameter] = $current
+    }
+
+    return $previousValues
+}
+
 Export-ModuleMember -Function Start-NssmService,
 Restart-NssmService, Stop-NssmService,
 Get-IsNssmServiceRunning, Write-NodeServiceStatus,
-Restart-WinService, Start-ServiceProcess, Stop-ServiceProcess, Start-WSL
+Restart-WinService, Start-ServiceProcess, Stop-ServiceProcess, Start-WSL,
+Update-NssmServiceInstallPath

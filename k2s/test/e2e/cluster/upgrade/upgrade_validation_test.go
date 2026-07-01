@@ -45,6 +45,22 @@ var _ = BeforeSuite(func(ctx context.Context) {
 var _ = Describe("Upgrade Validation", func() {
 	Describe("Image Preservation", Label("upgrade-image-validation"), func() {
 
+		It("control-plane node reports Debian 13 osImage", func(ctx SpecContext) {
+			controlPlaneNode := getControlPlaneNode(ctx)
+			if controlPlaneNode == "" {
+				Skip("No control-plane node found")
+			}
+
+			osImage := strings.TrimSpace(suite.Kubectl().MustExec(
+				ctx,
+				"get", "node", controlPlaneNode,
+				"-o", "jsonpath={.status.nodeInfo.osImage}",
+			))
+
+			Expect(osImage).To(ContainSubstring("Debian GNU/Linux 13"),
+				"control-plane node %s should run Debian 13, actual osImage=%q", controlPlaneNode, osImage)
+		})
+
 		It("user application images are preserved after upgrade", func(ctx SpecContext) {
 			output := suite.K2sCli().MustExec(ctx, "image", "ls")
 
@@ -223,4 +239,20 @@ func getPodRestarts(pod corev1.Pod) int32 {
 		restarts += containerStatus.RestartCount
 	}
 	return restarts
+}
+
+func getControlPlaneNode(ctx context.Context) string {
+	output := suite.Kubectl().MustExec(ctx, "get", "nodes", "-l", "node-role.kubernetes.io/control-plane", "-o", "jsonpath={range .items[*]}{.metadata.name}{'\\n'}{end}")
+	output = strings.TrimSpace(output)
+	if output != "" {
+		return strings.Split(output, "\n")[0]
+	}
+
+	output = suite.Kubectl().MustExec(ctx, "get", "nodes", "-l", "node-role.kubernetes.io/master", "-o", "jsonpath={range .items[*]}{.metadata.name}{'\\n'}{end}")
+	output = strings.TrimSpace(output)
+	if output != "" {
+		return strings.Split(output, "\n")[0]
+	}
+
+	return ""
 }

@@ -60,7 +60,7 @@ Function Set-UpComputerBeforeProvisioning {
         [string]$IpAddress = $(throw 'Argument missing: IpAddress'),
         [parameter(Mandatory = $false)]
         [string] $Proxy = '',
-        [string] $InstalledDistribution = 'debian12'
+        [string] $InstalledDistribution = 'debian13'
     )
     $remoteUser = "$UserName@$IpAddress"
     $remoteUserPwd = $UserPwd
@@ -383,7 +383,7 @@ Function Install-KubernetesArtifacts {
         [string] $IpAddress = $(throw 'Argument missing: IpAddress'),
         [string] $Proxy = '',
         [string] $SourcePath = $(throw 'Argument missing: SourcePath'),
-        [string] $InstalledDistribution = 'debian12'
+        [string] $InstalledDistribution = 'debian13'
     )
 
     $token = Get-RegistryToken
@@ -407,8 +407,13 @@ Function Install-KubernetesArtifacts {
 
 Function Copy-KubernetesImagesFromControlPlaneNodeToWindowsHost {
     param (
-        [string] $TargetPath = $(throw 'Argument missing: TargetPath')
+        [string] $TargetPath = $(throw 'Argument missing: TargetPath'),
+        [string] $K8sVersion = $kubernetesVersion
     )
+
+    if ([string]::IsNullOrWhiteSpace($K8sVersion)) {
+        throw 'K8sVersion is required but was not provided and $kubernetesVersion is not set.'
+    }
 
     $executeRemoteCommand = { 
         param(
@@ -436,31 +441,35 @@ Function Copy-KubernetesImagesFromControlPlaneNodeToWindowsHost {
     else {
         New-Item -Path $imagesPath -ItemType Directory -Force -ErrorAction Stop | Out-Null
         
-        $retrieveImagesCmd = 'sudo crictl images | grep -e "registry.k8s.io" -e "docker.io/flannel" | grep -v "\<none\>" | awk ''{ print $1\":\"$2\" \"$3 }'''
-        $cmdExecutionResult = $(&$executeRemoteCommand -Command $retrieveImagesCmd -ReturnCommandOutput)
+        $kubeadmImagesCmd = "sudo kubeadm config images list --kubernetes-version $K8sVersion | grep -E '^[^[:space:]]+/[^[:space:]]+:[^[:space:]]+$'"
+        $cmdExecutionResult = $(&$executeRemoteCommand -Command $kubeadmImagesCmd -ReturnCommandOutput)
 
         if (!$cmdExecutionResult.Success) {
-            throw 'Could not retrieve images from control plane'
+            throw "Could not retrieve kubeadm image list for Kubernetes version '$K8sVersion' from control plane"
         }
-        $imagesFound = $cmdExecutionResult.Output
+        $imageRefsToExport = @($cmdExecutionResult.Output | ForEach-Object { $_.Trim() } | Where-Object { ![string]::IsNullOrWhiteSpace($_) })
 
-        Write-Host $imagesFound
+        $retrieveAdditionalImagesCmd = 'sudo crictl images | grep -e "docker.io/flannel" | grep -v "\<none\>" | awk ''{ print $1":"$2 }'''
+        $additionalImagesResult = $(&$executeRemoteCommand -Command $retrieveAdditionalImagesCmd -ReturnCommandOutput -IgnoreErrors)
+        if ($additionalImagesResult.Success) {
+            $imageRefsToExport += @($additionalImagesResult.Output | ForEach-Object { $_.Trim() } | Where-Object { ![string]::IsNullOrWhiteSpace($_) })
+        }
+
+        $imageRefsToExport = @($imageRefsToExport | Select-Object -Unique)
+        Write-Host $imageRefsToExport
         
-        if ([string]::IsNullOrWhiteSpace($imagesFound)) {
-            throw "No image matching 'registry.k8s.io or docker.io/flannel' could be found in the control plane."
+        if (@($imageRefsToExport).Count -eq 0) {
+            throw "No kubeadm or flannel images could be found in the control plane."
         }
 
-        foreach ($imageFound in $imagesFound) {
-            $splitImageFoundInfo = $imageFound.Split(' ')
-            $imageFullName = $splitImageFoundInfo[0]
-            $imageId = $splitImageFoundInfo[1]
+        foreach ($imageFullName in $imageRefsToExport) {
             $finalExportPath = "$imagesPath/$($imageFullName.Replace('/','_').Replace(':', '__')).tar"
 
-            $targetFilePath = "/tmp/${imageId}.tar"
-            &$executeRemoteCommand "sudo buildah push ${imageId} oci-archive:${targetFilePath}:${imageFullName} 2>&1"
+            $targetFilePath = "/tmp/$($imageFullName.Replace('/','_').Replace(':', '__')).tar"
+            &$executeRemoteCommand "sudo buildah push ${imageFullName} oci-archive:${targetFilePath}:${imageFullName} 2>&1"
             Copy-FromRemoteComputerViaSSHKey -Source $targetFilePath -Target $finalExportPath -UserName $controlPlaneUserName -IpAddress $controlPlaneIpAddress
             
-            &$executeRemoteCommand "cd /tmp && sudo rm -rf ${imageId}.tar"
+            &$executeRemoteCommand "sudo rm -f ${targetFilePath}"
         } 
     }
 }
@@ -547,6 +556,7 @@ Function Remove-KubernetesArtifacts {
     &$executeRemoteCommand 'sudo rm -f /etc/sysctl.d/k8s.conf'
     &$executeRemoteCommand 'sudo rm -f /etc/modules-load.d/k8s.conf'
     &$executeRemoteCommand 'sudo sysctl --system'
+    &$executeRemoteCommand 'sudo rm -f /etc/apt/apt.conf.d/95k2s-proxy'
 
     &$executeRemoteCommand 'sudo DEBIAN_FRONTEND=noninteractive dpkg -P cri-o' 
     &$executeRemoteCommand 'sudo DEBIAN_FRONTEND=noninteractive dpkg -P buildah' 
@@ -563,7 +573,7 @@ Function Get-BuildahDebPackagesFromInternet {
         [string]$IpAddress = $(throw 'Argument missing: IpAddress'),
         [string]$Proxy = '',
         [string]$TargetPath = $(throw 'Argument missing: TargetPath'),
-        [string]$InstalledDistribution = 'debian12'
+        [string]$InstalledDistribution = 'debian13'
     )
 
     Write-Log '[BuildahPkg] Downloading buildah packages'
@@ -589,7 +599,7 @@ Function Install-BuildahDebPackages {
         [ValidateScript({ Get-IsValidIPv4Address($_) })]
         [string]$IpAddress = $(throw 'Argument missing: IpAddress'),
         [string]$SourcePath = $(throw 'Argument missing: SourcePath'),
-        [string]$InstalledDistribution = 'debian12'
+        [string]$InstalledDistribution = 'debian13'
     )
 
     Write-Log '[BuildahInstall] Installing buildah packages'
@@ -648,29 +658,17 @@ Function Install-Tools {
     Get-BuildahDebPackagesFromInternet -UserName $UserName -UserPwd $UserPwd -IpAddress $IpAddress -TargetPath $buildahDebPackagesPath
     Install-BuildahDebPackages -UserName $UserName -UserPwd $UserPwd -IpAddress $IpAddress -SourcePath $buildahDebPackagesPath
 
-    #Remove chrony as it is unstable with latest version of buildah                                                                                                 #
-    #&$executeRemoteCommand 'sudo DEBIAN_FRONTEND=noninteractive apt-get remove chrony --yes'                                                                          #
-    #
-    &$executeRemoteCommand 'sudo DEBIAN_FRONTEND=noninteractive apt-get install -qq --yes software-properties-common'                                                 #
-    #
-    #Now update apt sources to get latest from bookworm                                                                                                              #
-    AddAptRepo -RepoDebString 'deb http://deb.debian.org/debian bookworm main' -RemoteUser "$remoteUser" -RemoteUserPwd "$remoteUserPwd"                                        #
-    AddAptRepo -RepoDebString 'deb http://deb.debian.org/debian-security/ bookworm-security main' -RemoteUser "$remoteUser" -RemoteUserPwd "$remoteUserPwd"                     #
-    #
-    &$executeRemoteCommand 'sudo DEBIAN_FRONTEND=noninteractive apt-get update -qq --yes'                                                                             #
-    #&$executeRemoteCommand 'sudo DEBIAN_FRONTEND=noninteractive apt-get remove chrony --yes'                                                                          #
-    #
-    #Install latest from bookworm now                                                                                                                                #
-    &$executeRemoteCommand 'sudo DEBIAN_FRONTEND=noninteractive apt-get install -t bookworm --no-install-recommends --no-install-suggests buildah --yes'              #
-    &$executeRemoteCommand 'sudo buildah -v'                                                                                                                          #
-    #
-    &$executeRemoteCommand 'sudo DEBIAN_FRONTEND=noninteractive apt-get autoremove -qq --yes'                                                                         #
-    #
-    #Remove bookworm source now                                                                                                                                      #
-    &$executeRemoteCommand "sudo apt-add-repository 'deb http://deb.debian.org/debian bookworm main' -r"                                                              #
-    &$executeRemoteCommand "sudo apt-add-repository 'deb http://deb.debian.org/debian-security/ bookworm-security main' -r"                                           #
-    &$executeRemoteCommand 'sudo DEBIAN_FRONTEND=noninteractive apt-get update -qq --yes'                                                                             #
-    #################################################################################################################################################################
+    # Verify buildah is installed and working
+    &$executeRemoteCommand 'sudo buildah -v'
+
+    # Ensure hwclock is available to keep time-sync behavior aligned with Debian 12 images
+    # Debian 13 cloud images may require util-linux-extra for hwclock.
+    &$executeRemoteCommand "if ! sudo sh -c 'command -v hwclock >/dev/null 2>&1 || [ -x /usr/sbin/hwclock ] || [ -x /sbin/hwclock ]'; then sudo DEBIAN_FRONTEND=noninteractive apt-get install -qq --yes util-linux util-linux-extra; fi 2>&1"
+    Write-Log '[TimeSync] Verifying hwclock installation'
+    &$executeRemoteCommand "if sudo sh -c 'command -v hwclock >/dev/null 2>&1 || [ -x /usr/sbin/hwclock ] || [ -x /sbin/hwclock ]'; then echo '[TimeSync] hwclock installed at:'; sudo sh -c 'command -v hwclock || ls -l /usr/sbin/hwclock /sbin/hwclock 2>/dev/null'; sudo hwclock --version; else echo '[TimeSync] hwclock not installed'; fi 2>&1"
+    
+    # Clean up any unnecessary packages
+    &$executeRemoteCommand 'sudo DEBIAN_FRONTEND=noninteractive apt-get autoremove -qq --yes'
 
     # Temporary fix for [master] not recognized in buildah 1.22.3, we comment the section as this is only specific to container engine
     # Issue is fixed in buildah 1.26 but exists in experimental stage
@@ -722,6 +720,8 @@ Function Install-Tools {
     # restart crio after updating registry.conf
     &$executeRemoteCommand 'sudo systemctl daemon-reload'
     &$executeRemoteCommand 'sudo systemctl restart crio'
+
+    Install-HelmAndYqOnKubeMaster -UserName $UserName -UserPwd $UserPwd -IpAddress $IpAddress
 
     Write-Log 'Finished installing tools in Linux'
 
@@ -781,6 +781,156 @@ function Get-FlannelImages {
     &$executeRemoteCommand 'sudo crictl pull docker.io/flannel/flannel:v0.28.5'
 }
 
+<#
+.SYNOPSIS
+    Downloads NVIDIA Container Toolkit packages for GPU support.
+.DESCRIPTION
+    Sets up the NVIDIA apt repository on the remote Linux machine and downloads
+    the NVIDIA Container Toolkit packages (libnvidia-container, nvidia-container-toolkit, etc.)
+    to the specified target path. These packages enable GPU container workloads.
+.PARAMETER UserName
+    The user name to log in into the VM.
+.PARAMETER UserPwd
+    The password to use to log in into the VM.
+.PARAMETER IpAddress
+    The IP address of the VM.
+.PARAMETER Proxy
+    Optional HTTP proxy to use for package downloads.
+.PARAMETER TargetPath
+    Remote path where downloaded .deb packages will be stored.
+#>
+function Get-NvidiaGpuDebPackagesFromInternet {
+    param (
+        [ValidateScript({ !([string]::IsNullOrWhiteSpace($_)) })]
+        [string]$UserName = $(throw 'Argument missing: UserName'),
+        [string]$UserPwd = '',
+        [ValidateScript({ Get-IsValidIPv4Address($_) })]
+        [string]$IpAddress = $(throw 'Argument missing: IpAddress'),
+        [string]$Proxy = '',
+        [string]$TargetPath = $(throw 'Argument missing: TargetPath')
+    )
+    $remoteUser = "$UserName@$IpAddress"
+
+    Write-Log '[GpuPkg] Downloading NVIDIA Container Toolkit packages'
+
+    $aptProxyConfigured = $false
+    $curlProxy = ''
+    if (![string]::IsNullOrWhiteSpace($Proxy)) {
+        $curlProxy = "-x $Proxy"
+        Write-Log "[GpuPkg] Configuring apt proxy: $Proxy"
+        $aptProxyConf = "Acquire::http::Proxy `"$Proxy`";`nAcquire::https::Proxy `"$Proxy`";`n"
+        $aptProxyConfBase64 = [Convert]::ToBase64String([System.Text.Encoding]::UTF8.GetBytes($aptProxyConf))
+        $aptProxyCmd = "echo '$aptProxyConfBase64' | base64 -d | sudo tee /etc/apt/apt.conf.d/95k2s-proxy"
+        (Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute $aptProxyCmd -RemoteUser $remoteUser -RemoteUserPwd $UserPwd -IgnoreErrors).Output | Write-Log
+        $aptProxyConfigured = $true
+    }
+
+    try {
+        # Add NVIDIA Container Toolkit repository
+        $repoSetupCmd = "curl --retry 3 --retry-all-errors -fsSL https://nvidia.github.io/libnvidia-container/gpgkey $curlProxy | sudo gpg --dearmor --batch --yes -o /usr/share/keyrings/nvidia-container-toolkit-keyring.gpg && curl --retry 3 --retry-all-errors -s -L https://nvidia.github.io/libnvidia-container/stable/deb/nvidia-container-toolkit.list $curlProxy | sed 's#deb https://#deb [signed-by=/usr/share/keyrings/nvidia-container-toolkit-keyring.gpg] https://#g' | sudo tee /etc/apt/sources.list.d/nvidia-container-toolkit.list"
+        Write-Log '[GpuPkg] Setting up NVIDIA repository...'
+        (Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute $repoSetupCmd -RemoteUser $remoteUser -RemoteUserPwd $UserPwd -IgnoreErrors).Output | Write-Log
+
+        $updateCmd = 'sudo apt-get update'
+        (Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute $updateCmd -RemoteUser $remoteUser -RemoteUserPwd $UserPwd -IgnoreErrors).Output | Write-Log
+
+        # Create target directory
+        (Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute "mkdir -p $TargetPath && cd $TargetPath && sudo chown -R _apt:root ." -RemoteUser $remoteUser -RemoteUserPwd $UserPwd).Output | Write-Log
+
+        $gpuPackages = @('libnvidia-container1', 'libnvidia-container-tools', 'nvidia-container-toolkit-base', 'nvidia-container-runtime', 'nvidia-container-toolkit')
+        foreach ($pkg in $gpuPackages) {
+            Write-Log "[GpuPkg] Downloading GPU package: $pkg"
+            # Download the package
+            $downloadCmd = "cd $TargetPath && sudo apt-get download $pkg 2>&1"
+            (Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute $downloadCmd -RemoteUser $remoteUser -RemoteUserPwd $UserPwd -IgnoreErrors).Output | Write-Log
+            
+            # Download dependencies
+            $depsCmd = "cd $TargetPath && sudo DEBIAN_FRONTEND=noninteractive apt-get --reinstall install -y --no-install-recommends --no-install-suggests --simulate ./${pkg}*.deb 2>/dev/null | grep 'Inst ' | cut -d ' ' -f 2 | sort -u | xargs -r sudo apt-get download 2>&1 || true"
+            (Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute $depsCmd -RemoteUser $remoteUser -RemoteUserPwd $UserPwd -IgnoreErrors).Output | Write-Log
+        }
+
+        $remoteGpuDebCount = (Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute "ls -1 $TargetPath/*.deb 2>/dev/null | wc -l" -RemoteUser $remoteUser -RemoteUserPwd $UserPwd -IgnoreErrors).Output
+        Write-Log "[GpuPkg] GPU packages downloaded: $($remoteGpuDebCount.Trim())"
+        Write-Log '[GpuPkg] Finished downloading NVIDIA Container Toolkit packages'
+    }
+    finally {
+        if ($aptProxyConfigured) {
+            Write-Log '[GpuPkg] Removing temporary apt proxy configuration (/etc/apt/apt.conf.d/95k2s-proxy)'
+            (Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute 'sudo rm -f /etc/apt/apt.conf.d/95k2s-proxy' -RemoteUser $remoteUser -RemoteUserPwd $UserPwd -IgnoreErrors).Output | Write-Log
+        }
+    }
+}
+
+<#
+.SYNOPSIS
+    Pulls GPU container images (NVIDIA device plugin, DCGM exporter).
+.DESCRIPTION
+    Pulls the container images required for GPU workloads in Kubernetes:
+    - NVIDIA device plugin: Exposes GPUs to the Kubernetes scheduler
+    - DCGM exporter: Exports GPU metrics (optional, may not work on all setups)
+.PARAMETER UserName
+    The user name to log in into the VM.
+.PARAMETER UserPwd
+    The password to use to log in into the VM.
+.PARAMETER IpAddress
+    The IP address of the VM.
+#>
+function Get-GpuContainerImages {
+    param (
+        [ValidateScript({ !([string]::IsNullOrWhiteSpace($_)) })]
+        [string]$UserName = $(throw 'Argument missing: UserName'),
+        [string]$UserPwd = $(throw 'Argument missing: UserPwd'),
+        [ValidateScript({ Get-IsValidIPv4Address($_) })]
+        [string]$IpAddress = $(throw 'Argument missing: IpAddress'),
+        [string]$Proxy = ''
+    )
+    $remoteUser = "$UserName@$IpAddress"
+    $remoteUserPwd = $UserPwd
+
+    $executeRemoteCommand = { param($Command = $(throw 'Argument missing: Command'))
+        (Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute $Command -RemoteUser "$remoteUser" -RemoteUserPwd "$remoteUserPwd").Output | Write-Log
+    }
+
+    # Resolve manifest path relative to this module's location
+    $repoRoot = (Get-Item -Path $PSScriptRoot).Parent.Parent.Parent.Parent.Parent.Parent.FullName
+    $manifestPath = Join-Path -Path $repoRoot -ChildPath 'addons\gpu-node\addon.manifest.yaml'
+    
+    if (!(Test-Path -Path $manifestPath)) {
+        throw "[GpuImg] GPU addon manifest not found at: $manifestPath"
+    }
+    
+    $manifestContent = Get-Content -Path $manifestPath -Raw
+    if ([string]::IsNullOrWhiteSpace($manifestContent)) {
+        throw "[GpuImg] GPU addon manifest is empty: $manifestPath"
+    }
+    
+    $images = @([regex]::Matches($manifestContent, 'nvcr\.io/nvidia/[A-Za-z0-9_./-]+:[A-Za-z0-9_.-]+') | ForEach-Object { $_.Value } | Select-Object -Unique)
+
+    if ($images.Count -eq 0) {
+        Write-Log '[GpuImg] No NVIDIA container images found in addon manifest (GPU addon may not be updated)' -Console
+        return
+    }
+    
+    $devicePluginVersion = ($images | Where-Object { $_ -match '^nvcr\.io/nvidia/k8s-device-plugin:' } | Select-Object -First 1) -replace '^.*:', ''
+    $dcgmExporterVersion = ($images | Where-Object { $_ -match '^nvcr\.io/nvidia/k8s/dcgm-exporter:' } | Select-Object -First 1) -replace '^.*:', ''
+
+    Write-Log "[GpuImg] k8s-device-plugin version from addon manifest: $devicePluginVersion"
+    Write-Log "[GpuImg] dcgm-exporter version from addon manifest: $dcgmExporterVersion"
+    Write-Log "[GpuImg] Pulling GPU container images from addon manifest: $($images -join ', ')"
+
+    foreach ($image in $images) {
+        if (![string]::IsNullOrWhiteSpace($Proxy)) {
+            # Normalize proxy URL - strip existing scheme and ensure http:// prefix
+            $proxyHost = $Proxy -replace '^https?://', ''
+            &$executeRemoteCommand "sudo HTTPS_PROXY=http://$proxyHost HTTP_PROXY=http://$proxyHost buildah pull '$image'"
+        } else {
+            &$executeRemoteCommand "sudo buildah pull '$image'"
+        }
+    }
+
+    Write-Log '[GpuImg] Finished pulling GPU container images'
+}
+
 function Get-ClusterIPWebhookImages {
     param (
         [ValidateScript({ !([string]::IsNullOrWhiteSpace($_)) })]
@@ -798,8 +948,7 @@ function Get-ClusterIPWebhookImages {
 
     Write-Log 'Get images used by clusterip-webhook'
 
-    &$executeRemoteCommand 'sudo crictl pull shsk2s.azurecr.io/clusterip-webhook:v1.1.0'
-    &$executeRemoteCommand 'sudo crictl pull registry.k8s.io/ingress-nginx/kube-webhook-certgen:v1.6.9'
+    &$executeRemoteCommand 'sudo crictl pull shsk2s.azurecr.io/clusterip-webhook:v1.3.5'
 }
 
 function AddRegistryMirrors {
@@ -1010,9 +1159,7 @@ Function Deploy-ClusterIPWebhook {
         'namespace.yaml',
         'rbac.yaml',
         'webhook-config.yaml',
-        'deployment.yaml',
-        'certgen-create-job.yaml',
-        'certgen-patch-job.yaml'
+        'deployment.yaml'
     )
 
     foreach ($file in $manifestFiles) {
@@ -1033,20 +1180,17 @@ Function Deploy-ClusterIPWebhook {
     &$ExecuteRemoteCommand "kubectl apply -f $remoteDir/namespace.yaml" -Retries 3
     &$ExecuteRemoteCommand "kubectl apply -f $remoteDir/rbac.yaml" -Retries 3
 
-    Write-Log '[ClusterIP-Webhook] Applying MutatingWebhookConfiguration'
-    &$ExecuteRemoteCommand "kubectl apply -f $remoteDir/webhook-config.yaml" -Retries 3
-
-    Write-Log '[ClusterIP-Webhook] Running TLS certificate create job'
-    &$ExecuteRemoteCommand "kubectl apply -f $remoteDir/certgen-create-job.yaml" -Retries 3
-
-    Write-Log '[ClusterIP-Webhook] Waiting for cert-create job to complete'
-    &$ExecuteRemoteCommand 'kubectl wait --for=condition=complete job/clusterip-webhook-certgen-create -n k2s-webhook --timeout=120s' -Retries 3
-
-    Write-Log '[ClusterIP-Webhook] Running TLS certificate patch job'
-    &$ExecuteRemoteCommand "kubectl apply -f $remoteDir/certgen-patch-job.yaml" -Retries 3
-
-    Write-Log '[ClusterIP-Webhook] Waiting for cert-patch job to complete'
-    &$ExecuteRemoteCommand 'kubectl wait --for=condition=complete job/clusterip-webhook-certgen-patch -n k2s-webhook --timeout=120s' -Retries 3
+    # Only create webhook config if it doesn't exist yet.
+    # On upgrade, re-applying would reset the caBundle to empty, causing TLS
+    # errors until the init container re-patches it (race condition).
+    Write-Log '[ClusterIP-Webhook] Checking MutatingWebhookConfiguration'
+    &$ExecuteRemoteCommand 'kubectl get mutatingwebhookconfiguration k2s-webhook' -IgnoreErrors
+    if ($LASTEXITCODE -ne 0) {
+        Write-Log '[ClusterIP-Webhook] Creating MutatingWebhookConfiguration'
+        &$ExecuteRemoteCommand "kubectl apply -f $remoteDir/webhook-config.yaml" -Retries 3
+    } else {
+        Write-Log '[ClusterIP-Webhook] MutatingWebhookConfiguration already exists — skipping to preserve caBundle'
+    }
 
     Write-Log '[ClusterIP-Webhook] Applying Deployment and Service'
     &$ExecuteRemoteCommand "kubectl apply -f $remoteDir/deployment.yaml" -Retries 3
@@ -1055,21 +1199,6 @@ Function Deploy-ClusterIPWebhook {
     &$ExecuteRemoteCommand 'kubectl rollout status deployment/clusterip-webhook -n k2s-webhook --timeout=120s' -Retries 3
 
     &$ExecuteRemoteCommand "rm -rf $remoteDir" -IgnoreErrors
-
-    # Clean up certgen Jobs and image so the certgen image is NOT captured by
-    # Write-KubernetesImagesIntoJson. The certgen image shares its repository with
-    # the nginx addon's certgen; if recorded as a K8s base image, the addon
-    # export-import test filters it out from the actual image list and fails.
-    # We delete Jobs, wait for pods to fully terminate (releasing CRI-O container
-    # references), then use 'buildah rmi --force' because Write-KubernetesImagesIntoJson
-    # snapshots via 'buildah images' (not crictl). crictl rmi can silently fail when
-    # containers still reference the image; buildah --force bypasses that.
-    Write-Log '[ClusterIP-Webhook] Cleaning up certgen Jobs and image to avoid K8s-image-list collision with nginx addon'
-    &$ExecuteRemoteCommand 'kubectl delete job clusterip-webhook-certgen-create clusterip-webhook-certgen-patch -n k2s-webhook --ignore-not-found' -IgnoreErrors
-    &$ExecuteRemoteCommand 'kubectl wait --for=delete pod -l app.kubernetes.io/component=certgen -n k2s-webhook --timeout=60s 2>/dev/null || true' -IgnoreErrors
-    &$ExecuteRemoteCommand 'sudo buildah rmi --force registry.k8s.io/ingress-nginx/kube-webhook-certgen:v1.6.9 2>/dev/null || true' -IgnoreErrors
-    Write-Log '[ClusterIP-Webhook] Verifying certgen image removal:'
-    &$ExecuteRemoteCommand 'sudo buildah images registry.k8s.io/ingress-nginx/kube-webhook-certgen 2>/dev/null || echo "(image not found - cleanup OK)"' -IgnoreErrors
 
     Write-Log '[ClusterIP-Webhook] ClusterIP webhook deployed successfully' -Console
 }
@@ -1444,8 +1573,8 @@ Function New-KubernetesNode {
 
     Write-Log "Start provisioning the computer $IpAddress"
     $debPackagesPath = Get-KubernetesDebPackagesPath -UserName $controlPlaneUserName
-    Get-KubernetesArtifactsFromInternet -IpAddress $IpAddress -UserName $userName -UserPwd $userPwd -Proxy $Proxy -K8sVersion $K8sVersion -TargetPath $debPackagesPath -InstalledDistribution 'debian12'
-    Install-KubernetesArtifacts -IpAddress $IpAddress -UserName $userName -UserPwd $userPwd -Proxy $Proxy -SourcePath $debPackagesPath -InstalledDistribution 'debian12'
+    Get-KubernetesArtifactsFromInternet -IpAddress $IpAddress -UserName $userName -UserPwd $userPwd -Proxy $Proxy -K8sVersion $K8sVersion -TargetPath $debPackagesPath -InstalledDistribution 'debian13'
+    Install-KubernetesArtifacts -IpAddress $IpAddress -UserName $userName -UserPwd $userPwd -Proxy $Proxy -SourcePath $debPackagesPath -InstalledDistribution 'debian13'
 
     Write-Log "Finalize preparation of the computer $IpAddress after provisioning"
     Set-UpComputerWithSpecificOsAfterProvisioning -IpAddress $IpAddress -UserName $userName -UserPwd $userPwd
@@ -1658,7 +1787,6 @@ function New-VmImageForControlPlaneNode {
             GatewayIpAddress     = $GatewayIpAddress
         }
         Edit-SupportForWSL @supportForWSLParams
-        Install-HelmAndYqOnKubeMaster -UserName $vmUserName -UserPwd $vmUserPwd -IpAddress $IpAddress
 
         if ($EnableDynamicMemory) {
             $dynamicMemoryParams = @{
@@ -2132,7 +2260,7 @@ function Update-CoreDNSConfigurationviaSSH {
 
 function Get-LinuxScriptPath {
     param (
-        [string]$InstalledDistribution='debian12'
+        [string]$InstalledDistribution='debian13'
     )
     $installationPath = Get-KubePath
     # Map OS to script filename
@@ -2266,6 +2394,8 @@ Copy-KubernetesImagesFromControlPlaneToRemoteComputer,
 Add-KubernetesArtifactsToRemoteComputer,
 Get-KubernetesImages,
 Get-FlannelImages,
+Get-NvidiaGpuDebPackagesFromInternet,
+Get-GpuContainerImages,
 Get-KubernetesDebPackagesPath,
 Get-BuildahDebPackagesPath,
 Add-BuildahArtifactsToRemoteComputer,
