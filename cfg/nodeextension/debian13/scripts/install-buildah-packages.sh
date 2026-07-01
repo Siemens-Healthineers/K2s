@@ -49,4 +49,15 @@ if ! sudo buildah --version > /dev/null 2>&1; then
     exit 1
 fi
 
+# netavark requires nft from nftables at runtime for networking during image builds.
+if ! sudo dpkg-query -W -f='${Status}' nftables 2>/dev/null | grep -q "install ok installed"; then
+    echo "[BuildahInstall] ERROR: nftables is not fully installed"
+    exit 1
+fi
+
+if ! sudo nft --version > /dev/null 2>&1; then
+    echo "[BuildahInstall] ERROR: nft binary is not available"
+    exit 1
+fi
+
 echo "[BuildahInstall] Finished installing buildah"

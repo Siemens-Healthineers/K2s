@@ -107,24 +107,24 @@ The offline workflow has two phases:
 
 ### 1. Create the node package
 
-Generate an OS-specific node package. This step requires an installed *K2s* cluster on the machine where you run the command, and it must use the local cluster proxy `http://172.19.1.1:8181`.
+Generate an OS-specific node package. This step requires an installed and running *K2s* cluster on the machine where you run the command. The local cluster proxy `http://172.19.1.1:8181` is used by default, so `--proxy` can be omitted; pass `-p` only to override it.
 
 Example using `k2s.exe` directly from a local directory:
 
 ```console
-.\k2s.exe system package --node-package --os debian12 --target-dir "D:\Linuxpackagetest" --name "debian12.zip" --proxy http://172.19.1.1:8181
+.\k2s.exe system package --node-package --os debian12 --target-dir "D:\Linuxpackagetest" --name "debian12.zip"
 ```
 
 You can also generate the package on an existing *K2s* host:
 
 ```console
-k2s system package --node-package --os debian12 --target-dir "C:\out" --name "debian12-node.zip" -p http://172.19.1.1:8181
+k2s system package --node-package --os debian12 --target-dir "C:\out" --name "debian12-node.zip"
 ```
 
 For Debian 13 nodes, create a Debian 13 package instead:
 
 ```console
-k2s system package --node-package --os debian13 --target-dir "C:\out" --name "debian13-node.zip" -p http://172.19.1.1:8181
+k2s system package --node-package --os debian13 --target-dir "C:\out" --name "debian13-node.zip"
 ```
 
 !!! note

@@ -230,11 +230,14 @@ If no NVIDIA GPU is detected (or a non-NVIDIA GPU like AMD/Intel is present), GP
 
 For environments without internet access, create a GPU-enabled node package first.
 
-**Step 1: Create the GPU node package** (on a machine with internet)
+**Step 1: Create the GPU node package** (on a machine with an installed and running *K2s* cluster)
 
 ```console
 k2s system package --node-package --os debian13 --include-gpu --target-dir C:\packages --name debian13-gpu.zip
 ```
+
+!!! note
+    Node package creation requires an installed and running *K2s* cluster. The local cluster proxy `http://172.19.1.1:8181` is used by default to download the GPU artifacts, so `--proxy` does not need to be specified; pass `-p` only to override it.
 
 The `--include-gpu` flag downloads and bundles:
 
