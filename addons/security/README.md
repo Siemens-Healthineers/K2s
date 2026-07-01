@@ -76,40 +76,6 @@ k2s addons enable security --omitHydra --omitKeycloak
 
 If a component is omitted, the corresponding authentication or user management features will not be available in the cluster, and you must provide your own external solution if needed.
 
-## Ingress reconciliation (per authentication component)
-
-The security addon exposes Keycloak and OAuth2 Proxy through the active ingress controller
-(nginx, traefik, or nginx-gw). Reconciliation follows two principles:
-
-1. **Manifests are split by authentication component.** Instead of a single combined manifest
-   per controller, each controller has separate files for Keycloak and for OAuth2 Proxy
-   (for example `traefik-ingress-keycloak.yaml` and `traefik-ingress-oauth2-proxy.yaml`; the
-   nginx-gw flavour additionally has shared `nginx-gw-ingress-shared.yaml` /
-   `oauth2-shared-locations.yaml`). The obsolete combined manifests
-   (`*-ingress.yaml`) have been removed.
-
-2. **Resources are created only for deployed components.** `Enable-IngressForSecurity` checks
-   the live cluster (`Test-KeycloakServiceAvailability` / `Test-OAuth2ProxyServiceAvailability`)
-   and applies a component's ingress resources **only when its backend deployment exists**. If
-   neither backend is deployed, no security ingress is created and a skip message is logged.
-
-Because the gating is based on the **actual deployment state**, ingress reconciliation
-(`Update.ps1` → `Enable-IngressForSecurity`) runs **after** the authentication components have
-been deployed and become ready. This ordering lets the omit flags work correctly:
-
-| Enable command | keycloak ingress | oauth2-proxy ingress (+ middleware) |
-|---|---|---|
-| `k2s addons enable security` | ✅ | ✅ |
-| `k2s addons enable security --omitHydra` | ✅ | ✅ |
-| `k2s addons enable security --omitOAuth2Proxy` | ✅ | ❌ |
-| `k2s addons enable security --omitKeycloak` | ❌ | ✅ (Hydra-backed) |
-| `k2s addons enable security --omitKeycloak --omitOAuth2Proxy` | ❌ | ❌ |
-
-For the `nginx-gw` flavour the Keycloak/OAuth2 Proxy resources are Gateway API objects
-(`HTTPRoute`) plus Linkerd `Server` / `ServerAuthorization` policies and a shared
-`SnippetsFilter` / `ReferenceGrant`. Those Linkerd policy CRDs only exist in **enhanced**
-mode, so nginx-gw security scenarios require `--type enhanced`.
-
 ## Components used
 
 This addon installs workloads needed to secure the network communication by configuration. This includes (all optional via flags except cert-manager, trust-manager, and linkerd):
