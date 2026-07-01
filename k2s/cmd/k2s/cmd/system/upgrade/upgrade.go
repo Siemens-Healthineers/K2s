@@ -96,10 +96,10 @@ var upgradeCommandExample = `
   .\k2s.exe system upgrade
 
   # Node upgrade: Apply a full node package to a worker node
-  k2s system upgrade --node k2s-nodepkg-debian12 --path "C:\ws\DeltaPackage\debian12-node-v1.8.0.zip" -o
+  k2s system upgrade --node k2s-nodepkg-debian13 --path "C:\ws\DeltaPackage\debian13-node-v1.8.0.zip" -o
 
   # Node upgrade: Apply a node delta package to a worker node (mode auto-detected)
-  k2s system upgrade --node k2s-nodepkg-debian12 --path "C:\ws\DeltaPackage\debian12-node-delta-v1.7.0-to-v1.8.0.zip" -o
+  k2s system upgrade --node k2s-nodepkg-debian13 --path "C:\ws\DeltaPackage\debian13-node-delta-v1.7.0-to-v1.8.0.zip" -o
 `
 
 const (
