@@ -34,7 +34,7 @@ spec:
       hostNetwork: true
       containers:
         - name: cplauncher
-          image: shsk2s.azurecr.io/pause-win:v1.7.0
+          image: shsk2s.azurecr.io/pause-win:v1.8.0
           imagePullPolicy: IfNotPresent
           env:
             - name: CPLAUNCHER_BASE
