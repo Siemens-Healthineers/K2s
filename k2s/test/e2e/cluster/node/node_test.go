@@ -137,6 +137,22 @@ var _ = Describe("Node Communication Core", func() {
 					suite.Cluster().ExpectNodeToBeReady(node, ctx)
 				}
 			})
+
+			It("control-plane node reports Debian 13 osImage", func(ctx SpecContext) {
+				controlPlaneNode := getControlPlaneNode(ctx)
+				if controlPlaneNode == "" {
+					Skip("No control-plane node found")
+				}
+
+				osImage := strings.TrimSpace(suite.Kubectl().MustExec(
+					ctx,
+					"get", "node", controlPlaneNode,
+					"-o", "jsonpath={.status.nodeInfo.osImage}",
+				))
+
+				Expect(osImage).To(ContainSubstring("Debian GNU/Linux 13"),
+					"control-plane node %s should run Debian 13, actual osImage=%q", controlPlaneNode, osImage)
+			})
 		})
 
 		Describe("System Deployments", func() {
