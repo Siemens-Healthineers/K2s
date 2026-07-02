@@ -686,7 +686,8 @@ Function New-RootfsForWSL {
 
     $target = '/var/tmp/rootfs/'
     $filename = Split-Path $VhdxFile -Leaf
-    Copy-ToRemoteComputerViaUserAndPwd -Source $VhdxFile -Target $target -IpAddress $IpAddress
+    # Allow a couple of retries for the large VHDX file transfer (3GB+) to tolerate transient SCP failures.
+    Copy-ToRemoteComputerViaUserAndPwd -Source $VhdxFile -Target $target -IpAddress $IpAddress -Retries 2
 
     &$executeRemoteCommand "cd /var/tmp/rootfs && sudo mkdir mntfs"
     &$executeRemoteCommand "cd /var/tmp/rootfs && sudo modprobe nbd"
