@@ -80,6 +80,8 @@ spec:
           image: shsk2s.azurecr.io/pause-win:v1.7.0
           imagePullPolicy: IfNotPresent
           # for /l with step 0 loops forever; host-network client uses the KubeSwitch IP.
+          # NOTE: use `ping` as the delay, not `timeout` — timeout needs a console input
+          # handle which HostProcess containers lack ("Input redirection is not supported").
           command: ['cmd.exe', '/c']
           args:
             - >-
@@ -87,4 +89,4 @@ spec:
               for /l %i in (1,0,2) do (
               curl.exe -s http://172.19.1.1:8080/albums-win &
               echo. &
-              timeout /t 15 /nobreak > NUL )
+              ping -n 16 127.0.0.1 > NUL )
