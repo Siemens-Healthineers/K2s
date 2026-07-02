@@ -149,22 +149,26 @@ still executing on the host **under the same user** (`NT AUTHORITY\SYSTEM`) as i
 **probes**, **resource management**, declarative **rollouts**, and integration with the rest of the platform.
 
 For proper *Kubernetes* **networking** integration, we recommend pairing the HostProcess container with an
-**anchor pod** and moving the process into the anchor's **network compartment**. The process then receives a
-**pod IP**, so an ordinary label‑selector `Service` works and the workload participates in the pod network like
-any other pod. This is described in detail in
+**anchor pod** and moving the process into the anchor's **network compartment**. The process is told which
+compartment to join via the **`COMPARTMENT_ID_ATTACH`** environment variable and switches its own threads into
+that compartment before opening any socket (see the best‑practice knob above). It then receives a **pod IP**, so
+an ordinary label‑selector `Service` works and the workload participates in the pod network like any other pod.
+
+The compartment id can be resolved by a small launch prelude (map the anchor pod IP to its compartment) or by
+the **`cplauncher`** helper, which does the discovery and launch for you. Both are described in
 [Running Native Windows Applications with HostProcess + Network Compartments](./running-apps-as-hostprocess.md).
 
 ```mermaid
 flowchart TB
     subgraph NODE["Windows node"]
         subgraph HP["HostProcess pod (hostNetwork, NT AUTHORITY SYSTEM)"]
-            CPL["cplauncher.exe<br/>-label app=cp-albums-win"]
+            LAUNCH["launch prelude<br/>sets COMPARTMENT_ID_ATTACH"]
         end
         subgraph ANCHOR["Anchor pod (compartment owner)"]
             PAUSE["pause container<br/>compartment + pod IP"]
             PROXY["(optional) Linkerd proxy"]
         end
-        CPL -->|"injects COMPARTMENT_ID_ATTACH<br/>then starts the native binary"| APP["Native process<br/>runs in anchor compartment"]
+        LAUNCH -->|"starts binary with<br/>COMPARTMENT_ID_ATTACH set"| APP["Native process<br/>self-switches into anchor compartment"]
         APP -. shares .-> PAUSE
     end
     SVC["Service (selector app=cp-albums-win)"] --> PAUSE
@@ -172,7 +176,7 @@ flowchart TB
     classDef anc fill:#eaf7ea,stroke:#34a853,color:#000;
     classDef hp fill:#fff4e5,stroke:#f5a623,color:#000;
     class PAUSE,PROXY,APP anc;
-    class CPL hp;
+    class LAUNCH hp;
 ```
 
 ### How the lifecycle changes vs Option 1
@@ -180,7 +184,7 @@ flowchart TB
 ```mermaid
 sequenceDiagram
     participant K as kubelet / containerd
-    participant L as cplauncher
+    participant L as Launch prelude / cplauncher
     participant A as Anchor pod
     participant P as Native process
     K->>A: Schedule anchor pod (gets compartment + IP)
@@ -232,7 +236,7 @@ An illustrative policy manifest is provided in
 | Pros | Cons |
 |------|------|
 | *Kubernetes* controls lifecycle: probes, restarts, rollout | Requires HostProcess privileges (`NT AUTHORITY\SYSTEM`) |
-| Resource requests/limits and scheduling | Slightly more moving parts (anchor pod + `cplauncher`) |
+| Resource requests/limits and scheduling | Slightly more moving parts (anchor pod + compartment attach) |
 | Pod IP + ordinary Service selector | Windows‑only for the HostProcess container |
 | Zero‑trust mTLS + policies via `security` addon | Anchor readiness must gate the HostProcess start |
 | Per‑instance IP, no port collisions when scaling | |
@@ -348,15 +352,13 @@ if compartmentId != "" {
 ```
 
 When `COMPARTMENT_ID_ATTACH` is **unset**, the process stays in the host's **default** compartment
-(Option 1). When it is **set** (typically injected by the `cplauncher` helper), the process joins an
-**anchor pod's** compartment and receives a pod IP inside the cluster network (Option 2).
+(Option 1). When it is **set**, the process joins an **anchor pod's** compartment and receives a pod IP inside
+the cluster network (Option 2). The id can be supplied by a small launch prelude or by the `cplauncher` helper.
 
-!!! tip "No code changes? Use `cplauncher` to move the process"
+!!! tip "No code changes needed"
     If you cannot (or do not want to) modify the binary to read `COMPARTMENT_ID_ATTACH` and call
-    `SetCurrentThreadCompartmentId` itself, use the `cplauncher` helper shipped with *K2s*
-    (`<K2s-install>\bin\cni\cplauncher.exe`). It resolves the anchor pod by label, switches into its
-    compartment, and then **starts your unmodified executable** in that compartment — so **any** native
-    process can join the cluster network without recompilation. See
+    `SetCurrentThreadCompartmentId` itself, the `cplauncher` helper can resolve the anchor pod's compartment and
+    start your **unmodified** executable in it. See
     [Running Native Windows Applications with HostProcess + Network Compartments](./running-apps-as-hostprocess.md).
 
 ### Configuration summary (from `albumswin`)

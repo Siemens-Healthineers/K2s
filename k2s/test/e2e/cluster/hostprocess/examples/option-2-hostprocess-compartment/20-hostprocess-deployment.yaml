@@ -3,10 +3,17 @@
 # SPDX-License-Identifier: MIT
 
 # HostProcess Deployment: kubelet/containerd manage the lifecycle of albumswin.exe.
-# cplauncher moves the process into the anchor pod's compartment (label app=cp-albums-win),
-# so the Service selector below routes to it and probes reach it via the ClusterIP.
+# This variant does NOT use cplauncher. A small PowerShell prelude resolves the anchor
+# pod's network compartment (label app=cp-albums-win) and starts albumswin with the
+# COMPARTMENT_ID_ATTACH env var set - albumswin then switches its OWN threads into that
+# compartment before listening (see albumswin/main.go). The Service selector routes to
+# the anchor pod and probes reach the app via the ClusterIP.
 #
-# Prerequisite: apply 05-launcher-configmap.yaml and 10-anchor-pod.yaml (Ready) first.
+# Prerequisites:
+#   * apply 05-launcher-configmap.yaml and 10-anchor-pod.yaml (Ready) first
+#   * NT AUTHORITY\SYSTEM must be able to run kubectl (get pods). On the host run:
+#       k2s system users add -u "NT AUTHORITY\SYSTEM"
+#     and ensure that user has get/list on pods in hostprocess-examples.
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -38,29 +45,38 @@ spec:
           runAsUserName: "NT AUTHORITY\\SYSTEM"
       hostNetwork: true
       containers:
-        - name: cplauncher
+        - name: albumswin
           image: shsk2s.azurecr.io/pause-win:v1.7.0
           imagePullPolicy: IfNotPresent
           env:
-            - name: CPLAUNCHER_BASE
-              valueFrom:
-                configMapKeyRef:
-                  name: hostprocess-launcher-env
-                  key: CPLAUNCHER_BASE
             - name: ALBUMS_WIN
               valueFrom:
                 configMapKeyRef:
                   name: hostprocess-launcher-env
                   key: ALBUMS_WIN
+            # Optional: only used if kubectl.exe is not on the SYSTEM PATH.
+            - name: KUBECTL
+              valueFrom:
+                configMapKeyRef:
+                  name: hostprocess-launcher-env
+                  key: KUBECTL
+                  optional: true
             - name: RESOURCE
               value: 'albums-win-hp-app-hostprocess'
-          # PowerShell avoids cmd.exe quoting ambiguities with paths containing spaces.
+          # No cplauncher: a mounted PowerShell script (see 06-launcher-script.yaml) resolves
+          # the anchor pod's compartment, sets COMPARTMENT_ID_ATTACH and starts albumswin,
+          # which self-switches its threads into that compartment. Keeping the logic in a
+          # mounted file avoids brittle inline single-line/quoting in this manifest.
+          # $env:CONTAINER_SANDBOX_MOUNT_POINT is set for HostProcess containers and points
+          # at the mounted volumes' root on the host.
           command:
             - powershell.exe
             - -NoLogo
             - -NoProfile
+            - -ExecutionPolicy
+            - Bypass
             - -Command
-            - '& "$env:CPLAUNCHER_BASE\cplauncher.exe" -label app=cp-albums-win -namespace hostprocess-examples -label-timeout 120s -wait-tree -no-inject -- "$env:ALBUMS_WIN"'
+            - '& "$env:CONTAINER_SANDBOX_MOUNT_POINT\scripts\start-albumswin.ps1"'
           # Probes target the static Service ClusterIP: the process listens in the anchor
           # pod's compartment (not the host compartment), so podIP/localhost do not work.
           readinessProbe:
@@ -91,12 +107,17 @@ spec:
               scheme: HTTP
             initialDelaySeconds: 15
             periodSeconds: 10
-            failureThreshold: 18 # ~195s budget; covers cplauncher label-timeout (120s)
+            failureThreshold: 18 # ~195s budget; covers compartment discovery + startup
             timeoutSeconds: 5
           volumeMounts:
+            - name: launcher-scripts
+              mountPath: C:/scripts # -> %CONTAINER_SANDBOX_MOUNT_POINT%\scripts on the host
             - name: host-var-log
               mountPath: C:/var/log
       volumes:
+        - name: launcher-scripts
+          configMap:
+            name: hostprocess-launcher-scripts
         - name: host-var-log
           hostPath:
             path: C:/var/log

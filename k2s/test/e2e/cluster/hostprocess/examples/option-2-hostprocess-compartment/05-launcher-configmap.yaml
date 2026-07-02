@@ -2,10 +2,11 @@
 #
 # SPDX-License-Identifier: MIT
 
-# Host paths consumed by cplauncher in the HostProcess deployment.
+# Host paths consumed by the HostProcess deployment (no cplauncher).
 # EDIT these values to match your host:
-#   CPLAUNCHER_BASE - folder containing cplauncher.exe (usually <K2s-install>\bin\cni)
-#   ALBUMS_WIN      - full path to the built albumswin.exe
+#   ALBUMS_WIN - full path to the built albumswin.exe
+#   KUBECTL    - OPTIONAL: full path to kubectl.exe, used only if kubectl is not on the
+#                SYSTEM PATH. Typically <InstallFolder>\bin\windowsnode\kubetools\kubectl.exe
 ---
 apiVersion: v1
 kind: Namespace
@@ -18,5 +19,6 @@ metadata:
   name: hostprocess-launcher-env
   namespace: hostprocess-examples
 data:
-  CPLAUNCHER_BASE: 'C:\k\bin\cni'
   ALBUMS_WIN: 'C:\ws\k2s\k2s\test\e2e\cluster\hostprocess\albumswin\albumswin.exe'
+  # Uncomment and set if kubectl.exe is not resolvable on the SYSTEM PATH:
+  KUBECTL: 'C:\ws\k2s\bin\kube\kubectl.exe'
