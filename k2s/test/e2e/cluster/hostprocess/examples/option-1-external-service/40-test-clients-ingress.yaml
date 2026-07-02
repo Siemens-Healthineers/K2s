@@ -4,11 +4,13 @@
 
 # Test clients that call the albums-win functionality THROUGH the traefik ingress,
 # which routes to the albums-external Service and finally to the native albumswin.exe.
-# - Linux client (normal pod) curls the in-cluster traefik service.
-# - Windows client runs as a HostProcess container (host network) and curls the
-#   traefik external IP 172.19.1.100. A HostProcess container is used because normal
-#   (process-isolated) Windows images must match the node OS build; HostProcess runs
-#   directly on the host (any build) using the host's own curl.exe.
+# Both clients call the DNS name http://k2s.cluster.local/albums-win directly (it
+# resolves to the traefik ingress at 172.19.1.100 - in-cluster via CoreDNS for the
+# Linux pod, and via the host resolver for the Windows HostProcess client). Using the
+# URL (no -H Host header) also avoids cmd.exe quote-escaping on Windows.
+# The Windows client runs as a HostProcess container because normal (process-isolated)
+# Windows images must match the node OS build; HostProcess runs on any build using the
+# host's own curl.exe.
 # Apply order: 10-external-service.yaml, 30-gateway-api.yaml, then this file.
 ---
 apiVersion: apps/v1
@@ -39,7 +41,7 @@ spec:
               echo '+++ linux curl calling albums-win via traefik ingress +++';
               while true; do
                 echo "--- GET /albums-win (through ingress) ---";
-                curl -s -H "Host: k2s.cluster.local" http://traefik.ingress-traefik.svc.cluster.local/albums-win || echo 'curl failed';
+                curl -s http://k2s.cluster.local/albums-win || echo 'curl failed';
                 echo;
                 sleep 15;
               done
@@ -84,6 +86,6 @@ spec:
             - >-
               echo +++ windows curl calling albums-win via traefik ingress +++ &
               for /l %i in (1,0,2) do (
-              curl.exe -s -H "Host: k2s.cluster.local" http://172.19.1.100/albums-win &
+              curl.exe -s http://k2s.cluster.local/albums-win &
               echo. &
               ping -n 16 127.0.0.1 > NUL )

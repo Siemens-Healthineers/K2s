@@ -131,13 +131,12 @@ kubectl -n hostprocess-examples logs deploy/curl-linux-ingress -f
 kubectl -n hostprocess-examples logs deploy/curl-windows-ingress -f
 ```
 
-- **Linux** pod calls the in‑cluster traefik service with the `k2s.cluster.local` Host header:
-  `curl -H "Host: k2s.cluster.local" http://traefik.ingress-traefik.svc.cluster.local/albums-win`.
-- **Windows** client calls the traefik external IP with the same Host header: `http://172.19.1.100/albums-win`.
+- **Linux** pod resolves `k2s.cluster.local` via CoreDNS: `curl http://k2s.cluster.local/albums-win`.
+- **Windows** HostProcess client resolves it via the host resolver: `curl.exe http://k2s.cluster.local/albums-win`.
 
-> **Why the `Host` header?** The traefik `Gateway` listener binds the shared hostname `k2s.cluster.local`, so
-> requests must carry that `Host`. From the Windows host you can just use `curl.exe http://k2s.cluster.local/...`
-> (it resolves to `172.19.1.100`); in‑cluster pods that cannot resolve the name send the header explicitly.
+Both call the shared K2s hostname `k2s.cluster.local` (which the traefik `Gateway` listener binds and which
+resolves to the ingress at `172.19.1.100`). Using the URL directly — rather than an `-H "Host: …"` header —
+also avoids `cmd.exe` quote‑escaping issues in the Windows HostProcess container.
 
 > **Windows client note:** normal (process‑isolated) Windows container images must match the node's OS build, so
 > a fixed `nanoserver`/`servercore` tag fails to pull on differing nodes. The Windows clients therefore run as
