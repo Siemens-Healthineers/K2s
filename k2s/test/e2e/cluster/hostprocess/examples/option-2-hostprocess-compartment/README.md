@@ -62,22 +62,26 @@ k2s addons enable security --type enhanced
 kubectl apply -f 30-zero-trust-policy.yaml
 ```
 
-## 4. (Optional) Route from outside the host
+## 4. (Optional) Route through the traefik ingress
 
-Expose the HostProcess Service through a *Kubernetes* gateway using the standard **Gateway API**:
+Expose the HostProcess Service through the **traefik ingress** using the standard **Gateway API** (the traefik
+addon runs the Gateway API provider, `gatewayClassName: traefik`):
 
 ```powershell
-# Requires the ingress nginx-gw or traefik addon
+# Requires:  k2s addons enable ingress traefik
 kubectl apply -f 40-gateway-api.yaml
+kubectl -n hostprocess-examples get gateway,httproute
 ```
 
-Consume the `albums` functionality **through the gateway**. The `HTTPRoute` matches host
-`albums.my-domain.local`, so send that `Host` header to the gateway address (the K2s ingress is reachable at
-`172.19.1.100`). Here the app's route is `/albums-win-hp-app-hostprocess` (the `RESOURCE` env value):
+Call the `albums` functionality **through the ingress**. The traefik `web` entrypoint is published as `:80` on
+`172.19.1.100`, and `k2s.cluster.local` resolves to that IP on the host. The app's route is
+`/albums-win-hp-app-hostprocess` (the `RESOURCE` env value):
 
 ```powershell
-curl.exe -v -H "Host: albums.my-domain.local" http://172.19.1.100/albums-win-hp-app-hostprocess
+curl.exe -v http://k2s.cluster.local/albums-win-hp-app-hostprocess
 ```
+
+This flows: **client → traefik ingress → HostProcess Service → `albumswin.exe`** (in the anchor compartment).
 
 ## 5. Consume the Service from pods
 

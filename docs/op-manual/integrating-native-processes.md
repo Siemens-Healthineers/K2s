@@ -385,16 +385,20 @@ differs).
 
 ### Variant A — Kubernetes gateway (preferred)
 
-Route **all** external requests through a *Kubernetes* gateway (the `ingress nginx-gw` or `ingress traefik`
-addon) and let it forward to the `Service` you created — the **external Service** for Option 1 or the
-**HostProcess Service** for Option 2. Because both are normal `ClusterIP` services, a standard **Gateway API**
-`HTTPRoute` can target them like any other service. This is the **preferred** approach: it gives you one
-consistent entry point, path/host‑based routing, TLS termination via `cert-manager`, and — together with the
-`security` addon — authentication and policy enforcement, all managed declaratively in the cluster.
+Route **all** external requests through a *Kubernetes* gateway and let it forward to the `Service` you created —
+the **external Service** for Option 1 or the **HostProcess Service** for Option 2. Because both are normal
+`ClusterIP` services, a standard **Gateway API** `HTTPRoute` can target them like any other service. This is the
+**preferred** approach: it gives you one consistent entry point, path/host‑based routing, TLS termination via
+`cert-manager`, and — together with the `security` addon — authentication and policy enforcement, all managed
+declaratively in the cluster.
+
+The examples use the **`ingress traefik`** addon, which ships a Gateway API provider (`gatewayClassName:
+traefik`) and publishes its `web` entrypoint (container port `8080`) as `:80` on `172.19.1.100`. Enable it with
+`k2s addons enable ingress traefik`.
 
 ```mermaid
 flowchart LR
-    EXT["External client"] -->|"https"| GW["Gateway (Gateway API)<br/>nginx-gw / traefik addon"]
+    EXT["External client"] -->|"http://k2s.cluster.local"| GW["traefik ingress<br/>172.19.1.100 (Gateway API)"]
     GW -->|"HTTPRoute"| SVC["Service<br/>(external / HostProcess)"]
     SVC --> BE["Native process<br/>(host or anchor compartment)"]
     classDef svc fill:#e8f0fe,stroke:#4285f4,color:#000;
@@ -405,10 +409,8 @@ flowchart LR
 
 #### Gateway API (`Gateway` + `HTTPRoute`)
 
-Use the **standard Kubernetes Gateway API**. It is portable across gateway implementations — in *K2s* both the
-`ingress traefik` and `ingress nginx-gw` addons expose a `GatewayClass` (`traefik` / `nginx-gw`), so the
-**same** `Gateway` + `HTTPRoute` manifests work with either. Only the target `backendRefs` service differs (the
-external Service for Option 1, the HostProcess Service for Option 2):
+Define a `Gateway` with `gatewayClassName: traefik` and an `HTTPRoute` for the app path. Only the target
+`backendRefs` service and the path differ between the options:
 
 === "Option 1 — external Service"
 
@@ -416,15 +418,14 @@ external Service for Option 1, the HostProcess Service for Option 2):
     apiVersion: gateway.networking.k8s.io/v1
     kind: Gateway
     metadata:
-      name: hostprocess-examples-gateway
+      name: albums-gateway
       namespace: hostprocess-examples
     spec:
-      gatewayClassName: nginx-gw   # or 'traefik', depending on the enabled addon
+      gatewayClassName: traefik
       listeners:
-        - name: http
+        - name: web
           protocol: HTTP
-          port: 80
-          hostname: albums.my-domain.local
+          port: 8080            # traefik 'web' entrypoint (published as :80 on 172.19.1.100)
           allowedRoutes:
             namespaces:
               from: Same
@@ -436,18 +437,18 @@ external Service for Option 1, the HostProcess Service for Option 2):
       namespace: hostprocess-examples
     spec:
       parentRefs:
-        - name: hostprocess-examples-gateway
-      hostnames:
-        - albums.my-domain.local
+        - name: albums-gateway
       rules:
         - matches:
             - path:
                 type: PathPrefix
-                value: /
+                value: /albums-win
           backendRefs:
             - name: albums-external          # Option 1: Service in front of 172.19.1.1
               port: 80
     ```
+
+    Call it: `curl.exe -v http://k2s.cluster.local/albums-win`
 
 === "Option 2 — HostProcess Service"
 
@@ -455,15 +456,14 @@ external Service for Option 1, the HostProcess Service for Option 2):
     apiVersion: gateway.networking.k8s.io/v1
     kind: Gateway
     metadata:
-      name: hostprocess-examples-gateway
+      name: albums-gateway
       namespace: hostprocess-examples
     spec:
-      gatewayClassName: nginx-gw   # or 'traefik', depending on the enabled addon
+      gatewayClassName: traefik
       listeners:
-        - name: http
+        - name: web
           protocol: HTTP
-          port: 80
-          hostname: albums.my-domain.local
+          port: 8080            # traefik 'web' entrypoint (published as :80 on 172.19.1.100)
           allowedRoutes:
             namespaces:
               from: Same
@@ -475,22 +475,21 @@ external Service for Option 1, the HostProcess Service for Option 2):
       namespace: hostprocess-examples
     spec:
       parentRefs:
-        - name: hostprocess-examples-gateway
-      hostnames:
-        - albums.my-domain.local
+        - name: albums-gateway
       rules:
         - matches:
             - path:
                 type: PathPrefix
-                value: /
+                value: /albums-win-hp-app-hostprocess
           backendRefs:
             - name: albums-win-hp-app-hostprocess  # Option 2: HostProcess Service (anchor compartment)
               port: 8080
     ```
 
-To add **OAuth2 authentication** in front of the native process without changing it, attach an
-implementation‑specific `ExtensionRef` filter to the `HTTPRoute` rule — a Traefik `Middleware` (`forwardAuth`)
-for the `traefik` class, or an nginx‑gw `SnippetsFilter` for the `nginx-gw` class — pointing at the `security`
+    Call it: `curl.exe -v http://k2s.cluster.local/albums-win-hp-app-hostprocess`
+
+To add **OAuth2 authentication** in front of the native process without changing it, attach a Traefik
+`forwardAuth` `Middleware` to the `HTTPRoute` rule via an `ExtensionRef` filter, pointing at the `security`
 addon's OAuth2 proxy:
 
 ```yaml
@@ -498,13 +497,13 @@ addon's OAuth2 proxy:
         - matches:
             - path:
                 type: PathPrefix
-                value: /
+                value: /albums-win
           filters:
             - type: ExtensionRef
               extensionRef:
-                group: gateway.nginx.org   # nginx-gw example (use traefik.io/Middleware for traefik)
-                kind: SnippetsFilter
-                name: oauth2-auth-filter
+                group: traefik.io
+                kind: Middleware
+                name: oauth2-proxy-auth
           backendRefs:
             - name: albums-external
               port: 80

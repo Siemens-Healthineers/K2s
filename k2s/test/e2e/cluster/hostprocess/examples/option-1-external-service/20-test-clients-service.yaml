@@ -2,29 +2,27 @@
 #
 # SPDX-License-Identifier: MIT
 
-# Test clients that actively CONSUME the external Service from both node types.
-# - Linux client (normal pod) curls the Service DNS name in a loop.
-# - Windows client runs as a HostProcess container. Normal (process-isolated)
-#   Windows containers require the image OS build to match the node exactly, so a
-#   fixed nanoserver/servercore tag fails to pull on differing nodes. A HostProcess
-#   container runs directly on the host (no OS-build matching) and uses the host's
-#   own curl.exe. Because it shares the host network, it reaches the native process
-#   via the KubeSwitch IP 172.19.1.1 (cluster DNS is not available on the host).
+# Test clients that consume the albums-external Service DIRECTLY (no ingress).
+# - Linux client (normal pod) curls the Service DNS name.
+# - Windows client runs as a HostProcess container (host network) and curls the
+#   native process via the KubeSwitch IP 172.19.1.1 (cluster DNS is not resolvable
+#   from the host; a HostProcess base avoids Windows OS-build image matching).
+# Deployment names end with '-svc' so they can coexist with the ingress clients.
 ---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: curl-linux
+  name: curl-linux-svc
   namespace: hostprocess-examples
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: curl-linux
+      app: curl-linux-svc
   template:
     metadata:
       labels:
-        app: curl-linux
+        app: curl-linux-svc
     spec:
       nodeSelector:
         kubernetes.io/os: linux
@@ -36,9 +34,9 @@ spec:
           args:
             - -c
             - >-
-              echo '+++ linux curl consuming albums-external service +++';
+              echo '+++ linux curl consuming albums-external Service directly +++';
               while true; do
-                echo "--- GET /albums-win ---";
+                echo "--- GET /albums-win (via Service DNS) ---";
                 curl -s http://albums-external.hostprocess-examples.svc.cluster.local/albums-win || echo 'curl failed';
                 echo;
                 sleep 15;
@@ -47,17 +45,17 @@ spec:
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: curl-windows
+  name: curl-windows-svc
   namespace: hostprocess-examples
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: curl-windows
+      app: curl-windows-svc
   template:
     metadata:
       labels:
-        app: curl-windows
+        app: curl-windows-svc
     spec:
       nodeSelector:
         kubernetes.io/os: windows
@@ -73,15 +71,11 @@ spec:
       hostNetwork: true
       terminationGracePeriodSeconds: 5
       containers:
-        # pause-win is already used by this cluster, so it is guaranteed to pull.
-        # As a HostProcess base image it only provides the sandbox; curl.exe is the
-        # host's binary and runs on any Windows build.
         - name: curl
           image: shsk2s.azurecr.io/pause-win:v1.7.0
           imagePullPolicy: IfNotPresent
-          # for /l with step 0 loops forever; host-network client uses the KubeSwitch IP.
-          # NOTE: use `ping` as the delay, not `timeout` — timeout needs a console input
-          # handle which HostProcess containers lack ("Input redirection is not supported").
+          # for /l with step 0 loops forever; use `ping` as the delay (timeout needs a
+          # console input handle, which HostProcess containers lack).
           command: ['cmd.exe', '/c']
           args:
             - >-

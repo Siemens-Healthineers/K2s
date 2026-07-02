@@ -2,26 +2,29 @@
 #
 # SPDX-License-Identifier: MIT
 
-# Optional external routing (Variant A) for Option 1 using the standard
-# Kubernetes Gateway API (portable across gateway classes).
-# Requires a Gateway API implementation, e.g.:
-#   k2s addons enable ingress nginx-gw     -> gatewayClassName: nginx-gw
-#   k2s addons enable ingress traefik      -> gatewayClassName: traefik
-# Routes external requests to the selectorless Service that fronts the host
-# process on the KubeSwitch IP 172.19.1.1.
+# External routing for Option 1 with the ingress traefik addon (Gateway API).
+# Enable it first:  k2s addons enable ingress traefik
+#
+# End-to-end flow:
+#   curl client -> traefik ingress (172.19.1.100) -> albums-external Service
+#                -> native albumswin.exe on 172.19.1.1:8080
+#
+# The traefik addon runs the Gateway API provider (gatewayClassName: traefik) and
+# exposes its 'web' entrypoint (container port 8080) as :80 on 172.19.1.100.
+#
+# Call it:  curl.exe -v http://k2s.cluster.local/albums-win
 ---
 apiVersion: gateway.networking.k8s.io/v1
 kind: Gateway
 metadata:
-  name: hostprocess-examples-gateway
+  name: albums-gateway
   namespace: hostprocess-examples
 spec:
-  gatewayClassName: nginx-gw # or 'traefik', depending on the enabled addon
+  gatewayClassName: traefik
   listeners:
-    - name: http
+    - name: web
       protocol: HTTP
-      port: 80
-      hostname: albums.my-domain.local
+      port: 8080 # traefik 'web' entrypoint (published as :80 on 172.19.1.100)
       allowedRoutes:
         namespaces:
           from: Same
@@ -33,23 +36,12 @@ metadata:
   namespace: hostprocess-examples
 spec:
   parentRefs:
-    - name: hostprocess-examples-gateway
-  hostnames:
-    - albums.my-domain.local
+    - name: albums-gateway
   rules:
     - matches:
         - path:
             type: PathPrefix
-            value: /
-      # Optional: attach OAuth2 authentication via the security addon using an
-      # implementation-specific ExtensionRef filter (Traefik Middleware or
-      # nginx-gw SnippetsFilter). Example for nginx-gw:
-      # filters:
-      #   - type: ExtensionRef
-      #     extensionRef:
-      #       group: gateway.nginx.org
-      #       kind: SnippetsFilter
-      #       name: oauth2-auth-filter
+            value: /albums-win # forwarded unchanged to albumswin.exe
       backendRefs:
         - name: albums-external # selectorless Service in front of 172.19.1.1
           port: 80
