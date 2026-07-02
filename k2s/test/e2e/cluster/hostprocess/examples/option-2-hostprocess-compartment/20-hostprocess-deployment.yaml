@@ -1,0 +1,123 @@
+# SPDX-FileCopyrightText: © 2026 Siemens Healthineers AG
+#
+# SPDX-License-Identifier: MIT
+
+# HostProcess Deployment: kubelet/containerd manage the lifecycle of albumswin.exe.
+# cplauncher moves the process into the anchor pod's compartment (label app=cp-albums-win),
+# so the Service selector below routes to it and probes reach it via the ClusterIP.
+#
+# Prerequisite: apply 05-launcher-configmap.yaml and 10-anchor-pod.yaml (Ready) first.
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: albums-win-hp-app-hostprocess
+  namespace: hostprocess-examples
+  labels:
+    app: albums-win-hp-app-hostprocess
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: albums-win-hp-app-hostprocess
+  template:
+    metadata:
+      labels:
+        app: albums-win-hp-app-hostprocess
+    spec:
+      nodeSelector:
+        kubernetes.io/os: windows
+      tolerations:
+        - key: 'OS'
+          operator: 'Equal'
+          value: 'Windows'
+          effect: 'NoSchedule'
+      securityContext:
+        windowsOptions:
+          hostProcess: true
+          runAsUserName: "NT AUTHORITY\\SYSTEM"
+      hostNetwork: true
+      containers:
+        - name: cplauncher
+          image: shsk2s.azurecr.io/pause-win:v1.7.0
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: CPLAUNCHER_BASE
+              valueFrom:
+                configMapKeyRef:
+                  name: hostprocess-launcher-env
+                  key: CPLAUNCHER_BASE
+            - name: ALBUMS_WIN
+              valueFrom:
+                configMapKeyRef:
+                  name: hostprocess-launcher-env
+                  key: ALBUMS_WIN
+            - name: RESOURCE
+              value: 'albums-win-hp-app-hostprocess'
+          # PowerShell avoids cmd.exe quoting ambiguities with paths containing spaces.
+          command:
+            - powershell.exe
+            - -NoLogo
+            - -NoProfile
+            - -Command
+            - '& "$env:CPLAUNCHER_BASE\cplauncher.exe" -label app=cp-albums-win -namespace hostprocess-examples -label-timeout 120s -wait-tree -no-inject -- "$env:ALBUMS_WIN"'
+          # Probes target the static Service ClusterIP: the process listens in the anchor
+          # pod's compartment (not the host compartment), so podIP/localhost do not work.
+          readinessProbe:
+            httpGet:
+              host: 172.21.1.212 # must equal spec.clusterIP of the Service below
+              port: 8080
+              path: /health/readiness
+              scheme: HTTP
+            initialDelaySeconds: 30
+            periodSeconds: 30
+            failureThreshold: 5
+            timeoutSeconds: 6
+          livenessProbe:
+            httpGet:
+              host: 172.21.1.212
+              port: 8080
+              path: /health/liveness
+              scheme: HTTP
+            initialDelaySeconds: 30
+            periodSeconds: 30
+            failureThreshold: 5
+            timeoutSeconds: 6
+          startupProbe:
+            httpGet:
+              host: 172.21.1.212
+              port: 8080
+              path: /health/startup
+              scheme: HTTP
+            initialDelaySeconds: 15
+            periodSeconds: 10
+            failureThreshold: 18 # ~195s budget; covers cplauncher label-timeout (120s)
+            timeoutSeconds: 5
+          volumeMounts:
+            - name: host-var-log
+              mountPath: C:/var/log
+      volumes:
+        - name: host-var-log
+          hostPath:
+            path: C:/var/log
+            type: DirectoryOrCreate
+      restartPolicy: Always
+---
+# Service exposing the hostprocess albums application via the anchor compartment.
+apiVersion: v1
+kind: Service
+metadata:
+  name: albums-win-hp-app-hostprocess
+  namespace: hostprocess-examples
+  labels:
+    app: albums-win-hp-app-hostprocess
+spec:
+  selector:
+    app: cp-albums-win # <== anchor pod label (compartment owner)
+  type: ClusterIP
+  clusterIP: 172.21.1.212 # pick a free IP in the service CIDR; must match probe host above
+  ports:
+    - name: http
+      port: 8080
+      targetPort: 8080
+      protocol: TCP

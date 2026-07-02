@@ -1,0 +1,31 @@
+# SPDX-FileCopyrightText: © 2026 Siemens Healthineers AG
+#
+# SPDX-License-Identifier: MIT
+
+# Anchor Pod (non-HostProcess): a pause container that owns the network compartment
+# and pod IP. cplauncher (in the HostProcess deployment) resolves this pod by label
+# and moves albumswin.exe into its compartment.
+# The linkerd.io/inject annotation meshes the compartment when the security addon is enabled.
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: albums-compartment-anchor
+  namespace: hostprocess-examples
+  labels:
+    app: cp-albums-win # <== label selector used by cplauncher
+  annotations:
+    linkerd.io/inject: enabled
+spec:
+  nodeSelector:
+    kubernetes.io/os: windows
+  tolerations:
+    - key: 'OS'
+      operator: 'Equal'
+      value: 'Windows'
+      effect: 'NoSchedule'
+  containers:
+    - name: pause
+      image: shsk2s.azurecr.io/pause-win:v1.7.0
+      imagePullPolicy: IfNotPresent
+  restartPolicy: Always

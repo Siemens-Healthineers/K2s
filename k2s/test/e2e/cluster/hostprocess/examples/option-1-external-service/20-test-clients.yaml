@@ -1,0 +1,90 @@
+# SPDX-FileCopyrightText: © 2026 Siemens Healthineers AG
+#
+# SPDX-License-Identifier: MIT
+
+# Test clients that actively CONSUME the external Service from both node types.
+# - Linux client (normal pod) curls the Service DNS name in a loop.
+# - Windows client runs as a HostProcess container. Normal (process-isolated)
+#   Windows containers require the image OS build to match the node exactly, so a
+#   fixed nanoserver/servercore tag fails to pull on differing nodes. A HostProcess
+#   container runs directly on the host (no OS-build matching) and uses the host's
+#   own curl.exe. Because it shares the host network, it reaches the native process
+#   via the KubeSwitch IP 172.19.1.1 (cluster DNS is not available on the host).
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: curl-linux
+  namespace: hostprocess-examples
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: curl-linux
+  template:
+    metadata:
+      labels:
+        app: curl-linux
+    spec:
+      nodeSelector:
+        kubernetes.io/os: linux
+      terminationGracePeriodSeconds: 5
+      containers:
+        - name: curl
+          image: docker.io/curlimages/curl:8.5.0
+          command: [sh]
+          args:
+            - -c
+            - >-
+              echo '+++ linux curl consuming albums-external service +++';
+              while true; do
+                echo "--- GET /albums-win ---";
+                curl -s http://albums-external.hostprocess-examples.svc.cluster.local/albums-win || echo 'curl failed';
+                echo;
+                sleep 15;
+              done
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: curl-windows
+  namespace: hostprocess-examples
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: curl-windows
+  template:
+    metadata:
+      labels:
+        app: curl-windows
+    spec:
+      nodeSelector:
+        kubernetes.io/os: windows
+      tolerations:
+        - key: 'OS'
+          operator: 'Equal'
+          value: 'Windows'
+          effect: 'NoSchedule'
+      securityContext:
+        windowsOptions:
+          hostProcess: true
+          runAsUserName: "NT AUTHORITY\\SYSTEM"
+      hostNetwork: true
+      terminationGracePeriodSeconds: 5
+      containers:
+        # pause-win is already used by this cluster, so it is guaranteed to pull.
+        # As a HostProcess base image it only provides the sandbox; curl.exe is the
+        # host's binary and runs on any Windows build.
+        - name: curl
+          image: shsk2s.azurecr.io/pause-win:v1.7.0
+          imagePullPolicy: IfNotPresent
+          # for /l with step 0 loops forever; host-network client uses the KubeSwitch IP.
+          command: ['cmd.exe', '/c']
+          args:
+            - >-
+              echo +++ windows curl consuming host process via 172.19.1.1 +++ &
+              for /l %i in (1,0,2) do (
+              curl.exe -s http://172.19.1.1:8080/albums-win &
+              echo. &
+              timeout /t 15 /nobreak > NUL )

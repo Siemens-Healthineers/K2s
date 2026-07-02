@@ -1,0 +1,22 @@
+# SPDX-FileCopyrightText: © 2026 Siemens Healthineers AG
+#
+# SPDX-License-Identifier: MIT
+
+# Host paths consumed by cplauncher in the HostProcess deployment.
+# EDIT these values to match your host:
+#   CPLAUNCHER_BASE - folder containing cplauncher.exe (usually <K2s-install>\bin\cni)
+#   ALBUMS_WIN      - full path to the built albumswin.exe
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: hostprocess-examples
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: hostprocess-launcher-env
+  namespace: hostprocess-examples
+data:
+  CPLAUNCHER_BASE: 'C:\k\bin\cni'
+  ALBUMS_WIN: 'C:\ws\k2s\k2s\test\e2e\cluster\hostprocess\albumswin\albumswin.exe'

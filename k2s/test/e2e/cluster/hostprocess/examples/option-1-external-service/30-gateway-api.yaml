@@ -1,0 +1,55 @@
+# SPDX-FileCopyrightText: © 2026 Siemens Healthineers AG
+#
+# SPDX-License-Identifier: MIT
+
+# Optional external routing (Variant A) for Option 1 using the standard
+# Kubernetes Gateway API (portable across gateway classes).
+# Requires a Gateway API implementation, e.g.:
+#   k2s addons enable ingress nginx-gw     -> gatewayClassName: nginx-gw
+#   k2s addons enable ingress traefik      -> gatewayClassName: traefik
+# Routes external requests to the selectorless Service that fronts the host
+# process on the KubeSwitch IP 172.19.1.1.
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: hostprocess-examples-gateway
+  namespace: hostprocess-examples
+spec:
+  gatewayClassName: nginx-gw # or 'traefik', depending on the enabled addon
+  listeners:
+    - name: http
+      protocol: HTTP
+      port: 80
+      hostname: albums.my-domain.local
+      allowedRoutes:
+        namespaces:
+          from: Same
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: albums-external
+  namespace: hostprocess-examples
+spec:
+  parentRefs:
+    - name: hostprocess-examples-gateway
+  hostnames:
+    - albums.my-domain.local
+  rules:
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /
+      # Optional: attach OAuth2 authentication via the security addon using an
+      # implementation-specific ExtensionRef filter (Traefik Middleware or
+      # nginx-gw SnippetsFilter). Example for nginx-gw:
+      # filters:
+      #   - type: ExtensionRef
+      #     extensionRef:
+      #       group: gateway.nginx.org
+      #       kind: SnippetsFilter
+      #       name: oauth2-auth-filter
+      backendRefs:
+        - name: albums-external # selectorless Service in front of 172.19.1.1
+          port: 80
