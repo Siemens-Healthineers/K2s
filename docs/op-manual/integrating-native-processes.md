@@ -409,8 +409,40 @@ flowchart LR
 
 #### Gateway API (`Gateway` + `HTTPRoute`)
 
-Define a `Gateway` with `gatewayClassName: traefik` and an `HTTPRoute` for the app path. Only the target
-`backendRefs` service and the path differ between the options:
+Define a `Gateway` with `gatewayClassName: traefik` and an `HTTPRoute` for the app path. The listener binds the
+shared K2s hostname `k2s.cluster.local` (which resolves to `172.19.1.100`), so callers must use that `Host`.
+Only the target `backendRefs` service and the path differ between the options:
+
+!!! warning "Traefik Gateway API prerequisites in K2s"
+    The `ingress traefik` addon enables the Gateway API provider but two prerequisites are missing out of the
+    box; without them the `Gateway` stays *"Waiting for controller"* and every request returns `404`:
+
+    1. **No `GatewayClass`** — the addon ships none and Traefik does not auto‑create it. Create it once
+       (cluster‑scoped, idempotent):
+
+        ```yaml
+        apiVersion: gateway.networking.k8s.io/v1
+        kind: GatewayClass
+        metadata:
+          name: traefik
+        spec:
+          controllerName: traefik.io/gateway-controller
+        ```
+
+    2. **Missing experimental CRDs** — Traefik v3 watches the experimental `TCPRoute`/`TLSRoute` types, but
+       K2s installs only the standard‑channel Gateway API CRDs. The failed watches stall Traefik's Gateway
+       provider. Install the experimental CRDs (or minimal stubs) so the watches succeed, e.g.:
+
+        ```console
+        kubectl apply -f https://github.com/kubernetes-sigs/gateway-api/releases/download/v1.4.1/experimental-install.yaml
+        ```
+
+    See the example manifests for a self‑contained set (minimal `TCPRoute`/`TLSRoute` CRDs + `GatewayClass`).
+
+    If Traefik was **already running** when the CRDs were added, restart it so its Gateway provider
+    re‑initializes: `kubectl -n ingress-traefik rollout restart deploy/traefik`. Otherwise the `GatewayClass`
+    stays `ACCEPTED=Unknown`.
+
 
 === "Option 1 — external Service"
 
@@ -425,10 +457,11 @@ Define a `Gateway` with `gatewayClassName: traefik` and an `HTTPRoute` for the a
       listeners:
         - name: web
           protocol: HTTP
-          port: 8080            # traefik 'web' entrypoint (published as :80 on 172.19.1.100)
+          hostname: k2s.cluster.local   # shared K2s hostname (-> 172.19.1.100)
+          port: 8080                     # traefik 'web' entrypoint (published as :80)
           allowedRoutes:
             namespaces:
-              from: Same
+              from: All
     ---
     apiVersion: gateway.networking.k8s.io/v1
     kind: HTTPRoute
@@ -438,6 +471,7 @@ Define a `Gateway` with `gatewayClassName: traefik` and an `HTTPRoute` for the a
     spec:
       parentRefs:
         - name: albums-gateway
+          namespace: hostprocess-examples
       rules:
         - matches:
             - path:
@@ -445,6 +479,7 @@ Define a `Gateway` with `gatewayClassName: traefik` and an `HTTPRoute` for the a
                 value: /albums-win
           backendRefs:
             - name: albums-external          # Option 1: Service in front of 172.19.1.1
+              namespace: hostprocess-examples
               port: 80
     ```
 
@@ -463,10 +498,11 @@ Define a `Gateway` with `gatewayClassName: traefik` and an `HTTPRoute` for the a
       listeners:
         - name: web
           protocol: HTTP
-          port: 8080            # traefik 'web' entrypoint (published as :80 on 172.19.1.100)
+          hostname: k2s.cluster.local   # shared K2s hostname (-> 172.19.1.100)
+          port: 8080                     # traefik 'web' entrypoint (published as :80)
           allowedRoutes:
             namespaces:
-              from: Same
+              from: All
     ---
     apiVersion: gateway.networking.k8s.io/v1
     kind: HTTPRoute
@@ -476,6 +512,7 @@ Define a `Gateway` with `gatewayClassName: traefik` and an `HTTPRoute` for the a
     spec:
       parentRefs:
         - name: albums-gateway
+          namespace: hostprocess-examples
       rules:
         - matches:
             - path:
@@ -483,10 +520,15 @@ Define a `Gateway` with `gatewayClassName: traefik` and an `HTTPRoute` for the a
                 value: /albums-win-hp-app-hostprocess
           backendRefs:
             - name: albums-win-hp-app-hostprocess  # Option 2: HostProcess Service (anchor compartment)
+              namespace: hostprocess-examples
               port: 8080
     ```
 
     Call it: `curl.exe -v http://k2s.cluster.local/albums-win-hp-app-hostprocess`
+
+    From in‑cluster pods that cannot resolve `k2s.cluster.local`, send the `Host` header explicitly, e.g.
+    `curl -H "Host: k2s.cluster.local" http://172.19.1.100/albums-win`.
+
 
 To add **OAuth2 authentication** in front of the native process without changing it, attach a Traefik
 `forwardAuth` `Middleware` to the `HTTPRoute` rule via an `ExtensionRef` filter, pointing at the `security`

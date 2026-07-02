@@ -69,7 +69,15 @@ addon runs the Gateway API provider, `gatewayClassName: traefik`):
 
 ```powershell
 # Requires:  k2s addons enable ingress traefik
+# Traefik's Gateway provider watches the experimental TCPRoute/TLSRoute CRDs, which K2s
+# does not install. Apply the prerequisite CRDs from the Option 1 example first, else the
+# Gateway stays 'Waiting for controller' and every request 404s.
+kubectl apply -f ../option-1-external-service/25-traefik-gateway-crds.yaml
+kubectl wait --for condition=established `
+  crd/tcproutes.gateway.networking.k8s.io crd/tlsroutes.gateway.networking.k8s.io
+
 kubectl apply -f 40-gateway-api.yaml
+kubectl get gatewayclass traefik
 kubectl -n hostprocess-examples get gateway,httproute
 ```
 

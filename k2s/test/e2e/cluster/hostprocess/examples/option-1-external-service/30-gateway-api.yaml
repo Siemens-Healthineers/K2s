@@ -11,8 +11,20 @@
 #
 # The traefik addon runs the Gateway API provider (gatewayClassName: traefik) and
 # exposes its 'web' entrypoint (container port 8080) as :80 on 172.19.1.100.
+# The listener binds the shared K2s hostname k2s.cluster.local, so callers must use
+# that Host header (it resolves to 172.19.1.100 on the K2s host).
 #
 # Call it:  curl.exe -v http://k2s.cluster.local/albums-win
+---
+# GatewayClass for Traefik. The traefik addon does NOT ship one, and Traefik does
+# not auto-create it, so the Gateway below would never be Accepted without this.
+# Cluster-scoped + idempotent: harmless if it already exists.
+apiVersion: gateway.networking.k8s.io/v1
+kind: GatewayClass
+metadata:
+  name: traefik
+spec:
+  controllerName: traefik.io/gateway-controller
 ---
 apiVersion: gateway.networking.k8s.io/v1
 kind: Gateway
@@ -24,10 +36,11 @@ spec:
   listeners:
     - name: web
       protocol: HTTP
+      hostname: k2s.cluster.local # shared K2s hostname (-> 172.19.1.100)
       port: 8080 # traefik 'web' entrypoint (published as :80 on 172.19.1.100)
       allowedRoutes:
         namespaces:
-          from: Same
+          from: All
 ---
 apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute
@@ -37,6 +50,7 @@ metadata:
 spec:
   parentRefs:
     - name: albums-gateway
+      namespace: hostprocess-examples
   rules:
     - matches:
         - path:
@@ -44,4 +58,5 @@ spec:
             value: /albums-win # forwarded unchanged to albumswin.exe
       backendRefs:
         - name: albums-external # selectorless Service in front of 172.19.1.1
+          namespace: hostprocess-examples
           port: 80

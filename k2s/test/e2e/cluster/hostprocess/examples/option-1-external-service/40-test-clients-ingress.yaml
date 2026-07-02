@@ -39,7 +39,7 @@ spec:
               echo '+++ linux curl calling albums-win via traefik ingress +++';
               while true; do
                 echo "--- GET /albums-win (through ingress) ---";
-                curl -s http://traefik.ingress-traefik.svc.cluster.local/albums-win || echo 'curl failed';
+                curl -s -H "Host: k2s.cluster.local" http://traefik.ingress-traefik.svc.cluster.local/albums-win || echo 'curl failed';
                 echo;
                 sleep 15;
               done
@@ -84,6 +84,6 @@ spec:
             - >-
               echo +++ windows curl calling albums-win via traefik ingress +++ &
               for /l %i in (1,0,2) do (
-              curl.exe -s http://172.19.1.100/albums-win &
+              curl.exe -s -H "Host: k2s.cluster.local" http://172.19.1.100/albums-win &
               echo. &
               ping -n 16 127.0.0.1 > NUL )

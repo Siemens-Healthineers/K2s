@@ -80,16 +80,31 @@ kubectl -n hostprocess-examples logs deploy/curl-windows-svc -f
 
 ## 4. Route it through the traefik ingress
 
+Traefik's Gateway API provider watches the experimental `TCPRoute`/`TLSRoute` CRDs, which K2s does **not**
+install (standard channel only). Without them the provider stalls and the `Gateway` stays *"Waiting for
+controller"* (→ `404`). Apply the small prerequisite CRDs first, then the gateway:
+
 ```powershell
+kubectl apply -f 25-traefik-gateway-crds.yaml
+kubectl wait --for condition=established `
+  crd/tcproutes.gateway.networking.k8s.io crd/tlsroutes.gateway.networking.k8s.io
+
+# If traefik was already running, restart it so its Gateway provider re-initializes
+# with the now-present CRDs (otherwise the GatewayClass stays ACCEPTED=Unknown).
+kubectl -n ingress-traefik rollout restart deploy/traefik
+kubectl -n ingress-traefik rollout status deploy/traefik
+
 kubectl apply -f 30-gateway-api.yaml
 
-# Confirm the Gateway and route were accepted
+# The GatewayClass/Gateway should now be Accepted (not 'Waiting for controller')
+kubectl get gatewayclass traefik
 kubectl -n hostprocess-examples get gateway,httproute
 ```
 
-`30-gateway-api.yaml` defines a `Gateway` (`gatewayClassName: traefik`) and an `HTTPRoute` that forwards the
-`/albums-win` path to the `albums-external` Service. The traefik addon publishes its `web` entrypoint as `:80`
-on `172.19.1.100`, and `k2s.cluster.local` resolves to that IP on the host. Call it directly:
+`30-gateway-api.yaml` creates a `GatewayClass` (`traefik`), a `Gateway` (`gatewayClassName: traefik`) and an
+`HTTPRoute` that forwards the `/albums-win` path to the `albums-external` Service. The traefik addon publishes
+its `web` entrypoint as `:80` on `172.19.1.100`, and `k2s.cluster.local` resolves to that IP on the host. Call
+it directly:
 
 ```powershell
 # From the Windows host — client -> traefik ingress -> Service -> albumswin.exe
@@ -116,8 +131,13 @@ kubectl -n hostprocess-examples logs deploy/curl-linux-ingress -f
 kubectl -n hostprocess-examples logs deploy/curl-windows-ingress -f
 ```
 
-- **Linux** pod calls the in‑cluster traefik service: `http://traefik.ingress-traefik.svc.cluster.local/albums-win`.
-- **Windows** client calls the traefik external IP: `http://172.19.1.100/albums-win`.
+- **Linux** pod calls the in‑cluster traefik service with the `k2s.cluster.local` Host header:
+  `curl -H "Host: k2s.cluster.local" http://traefik.ingress-traefik.svc.cluster.local/albums-win`.
+- **Windows** client calls the traefik external IP with the same Host header: `http://172.19.1.100/albums-win`.
+
+> **Why the `Host` header?** The traefik `Gateway` listener binds the shared hostname `k2s.cluster.local`, so
+> requests must carry that `Host`. From the Windows host you can just use `curl.exe http://k2s.cluster.local/...`
+> (it resolves to `172.19.1.100`); in‑cluster pods that cannot resolve the name send the header explicitly.
 
 > **Windows client note:** normal (process‑isolated) Windows container images must match the node's OS build, so
 > a fixed `nanoserver`/`servercore` tag fails to pull on differing nodes. The Windows clients therefore run as
