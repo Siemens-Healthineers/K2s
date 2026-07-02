@@ -58,6 +58,43 @@ function Get-ProductVersionGivenKubePath {
 	return "$(Get-Content -Raw -Path "$KubePathLocal\VERSION")".Trim()
 }
 
+function Test-DeltaUpgradeVersionIsValid {
+	param (
+		[Parameter(Mandatory = $true)]
+		[string] $VersionInstalled,
+		[Parameter(Mandatory = $true)]
+		[string] $VersionToBeUsed
+	)
+
+	$VersionInstalled = $VersionInstalled.Trim()
+	$VersionToBeUsed = $VersionToBeUsed.Trim()
+	$versionRegex = '^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$'
+
+	if (-not ($VersionInstalled -match $versionRegex)) {
+		Write-Log "[Update][Error] The format of the currently installed version is invalid: current='$VersionInstalled', valid='1.22.333'"
+		return $false
+	}
+	if (-not ($VersionToBeUsed -match $versionRegex)) {
+		Write-Log "[Update][Error] The format of the delta target version is invalid: target='$VersionToBeUsed', valid='1.22.333'"
+		return $false
+	}
+
+	$currentVersion = [System.Version]::Parse($VersionInstalled)
+	$nextVersion = [System.Version]::Parse($VersionToBeUsed)
+
+	if ($nextVersion -le $currentVersion) {
+		Write-Log "[Update][Error] The delta target version must be greater than the current version: current='$VersionInstalled', target='$VersionToBeUsed'"
+		return $false
+	}
+
+	if ($nextVersion.Major -ne $currentVersion.Major) {
+		Write-Log "[Update][Error] Delta upgrade not supported from $VersionInstalled to $VersionToBeUsed. Major version must be the same for delta upgrades." -Console
+		return $false
+	}
+
+	return $true
+}
+
 <#
 .SYNOPSIS
 	Restores CoreDNS etcd plugin configuration after kubeadm upgrade.
@@ -945,6 +982,9 @@ Current directory: $deltaRoot
 	}
 	
 	if ($deltaTargetVersion) {
+		if (-not (Test-DeltaUpgradeVersionIsValid -VersionInstalled $currentVersion -VersionToBeUsed $deltaTargetVersion)) {
+			return $false
+		}
 		Write-Log ("[Update] Target version after update: {0}" -f $deltaTargetVersion) -Console:$consoleSwitch
 	}
 

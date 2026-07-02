@@ -27,6 +27,20 @@ Describe 'Get-K2sManagedServiceName' -Tag 'unit', 'ci', 'update' {
 	}
 }
 
+Describe 'Test-DeltaUpgradeVersionIsValid' -Tag 'unit', 'ci', 'update' {
+	It 'allows delta updates within the same major version' {
+		InModuleScope $moduleName {
+			Test-DeltaUpgradeVersionIsValid -VersionInstalled '1.8.1' -VersionToBeUsed '1.9.0' | Should -BeTrue
+		}
+	}
+
+	It 'rejects delta updates across major versions' {
+		InModuleScope $moduleName {
+			Test-DeltaUpgradeVersionIsValid -VersionInstalled '1.8.1' -VersionToBeUsed '2.0.0' | Should -BeFalse
+		}
+	}
+}
+
 Describe 'Copy-UnchangedInstallationFiles' -Tag 'unit', 'ci', 'update' {
 	BeforeEach {
 		$old = Join-Path $TestDrive 'old'
