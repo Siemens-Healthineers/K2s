@@ -16,17 +16,17 @@ $kubenodeBaseFileName = 'Kubenode-Base.vhdx'
 $kubeNodeBaseImagePath = "$kubeBinPath\$kubenodeBaseFileName"
 
 $KubemasterVmProvisioningVmName = 'KUBEMASTER_IN_PROVISIONING'
-$RawBaseImageInProvisioningForKubemasterImageName = 'Debian-12-Base-In-Provisioning-For-Kubemaster.vhdx'
+$RawBaseImageInProvisioningForKubemasterImageName = 'Debian-13-Base-In-Provisioning-For-Kubemaster.vhdx'
 $VmProvisioningNatName = 'KubemasterVmProvisioningNat'
 $VmProvisioningSwitchName = 'KubemasterVmProvisioningSwitch'
 
 $KubeworkerVmProvisioningVmName = 'KUBEWORKER_IN_PROVISIONING'
-$RawBaseImageInProvisioningForKubeworkerImageName = 'Debian-12-Base-In-Provisioning-For-Kubeworker.vhdx'
+$RawBaseImageInProvisioningForKubeworkerImageName = 'Debian-13-Base-In-Provisioning-For-Kubeworker.vhdx'
 $KubeworkerVmProvisioningNatName = 'KubeworkerVmProvisioningNat'
 $KubeworkerVmProvisioningSwitchName = 'KubeworkerVmProvisioningSwitch'
 
 $KubenodeVmProvisioningVmName = 'KUBENODE_IN_PROVISIONING'
-$RawBaseImageInProvisioningForKubenodeImageName = 'Debian-12-Base-In-Provisioning-For-Kubenode.vhdx'
+$RawBaseImageInProvisioningForKubenodeImageName = 'Debian-13-Base-In-Provisioning-For-Kubenode.vhdx'
 $KubenodeVmProvisioningNatName = 'KubenodeVmProvisioningNat'
 $KubenodeVmProvisioningSwitchName = 'KubenodeVmProvisioningSwitch'
 
@@ -95,7 +95,7 @@ function New-KubenodeBaseImage {
     $vmParameters.IsoFileName = 'cloud-init-kubenode-provisioning.iso'
     $vmParameters.MemoryStartupBytes = $VMMemoryStartupBytes
     $vmParameters.ProcessorCount = $VMProcessorCount
-    $vmParameters.ProvisionedVhdxFileName = 'Debian-12-Base-Provisioned-For-Kubenode.vhdx'
+    $vmParameters.ProvisionedVhdxFileName = 'Debian-13-Base-Provisioned-For-Kubenode.vhdx'
     $vmParameters.VmName = $KubenodeVmProvisioningVmName
 
     [GuestOsParameters]$guestOsParameters = [GuestOsParameters]::new() 
@@ -589,20 +589,6 @@ function Convert-VhdxToRootfs {
 
     $vmName = $RootfsWslProvisioningVmName
 
-    # The rootfs creation VM must temporarily hold, under /var/tmp/rootfs (disk-backed root fs),
-    # the copied source vhdx, the fully extracted (uncompressed) root filesystem and the resulting
-    # tarball all at once. /tmp is a RAM-backed tmpfs (~half of RAM) and is too small for this.
-    # Provide more disk than the control plane defaults to avoid scp 'write failure'
-    # / 'no space left on device' errors as the produced image grows in size.
-    $sourceVhdxSizeBytes = (Get-Item -Path $SourceVhdxPath).Length
-    $requiredDiskSize = [uint64]$sourceVhdxSizeBytes * 6 + 20GB
-    $rootfsVmDiskSize = [System.Math]::Max([uint64]$VMDiskSize, $requiredDiskSize)
-    $rootfsVmMemory = [System.Math]::Max([long]$VMMemoryStartupBytes, [long]8GB)
-    $sourceVhdxSizeGB = [System.Math]::Round($sourceVhdxSizeBytes / 1GB, 2)
-    $rootfsVmDiskSizeGB = [System.Math]::Round($rootfsVmDiskSize / 1GB, 2)
-    $rootfsVmMemoryGB = [System.Math]::Round($rootfsVmMemory / 1GB, 2)
-    Write-Log "Rootfs creation VM '$vmName': source vhdx ${sourceVhdxSizeGB}GB -> using disk ${rootfsVmDiskSizeGB}GB, memory ${rootfsVmMemoryGB}GB" -Console
-
     $Hook = {
         New-RootfsForWSL -IpAddress $(Get-VmIpForProvisioningKubeNode) -UserName $(Get-DefaultUserNameKubeNode) -UserPwd $(Get-DefaultUserPwdKubeNode) -VhdxFile $SourceVhdxPath -TargetFilePath $TargetRootfsFilePath
     }
@@ -611,8 +597,8 @@ function Convert-VhdxToRootfs {
         VhdxPath=$rootfsCreatorHostVhdxPath
         VmName=$vmName
         Hook = $Hook
-        VMDiskSize = $rootfsVmDiskSize
-        VMMemoryStartupBytes = $rootfsVmMemory
+        VMDiskSize = $VMDiskSize
+        VMMemoryStartupBytes = $VMMemoryStartupBytes
         VMProcessorCount = $VMProcessorCount
     }
     Start-VmBasedOnKubenodeBaseImage @vmBasedOnKubenodeBaseImageStartParams
