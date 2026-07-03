@@ -40,6 +40,8 @@ See the concept guide:
 | `20-hostprocess-deployment.yaml` | HostProcess Deployment (runs the mounted script) + Service |
 | `30-zero-trust-policy.yaml` | Illustrative Linkerd default‑deny + allow `GET` policy |
 | `40-gateway-api.yaml` | Optional standard Gateway API `Gateway` + `HTTPRoute` to the HostProcess Service |
+| `50-test-clients-service.yaml` | Linux (meshed) + Windows (HostProcess) clients consuming the Service directly |
+| `60-test-clients-ingress.yaml` | Linux + Windows clients consuming via the traefik ingress |
 
 ## 1. Configure host paths
 
@@ -128,33 +130,50 @@ This flows: **client → traefik ingress → HostProcess Service → `albumswin.
 
 ## 5. Consume the Service from pods
 
-The HostProcess Service is a normal `ClusterIP` with a selector, reachable from any pod. Use a temporary curl
-pod (or reuse the clients from the Option 1 example — they share the `hostprocess-examples` namespace). The app
-(`albumswin`) exposes `GET /albums-win-hp-app-hostprocess`, `GET /albums-win-hp-app-hostprocess/{id}` and
-`POST /albums-win-hp-app-hostprocess`:
+The HostProcess Service is a normal `ClusterIP` with a selector, reachable from any pod. Ready‑to‑apply looping
+clients are included (mirroring the Option 1 example):
+
+| File | Purpose |
+|------|---------|
+| `50-test-clients-service.yaml` | Linux (meshed) + Windows (HostProcess) clients calling the **Service** directly |
+| `60-test-clients-ingress.yaml` | Linux + Windows clients calling **through the traefik ingress** (`k2s.cluster.local`) |
 
 ```powershell
-kubectl -n hostprocess-examples get pods,svc
+kubectl apply -f 50-test-clients-service.yaml
+kubectl apply -f 60-test-clients-ingress.yaml
 
-# Ad-hoc Linux client
-kubectl -n hostprocess-examples run curl-tmp --rm -it --restart=Never \
-  --image=docker.io/curlimages/curl:8.5.0 -- \
-  curl -v http://albums-win-hp-app-hostprocess.hostprocess-examples.svc.cluster.local/albums-win-hp-app-hostprocess
-
-# Get a single album by id
-kubectl -n hostprocess-examples run curl-tmp --rm -it --restart=Never \
-  --image=docker.io/curlimages/curl:8.5.0 -- \
-  curl -s http://albums-win-hp-app-hostprocess.hostprocess-examples.svc.cluster.local/albums-win-hp-app-hostprocess/2
+kubectl -n hostprocess-examples logs deploy/curl-linux-svc -f       # via Service (meshed)
+kubectl -n hostprocess-examples logs deploy/curl-windows-svc -f     # via Service ClusterIP (host network)
+kubectl -n hostprocess-examples logs deploy/curl-linux-ingress -f   # via ingress
+kubectl -n hostprocess-examples logs deploy/curl-windows-ingress -f # via ingress (Windows)
 ```
 
-> **Note:** With the zero‑trust policy (`30-zero-trust-policy.yaml`) applied, only **meshed** clients with an
-> allowed identity may call the Service, and only `GET` on the app route is permitted — other verbs/paths are
-> denied.
+The app (`albumswin`) exposes `GET /albums-win-hp-app-hostprocess`, `GET /albums-win-hp-app-hostprocess/{id}`
+and `POST /albums-win-hp-app-hostprocess`. Ad‑hoc from a temporary pod:
+
+```powershell
+kubectl -n hostprocess-examples run curl-tmp --rm -it --restart=Never `
+  --image=docker.io/curlimages/curl:8.5.0 -- `
+  curl -s http://albums-win-hp-app-hostprocess.hostprocess-examples.svc.cluster.local:8080/albums-win-hp-app-hostprocess/2
+```
+
+> **Mesh notes (zero‑trust):** the app port `8080` is meshed, so callers need an mTLS identity:
+> - Both **service‑direct** clients are meshed (`linkerd.io/inject`) so they are allowed. The Windows client is
+>   a **normal (non‑HostProcess) pod** reusing the OS‑matched `pause-win` image, so it gets a pod IP, can be
+>   meshed, and resolves the Service DNS name. Without the security addon the annotation is a no‑op and they are
+>   plain pods (also fine, since `8080` is then unmeshed).
+> - For the **ingress** path, traefik must be authorized to reach the meshed backend (traefik meshed +
+>   permitted by your zero‑trust policy, or an added allow policy). A `403` on ingress calls is the mesh
+>   denying traefik→backend, not the client.
+> - With `30-zero-trust-policy.yaml` applied, only `GET` on the app route is permitted; other verbs/paths are
+>   denied.
 
 ## Cleanup
 
 ```powershell
+kubectl delete -f 60-test-clients-ingress.yaml -f 50-test-clients-service.yaml --ignore-not-found
 kubectl delete -f 40-gateway-api.yaml --ignore-not-found
-kubectl delete -f 30-zero-trust-policy.yaml --ignore-not-found
-kubectl delete -f 20-hostprocess-deployment.yaml -f 10-anchor-pod.yaml -f 05-launcher-configmap.yaml
+kubectl delete -f 30-zero-trust-policy.yaml -f 15-health-probe-policy.yaml --ignore-not-found
+kubectl delete -f 20-hostprocess-deployment.yaml -f 10-anchor-pod.yaml `
+  -f 07-system-rbac.yaml -f 06-launcher-script.yaml -f 05-launcher-configmap.yaml
 ```
