@@ -72,7 +72,7 @@ spec:
       terminationGracePeriodSeconds: 5
       containers:
         - name: curl
-          image: shsk2s.azurecr.io/pause-win:v1.7.0
+          image: shsk2s.azurecr.io/pause-win:v1.8.0
           imagePullPolicy: IfNotPresent
           # for /l with step 0 loops forever; use `ping` as the delay (timeout needs a
           # console input handle, which HostProcess containers lack).
