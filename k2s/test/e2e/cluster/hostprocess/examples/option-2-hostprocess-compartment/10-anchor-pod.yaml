@@ -3,9 +3,12 @@
 # SPDX-License-Identifier: MIT
 
 # Anchor Pod (non-HostProcess): a pause container that owns the network compartment
-# and pod IP. cplauncher (in the HostProcess deployment) resolves this pod by label
-# and moves albumswin.exe into its compartment.
+# and pod IP. The HostProcess launcher resolves this pod by label and moves albumswin
+# into its compartment.
 # The linkerd.io/inject annotation meshes the compartment when the security addon is enabled.
+# NOTE: on Windows, config.linkerd.io/skip-inbound-ports is NOT honored, so kubelet health
+# probes (which arrive unmeshed) would be rejected with 403 by the proxy. Instead, the health
+# port 8081 is explicitly authorized via Linkerd policy in 15-health-probe-policy.yaml.
 ---
 apiVersion: v1
 kind: Pod
@@ -13,7 +16,7 @@ metadata:
   name: albums-compartment-anchor
   namespace: hostprocess-examples
   labels:
-    app: cp-albums-win # <== label selector used by cplauncher
+    app: cp-albums-win # <== label selector used by the launcher
   annotations:
     linkerd.io/inject: enabled
 spec:

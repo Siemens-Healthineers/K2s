@@ -36,6 +36,7 @@ See the concept guide:
 | `06-launcher-script.yaml` | `start-albumswin.ps1` mounted into the container (compartment resolve + launch) |
 | `07-system-rbac.yaml` | Role/RoleBinding letting `k2s-NT-AUTHORITY-SYSTEM` list pods (for the script) |
 | `10-anchor-pod.yaml` | Anchor pod that owns the compartment / pod IP |
+| `15-health-probe-policy.yaml` | Linkerd policy allowing kubelet probes on the health port (**meshed clusters only**) |
 | `20-hostprocess-deployment.yaml` | HostProcess Deployment (runs the mounted script) + Service |
 | `30-zero-trust-policy.yaml` | Illustrative Linkerd default‑deny + allow `GET` policy |
 | `40-gateway-api.yaml` | Optional standard Gateway API `Gateway` + `HTTPRoute` to the HostProcess Service |
@@ -67,6 +68,13 @@ compartment by label.
 ```powershell
 kubectl apply -f 10-anchor-pod.yaml
 kubectl -n hostprocess-examples wait --for=condition=Ready pod/albums-compartment-anchor --timeout=180s
+
+# ONLY if the security addon (Linkerd) is enabled: allow kubelet probes on the health port.
+# The anchor compartment is meshed, and on Windows the mesh cannot be bypassed per-port, so
+# without this the readiness/liveness/startup probes are rejected with 403 and the pod never
+# becomes Ready.
+kubectl apply -f 15-health-probe-policy.yaml
+
 kubectl apply -f 20-hostprocess-deployment.yaml
 
 # The prelude logs the resolved compartment id before starting albumswin:

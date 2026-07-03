@@ -77,12 +77,13 @@ spec:
             - Bypass
             - -Command
             - '& "$env:CONTAINER_SANDBOX_MOUNT_POINT\scripts\start-albumswin.ps1"'
-          # Probes target the static Service ClusterIP: the process listens in the anchor
-          # pod's compartment (not the host compartment), so podIP/localhost do not work.
+          # Probes target the static Service ClusterIP on the dedicated HEALTH port (8081):
+          # the process listens in the anchor pod's compartment (not the host compartment),
+          # so podIP/localhost do not work. albumswin serves /health/* on HEALTH_PORT=8081.
           readinessProbe:
             httpGet:
               host: 172.21.1.212 # must equal spec.clusterIP of the Service below
-              port: 8080
+              port: 8081
               path: /health/readiness
               scheme: HTTP
             initialDelaySeconds: 30
@@ -92,7 +93,7 @@ spec:
           livenessProbe:
             httpGet:
               host: 172.21.1.212
-              port: 8080
+              port: 8081
               path: /health/liveness
               scheme: HTTP
             initialDelaySeconds: 30
@@ -102,7 +103,7 @@ spec:
           startupProbe:
             httpGet:
               host: 172.21.1.212
-              port: 8080
+              port: 8081
               path: /health/startup
               scheme: HTTP
             initialDelaySeconds: 15
@@ -141,4 +142,8 @@ spec:
     - name: http
       port: 8080
       targetPort: 8080
+      protocol: TCP
+    - name: health
+      port: 8081 # dedicated health port; probes target ClusterIP:8081
+      targetPort: 8081
       protocol: TCP
