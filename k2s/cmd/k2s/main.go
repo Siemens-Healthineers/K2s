@@ -19,6 +19,8 @@ import (
 )
 
 func main() {
+	enableVirtualTerminalProcessing()
+
 	exitCode := cli.ExitCodeSuccess
 
 	logger := logging.NewSlogger()
