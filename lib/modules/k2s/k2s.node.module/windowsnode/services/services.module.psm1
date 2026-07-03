@@ -207,9 +207,17 @@ function Update-NssmServiceInstallPath {
 
         $newValue = [regex]::Replace($current, $oldPathPattern, $NewPath, [System.Text.RegularExpressions.RegexOptions]::IgnoreCase)
         Write-Log ("Re-pointing service '{0}' parameter '{1}' to new installation path" -f $Name, $parameter)
-        & $NssmPath set $Name $parameter $newValue | Out-Null
-        if ($LASTEXITCODE -ne 0) {
-            Write-Log ("[Update][Warn] nssm failed (exit {0}) re-pointing service '{1}' parameter '{2}'; not recording for rollback" -f $LASTEXITCODE, $Name, $parameter)
+        # Write the value DIRECTLY to the registry instead of via 'nssm.exe set'. nssm reads its
+        # configuration from these registry values, so a direct write is equivalent - and it avoids a
+        # PowerShell native-command quoting bug: when the installation path contains spaces (e.g.
+        # 'C:\Program Files\k2s'), an AppParameters value such as --config-path="C:\Program Files\...\x.yaml"
+        # mixes spaces with embedded double quotes. Passing that string as a native argument to nssm.exe
+        # makes PowerShell wrap it in quotes without escaping the embedded ones, so nssm stores a mangled
+        # value and the service fails to start. Set-ItemProperty writes the exact string verbatim.
+        try {
+            Set-ItemProperty -Path $regKey -Name $parameter -Value $newValue -ErrorAction Stop
+        } catch {
+            Write-Log ("[Update][Warn] Failed to write nssm registry value for service '{0}' parameter '{1}'; not recording for rollback: {2}" -f $Name, $parameter, $_.Exception.Message)
             continue
         }
         $previousValues[$parameter] = $current

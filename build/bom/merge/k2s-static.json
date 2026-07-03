@@ -10,7 +10,7 @@
         "type": "application",
         "group": "aquasecurity",
         "name": "trivy",
-        "version": "0.71.2"
+        "version": "0.72.0"
       }
     ],
     "authors": [
@@ -30,7 +30,7 @@
     {
       "group": "https://github.com/AdguardTeam/dnsproxy",
       "name": "dnsproxy",
-      "version": "v0.81.4",
+      "version": "v0.82.0",
       "description": "",
       "scope": "required",
       "licenses": [
@@ -47,7 +47,7 @@
           "value": "k2s:core:pkg:executables"
         }
       ],
-      "purl": "pkg:github/AdguardTeam/dnsproxy@v0.81.4",
+      "purl": "pkg:github/AdguardTeam/dnsproxy@v0.82.0",
       "type": "application"
     },
     {
@@ -258,9 +258,9 @@
       "type": "application"
     },
     {
-      "group": "https://download.docker.com/win/static/stable/x86_64/docker-29.6.0.zip",
+      "group": "https://download.docker.com/win/static/stable/x86_64/docker-29.6.1.zip",
       "name": "dockerd",
-      "version": "v29.6.0",
+      "version": "v29.6.1",
       "description": "",
       "scope": "required",
       "licenses": [
@@ -277,13 +277,13 @@
           "value": "k2s:core:pkg:executables"
         }
       ],
-      "purl": "pkg:github/moby/moby@29.6.0",
+      "purl": "pkg:github/moby/moby@29.6.1",
       "type": "application"
     },
     {
-      "group": "https://download.docker.com/win/static/stable/x86_64/docker-29.6.0.zip",
+      "group": "https://download.docker.com/win/static/stable/x86_64/docker-29.6.1.zip",
       "name": "docker",
-      "version": "v29.6.0",
+      "version": "v29.6.1",
       "description": "",
       "scope": "required",
       "licenses": [
@@ -300,13 +300,13 @@
           "value": "k2s:core:pkg:executables"
         }
       ],
-      "purl": "pkg:github/moby/moby@29.6.0",
+      "purl": "pkg:github/moby/moby@29.6.1",
       "type": "application"
     },
     {
-      "group": "https://download.docker.com/win/static/stable/x86_64/docker-29.6.0.zip",
+      "group": "https://download.docker.com/win/static/stable/x86_64/docker-29.6.1.zip",
       "name": "docker-proxy",
-      "version": "v29.6.0",
+      "version": "v29.6.1",
       "description": "",
       "scope": "required",
       "licenses": [
@@ -323,7 +323,7 @@
           "value": "k2s:core:pkg:executables"
         }
       ],
-      "purl": "pkg:github/moby/moby@29.6.0",
+      "purl": "pkg:github/moby/moby@29.6.1",
       "type": "application"
     },
     {
@@ -601,236 +601,6 @@
       ],
       "purl": "pkg:github/helm/helm@v4.2.2",
       "type": "application"
-    },
-    {
-      "group": "https://github.com/prometheus-operator/prometheus-operator",
-      "name": "prometheus-operator",
-      "version": "v0.92.0",
-      "description": "Kubernetes operator for Prometheus - monitoring addon",
-      "scope": "optional",
-      "licenses": [
-        {
-          "license": {
-            "id": "Apache-2.0",
-            "url": "https://github.com/prometheus-operator/prometheus-operator/blob/main/LICENSE"
-          }
-        }
-      ],
-      "properties": [
-        {
-          "name": "sw360:projectName",
-          "value": "k2s:addon:monitoring"
-        }
-      ],
-      "purl": "pkg:github/prometheus-operator/prometheus-operator@v0.92.0",
-      "type": "container"
-    },
-    {
-      "group": "https://github.com/prometheus-operator/prometheus-operator",
-      "name": "prometheus-config-reloader",
-      "version": "v0.92.0",
-      "description": "Config reloader sidecar for Prometheus Operator - monitoring addon",
-      "scope": "optional",
-      "licenses": [
-        {
-          "license": {
-            "id": "Apache-2.0",
-            "url": "https://github.com/prometheus-operator/prometheus-operator/blob/main/LICENSE"
-          }
-        }
-      ],
-      "properties": [
-        {
-          "name": "sw360:projectName",
-          "value": "k2s:addon:monitoring"
-        }
-      ],
-      "purl": "pkg:github/prometheus-operator/prometheus-operator@v0.92.0",
-      "type": "container"
-    },
-    {
-      "group": "https://github.com/prometheus/prometheus",
-      "name": "prometheus",
-      "version": "v3.5.4",
-      "description": "Systems and service monitoring toolkit - monitoring addon",
-      "scope": "optional",
-      "licenses": [
-        {
-          "license": {
-            "id": "Apache-2.0",
-            "url": "https://github.com/prometheus/prometheus/blob/main/LICENSE"
-          }
-        }
-      ],
-      "properties": [
-        {
-          "name": "sw360:projectName",
-          "value": "k2s:addon:monitoring"
-        }
-      ],
-      "purl": "pkg:github/prometheus/prometheus@v3.5.4",
-      "type": "container"
-    },
-    {
-      "group": "https://github.com/prometheus/alertmanager",
-      "name": "alertmanager",
-      "version": "v0.33.0",
-      "description": "Prometheus Alertmanager - monitoring addon",
-      "scope": "optional",
-      "licenses": [
-        {
-          "license": {
-            "id": "Apache-2.0",
-            "url": "https://github.com/prometheus/alertmanager/blob/main/LICENSE"
-          }
-        }
-      ],
-      "properties": [
-        {
-          "name": "sw360:projectName",
-          "value": "k2s:addon:monitoring"
-        }
-      ],
-      "purl": "pkg:github/prometheus/alertmanager@v0.33.0",
-      "type": "container"
-    },
-    {
-      "group": "https://github.com/thanos-io/thanos",
-      "name": "thanos",
-      "version": "v0.41.0",
-      "description": "Highly available Prometheus with long-term storage - monitoring addon",
-      "scope": "optional",
-      "licenses": [
-        {
-          "license": {
-            "id": "Apache-2.0",
-            "url": "https://github.com/thanos-io/thanos/blob/main/LICENSE"
-          }
-        }
-      ],
-      "properties": [
-        {
-          "name": "sw360:projectName",
-          "value": "k2s:addon:monitoring"
-        }
-      ],
-      "purl": "pkg:github/thanos-io/thanos@v0.41.0",
-      "type": "container"
-    },
-    {
-      "group": "https://github.com/kubernetes/kube-state-metrics",
-      "name": "kube-state-metrics",
-      "version": "v2.20.1",
-      "description": "Service that generates metrics about the state of Kubernetes objects - monitoring addon",
-      "scope": "optional",
-      "licenses": [
-        {
-          "license": {
-            "id": "Apache-2.0",
-            "url": "https://github.com/kubernetes/kube-state-metrics/blob/main/LICENSE"
-          }
-        }
-      ],
-      "properties": [
-        {
-          "name": "sw360:projectName",
-          "value": "k2s:addon:monitoring"
-        }
-      ],
-      "purl": "pkg:github/kubernetes/kube-state-metrics@v2.20.1",
-      "type": "container"
-    },
-    {
-      "group": "https://github.com/prometheus/node_exporter",
-      "name": "node-exporter",
-      "version": "v1.11.1",
-      "description": "Prometheus exporter for machine metrics - monitoring addon",
-      "scope": "optional",
-      "licenses": [
-        {
-          "license": {
-            "id": "Apache-2.0",
-            "url": "https://github.com/prometheus/node_exporter/blob/master/LICENSE"
-          }
-        }
-      ],
-      "properties": [
-        {
-          "name": "sw360:projectName",
-          "value": "k2s:addon:monitoring"
-        }
-      ],
-      "purl": "pkg:github/prometheus/node_exporter@v1.11.1",
-      "type": "container"
-    },
-    {
-      "group": "https://github.com/grafana/grafana",
-      "name": "grafana",
-      "version": "13.0.1",
-      "description": "Open-source analytics and monitoring platform - monitoring addon",
-      "scope": "optional",
-      "licenses": [
-        {
-          "license": {
-            "id": "AGPL-3.0-only",
-            "url": "https://github.com/grafana/grafana/blob/main/LICENSE"
-          }
-        }
-      ],
-      "properties": [
-        {
-          "name": "sw360:projectName",
-          "value": "k2s:addon:monitoring"
-        }
-      ],
-      "purl": "pkg:github/grafana/grafana@13.0.1",
-      "type": "container"
-    },
-    {
-      "group": "https://github.com/kiwigrid/k8s-sidecar",
-      "name": "k8s-sidecar",
-      "version": "2.7.3",
-      "description": "Sidecar to collect config maps with a specified label from all namespaces - monitoring addon",
-      "scope": "optional",
-      "licenses": [
-        {
-          "license": {
-            "id": "MIT",
-            "url": "https://github.com/kiwigrid/k8s-sidecar/blob/master/LICENSE"
-          }
-        }
-      ],
-      "properties": [
-        {
-          "name": "sw360:projectName",
-          "value": "k2s:addon:monitoring"
-        }
-      ],
-      "purl": "pkg:github/kiwigrid/k8s-sidecar@2.7.3",
-      "type": "container"
-    },
-    {
-      "group": "https://github.com/headlamp-k8s/headlamp",
-      "name": "headlamp",
-      "version": "v0.43.0",
-      "description": "Kubernetes web UI addon for K2s dashboard",
-      "scope": "optional",
-      "licenses": [
-        {
-          "license": {
-            "id": "Apache-2.0",
-            "url": "https://github.com/headlamp-k8s/headlamp/blob/main/LICENSE"
-          }
-        }
-      ],
-      "properties": [
-        {
-          "name": "sw360:projectName",
-          "value": "k2s:addon:dashboard"
-        }
-      ],
-      "purl": "pkg:github/headlamp-k8s/headlamp@v0.43.0",
-      "type": "container"
     }
   ],
   "dependencies": [],
