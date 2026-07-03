@@ -54,7 +54,7 @@ if (-not [string]::IsNullOrWhiteSpace($Nodes)) {
         Write-Log $nodeError.Message -Error
         exit 1
     }
-    if (-not (Test-NodeReady -NodeName $Nodes)) {
+    if (-not (Test-NodeReady -NodeName $Nodes -Kind $targetNode.Kind)) {
         $nodeError = New-Error -Severity Warning -Code 'import-node-not-ready' -Message "Node '$Nodes' is not in Ready state - run 'kubectl get nodes' to check node status"
         if ($EncodeStructuredOutput -eq $true) {
             Send-ToCli -MessageType $MessageType -Message @{Error = $nodeError }
