@@ -58,6 +58,43 @@ function Get-ProductVersionGivenKubePath {
 	return "$(Get-Content -Raw -Path "$KubePathLocal\VERSION")".Trim()
 }
 
+function Test-DeltaUpgradeVersionIsValid {
+	param (
+		[Parameter(Mandatory = $true)]
+		[string] $VersionInstalled,
+		[Parameter(Mandatory = $true)]
+		[string] $VersionToBeUsed
+	)
+
+	$VersionInstalled = $VersionInstalled.Trim()
+	$VersionToBeUsed = $VersionToBeUsed.Trim()
+	$versionRegex = '^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$'
+
+	if (-not ($VersionInstalled -match $versionRegex)) {
+		Write-Log "[Update][Error] The format of the currently installed version is invalid: current='$VersionInstalled', valid='1.22.333'"
+		return $false
+	}
+	if (-not ($VersionToBeUsed -match $versionRegex)) {
+		Write-Log "[Update][Error] The format of the delta target version is invalid: target='$VersionToBeUsed', valid='1.22.333'"
+		return $false
+	}
+
+	$currentVersion = [System.Version]::Parse($VersionInstalled)
+	$nextVersion = [System.Version]::Parse($VersionToBeUsed)
+
+	if ($nextVersion -le $currentVersion) {
+		Write-Log "[Update][Error] The delta target version must be greater than the current version: current='$VersionInstalled', target='$VersionToBeUsed'"
+		return $false
+	}
+
+	if ($nextVersion.Major -ne $currentVersion.Major) {
+		Write-Log "[Update][Error] Delta upgrade not supported from $VersionInstalled to $VersionToBeUsed. Major version must be the same for delta upgrades." -Console
+		return $false
+	}
+
+	return $true
+}
+
 <#
 .SYNOPSIS
 	Restores CoreDNS etcd plugin configuration after kubeadm upgrade.
@@ -592,9 +629,12 @@ function Set-K2sInstallationHome {
 					if ($current -is [Array]) { $current = ($current -join ' ') }
 					if ($current.IndexOf($fromTrim, [System.StringComparison]::OrdinalIgnoreCase) -lt 0) { continue }
 					$newValue = [regex]::Replace($current, $fromPattern, $toTrim, [System.Text.RegularExpressions.RegexOptions]::IgnoreCase)
-					& $nssmPath set $svc $parameter $newValue | Out-Null
-					if ($LASTEXITCODE -ne 0) {
-						Write-Log ("[Update][Warn] nssm fallback failed (exit {0}) re-pointing service '{1}' parameter '{2}'" -f $LASTEXITCODE, $svc, $parameter) -Console
+					# Write directly to the registry (see Update-NssmServiceInstallPath) instead of 'nssm.exe set'
+					# to avoid the native-command quoting bug for installation paths that contain spaces.
+					try {
+						Set-ItemProperty -Path $regKey -Name $parameter -Value $newValue -ErrorAction Stop
+					} catch {
+						Write-Log ("[Update][Warn] nssm fallback failed re-pointing service '{0}' parameter '{1}': {2}" -f $svc, $parameter, $_.Exception.Message) -Console
 						continue
 					}
 					$repointedCount++
@@ -942,6 +982,9 @@ Current directory: $deltaRoot
 	}
 	
 	if ($deltaTargetVersion) {
+		if (-not (Test-DeltaUpgradeVersionIsValid -VersionInstalled $currentVersion -VersionToBeUsed $deltaTargetVersion)) {
+			return $false
+		}
 		Write-Log ("[Update] Target version after update: {0}" -f $deltaTargetVersion) -Console:$consoleSwitch
 	}
 
