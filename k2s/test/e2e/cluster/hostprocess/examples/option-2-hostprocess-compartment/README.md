@@ -38,10 +38,11 @@ See the concept guide:
 | `10-anchor-pod.yaml` | Anchor pod that owns the compartment / pod IP |
 | `15-health-probe-policy.yaml` | Linkerd policy allowing kubelet probes on the health port (**meshed clusters only**) |
 | `20-hostprocess-deployment.yaml` | HostProcess Deployment (runs the mounted script) + Service |
-| `30-zero-trust-policy.yaml` | Illustrative Linkerd default‑deny + allow `GET` policy |
-| `40-gateway-api.yaml` | Optional standard Gateway API `Gateway` + `HTTPRoute` to the HostProcess Service |
-| `50-test-clients-service.yaml` | Linux (meshed) + Windows (HostProcess) clients consuming the Service directly |
-| `60-test-clients-ingress.yaml` | Linux + Windows clients consuming via the traefik ingress |
+| `40-gateway-api.yaml` | Optional standard Gateway API `Gateway` + `HTTPRoute` to the HostProcess Service (HTTP + HTTPS) |
+| `50-test-clients-service.yaml` | Linux (meshed) + Windows (meshed, normal pod) clients consuming the Service directly |
+| `60-test-clients-ingress.yaml` | Linux + Windows (both normal pods) clients consuming via the traefik ingress (HTTPS) |
+| `70-zero-trust-policy.yaml` | **Optional / applied last.** Illustrative Linkerd default‑deny + allow `GET` policy |
+| `75-ingress-authorization-policy.yaml` | **Optional.** Only needed *with* `70-` **and** ingress — authorizes the meshed traefik identity to the `GET` route |
 
 ## 1. Configure host paths
 
@@ -83,18 +84,7 @@ kubectl apply -f 20-hostprocess-deployment.yaml
 kubectl -n hostprocess-examples logs deploy/albums-win-hp-app-hostprocess | Select-String COMPARTMENT_ID_ATTACH
 ```
 
-## 3. (Optional) Enable zero‑trust security
-
-With the `security` addon (enhanced) enabled, apply the illustrative policy. It sets the app port to
-**default‑deny** and allows only `GET` on the app route from authorized, meshed clients — **security through
-infrastructure** around an unmodified binary.
-
-```powershell
-k2s addons enable security --type enhanced
-kubectl apply -f 30-zero-trust-policy.yaml
-```
-
-## 4. (Optional) Route through the traefik ingress
+## 3. (Optional) Route through the traefik ingress
 
 Expose the HostProcess Service through the **traefik ingress** using the standard **Gateway API** (the traefik
 addon runs the Gateway API provider, `gatewayClassName: traefik`):
@@ -118,34 +108,56 @@ kubectl get gatewayclass traefik
 kubectl -n hostprocess-examples get gateway,httproute
 ```
 
-Call the `albums` functionality **through the ingress**. The traefik `web` entrypoint is published as `:80` on
-`172.19.1.100`, and `k2s.cluster.local` resolves to that IP on the host. The app's route is
-`/albums-win-hp-app-hostprocess` (the `RESOURCE` env value):
+The Gateway exposes **two** listeners on `172.19.1.100`: `web` (HTTP, `:80`) and `websecure`
+(HTTPS, `:443`, TLS terminated with the addon's `k2s-cluster-local-tls` cert). A `ReferenceGrant`
+lets the Gateway use that cert from the `ingress-traefik` namespace.
+
+> **Meshed clusters (security addon) — use HTTPS.** Linkerd's default inbound policy is
+> `all-authenticated`, and the security addon meshes traefik while skipping only the
+> `websecure`/`traefik`/`metrics` ports — **not** the HTTP `web` port. So plain HTTP to traefik is
+> rejected at traefik's own proxy with **403** for unauthenticated callers (this happens *before*
+> the backend). The `websecure` (`:443`) entrypoint **is** skipped from the mesh, so external/
+> unmeshed clients use it; traefik (meshed) then forwards to the meshed backend with its own
+> identity. **On a meshed cluster, call the ingress over HTTPS.**
+>
+> Separately, if you also applied `70-zero-trust-policy.yaml` (which switches port `8080` to
+> default‑deny and only allows `hostprocess-examples` identities), traefik's own identity is not in
+> that set — apply `75-ingress-authorization-policy.yaml` to authorize traefik to the `GET` route.
+> Without `70-`, ingress works **without** `75-` (the backend is `all-authenticated` and meshed
+> traefik is already allowed), which is why calling from the host succeeds on its own.
+
+Call the `albums` functionality **through the ingress**. `k2s.cluster.local` resolves to
+`172.19.1.100` on the host. The app's route is `/albums-win-hp-app-hostprocess` (the `RESOURCE`
+env value):
 
 ```powershell
+# Meshed cluster (security addon): HTTPS via the websecure entrypoint (-k = self-signed cert)
+curl.exe -k -v https://k2s.cluster.local/albums-win-hp-app-hostprocess
+
+# Cluster WITHOUT the security addon: plain HTTP also works
 curl.exe -v http://k2s.cluster.local/albums-win-hp-app-hostprocess
 ```
 
 This flows: **client → traefik ingress → HostProcess Service → `albumswin.exe`** (in the anchor compartment).
 
-## 5. Consume the Service from pods
+## 4. Consume the Service from pods
 
 The HostProcess Service is a normal `ClusterIP` with a selector, reachable from any pod. Ready‑to‑apply looping
 clients are included (mirroring the Option 1 example):
 
 | File | Purpose |
 |------|---------|
-| `50-test-clients-service.yaml` | Linux (meshed) + Windows (HostProcess) clients calling the **Service** directly |
-| `60-test-clients-ingress.yaml` | Linux + Windows clients calling **through the traefik ingress** (`k2s.cluster.local`) |
+| `50-test-clients-service.yaml` | Linux (meshed) + Windows (meshed, normal pod) clients calling the **Service** directly |
+| `60-test-clients-ingress.yaml` | Linux + Windows (both normal pods) clients calling **through the traefik ingress** (`k2s.cluster.local`) |
 
 ```powershell
 kubectl apply -f 50-test-clients-service.yaml
 kubectl apply -f 60-test-clients-ingress.yaml
 
 kubectl -n hostprocess-examples logs deploy/curl-linux-svc -f       # via Service (meshed)
-kubectl -n hostprocess-examples logs deploy/curl-windows-svc -f     # via Service ClusterIP (host network)
+kubectl -n hostprocess-examples logs deploy/curl-windows-svc -f     # via Service ClusterIP (meshed, normal pod)
 kubectl -n hostprocess-examples logs deploy/curl-linux-ingress -f   # via ingress
-kubectl -n hostprocess-examples logs deploy/curl-windows-ingress -f # via ingress (Windows)
+kubectl -n hostprocess-examples logs deploy/curl-windows-ingress -f # via ingress (Windows, normal pod)
 ```
 
 The app (`albumswin`) exposes `GET /albums-win-hp-app-hostprocess`, `GET /albums-win-hp-app-hostprocess/{id}`
@@ -160,20 +172,41 @@ kubectl -n hostprocess-examples run curl-tmp --rm -it --restart=Never `
 > **Mesh notes (zero‑trust):** the app port `8080` is meshed, so callers need an mTLS identity:
 > - Both **service‑direct** clients are meshed (`linkerd.io/inject`) so they are allowed. The Windows client is
 >   a **normal (non‑HostProcess) pod** reusing the OS‑matched `pause-win` image, so it gets a pod IP, can be
->   meshed, and resolves the Service DNS name. Without the security addon the annotation is a no‑op and they are
+>   meshed, and reaches the Service ClusterIP. Without the security addon the annotation is a no‑op and they are
 >   plain pods (also fine, since `8080` is then unmeshed).
-> - For the **ingress** path, traefik must be authorized to reach the meshed backend (traefik meshed +
->   permitted by your zero‑trust policy, or an added allow policy). A `403` on ingress calls is the mesh
->   denying traefik→backend, not the client.
-> - With `30-zero-trust-policy.yaml` applied, only `GET` on the app route is permitted; other verbs/paths are
->   denied.
+> - Both **ingress** clients are **normal (non‑HostProcess) pods** (the Windows one does not run as
+>   `NT AUTHORITY\SYSTEM`). They call the ingress over **HTTPS** on `:443`. On a meshed cluster traefik's HTTP
+>   `web` port is denied for unauthenticated callers (`403`), but the `websecure` (`:443`) port is skipped from
+>   the mesh, so external/unmeshed clients use it; traefik then reaches the backend with its own identity. The
+>   Windows client uses `curl --resolve` (nanoserver can't run curl's threaded resolver) and `-k` (self‑signed
+>   cluster‑local cert).
+> - With `70-zero-trust-policy.yaml` applied, only `GET` on the app route is permitted; other verbs/paths are
+>   denied. traefik (a different, meshed identity) is then authorized separately by
+>   `75-ingress-authorization-policy.yaml`.
+
+## 5. (Optional, applied last) Zero‑trust hardening
+
+> This is the **untested / illustrative** part — everything above works without it. Apply it last.
+
+With the `security` addon (enhanced) enabled, switch the app port to **default‑deny** and allow only `GET` on
+the app route from authorized, meshed clients — **security through infrastructure** around an unmodified binary.
+
+```powershell
+k2s addons enable security --type enhanced
+kubectl apply -f 70-zero-trust-policy.yaml
+
+# ONLY if you also route through the ingress: authorize traefik's (meshed) identity to the GET route,
+# otherwise ingress calls return 403 once 70- makes the port default-deny.
+kubectl apply -f 75-ingress-authorization-policy.yaml
+```
 
 ## Cleanup
 
 ```powershell
+kubectl delete -f 75-ingress-authorization-policy.yaml -f 70-zero-trust-policy.yaml --ignore-not-found
 kubectl delete -f 60-test-clients-ingress.yaml -f 50-test-clients-service.yaml --ignore-not-found
 kubectl delete -f 40-gateway-api.yaml --ignore-not-found
-kubectl delete -f 30-zero-trust-policy.yaml -f 15-health-probe-policy.yaml --ignore-not-found
+kubectl delete -f 15-health-probe-policy.yaml --ignore-not-found
 kubectl delete -f 20-hostprocess-deployment.yaml -f 10-anchor-pod.yaml `
   -f 07-system-rbac.yaml -f 06-launcher-script.yaml -f 05-launcher-configmap.yaml
 ```

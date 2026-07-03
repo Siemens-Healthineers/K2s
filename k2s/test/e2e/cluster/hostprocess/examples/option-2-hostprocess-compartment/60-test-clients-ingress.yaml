@@ -7,15 +7,19 @@
 #          -> albumswin.exe in the anchor compartment
 # Requires 40-gateway-api.yaml (traefik Gateway + HTTPRoute) applied.
 #
-# Both clients call the DNS name http://k2s.cluster.local/albums-win-hp-app-hostprocess
-# (resolved in-cluster via CoreDNS for the Linux pod, and via the host resolver for the
-# Windows HostProcess client). Using the URL (no -H Host header) also avoids cmd.exe
-# quote-escaping on Windows.
+# Both clients are NORMAL pods (the Windows client does NOT run as NT AUTHORITY\SYSTEM and does
+# not use the host network). They call the ingress over HTTPS on :443.
 #
-# NOTE (mesh): the app port 8080 is meshed. traefik must be authorized to reach it - either
-# traefik is meshed (security addon) and permitted by your zero-trust policy, or you add a
-# policy allowing it. If ingress calls return 403, that is the mesh denying traefik->backend,
-# not the client.
+# WHY HTTPS: on a meshed cluster (security addon) Linkerd's default inbound policy is
+# 'all-authenticated' and traefik is meshed with ONLY websecure/traefik/metrics ports skipped -
+# NOT the HTTP 'web' port. So plain HTTP to traefik is rejected with 403 for unauthenticated
+# clients. The 'websecure' (:443) entrypoint IS skipped from the mesh, so external/unmeshed
+# clients can use it; traefik then forwards to the meshed backend with its own identity.
+#
+# nanoserver's curl cannot start the threaded DNS resolver, so the Windows client uses
+# `curl --resolve` to pin k2s.cluster.local to the ingress IP (172.19.1.100); this still sends
+# the correct SNI/Host, which the traefik Gateway listener requires. -k skips verification of the
+# self-signed cluster-local certificate.
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -42,10 +46,10 @@ spec:
           args:
             - -c
             - >-
-              echo '+++ linux curl via traefik ingress +++';
+              echo '+++ linux curl via traefik ingress (HTTPS) +++';
               while true; do
-                echo "--- GET /albums-win-hp-app-hostprocess (through ingress) ---";
-                curl -s http://k2s.cluster.local/albums-win-hp-app-hostprocess || echo 'curl failed';
+                echo "--- GET /albums-win-hp-app-hostprocess (through ingress, https) ---";
+                curl -sS -i -k --resolve k2s.cluster.local:443:172.19.1.100 https://k2s.cluster.local/albums-win-hp-app-hostprocess || echo 'curl failed';
                 echo;
                 sleep 15;
               done
@@ -72,24 +76,24 @@ spec:
           operator: 'Equal'
           value: 'Windows'
           effect: 'NoSchedule'
-      securityContext:
-        windowsOptions:
-          hostProcess: true
-          runAsUserName: "NT AUTHORITY\\SYSTEM"
-      hostNetwork: true
       terminationGracePeriodSeconds: 5
       containers:
-        # pause-win is already used by this cluster, so it is guaranteed to pull.
+        # Normal (non-HostProcess) Windows pod - it does NOT run as NT AUTHORITY\SYSTEM and does
+        # not use the host network. pause-win is nanoserver-based, OS-matched to the node, and
+        # ships curl.exe/cmd.exe/ping.exe, so it pulls and runs.
+        # NOTE: nanoserver's curl cannot start the threaded DNS resolver ("getaddrinfo() thread
+        # failed to start"), so it can't resolve k2s.cluster.local. We use `curl --resolve` to
+        # pin the name to the ingress IP (172.19.1.100): this bypasses the resolver AND still
+        # sends "Host: k2s.cluster.local", which the traefik Gateway listener requires to match.
+        # for /l with step 0 loops forever; `ping` provides the delay.
         - name: curl
           image: shsk2s.azurecr.io/pause-win:v1.7.0
           imagePullPolicy: IfNotPresent
-          # for /l with step 0 loops forever; use `ping` as the delay (timeout needs a
-          # console input handle, which HostProcess containers lack).
           command: ['cmd.exe', '/c']
           args:
             - >-
-              echo +++ windows curl via traefik ingress +++ &
+              echo +++ windows curl via traefik ingress (HTTPS) +++ &
               for /l %i in (1,0,2) do (
-              curl.exe -s http://k2s.cluster.local/albums-win-hp-app-hostprocess &
+              curl.exe -sS -i -k --resolve k2s.cluster.local:443:172.19.1.100 https://k2s.cluster.local/albums-win-hp-app-hostprocess &
               echo. &
               ping -n 16 127.0.0.1 > NUL )

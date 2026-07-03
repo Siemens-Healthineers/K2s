@@ -11,7 +11,7 @@
 # cannot bypass the proxy - instead we explicitly authorize the health port here.
 #
 # This opens ONLY port 8081 to unauthenticated (network-based) access. The application port
-# 8080 stays under your zero-trust policy (30-zero-trust-policy.yaml).
+# 8080 stays under your zero-trust policy (70-zero-trust-policy.yaml).
 #
 # Requires the security addon (Linkerd policy CRDs). Skip this file if the mesh is not enabled.
 ---
