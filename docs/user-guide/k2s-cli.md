@@ -495,22 +495,22 @@ k2s system package [flags]
 | `--master-cpus` | | CPUs for master VM |
 | `--master-memory` | | Memory for master VM |
 | `--master-disk` | | Disk for master VM |
-| `--proxy` | `-p` | HTTP proxy. Required for `--node-package`; use the local cluster proxy `http://172.19.1.1:8181` |
+| `--proxy` | `-p` | HTTP proxy. Optional for `--node-package`; when omitted the local cluster proxy `http://172.19.1.1:8181` is used by default |
 | `--k8s-bins` | | Path to locally built Kubernetes binaries |
-| `--node-package` | | Create a Linux worker node package. Requires an existing *K2s* cluster and `-p http://172.19.1.1:8181` |
+| `--node-package` | | Create a Linux worker node package. Requires an installed and running *K2s* cluster. The local cluster proxy is used by default; override with `-p` if needed |
 | `--os` | | Target Linux distribution for `--node-package`, for example `debian12` or `debian13` |
 | `--include-gpu` | | Include NVIDIA Container Toolkit packages for GPU support. When `k2s node add` uses a package built with this flag, GPU support is auto-configured if an NVIDIA GPU is detected |
 
 Example for node package creation:
 
 ```console
-k2s system package --node-package --os debian12 --target-dir "C:\out" --name "debian12-node.zip" -p http://172.19.1.1:8181
+k2s system package --node-package --os debian12 --target-dir "C:\out" --name "debian12-node.zip"
 ```
 
 Example for node package with GPU support:
 
 ```console
-k2s system package --node-package --os debian13 --include-gpu --target-dir "C:\out" --name "debian13-gpu.zip" -p http://172.19.1.1:8181
+k2s system package --node-package --os debian13 --include-gpu --target-dir "C:\out" --name "debian13-gpu.zip"
 ```
 
 ### system backup
@@ -636,7 +636,7 @@ k2s node add [flags]
 | `--role` | `-r` | Node role (default `worker`) |
 | `--node-package` | `-p` | Path to a node package ZIP for offline installation |
 
-Use `--node-package` together with a node package created through `k2s system package --node-package --os ... -p http://172.19.1.1:8181` on an existing *K2s* cluster when adding a Linux worker node without internet access.
+Use `--node-package` together with a node package created through `k2s system package --node-package --os ...` on an installed *K2s* cluster when adding a Linux worker node without internet access.
 
 ### node remove
 

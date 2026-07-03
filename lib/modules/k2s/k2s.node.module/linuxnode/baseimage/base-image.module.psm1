@@ -44,7 +44,7 @@ function Invoke-DownloadLinuxImage {
     param(
         [string]$OutputPath,
         [string]$Proxy = '',
-        [string]$TargetDistribution = 'debian12'
+        [string]$TargetDistribution = 'debian13'
     )
 
     Write-Log "[LinuxImage] Resolving cloud image for distribution '$TargetDistribution'" -Console
@@ -112,7 +112,7 @@ Function New-VhdxFromCloudImage {
         [parameter(Mandatory = $false)]
         [string]$Proxy = '',
         [parameter(Mandatory = $false, HelpMessage = 'The Linux distribution identifier (e.g. debian12, debian13).')]
-        [string]$TargetDistribution = 'debian12'
+        [string]$TargetDistribution = 'debian13'
     )
 
     Assert-Path -Path $TargetFilePath -PathType "Leaf" -ShallExist $false | Out-Null
@@ -135,7 +135,7 @@ Function Get-LinuxImage {
         [parameter(Mandatory = $false, HelpMessage = 'The HTTP proxy if available.')]
         [string]$Proxy = '',
         [parameter(Mandatory = $false, HelpMessage = 'The Linux distribution identifier (e.g. debian12, debian13).')]
-        [string]$TargetDistribution = 'debian12'
+        [string]$TargetDistribution = 'debian13'
     )
     Assert-Path -Path $DownloadsDirectory -PathType 'Container' -ShallExist $true | Out-Null
 
@@ -541,7 +541,7 @@ Function New-LinuxCloudBasedVirtualMachine {
         [Hashtable]$IsoFileParams,
         [Hashtable]$WorkingDirectoriesParams,
         [parameter(Mandatory = $false, HelpMessage = 'The Linux distribution identifier (e.g. debian12, debian13).')]
-        [string]$TargetDistribution = 'debian12'
+        [string]$TargetDistribution = 'debian13'
     )
     $vmName = $VirtualMachineParams.VmName
     $inProvisioningVhdxName = $VirtualMachineParams.VhdxName

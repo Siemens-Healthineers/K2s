@@ -196,6 +196,7 @@ addons/storage/smb/build/smbplugin.exe
 addons/storage/smb/build/csi-node-driver-registrar.exe
 addons/.addon-sync-digests/
 bin/debian-12-genericcloud-amd64.qcow2
+bin/debian-13-genericcloud-amd64.qcow2
 **/debianpackages/**/*.deb
 **/linuxpackages/**
 **/windowspackages/**

@@ -27,6 +27,20 @@ Describe 'Get-K2sManagedServiceName' -Tag 'unit', 'ci', 'update' {
 	}
 }
 
+Describe 'Test-DeltaUpgradeVersionIsValid' -Tag 'unit', 'ci', 'update' {
+	It 'allows delta updates within the same major version' {
+		InModuleScope $moduleName {
+			Test-DeltaUpgradeVersionIsValid -VersionInstalled '1.8.1' -VersionToBeUsed '1.9.0' | Should -BeTrue
+		}
+	}
+
+	It 'rejects delta updates across major versions' {
+		InModuleScope $moduleName {
+			Test-DeltaUpgradeVersionIsValid -VersionInstalled '1.8.1' -VersionToBeUsed '2.0.0' | Should -BeFalse
+		}
+	}
+}
+
 Describe 'Copy-UnchangedInstallationFiles' -Tag 'unit', 'ci', 'update' {
 	BeforeEach {
 		$old = Join-Path $TestDrive 'old'
@@ -157,6 +171,65 @@ Describe 'Select-PrunableRemovedFile' -Tag 'unit', 'ci', 'update' {
 		$result | Should -Not -Contain 'bin\nssm.exe'
 		$result | Should -Contain 'lib\foo\bar.yaml'
 		$result.Count | Should -Be 1
+	}
+}
+
+Describe 'Get-GuestConfigApplyAllowlist' -Tag 'unit', 'ci', 'update' {
+	It 'allows only /usr/local/bin host tools by default' {
+		$allow = Get-GuestConfigApplyAllowlist
+		$allow | Should -Contain '/usr/local/bin/'
+		$allow.Count | Should -Be 1
+	}
+}
+
+Describe 'Test-GuestConfigApplyAllowed' -Tag 'unit', 'ci', 'update' {
+	It 'permits the Linux helm and yq host tools' {
+		Test-GuestConfigApplyAllowed 'usr/local/bin/helm' | Should -BeTrue
+		Test-GuestConfigApplyAllowed 'usr/local/bin/yq' | Should -BeTrue
+	}
+
+	It 'permits absolute and backslash forms of allowlisted paths' {
+		Test-GuestConfigApplyAllowed '/usr/local/bin/helm' | Should -BeTrue
+		Test-GuestConfigApplyAllowed 'usr\local\bin\yq' | Should -BeTrue
+	}
+
+	It 'rejects cluster-identity files even though creation already excludes them' {
+		Test-GuestConfigApplyAllowed 'etc/kubernetes/admin.conf' | Should -BeFalse
+		Test-GuestConfigApplyAllowed 'etc/kubernetes/pki/ca.crt' | Should -BeFalse
+		Test-GuestConfigApplyAllowed 'var/lib/kubelet/config.yaml' | Should -BeFalse
+	}
+
+	It 'rejects other system binaries outside the allowlist' {
+		Test-GuestConfigApplyAllowed 'usr/bin/helm' | Should -BeFalse
+		Test-GuestConfigApplyAllowed 'lib/systemd/system/kubelet.service' | Should -BeFalse
+	}
+
+	It 'rejects empty or null input' {
+		Test-GuestConfigApplyAllowed '' | Should -BeFalse
+		Test-GuestConfigApplyAllowed $null | Should -BeFalse
+	}
+}
+
+Describe 'Invoke-GuestConfigDeltaApply' -Tag 'unit', 'ci', 'update' {
+	It 'returns success with nothing applied when the manifest has no guest-config payload' {
+		$manifest = [pscustomobject]@{ GuestConfigRelativePath = $null }
+		$result = Invoke-GuestConfigDeltaApply -DeltaRoot $TestDrive -Manifest $manifest
+		$result.Success | Should -BeTrue
+		$result.Applied.Count | Should -Be 0
+	}
+
+	It 'skips all entries and never reaches the VM when only non-allowlisted files are present' {
+		$deltaRoot = Join-Path $TestDrive 'delta'
+		$guestDir = Join-Path $deltaRoot 'guest-config'
+		New-Item -ItemType Directory -Path (Join-Path $guestDir 'etc\kubernetes') -Force | Out-Null
+		Set-Content -Path (Join-Path $guestDir 'etc\kubernetes\admin.conf') -Value 'secret' -NoNewline
+		$manifest = [pscustomobject]@{
+			GuestConfigRelativePath = 'guest-config'
+			GuestConfigDiff         = [pscustomobject]@{ CopiedFiles = @('etc/kubernetes/admin.conf') }
+		}
+		$result = Invoke-GuestConfigDeltaApply -DeltaRoot $deltaRoot -Manifest $manifest
+		$result.Applied.Count | Should -Be 0
+		$result.Skipped | Should -Contain 'etc/kubernetes/admin.conf'
 	}
 }
 

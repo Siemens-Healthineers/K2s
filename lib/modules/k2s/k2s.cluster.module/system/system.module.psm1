@@ -30,6 +30,24 @@ function Invoke-TimeSync {
     }
     else {
         $timezoneLinux = $timezonesLinux[0]
+
+        # Normalize legacy IANA timezone aliases removed in Debian 13 (trixie).
+        # These names were deprecated by the IANA tz database and are no longer
+        # present in the tzdata package shipped with Debian 13.
+        $legacyAliases = @{
+            'Asia/Calcutta'    = 'Asia/Kolkata'
+            'Europe/Kiev'      = 'Europe/Kyiv'
+            'Asia/Katmandu'    = 'Asia/Kathmandu'
+            'Asia/Rangoon'     = 'Asia/Yangon'
+            'Asia/Saigon'      = 'Asia/Ho_Chi_Minh'
+            'America/Godthab'  = 'America/Nuuk'
+        }
+        if ($legacyAliases.ContainsKey($timezoneLinux)) {
+            $normalized = $legacyAliases[$timezoneLinux]
+            Write-Log "[TimeSync] Normalizing legacy timezone alias '$timezoneLinux' -> '$normalized'"
+            $timezoneLinux = $normalized
+        }
+
         $canPerformTimeSync = $true
     }
 
