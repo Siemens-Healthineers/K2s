@@ -87,7 +87,7 @@ spec:
         # sends "Host: k2s.cluster.local", which the traefik Gateway listener requires to match.
         # for /l with step 0 loops forever; `ping` provides the delay.
         - name: curl
-          image: shsk2s.azurecr.io/pause-win:v1.7.0
+          image: shsk2s.azurecr.io/pause-win:v1.8.0
           imagePullPolicy: IfNotPresent
           command: ['cmd.exe', '/c']
           args:
