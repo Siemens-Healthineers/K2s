@@ -82,7 +82,7 @@ spec:
         # (numeric, no resolver thread needed) instead - it must match spec.clusterIP of the Service.
         # for /l with step 0 loops forever; `ping` provides the delay.
         - name: curl
-          image: shsk2s.azurecr.io/pause-win:v1.7.0
+          image: shsk2s.azurecr.io/pause-win:v1.8.0
           imagePullPolicy: IfNotPresent
           command: ['cmd.exe', '/c']
           args:
