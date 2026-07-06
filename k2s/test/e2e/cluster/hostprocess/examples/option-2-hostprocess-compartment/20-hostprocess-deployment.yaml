@@ -46,7 +46,7 @@ spec:
       hostNetwork: true
       containers:
         - name: albumswin
-          image: shsk2s.azurecr.io/pause-win:v1.7.0
+          image: shsk2s.azurecr.io/pause-win:v1.8.0
           imagePullPolicy: IfNotPresent
           env:
             - name: ALBUMS_WIN
