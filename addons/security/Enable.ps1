@@ -149,11 +149,13 @@ try {
 
 		if (-not $OmitOAuth2Proxy) {
 			$oauth2ProxyYaml = Get-OAuth2ProxyConfig
-			# Update must be invoked to enable ingress for security before applying the oauth2-proxy
-			&"$PSScriptRoot\Update.ps1"
 			(Invoke-Kubectl -Params 'apply', '-f', $oauth2ProxyYaml).Output | Write-Log
 			Write-Log 'Waiting for oauth2-proxy pods to be available' -Console
 			$oauth2ProxyPodStatus = Wait-ForOauth2ProxyAvailable
+			# Update must be invoked AFTER oauth2-proxy is deployed so the deployment-based ingress
+			# gating in Enable-IngressForSecurity sees the oauth2-proxy deployment and creates both
+			# the Keycloak and OAuth2 Proxy ingress resources.
+			&"$PSScriptRoot\Update.ps1"
 		} else {
 			Write-Log 'Omitting OAuth2 proxy setup as per flag.' -Console
 			$oauth2ProxyPodStatus = $true
@@ -180,11 +182,12 @@ try {
 						$winSecurityStatus = Enable-WindowsSecurityDeployments	
 						if (-not $OmitOAuth2Proxy) {
 							$oauth2ProxyYaml = Get-OAuth2ProxyHydraConfig
-							# Update must be invoked to enable ingress for security before applying the oauth2-proxy
-							&"$PSScriptRoot\Update.ps1"
 							(Invoke-Kubectl -Params 'apply', '-f', $oauth2ProxyYaml).Output | Write-Log
 							Write-Log 'Waiting for oauth2-proxy pods to be available' -Console
 							$oauth2ProxyPodStatus = Wait-ForOauth2ProxyAvailable
+							# Update must be invoked AFTER oauth2-proxy is deployed so the deployment-based
+							# ingress gating in Enable-IngressForSecurity sees the oauth2-proxy deployment.
+							&"$PSScriptRoot\Update.ps1"
 						} else {
 							Write-Log 'Omitting OAuth2 proxy setup as per flag.' -Console
 							$oauth2ProxyPodStatus = $true
@@ -193,11 +196,12 @@ try {
 					Write-Log 'Skipping Windows security deployment because of Linux only setup'
 					if (-not $OmitOAuth2Proxy) {
 						$oauth2ProxyYaml = Get-OAuth2ProxyHydraConfig
-						# Update must be invoked to enable ingress for security before applying the oauth2-proxy
-						&"$PSScriptRoot\Update.ps1"
 						(Invoke-Kubectl -Params 'apply', '-f', $oauth2ProxyYaml).Output | Write-Log
 						Write-Log 'Waiting for oauth2-proxy pods to be available' -Console
 						$oauth2ProxyPodStatus = Wait-ForOauth2ProxyAvailable
+						# Update must be invoked AFTER oauth2-proxy is deployed so the deployment-based
+						# ingress gating in Enable-IngressForSecurity sees the oauth2-proxy deployment.
+						&"$PSScriptRoot\Update.ps1"
 					} else {
 						Write-Log 'Omitting OAuth2 proxy setup as per flag.' -Console
 						$oauth2ProxyPodStatus = $true
