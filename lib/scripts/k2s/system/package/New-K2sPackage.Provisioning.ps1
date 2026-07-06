@@ -33,6 +33,12 @@ function New-ProvisionedKubemasterBaseImage($WindowsNodeArtifactsZip, $OutputPat
         Invoke-DeployPuttytoolsArtifacts $windowsNodeArtifactsDirectory
         # Provision linux node artifacts
         Write-Log 'Create and provision the base image' -Console
+        $baseDirectory = $(Split-Path -Path $OutputPath)
+        $rootfsPath = "$baseDirectory\$(Get-ControlPlaneOnWslRootfsFileName)"
+        if (Test-Path -Path $rootfsPath) {
+            Remove-Item -Path $rootfsPath -Force
+            Write-Log "Deleted already existing file for WSL support '$rootfsPath'"
+        }
         $hostname = Get-ConfigControlPlaneNodeHostname
         $ipAddress = Get-ConfiguredIPControlPlane
         $gatewayIpAddress = Get-ConfiguredKubeSwitchIP
