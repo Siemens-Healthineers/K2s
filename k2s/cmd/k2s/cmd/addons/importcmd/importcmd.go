@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText:  © 2024 Siemens Healthineers AG
+// SPDX-FileCopyrightText:  © 2026 Siemens Healthineers AG
 // SPDX-License-Identifier:   MIT
 
 package importcmd
@@ -9,6 +9,7 @@ import (
 	"log/slog"
 	"path/filepath"
 	"strconv"
+	"strings"
 
 	"github.com/siemens-healthineers/k2s/internal/powershell"
 
@@ -33,8 +34,9 @@ var importCommandExample = `
 `
 
 const (
-	fileLabel   = "file"
-	defaultFile = ""
+	fileLabel    = "file"
+	defaultFile  = ""
+	nodeFlagName = "node"
 )
 
 func NewCommand() *cobra.Command {
@@ -46,6 +48,7 @@ func NewCommand() *cobra.Command {
 	}
 
 	cmd.Flags().StringP(fileLabel, "f", defaultFile, "OCI artifact tar file of exported addon")
+	cmd.Flags().String(nodeFlagName, "", "Target node name for addon image import (e.g. worker-1); defaults to control-plane and local Windows host when omitted")
 	cmd.Flags().SortFlags = false
 	cmd.Flags().PrintDefaults()
 
@@ -60,6 +63,16 @@ func runImport(cmd *cobra.Command, args []string) error {
 	}
 
 	ac.LogAddons(allAddons)
+
+	if cmd.Flags().Changed(nodeFlagName) {
+		nodeOption, nodeErr := cmd.Flags().GetString(nodeFlagName)
+		if nodeErr != nil {
+			return nodeErr
+		}
+		if strings.TrimSpace(nodeOption) == "" {
+			return fmt.Errorf("the --node flag was provided but is empty - specify a valid node name (run 'kubectl get nodes' to list available nodes)")
+		}
+	}
 
 	psCmd, params, err := buildPsCmd(cmd, args...)
 	if err != nil {
@@ -135,5 +148,33 @@ func buildPsCmd(cmd *cobra.Command, addons ...string) (psCmd string, params []st
 		params = append(params, " -ShowLogs")
 	}
 
+	nodeSelector, err := parseNodeSelector(cmd)
+	if err != nil {
+		return "", nil, err
+	}
+	params = appendNodesParam(params, nodeSelector)
+
 	return
+}
+
+// parseNodeSelector reads the --node flag and returns the trimmed node name (empty when not set).
+// An explicitly-provided blank/whitespace value is rejected earlier in runImport with an error,
+// so here we simply trim; an empty result yields the default targets (control-plane + Windows host).
+func parseNodeSelector(cmd *cobra.Command) (string, error) {
+	nodeOption, err := cmd.Flags().GetString(nodeFlagName)
+	if err != nil {
+		return "", err
+	}
+
+	return strings.TrimSpace(nodeOption), nil
+}
+
+// appendNodesParam appends the -Nodes parameter to the PS call only when a node selector is provided,
+// preserving the existing default behavior (control-plane + local Windows host) when omitted.
+func appendNodesParam(params []string, nodes string) []string {
+	if strings.TrimSpace(nodes) == "" {
+		return params
+	}
+
+	return append(params, " -Nodes "+utils.EscapeWithSingleQuotes(nodes))
 }
