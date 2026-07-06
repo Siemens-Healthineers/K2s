@@ -24,9 +24,9 @@ Describe 'Assert-UpgradeVersionIsValid' -Tag 'unit', 'ci', 'upgrade' {
 		@{ ExpectedResult = $true; Current = '1.1.1'; New = '1.2.0' }
 		@{ ExpectedResult = $true; Current = '1.2.3'; New = '1.3.444' }
 		@{ ExpectedResult = $true; Current = '2.3.4'; New = '2.4.0' }
+		@{ ExpectedResult = $true; Current = '1.8.1'; New = '2.0.0' }
 
 		@{ ExpectedResult = $false; Current = '1.0.0'; New = '1.2.0' }
-		@{ ExpectedResult = $false; Current = '1.0.0'; New = '2.0.0' }
 		@{ ExpectedResult = $false; Current = '2.0.0'; New = '2.2.0' }
 
 		@{ ExpectedResult = $false; Current = '1.1.0'; New = '1.0.0' }
@@ -671,13 +671,13 @@ Describe 'Assert-UpgradeOperation with Force flag' -Tag 'unit', 'ci', 'upgrade' 
 			}
 		}
 
-		It "should reject upgrade between different major versions" {
+		It "should allow upgrade to a newer major version" {
 			InModuleScope $moduleName {
 				# Setup: Set product version to simulate major version change
 				$script:productVersion = "2.0.0"
 
 				# Test
-				{ Assert-UpgradeOperation } | Should -Throw "Upgrade not supported from 1.0.0 to 2.0.0*"
+				Assert-UpgradeOperation | Should -Be $true
 			}
 		}
 	}
