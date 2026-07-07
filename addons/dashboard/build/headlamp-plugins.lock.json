@@ -31,8 +31,8 @@
     {
       "name": "cert-manager",
       "pluginDir": "cert-manager-plugin",
-      "version": "0.1.0",
-      "image": "shsk2s.azurecr.io/headlamp-plugin-cert-manager:0.1.0",
+      "version": "0.1.1",
+      "image": "shsk2s.azurecr.io/headlamp-plugin-cert-manager:0.1.1",
       "detectionSource": "github-releases",
       "acquisition": "prebuilt",
       "upstreamReleaseRef": {
@@ -43,13 +43,13 @@
       "source": {
         "type": "git",
         "repo": "https://github.com/headlamp-k8s/plugins.git",
-        "ref": "cert-manager-0.1.0",
+        "ref": "cert-manager-0.1.1",
         "subdir": "cert-manager"
       },
       "prebuilt": {
-        "url": "https://github.com/headlamp-k8s/plugins/releases/download/cert-manager-0.1.0/headlamp-k8s-cert-manager-0.1.0.tar.gz",
-        "localPath": "plugins/cert-manager-0.1.0.tar.gz",
-        "sha256": "87acdab62a7e36c9826fdfc6169048245af0d026d4af3e2b759b15a7baa42580"
+        "url": "https://github.com/headlamp-k8s/plugins/releases/download/cert-manager-0.1.1/headlamp-k8s-cert-manager-0.1.1.tar.gz",
+        "localPath": "plugins/cert-manager-0.1.1.tar.gz",
+        "sha256": "2b06caae0a207e2c30ce0d21bc4d672ae0a71a2cffc23a4585199110533032ab"
       }
     },
     {
@@ -78,4 +78,3 @@
     }
   ]
 }
-
