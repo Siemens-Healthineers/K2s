@@ -218,7 +218,7 @@ function Get-RegisteredHeadlampPlugins {
         },
         [pscustomobject]@{
             Name     = 'cert-manager-plugin'
-            Image    = 'shsk2s.azurecr.io/headlamp-plugin-cert-manager:0.1.0'
+            Image    = 'shsk2s.azurecr.io/headlamp-plugin-cert-manager:0.1.1'
             Detector = { Test-CertManagerCapabilityAvailable }
         },
         [pscustomobject]@{
