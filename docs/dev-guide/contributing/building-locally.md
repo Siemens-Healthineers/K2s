@@ -1,5 +1,5 @@
 <!--
-SPDX-FileCopyrightText: © 2024 Siemens Healthineers AG
+SPDX-FileCopyrightText: © 2026 Siemens Healthineers AG
 SPDX-License-Identifier: MIT
 -->
 
@@ -91,3 +91,22 @@ GOOS=linux go build ./k2s/cmd/k2s
 
 !!! note
     On Linux, the CLI uses native Go APIs (kubeadm, kubectl, libvirt/KVM, SSH) instead of PowerShell. The platform-specific logic is encapsulated in the [Provider Architecture](../architecture.md#provider-architecture).
+
+## Building Natively on Linux (no PowerShell)
+
+On a Linux developer machine you can build the Linux executables without PowerShell using the `build.sh` script (or the `Makefile` wrapper) in the repository root. Both mirror the same Go build flags and version metadata as [BuildGoExe.ps1](https://github.com/Siemens-Healthineers/K2s/blob/main/smallsetup/common/BuildGoExe.ps1){target="_blank"}.
+
+Prerequisite: install [*Go*](https://go.dev/dl/){target="_blank"} (see `k2s/go.mod` for the required version).
+
+```bash
+# Build all Linux executables
+./build.sh
+
+# Or via the Makefile wrapper
+make build
+
+# Remove the produced binaries
+make clean
+```
+
+This builds `k2s` into the repository root and the Linux helper executables (`cloudinitisobuilder`, `httpproxy`, `yaml2json`) into `bin/`. To route Go module downloads through a proxy, pass `./build.sh --proxy http://proxy.example.com:8080`.
