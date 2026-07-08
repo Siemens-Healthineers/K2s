@@ -29,9 +29,9 @@ const (
 	headlampPluginsVolume = "headlamp-plugins"
 
 	certManagerPluginName  = "cert-manager-plugin"
-	certManagerPluginImage = "headlamp-plugin-cert-manager:0.1.1"
+	certManagerPluginImage = "headlamp-plugin-cert-manager"
 	kyvernoPluginName      = "kyverno-plugin"
-	kyvernoPluginImage     = "headlamp-plugin-kyverno:0.1.0"
+	kyvernoPluginImage     = "headlamp-plugin-kyverno"
 )
 
 var (

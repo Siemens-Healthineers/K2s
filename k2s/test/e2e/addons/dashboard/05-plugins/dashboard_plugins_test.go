@@ -37,9 +37,16 @@ type pluginCase struct {
 	enableArgs    []string // k2s CLI args that enable the capability provider addon
 	disableArgs   []string // k2s CLI args that disable the capability provider addon
 	initContainer string   // expected Headlamp plugin init-container name (== pluginDir)
-	image         string   // expected plugin image reference (substring match)
+	image         string   // expected plugin image identity (name only; substring match)
 }
 
+// The image field asserts the plugin image *identity* (repository name) only — never a version.
+// ExpectDeploymentInitContainer does a strings.Contains() check, so "headlamp-plugin-<name>"
+// confirms the correct plugin image is injected without duplicating version metadata here.
+// Exact image versions are validated by the lock ↔ manifest ↔ registry parity unit tests
+// (addons/dashboard/build/headlamp-plugin-images.unit.tests.ps1), which is the single source
+// of truth; keeping versions out of this file removes E2E version drift by construction.
+//
 // The cert-manager and kyverno plugins are intentionally NOT included here: they are already
 // validated end-to-end by 02-securityenhanced (the security addon provides both capabilities).
 // This suite covers the remaining plugins whose providers are otherwise unexercised.
@@ -49,21 +56,21 @@ var pluginCases = []pluginCase{
 		enableArgs:    []string{"addons", "enable", "autoscaling", "-o"},
 		disableArgs:   []string{"addons", "disable", "autoscaling", "-o"},
 		initContainer: "keda-plugin",
-		image:         "headlamp-plugin-keda:0.1.2",
+		image:         "headlamp-plugin-keda",
 	},
 	{
 		description:   "Flux plugin via the rollout fluxcd addon",
 		enableArgs:    []string{"addons", "enable", "rollout", "fluxcd", "-o"},
 		disableArgs:   []string{"addons", "disable", "rollout", "fluxcd", "-o"},
 		initContainer: "flux-plugin",
-		image:         "headlamp-plugin-flux:0.6.0",
+		image:         "headlamp-plugin-flux",
 	},
 	{
 		description:   "Prometheus plugin via the monitoring addon",
 		enableArgs:    []string{"addons", "enable", "monitoring", "-o"},
 		disableArgs:   []string{"addons", "disable", "monitoring", "-o"},
 		initContainer: "prometheus-plugin",
-		image:         "headlamp-plugin-prometheus:0.8.2",
+		image:         "headlamp-plugin-prometheus",
 	},
 }
 
@@ -185,15 +192,15 @@ var _ = Describe("dashboard Headlamp plugin activation (capability-driven)", Ord
 			suite.K2sCli().MustExec(ctx, "addons", "enable", "autoscaling", "-o")
 			suite.K2sCli().MustExec(ctx, "addons", "enable", "rollout", "fluxcd", "-o")
 
-			suite.Cluster().ExpectDeploymentInitContainer(ctx, headlampDeployment, headlampNamespace, kedaInit, "headlamp-plugin-keda:0.1.2")
-			suite.Cluster().ExpectDeploymentInitContainer(ctx, headlampDeployment, headlampNamespace, fluxInit, "headlamp-plugin-flux:0.6.0")
+			suite.Cluster().ExpectDeploymentInitContainer(ctx, headlampDeployment, headlampNamespace, kedaInit, "headlamp-plugin-keda")
+			suite.Cluster().ExpectDeploymentInitContainer(ctx, headlampDeployment, headlampNamespace, fluxInit, "headlamp-plugin-flux")
 		})
 
 		It("removes only the disabled provider's plugin and keeps the other", func(ctx context.Context) {
 			suite.K2sCli().MustExec(ctx, "addons", "disable", "autoscaling", "-o")
 
 			suite.Cluster().ExpectDeploymentNotToHaveInitContainer(ctx, headlampDeployment, headlampNamespace, kedaInit)
-			suite.Cluster().ExpectDeploymentInitContainer(ctx, headlampDeployment, headlampNamespace, fluxInit, "headlamp-plugin-flux:0.6.0")
+			suite.Cluster().ExpectDeploymentInitContainer(ctx, headlampDeployment, headlampNamespace, fluxInit, "headlamp-plugin-flux")
 		})
 	})
 })
