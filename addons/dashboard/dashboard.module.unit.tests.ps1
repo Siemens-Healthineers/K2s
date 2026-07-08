@@ -223,7 +223,7 @@ Describe 'Wait-ForHeadlampAvailable' -Tag 'unit', 'ci', 'addon', 'dashboard' {
                     $Label -eq 'app.kubernetes.io/name=headlamp' -and
                     $Namespace -eq 'dashboard' -and
                     $Condition -eq 'Ready' -and
-                    $TimeoutSeconds -eq 200
+                    $TimeoutSeconds -eq 300
                 }
             }
         }
@@ -435,6 +435,20 @@ Describe 'Module exports correct public functions' -Tag 'unit', 'ci', 'addon', '
         }
     }
 
+    It 'exports Test-KedaCapabilityAvailable' {
+        InModuleScope $moduleName {
+            $fn = Get-Command -Module $moduleName -Name 'Test-KedaCapabilityAvailable' -ErrorAction SilentlyContinue
+            $fn | Should -Not -BeNullOrEmpty
+        }
+    }
+
+    It 'exports Test-KyvernoCapabilityAvailable' {
+        InModuleScope $moduleName {
+            $fn = Get-Command -Module $moduleName -Name 'Test-KyvernoCapabilityAvailable' -ErrorAction SilentlyContinue
+            $fn | Should -Not -BeNullOrEmpty
+        }
+    }
+
     It 'does not export the removed Test-SecurityAddonAvailability' {
         InModuleScope $moduleName {
             $fn = Get-Command -Module $moduleName -Name 'Test-SecurityAddonAvailability' -ErrorAction SilentlyContinue
@@ -546,10 +560,10 @@ Describe 'Linkerd annotation null-safety logic (Update.ps1 guard pattern)' -Tag 
 # ── Headlamp Plugin Framework Tests ───────────────────────────────────────────
 
 Describe 'Get-RegisteredHeadlampPlugins' -Tag 'unit', 'ci', 'addon', 'dashboard', 'plugin' {
-    It 'returns exactly 3 plugins' {
+    It 'returns exactly 5 plugins' {
         InModuleScope $moduleName {
             $result = @(Get-RegisteredHeadlampPlugins)
-            $result.Count | Should -Be 3
+            $result.Count | Should -Be 5
         }
     }
 
@@ -571,6 +585,20 @@ Describe 'Get-RegisteredHeadlampPlugins' -Tag 'unit', 'ci', 'addon', 'dashboard'
         InModuleScope $moduleName {
             $result = @(Get-RegisteredHeadlampPlugins)
             $result | Where-Object { $_.Name -eq 'prometheus-plugin' } | Should -Not -BeNullOrEmpty
+        }
+    }
+
+    It 'includes a keda-plugin registration' {
+        InModuleScope $moduleName {
+            $result = @(Get-RegisteredHeadlampPlugins)
+            $result | Where-Object { $_.Name -eq 'keda-plugin' } | Should -Not -BeNullOrEmpty
+        }
+    }
+
+    It 'includes a kyverno-plugin registration' {
+        InModuleScope $moduleName {
+            $result = @(Get-RegisteredHeadlampPlugins)
+            $result | Where-Object { $_.Name -eq 'kyverno-plugin' } | Should -Not -BeNullOrEmpty
         }
     }
 
@@ -620,7 +648,7 @@ Describe 'Test-FluxCapabilityAvailable' -Tag 'unit', 'ci', 'addon', 'dashboard',
     Context 'flux-system namespace exists' {
         BeforeAll {
             Mock -ModuleName $moduleName Invoke-Kubectl {
-                return [pscustomobject]@{ Success = $true; Output = 'flux-system   Active   5d' }
+                return [pscustomobject]@{ Success = $true; Output = 'Active' }
             }
             Mock -ModuleName $moduleName Write-Log { }
         }
@@ -682,7 +710,7 @@ Describe 'Test-CertManagerCapabilityAvailable' -Tag 'unit', 'ci', 'addon', 'dash
     Context 'cert-manager namespace exists' {
         BeforeAll {
             Mock -ModuleName $moduleName Invoke-Kubectl {
-                return [pscustomobject]@{ Success = $true; Output = 'cert-manager   Active   3d' }
+                return [pscustomobject]@{ Success = $true; Output = 'Active' }
             }
             Mock -ModuleName $moduleName Write-Log { }
         }
@@ -741,7 +769,7 @@ Describe 'Test-CertManagerCapabilityAvailable' -Tag 'unit', 'ci', 'addon', 'dash
         BeforeAll {
             # cert-manager namespace exists (installed by nginx, not security)
             Mock -ModuleName $moduleName Invoke-Kubectl {
-                return [pscustomobject]@{ Success = $true; Output = 'cert-manager   Active   1d' }
+                return [pscustomobject]@{ Success = $true; Output = 'Active' }
             }
             Mock -ModuleName $moduleName Write-Log { }
         }
@@ -750,6 +778,35 @@ Describe 'Test-CertManagerCapabilityAvailable' -Tag 'unit', 'ci', 'addon', 'dash
             InModuleScope $moduleName {
                 $result = Test-CertManagerCapabilityAvailable
                 $result | Should -Be $true
+            }
+        }
+    }
+
+    Context 'cert-manager namespace is Terminating and CRD already gone' {
+        BeforeAll {
+            # Regression guard: a namespace lingering in 'Terminating' after Uninstall-CertManager
+            # must NOT count as a live capability, otherwise Sync-HeadlampPlugins would retain the
+            # cert-manager plugin init-container after the security/ingress addon was disabled.
+            Mock -ModuleName $moduleName Invoke-Kubectl {
+                $script:cmTermKubectlCall++
+                if ($script:cmTermKubectlCall -eq 1) {
+                    # namespace phase check
+                    return [pscustomobject]@{ Success = $true; Output = 'Terminating' }
+                }
+                # CRD check (already deleted)
+                return [pscustomobject]@{ Success = $true; Output = '' }
+            }
+            Mock -ModuleName $moduleName Write-Log { }
+        }
+
+        BeforeEach {
+            $script:cmTermKubectlCall = 0
+        }
+
+        It 'returns false when the namespace is only Terminating' {
+            InModuleScope $moduleName {
+                $result = Test-CertManagerCapabilityAvailable
+                $result | Should -Be $false
             }
         }
     }
@@ -809,6 +866,128 @@ Describe 'Test-PrometheusCapabilityAvailable' -Tag 'unit', 'ci', 'addon', 'dashb
         It 'returns false when no Prometheus indicators are found' {
             InModuleScope $moduleName {
                 $result = Test-PrometheusCapabilityAvailable
+                $result | Should -Be $false
+            }
+        }
+    }
+}
+
+Describe 'Test-KedaCapabilityAvailable' -Tag 'unit', 'ci', 'addon', 'dashboard', 'plugin' {
+    Context 'autoscaling namespace exists' {
+        BeforeAll {
+            Mock -ModuleName $moduleName Invoke-Kubectl {
+                return [pscustomobject]@{ Success = $true; Output = 'Active' }
+            }
+            Mock -ModuleName $moduleName Write-Log { }
+        }
+
+        It 'returns true when the autoscaling namespace is found' {
+            InModuleScope $moduleName {
+                $result = Test-KedaCapabilityAvailable
+                $result | Should -Be $true
+            }
+        }
+    }
+
+    Context 'autoscaling namespace absent but KEDA CRD present' {
+        BeforeAll {
+            Mock -ModuleName $moduleName Invoke-Kubectl {
+                $script:kedaKubectlCall++
+                # First call = namespace check (empty), second call = CRD check (found)
+                if ($script:kedaKubectlCall -eq 1) {
+                    return [pscustomobject]@{ Success = $true; Output = '' }
+                }
+                return [pscustomobject]@{ Success = $true; Output = 'scaledobjects.keda.sh   2023-01-01' }
+            }
+            Mock -ModuleName $moduleName Write-Log { }
+        }
+
+        BeforeEach {
+            # Reset in the test-file script scope — the same scope the mock closure
+            # increments (see Flux context for rationale).
+            $script:kedaKubectlCall = 0
+        }
+
+        It 'returns true when the scaledobjects CRD is found' {
+            InModuleScope $moduleName {
+                $result = Test-KedaCapabilityAvailable
+                $result | Should -Be $true
+            }
+        }
+    }
+
+    Context 'neither namespace nor CRD present' {
+        BeforeAll {
+            Mock -ModuleName $moduleName Invoke-Kubectl {
+                return [pscustomobject]@{ Success = $true; Output = '' }
+            }
+            Mock -ModuleName $moduleName Write-Log { }
+        }
+
+        It 'returns false when no KEDA indicators are found' {
+            InModuleScope $moduleName {
+                $result = Test-KedaCapabilityAvailable
+                $result | Should -Be $false
+            }
+        }
+    }
+}
+
+Describe 'Test-KyvernoCapabilityAvailable' -Tag 'unit', 'ci', 'addon', 'dashboard', 'plugin' {
+    Context 'clusterpolicies CRD present' {
+        BeforeAll {
+            Mock -ModuleName $moduleName Invoke-Kubectl {
+                return [pscustomobject]@{ Success = $true; Output = 'clusterpolicies.kyverno.io   2023-01-01' }
+            }
+            Mock -ModuleName $moduleName Write-Log { }
+        }
+
+        It 'returns true when the clusterpolicies CRD is found' {
+            InModuleScope $moduleName {
+                $result = Test-KyvernoCapabilityAvailable
+                $result | Should -Be $true
+            }
+        }
+    }
+
+    Context 'clusterpolicies absent but policies CRD present' {
+        BeforeAll {
+            Mock -ModuleName $moduleName Invoke-Kubectl {
+                $script:kyvernoKubectlCall++
+                # First call = clusterpolicies check (empty), second call = policies check (found)
+                if ($script:kyvernoKubectlCall -eq 1) {
+                    return [pscustomobject]@{ Success = $true; Output = '' }
+                }
+                return [pscustomobject]@{ Success = $true; Output = 'policies.kyverno.io   2023-01-01' }
+            }
+            Mock -ModuleName $moduleName Write-Log { }
+        }
+
+        BeforeEach {
+            # Reset in the test-file script scope — the same scope the mock closure
+            # increments (see Flux context for rationale).
+            $script:kyvernoKubectlCall = 0
+        }
+
+        It 'returns true when the policies CRD is found' {
+            InModuleScope $moduleName {
+                $result = Test-KyvernoCapabilityAvailable
+                $result | Should -Be $true
+            }
+        }
+    }
+
+    Context 'no Kyverno CRDs present' {
+        BeforeAll {
+            Mock -ModuleName $moduleName Invoke-Kubectl {
+                return [pscustomobject]@{ Success = $true; Output = '' }
+            }
+            Mock -ModuleName $moduleName Write-Log { }
+        }
+
+        It 'returns false when no Kyverno indicators are found' {
+            InModuleScope $moduleName {
+                $result = Test-KyvernoCapabilityAvailable
                 $result | Should -Be $false
             }
         }
@@ -1468,6 +1647,8 @@ Describe 'Sync-HeadlampPlugins' -Tag 'unit', 'ci', 'addon', 'dashboard', 'plugin
             Mock -ModuleName $moduleName Test-FluxCapabilityAvailable         { return $true }
             Mock -ModuleName $moduleName Test-CertManagerCapabilityAvailable  { return $false }
             Mock -ModuleName $moduleName Test-PrometheusCapabilityAvailable   { return $true }
+            Mock -ModuleName $moduleName Test-KedaCapabilityAvailable         { return $false }
+            Mock -ModuleName $moduleName Test-KyvernoCapabilityAvailable      { return $false }
             Mock -ModuleName $moduleName New-PluginInitContainer {
                 param ($Name, $Image)
                 return [pscustomobject]@{ Name = $Name; Image = $Image }

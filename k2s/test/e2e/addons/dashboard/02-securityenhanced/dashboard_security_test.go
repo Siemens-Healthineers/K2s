@@ -20,6 +20,20 @@ import (
 
 const testClusterTimeout = time.Minute * 30
 
+// Headlamp plugin runtime contract (must match addons/dashboard/dashboard.module.psm1 and
+// addons/dashboard/build/headlamp-plugins.lock.json).
+const (
+	headlampDeployment    = "headlamp"
+	headlampNamespace     = "dashboard"
+	headlampContainerName = "headlamp"
+	headlampPluginsVolume = "headlamp-plugins"
+
+	certManagerPluginName  = "cert-manager-plugin"
+	certManagerPluginImage = "headlamp-plugin-cert-manager:0.1.1"
+	kyvernoPluginName      = "kyverno-plugin"
+	kyvernoPluginImage     = "headlamp-plugin-kyverno:0.1.0"
+)
+
 var (
 	suite      *framework.K2sTestSuite
 	k2s        *dsl.K2s
@@ -111,12 +125,41 @@ var _ = Describe("'dashboard and security enhanced' addons", Ordered, func() {
 			GinkgoWriter.Println(">>> TEST: Dashboard addon (Headlamp) enabled and verified with linkerd injection")
 		})
 
-		It("deactivates all the addons", func(ctx context.Context) {
-			GinkgoWriter.Println(">>> TEST: Deactivating all addons")
+		It("activates the cert-manager and kyverno Headlamp plugins (capability-driven)", func(ctx context.Context) {
+			// The security (enhanced) addon provides both the cert-manager and Kyverno
+			// capabilities, so enabling dashboard must trigger Sync-HeadlampPlugins to inject
+			// one init-container per detected plugin, plus the shared plugins volume and the
+			// main-container mount. This exercises capability detection AND multi-plugin activation.
+			GinkgoWriter.Println(">>> TEST: Verifying cert-manager and kyverno plugin init-containers")
+			suite.Cluster().ExpectDeploymentInitContainer(ctx, headlampDeployment, headlampNamespace, certManagerPluginName, certManagerPluginImage)
+			suite.Cluster().ExpectDeploymentInitContainer(ctx, headlampDeployment, headlampNamespace, kyvernoPluginName, kyvernoPluginImage)
+
+			GinkgoWriter.Println(">>> TEST: Verifying shared plugins volume and main-container mount")
+			suite.Cluster().ExpectDeploymentVolume(ctx, headlampDeployment, headlampNamespace, headlampPluginsVolume)
+			suite.Cluster().ExpectDeploymentVolumeMount(ctx, headlampDeployment, headlampNamespace, headlampContainerName, headlampPluginsVolume, "")
+		})
+
+		It("removes both plugin init-containers when security is disabled and reconciles the deployment", func(ctx context.Context) {
+			// Disable ONLY security (dashboard stays enabled) so we can observe reconciliation:
+			// security Disable.ps1 removes cert-manager + Kyverno and calls the guarded
+			// Sync-HeadlampPlugins, which must strip both plugin init-containers on the next sync.
+			GinkgoWriter.Println(">>> TEST: Disabling security to verify plugin removal/reconciliation")
+			suite.K2sCli().MustExec(ctx, "addons", "disable", "security", "-o")
+
+			suite.Cluster().ExpectDeploymentNotToHaveInitContainer(ctx, headlampDeployment, headlampNamespace, certManagerPluginName)
+			suite.Cluster().ExpectDeploymentNotToHaveInitContainer(ctx, headlampDeployment, headlampNamespace, kyvernoPluginName)
+
+			// Deployment must remain healthy after reconciliation.
+			suite.Cluster().ExpectDeploymentToBeAvailable("headlamp", "dashboard")
+			suite.Cluster().ExpectPodsUnderDeploymentReady(ctx, "app.kubernetes.io/name", "headlamp", "dashboard")
+			GinkgoWriter.Println(">>> TEST: Plugin init-containers removed and deployment reconciled")
+		})
+
+		It("deactivates the remaining addons", func(ctx context.Context) {
+			GinkgoWriter.Println(">>> TEST: Deactivating remaining addons (security already disabled)")
 			suite.K2sCli().MustExec(ctx, "addons", "disable", "dashboard", "-o")
 			suite.K2sCli().MustExec(ctx, "addons", "disable", "ingress", "nginx", "-o")
-			suite.K2sCli().MustExec(ctx, "addons", "disable", "security", "-o")
-			GinkgoWriter.Println(">>> TEST: All addons deactivated")
+			GinkgoWriter.Println(">>> TEST: Remaining addons deactivated")
 		})
 	})
 
