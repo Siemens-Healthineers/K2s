@@ -813,12 +813,37 @@ Describe 'Test-CertManagerCapabilityAvailable' -Tag 'unit', 'ci', 'addon', 'dash
 }
 
 Describe 'Test-PrometheusCapabilityAvailable' -Tag 'unit', 'ci', 'addon', 'dashboard', 'plugin' {
-    Context 'Prometheus CRD present' {
+    Context 'monitoring namespace is Active' {
         BeforeAll {
             Mock -ModuleName $moduleName Invoke-Kubectl {
+                return [pscustomobject]@{ Success = $true; Output = 'Active' }
+            }
+            Mock -ModuleName $moduleName Write-Log { }
+        }
+
+        It 'returns true when the monitoring namespace is found' {
+            InModuleScope $moduleName {
+                $result = Test-PrometheusCapabilityAvailable
+                $result | Should -Be $true
+            }
+        }
+    }
+
+    Context 'namespace absent but prometheuses CRD present' {
+        BeforeAll {
+            Mock -ModuleName $moduleName Invoke-Kubectl {
+                $script:promKubectlCall++
+                # First call = namespace phase (empty), second call = CRD check (found)
+                if ($script:promKubectlCall -eq 1) {
+                    return [pscustomobject]@{ Success = $true; Output = '' }
+                }
                 return [pscustomobject]@{ Success = $true; Output = 'prometheuses.monitoring.coreos.com   2023-01-01' }
             }
             Mock -ModuleName $moduleName Write-Log { }
+        }
+
+        BeforeEach {
+            $script:promKubectlCall = 0
         }
 
         It 'returns true when the prometheuses CRD is found' {
@@ -829,11 +854,12 @@ Describe 'Test-PrometheusCapabilityAvailable' -Tag 'unit', 'ci', 'addon', 'dashb
         }
     }
 
-    Context 'CRD absent but prometheus-operated service present' {
+    Context 'namespace and CRD absent but prometheus-operated service present' {
         BeforeAll {
             Mock -ModuleName $moduleName Invoke-Kubectl {
                 $script:promKubectlCall++
-                if ($script:promKubectlCall -eq 1) {
+                # 1 = namespace phase (empty), 2 = CRD (empty), 3 = service (found)
+                if ($script:promKubectlCall -le 2) {
                     return [pscustomobject]@{ Success = $true; Output = '' }
                 }
                 return [pscustomobject]@{ Success = $true; Output = 'prometheus-operated   ClusterIP   None' }
@@ -855,7 +881,36 @@ Describe 'Test-PrometheusCapabilityAvailable' -Tag 'unit', 'ci', 'addon', 'dashb
         }
     }
 
-    Context 'neither CRD nor service present' {
+    Context 'monitoring namespace is Terminating and CRD/service already gone' {
+        BeforeAll {
+            # Regression guard: a namespace lingering in 'Terminating' after the monitoring
+            # addon is disabled must NOT count as a live capability, otherwise
+            # Sync-HeadlampPlugins would retain the prometheus plugin init-container.
+            Mock -ModuleName $moduleName Invoke-Kubectl {
+                $script:promKubectlCall++
+                if ($script:promKubectlCall -eq 1) {
+                    # namespace phase check
+                    return [pscustomobject]@{ Success = $true; Output = 'Terminating' }
+                }
+                # CRD + service checks (already deleted)
+                return [pscustomobject]@{ Success = $true; Output = '' }
+            }
+            Mock -ModuleName $moduleName Write-Log { }
+        }
+
+        BeforeEach {
+            $script:promKubectlCall = 0
+        }
+
+        It 'returns false when the namespace is only Terminating' {
+            InModuleScope $moduleName {
+                $result = Test-PrometheusCapabilityAvailable
+                $result | Should -Be $false
+            }
+        }
+    }
+
+    Context 'neither namespace, CRD nor service present' {
         BeforeAll {
             Mock -ModuleName $moduleName Invoke-Kubectl {
                 return [pscustomobject]@{ Success = $true; Output = '' }
@@ -934,12 +989,37 @@ Describe 'Test-KedaCapabilityAvailable' -Tag 'unit', 'ci', 'addon', 'dashboard',
 }
 
 Describe 'Test-KyvernoCapabilityAvailable' -Tag 'unit', 'ci', 'addon', 'dashboard', 'plugin' {
-    Context 'clusterpolicies CRD present' {
+    Context 'kyverno namespace is Active' {
         BeforeAll {
             Mock -ModuleName $moduleName Invoke-Kubectl {
+                return [pscustomobject]@{ Success = $true; Output = 'Active' }
+            }
+            Mock -ModuleName $moduleName Write-Log { }
+        }
+
+        It 'returns true when the kyverno namespace is found' {
+            InModuleScope $moduleName {
+                $result = Test-KyvernoCapabilityAvailable
+                $result | Should -Be $true
+            }
+        }
+    }
+
+    Context 'namespace absent but clusterpolicies CRD present' {
+        BeforeAll {
+            Mock -ModuleName $moduleName Invoke-Kubectl {
+                $script:kyvernoKubectlCall++
+                # First call = namespace phase (empty), second call = clusterpolicies CRD (found)
+                if ($script:kyvernoKubectlCall -eq 1) {
+                    return [pscustomobject]@{ Success = $true; Output = '' }
+                }
                 return [pscustomobject]@{ Success = $true; Output = 'clusterpolicies.kyverno.io   2023-01-01' }
             }
             Mock -ModuleName $moduleName Write-Log { }
+        }
+
+        BeforeEach {
+            $script:kyvernoKubectlCall = 0
         }
 
         It 'returns true when the clusterpolicies CRD is found' {
@@ -950,12 +1030,12 @@ Describe 'Test-KyvernoCapabilityAvailable' -Tag 'unit', 'ci', 'addon', 'dashboar
         }
     }
 
-    Context 'clusterpolicies absent but policies CRD present' {
+    Context 'namespace and clusterpolicies absent but policies CRD present' {
         BeforeAll {
             Mock -ModuleName $moduleName Invoke-Kubectl {
                 $script:kyvernoKubectlCall++
-                # First call = clusterpolicies check (empty), second call = policies check (found)
-                if ($script:kyvernoKubectlCall -eq 1) {
+                # 1 = namespace phase (empty), 2 = clusterpolicies (empty), 3 = policies (found)
+                if ($script:kyvernoKubectlCall -le 2) {
                     return [pscustomobject]@{ Success = $true; Output = '' }
                 }
                 return [pscustomobject]@{ Success = $true; Output = 'policies.kyverno.io   2023-01-01' }
@@ -977,7 +1057,36 @@ Describe 'Test-KyvernoCapabilityAvailable' -Tag 'unit', 'ci', 'addon', 'dashboar
         }
     }
 
-    Context 'no Kyverno CRDs present' {
+    Context 'kyverno namespace is Terminating and CRDs already gone' {
+        BeforeAll {
+            # Regression guard: a namespace lingering in 'Terminating' after security Disable.ps1
+            # -> Uninstall-Kyverno must NOT count as a live capability, otherwise
+            # Sync-HeadlampPlugins would retain the kyverno plugin init-container.
+            Mock -ModuleName $moduleName Invoke-Kubectl {
+                $script:kyvernoKubectlCall++
+                if ($script:kyvernoKubectlCall -eq 1) {
+                    # namespace phase check
+                    return [pscustomobject]@{ Success = $true; Output = 'Terminating' }
+                }
+                # clusterpolicies + policies CRD checks (already deleted)
+                return [pscustomobject]@{ Success = $true; Output = '' }
+            }
+            Mock -ModuleName $moduleName Write-Log { }
+        }
+
+        BeforeEach {
+            $script:kyvernoKubectlCall = 0
+        }
+
+        It 'returns false when the namespace is only Terminating' {
+            InModuleScope $moduleName {
+                $result = Test-KyvernoCapabilityAvailable
+                $result | Should -Be $false
+            }
+        }
+    }
+
+    Context 'no namespace and no Kyverno CRDs present' {
         BeforeAll {
             Mock -ModuleName $moduleName Invoke-Kubectl {
                 return [pscustomobject]@{ Success = $true; Output = '' }

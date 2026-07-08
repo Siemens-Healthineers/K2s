@@ -199,9 +199,14 @@ function Test-PrometheusCapabilityAvailable {
     <#
     .SYNOPSIS
     Returns $true when Prometheus is present in the cluster, regardless of how it was installed.
-    Detection checks: prometheuses.monitoring.coreos.com CRD, then prometheus-operated service.
+    Detection checks: monitoring namespace (Active), then prometheuses.monitoring.coreos.com CRD,
+    then prometheus-operated service.
     #>
     Write-Log '[Dashboard][Plugin] Checking Prometheus capability'
+    if (Test-NamespaceActive -Name 'monitoring') {
+        Write-Log '[Dashboard][Plugin] Prometheus: monitoring namespace found'
+        return $true
+    }
     $crd = (Invoke-Kubectl -Params 'get', 'crd', 'prometheuses.monitoring.coreos.com', '--ignore-not-found').Output
     if ($crd) {
         Write-Log '[Dashboard][Plugin] Prometheus: prometheuses CRD found'
@@ -244,9 +249,14 @@ function Test-KyvernoCapabilityAvailable {
     .SYNOPSIS
     Returns $true when Kyverno is present in the cluster, regardless of how it was installed
     (the K2s 'security' addon policy engine or an external Kyverno install).
-    Detection checks: clusterpolicies.kyverno.io CRD, then policies.kyverno.io CRD.
+    Detection checks: kyverno namespace (Active), then clusterpolicies.kyverno.io CRD,
+    then policies.kyverno.io CRD.
     #>
     Write-Log '[Dashboard][Plugin] Checking Kyverno capability'
+    if (Test-NamespaceActive -Name 'kyverno') {
+        Write-Log '[Dashboard][Plugin] Kyverno: kyverno namespace found'
+        return $true
+    }
     $crd = (Invoke-Kubectl -Params 'get', 'crd', 'clusterpolicies.kyverno.io', '--ignore-not-found').Output
     if ($crd) {
         Write-Log '[Dashboard][Plugin] Kyverno: clusterpolicies CRD found'
