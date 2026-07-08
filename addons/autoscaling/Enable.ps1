@@ -29,6 +29,7 @@ Param (
 $clusterModule = "$PSScriptRoot/../../lib/modules/k2s/k2s.cluster.module/k2s.cluster.module.psm1"
 $infraModule = "$PSScriptRoot/../../lib/modules/k2s/k2s.infra.module/k2s.infra.module.psm1"
 $addonsModule = "$PSScriptRoot\..\addons.module.psm1"
+$dashboardModule = "$PSScriptRoot\..\dashboard\dashboard.module.psm1"
 
 Import-Module $clusterModule, $infraModule, $addonsModule
 
@@ -102,6 +103,21 @@ if ($allPodsAreUp -ne $true) {
 &"$PSScriptRoot\Update.ps1"
 
 Add-AddonToSetupJson -Addon ([pscustomobject] @{Name = 'autoscaling' })
+
+# sync Headlamp plugins - KEDA is now running
+if (Test-Path $dashboardModule) {
+    Import-Module $dashboardModule -Force
+    if (Get-Command Sync-HeadlampPlugins -ErrorAction SilentlyContinue) {
+        Write-Log '[Dashboard][Plugin] Syncing Headlamp plugins after autoscaling enable' -Console
+        try {
+            Sync-HeadlampPlugins
+        }
+        catch {
+            # Plugin sync is best-effort: a failure here must not fail the primary addon operation.
+            Write-Log "[Dashboard][Plugin] Headlamp plugin sync failed (autoscaling enable continues): $($_.Exception.Message)" -Console
+        }
+    }
+}
 
 Write-Log 'Installation of autoscaling addon finished.' -Console
 

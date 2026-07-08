@@ -80,7 +80,11 @@ function Enable-MetricsServer {
 }
 
 function Wait-ForHeadlampAvailable {
-    return (Wait-ForPodCondition -Condition Ready -Label 'app.kubernetes.io/name=headlamp' -Namespace 'dashboard' -TimeoutSeconds 200)
+    # 300s (not 200s) so a slow first-time pull of the Headlamp base image
+    # (ghcr.io/headlamp-k8s/headlamp) on cold/offline/proxied nodes cannot trip the
+    # readiness wait right at the boundary. This mirrors Wait-ForHeadlampRollout's
+    # 300s budget, which absorbs plugin init-container image pulls for the same reason.
+    return (Wait-ForPodCondition -Condition Ready -Label 'app.kubernetes.io/name=headlamp' -Namespace 'dashboard' -TimeoutSeconds 300)
 }
 
 function Write-HeadlampUsageForUser {
@@ -129,15 +133,35 @@ function Write-HeadlampUsageForUser {
 
 # ── Capability Detectors ──────────────────────────────────────────────────────
 
+function Test-NamespaceActive {
+    <#
+    .SYNOPSIS
+    Returns $true only when the given namespace exists AND is in the 'Active' phase.
+
+    .DESCRIPTION
+    A namespace that is being torn down lingers in the 'Terminating' phase (its
+    deletion is asynchronous and finalizer-driven). Capability detectors must NOT
+    treat a Terminating namespace as a live capability: doing so makes plugin removal
+    non-deterministic when Sync-HeadlampPlugins runs immediately after an addon's
+    uninstall step (e.g. security Disable.ps1 -> Uninstall-CertManager -> Sync).
+    Keying on the phase makes removal deterministic on the first sync.
+    #>
+    param (
+        [Parameter(Mandatory = $true)]
+        [string] $Name
+    )
+    $phase = (Invoke-Kubectl -Params 'get', 'namespace', $Name, '-o', 'jsonpath={.status.phase}', '--ignore-not-found').Output
+    return ($phase -eq 'Active')
+}
+
 function Test-FluxCapabilityAvailable {
     <#
     .SYNOPSIS
     Returns $true when Flux CD is present in the cluster, regardless of how it was installed.
-    Detection checks: flux-system namespace, then Flux kustomization CRD.
+    Detection checks: flux-system namespace (Active), then Flux kustomization CRD.
     #>
     Write-Log '[Dashboard][Plugin] Checking Flux capability'
-    $ns = (Invoke-Kubectl -Params 'get', 'namespace', 'flux-system', '--ignore-not-found').Output
-    if ($ns) {
+    if (Test-NamespaceActive -Name 'flux-system') {
         Write-Log '[Dashboard][Plugin] Flux: flux-system namespace found'
         return $true
     }
@@ -155,11 +179,10 @@ function Test-CertManagerCapabilityAvailable {
     .SYNOPSIS
     Returns $true when cert-manager is present in the cluster, regardless of which addon
     installed it (ingress/nginx, ingress/traefik, ingress/nginx-gw, security, or other).
-    Detection checks: cert-manager namespace, then certificates.cert-manager.io CRD.
+    Detection checks: cert-manager namespace (Active), then certificates.cert-manager.io CRD.
     #>
     Write-Log '[Dashboard][Plugin] Checking cert-manager capability'
-    $ns = (Invoke-Kubectl -Params 'get', 'namespace', 'cert-manager', '--ignore-not-found').Output
-    if ($ns) {
+    if (Test-NamespaceActive -Name 'cert-manager') {
         Write-Log '[Dashboard][Plugin] cert-manager: namespace found'
         return $true
     }
@@ -190,6 +213,51 @@ function Test-PrometheusCapabilityAvailable {
         return $true
     }
     Write-Log '[Dashboard][Plugin] Prometheus capability not detected'
+    return $false
+}
+
+function Test-KedaCapabilityAvailable {
+    <#
+    .SYNOPSIS
+    Returns $true when KEDA (Kubernetes Event-Driven Autoscaling) is present in the cluster,
+    regardless of how it was installed (the K2s 'autoscaling' addon or an external KEDA install).
+    Detection checks: autoscaling namespace (Active), then scaledobjects.keda.sh CRD.
+    Deliberately does NOT key on built-in HorizontalPodAutoscaler (autoscaling/v2), which is
+    present on every cluster and would make the plugin always-on.
+    #>
+    Write-Log '[Dashboard][Plugin] Checking KEDA capability'
+    if (Test-NamespaceActive -Name 'autoscaling') {
+        Write-Log '[Dashboard][Plugin] KEDA: autoscaling namespace found'
+        return $true
+    }
+    $crd = (Invoke-Kubectl -Params 'get', 'crd', 'scaledobjects.keda.sh', '--ignore-not-found').Output
+    if ($crd) {
+        Write-Log '[Dashboard][Plugin] KEDA: scaledobjects CRD found'
+        return $true
+    }
+    Write-Log '[Dashboard][Plugin] KEDA capability not detected'
+    return $false
+}
+
+function Test-KyvernoCapabilityAvailable {
+    <#
+    .SYNOPSIS
+    Returns $true when Kyverno is present in the cluster, regardless of how it was installed
+    (the K2s 'security' addon policy engine or an external Kyverno install).
+    Detection checks: clusterpolicies.kyverno.io CRD, then policies.kyverno.io CRD.
+    #>
+    Write-Log '[Dashboard][Plugin] Checking Kyverno capability'
+    $crd = (Invoke-Kubectl -Params 'get', 'crd', 'clusterpolicies.kyverno.io', '--ignore-not-found').Output
+    if ($crd) {
+        Write-Log '[Dashboard][Plugin] Kyverno: clusterpolicies CRD found'
+        return $true
+    }
+    $crd2 = (Invoke-Kubectl -Params 'get', 'crd', 'policies.kyverno.io', '--ignore-not-found').Output
+    if ($crd2) {
+        Write-Log '[Dashboard][Plugin] Kyverno: policies CRD found'
+        return $true
+    }
+    Write-Log '[Dashboard][Plugin] Kyverno capability not detected'
     return $false
 }
 
@@ -225,6 +293,16 @@ function Get-RegisteredHeadlampPlugins {
             Name     = 'prometheus-plugin'
             Image    = 'shsk2s.azurecr.io/headlamp-plugin-prometheus:0.8.2'
             Detector = { Test-PrometheusCapabilityAvailable }
+        },
+        [pscustomobject]@{
+            Name     = 'keda-plugin'
+            Image    = 'shsk2s.azurecr.io/headlamp-plugin-keda:0.1.2'
+            Detector = { Test-KedaCapabilityAvailable }
+        },
+        [pscustomobject]@{
+            Name     = 'kyverno-plugin'
+            Image    = 'shsk2s.azurecr.io/headlamp-plugin-kyverno:0.1.0'
+            Detector = { Test-KyvernoCapabilityAvailable }
         }
     )
 }
@@ -597,4 +675,5 @@ Export-ModuleMember -Function Get-HeadlampManifestsDirectory, Get-HeadlampChartD
     Install-HeadlampViaHelm, Uninstall-HeadlampViaHelm, Enable-MetricsServer, Wait-ForHeadlampAvailable, `
     Write-HeadlampUsageForUser, Get-RegisteredHeadlampPlugins, `
     Test-FluxCapabilityAvailable, Test-CertManagerCapabilityAvailable, Test-PrometheusCapabilityAvailable, `
+    Test-KedaCapabilityAvailable, Test-KyvernoCapabilityAvailable, `
     New-PluginInitContainer, Apply-HeadlampPluginPatch, Remove-HeadlampPluginPatch, Sync-HeadlampPlugins, Wait-ForHeadlampRollout
