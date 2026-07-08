@@ -39,10 +39,6 @@ function New-ProvisionedKubemasterBaseImage($WindowsNodeArtifactsZip, $OutputPat
             Remove-Item -Path $rootfsPath -Force
             Write-Log "Deleted already existing file for WSL support '$rootfsPath'"
         }
-        else {
-            Write-Log "File for WSL support '$rootfsPath' does not exist. Nothing to delete."
-        }
-    
         $hostname = Get-ConfigControlPlaneNodeHostname
         $ipAddress = Get-ConfiguredIPControlPlane
         $gatewayIpAddress = Get-ConfiguredKubeSwitchIP
@@ -67,21 +63,6 @@ function New-ProvisionedKubemasterBaseImage($WindowsNodeArtifactsZip, $OutputPat
     
         if (!(Test-Path -Path $OutputPath)) {
             throw "The file '$OutputPath' was not created"
-        }
-    
-
-        $wslRootfsForControlPlaneNodeCreationParams = @{
-            VmImageInputPath     = $OutputPath
-            RootfsFileOutputPath = $rootfsPath
-            Proxy                = $Proxy
-            VMMemoryStartupBytes = $VMMemoryStartupBytes
-            VMProcessorCount     = $VMProcessorCount
-            VMDiskSize           = $VMDiskSize
-        }
-        New-WslRootfsForControlPlaneNode @wslRootfsForControlPlaneNodeCreationParams
-    
-        if (!(Test-Path -Path $rootfsPath)) {
-            throw "The file '$rootfsPath' was not created"
         }
     }
     finally {
