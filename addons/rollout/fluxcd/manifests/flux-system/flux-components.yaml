@@ -36,6 +36,7 @@ kind: CustomResourceDefinition
 metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.21.0
+    kustomize.toolkit.fluxcd.io/substitute: disabled
   labels:
     app.kubernetes.io/component: notification-controller
     app.kubernetes.io/instance: flux-system
@@ -206,6 +207,7 @@ kind: CustomResourceDefinition
 metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.21.0
+    kustomize.toolkit.fluxcd.io/substitute: disabled
   labels:
     app.kubernetes.io/component: source-watcher
     app.kubernetes.io/instance: flux-system
@@ -549,6 +551,7 @@ kind: CustomResourceDefinition
 metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.21.0
+    kustomize.toolkit.fluxcd.io/substitute: disabled
   labels:
     app.kubernetes.io/component: source-controller
     app.kubernetes.io/instance: flux-system
@@ -939,6 +942,7 @@ kind: CustomResourceDefinition
 metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.21.0
+    kustomize.toolkit.fluxcd.io/substitute: disabled
   labels:
     app.kubernetes.io/component: source-controller
     app.kubernetes.io/instance: flux-system
@@ -1140,6 +1144,7 @@ kind: CustomResourceDefinition
 metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.21.0
+    kustomize.toolkit.fluxcd.io/substitute: disabled
   labels:
     app.kubernetes.io/component: source-controller
     app.kubernetes.io/instance: flux-system
@@ -1633,6 +1638,7 @@ kind: CustomResourceDefinition
 metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.21.0
+    kustomize.toolkit.fluxcd.io/substitute: disabled
   labels:
     app.kubernetes.io/component: source-controller
     app.kubernetes.io/instance: flux-system
@@ -1995,6 +2001,7 @@ kind: CustomResourceDefinition
 metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.21.0
+    kustomize.toolkit.fluxcd.io/substitute: disabled
   labels:
     app.kubernetes.io/component: helm-controller
     app.kubernetes.io/instance: flux-system
@@ -3485,6 +3492,7 @@ kind: CustomResourceDefinition
 metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.21.0
+    kustomize.toolkit.fluxcd.io/substitute: disabled
   labels:
     app.kubernetes.io/component: source-controller
     app.kubernetes.io/instance: flux-system
@@ -3814,6 +3822,7 @@ kind: CustomResourceDefinition
 metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.21.0
+    kustomize.toolkit.fluxcd.io/substitute: disabled
   labels:
     app.kubernetes.io/component: image-reflector-controller
     app.kubernetes.io/instance: flux-system
@@ -4124,6 +4133,7 @@ kind: CustomResourceDefinition
 metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.21.0
+    kustomize.toolkit.fluxcd.io/substitute: disabled
   labels:
     app.kubernetes.io/component: image-reflector-controller
     app.kubernetes.io/instance: flux-system
@@ -4444,6 +4454,7 @@ kind: CustomResourceDefinition
 metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.21.0
+    kustomize.toolkit.fluxcd.io/substitute: disabled
   labels:
     app.kubernetes.io/component: image-automation-controller
     app.kubernetes.io/instance: flux-system
@@ -4895,6 +4906,7 @@ kind: CustomResourceDefinition
 metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.21.0
+    kustomize.toolkit.fluxcd.io/substitute: disabled
   labels:
     app.kubernetes.io/component: kustomize-controller
     app.kubernetes.io/instance: flux-system
@@ -5708,6 +5720,7 @@ kind: CustomResourceDefinition
 metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.21.0
+    kustomize.toolkit.fluxcd.io/substitute: disabled
   labels:
     app.kubernetes.io/component: source-controller
     app.kubernetes.io/instance: flux-system
@@ -6140,6 +6153,7 @@ kind: CustomResourceDefinition
 metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.21.0
+    kustomize.toolkit.fluxcd.io/substitute: disabled
   labels:
     app.kubernetes.io/component: notification-controller
     app.kubernetes.io/instance: flux-system
@@ -6349,6 +6363,7 @@ kind: CustomResourceDefinition
 metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.21.0
+    kustomize.toolkit.fluxcd.io/substitute: disabled
   labels:
     app.kubernetes.io/component: notification-controller
     app.kubernetes.io/instance: flux-system
@@ -7121,7 +7136,7 @@ spec:
             resourceFieldRef:
               containerName: manager
               resource: limits.memory
-        image: ghcr.io/fluxcd/helm-controller:v1.6.1
+        image: ghcr.io/fluxcd/helm-controller:v1.6.2
         imagePullPolicy: IfNotPresent
         livenessProbe:
           httpGet:
@@ -7210,7 +7225,7 @@ spec:
             resourceFieldRef:
               containerName: manager
               resource: limits.memory
-        image: ghcr.io/fluxcd/image-automation-controller:v1.2.1
+        image: ghcr.io/fluxcd/image-automation-controller:v1.2.2
         imagePullPolicy: IfNotPresent
         livenessProbe:
           httpGet:
@@ -7298,7 +7313,7 @@ spec:
             resourceFieldRef:
               containerName: manager
               resource: limits.memory
-        image: ghcr.io/fluxcd/image-reflector-controller:v1.2.1
+        image: ghcr.io/fluxcd/image-reflector-controller:v1.2.2
         imagePullPolicy: IfNotPresent
         livenessProbe:
           httpGet:
@@ -7390,7 +7405,7 @@ spec:
             resourceFieldRef:
               containerName: manager
               resource: limits.memory
-        image: ghcr.io/fluxcd/kustomize-controller:v1.9.1
+        image: ghcr.io/fluxcd/kustomize-controller:v1.9.2
         imagePullPolicy: IfNotPresent
         livenessProbe:
           httpGet:
@@ -7478,7 +7493,7 @@ spec:
             resourceFieldRef:
               containerName: manager
               resource: limits.memory
-        image: ghcr.io/fluxcd/notification-controller:v1.9.1
+        image: ghcr.io/fluxcd/notification-controller:v1.9.2
         imagePullPolicy: IfNotPresent
         livenessProbe:
           httpGet:
@@ -7578,7 +7593,7 @@ spec:
             resourceFieldRef:
               containerName: manager
               resource: limits.memory
-        image: ghcr.io/fluxcd/source-controller:v1.9.1
+        image: ghcr.io/fluxcd/source-controller:v1.9.2
         imagePullPolicy: IfNotPresent
         livenessProbe:
           httpGet:
@@ -7678,7 +7693,7 @@ spec:
             resourceFieldRef:
               containerName: manager
               resource: limits.memory
-        image: ghcr.io/fluxcd/source-watcher:v2.2.1
+        image: ghcr.io/fluxcd/source-watcher:v2.2.2
         imagePullPolicy: IfNotPresent
         livenessProbe:
           httpGet:

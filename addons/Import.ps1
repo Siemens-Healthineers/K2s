@@ -12,6 +12,8 @@ Param (
     [string] $ArtifactFile,
     [parameter(Mandatory = $false, HelpMessage = 'Name of Addons to import')]
     [string[]] $Names,
+    [parameter(Mandatory = $false, HelpMessage = 'Target node name for addon image import (e.g. worker-1); defaults to control-plane and local Windows host when omitted')]
+    [string] $Nodes = '',
     [parameter(Mandatory = $false, HelpMessage = 'If set to true, will encode and send result as structured data to the CLI.')]
     [switch] $EncodeStructuredOutput,
     [parameter(Mandatory = $false, HelpMessage = 'Message type of the encoded structure; applies only if EncodeStructuredOutput was set to $true')]
@@ -22,8 +24,9 @@ $clusterModule = "$PSScriptRoot\..\lib\modules\k2s\k2s.cluster.module\k2s.cluste
 $addonsModule = "$PSScriptRoot\addons.module.psm1"
 $ociModule = "$PSScriptRoot\oci.module.psm1"
 $importImageScript = "$PSScriptRoot\..\lib\scripts\k2s\image\Import-Image.ps1"
+$imageCommonModule = "$PSScriptRoot\..\lib\scripts\k2s\image\Image-Common.module.psm1"
 
-Import-Module $infraModule, $clusterModule, $addonsModule, $ociModule
+Import-Module $infraModule, $clusterModule, $addonsModule, $ociModule, $imageCommonModule
 
 Initialize-Logging -ShowLogs:$ShowLogs
 
@@ -39,6 +42,28 @@ if ($systemError) {
 }
 
 $setupInfo = Get-SetupInfo
+
+if (-not [string]::IsNullOrWhiteSpace($Nodes)) {
+    $targetNode = Resolve-ImageNode -NodeName $Nodes
+    if ($null -eq $targetNode) {
+        $nodeError = New-Error -Severity Warning -Code 'import-node-not-found' -Message "Node '$Nodes' was not found in the cluster - run 'kubectl get nodes' to list available nodes"
+        if ($EncodeStructuredOutput -eq $true) {
+            Send-ToCli -MessageType $MessageType -Message @{Error = $nodeError }
+            return
+        }
+        Write-Log $nodeError.Message -Error
+        exit 1
+    }
+    if (-not (Test-NodeReady -NodeName $Nodes -Kind $targetNode.Kind)) {
+        $nodeError = New-Error -Severity Warning -Code 'import-node-not-ready' -Message "Node '$Nodes' is not in Ready state - run 'kubectl get nodes' to check node status"
+        if ($EncodeStructuredOutput -eq $true) {
+            Send-ToCli -MessageType $MessageType -Message @{Error = $nodeError }
+            return
+        }
+        Write-Log $nodeError.Message -Error
+        exit 1
+    }
+}
 
 $tmpDir = "$env:TEMP\$(Get-Date -Format ddMMyyyy-HHmmss)-tmp-extracted-addons"
 $extractionFolder = $tmpDir
@@ -664,14 +689,14 @@ foreach ($addon in $addonsToImport) {
             if ($extractedTars.Count -gt 0) {
                 # Multiple image tars extracted - use directory import
                 Write-Log "Found $($extractedTars.Count) image tar(s), importing from directory" -Console
-                &$importImageScript -ImageDir $tempImagesDir -ShowLogs:$ShowLogs
+                &$importImageScript -ImageDir $tempImagesDir -Nodes $Nodes -ShowLogs:$ShowLogs
                 $importExitCode = $LASTEXITCODE
             } else {
                 # Single image tar - check if extraction created image files directly
                 $imageFiles = Get-ChildItem -Path $tempImagesDir -Recurse -File
                 if ($imageFiles.Count -gt 0) {
                     Write-Log "Importing extracted image files from directory" -Console
-                    &$importImageScript -ImageDir $tempImagesDir -ShowLogs:$ShowLogs
+                    &$importImageScript -ImageDir $tempImagesDir -Nodes $Nodes -ShowLogs:$ShowLogs
                     $importExitCode = $LASTEXITCODE
                 } else {
                     Write-Log "Warning: No image files found after extraction" -Console
@@ -728,13 +753,13 @@ foreach ($addon in $addonsToImport) {
             $importImageScript = "$PSScriptRoot\..\lib\scripts\k2s\image\Import-Image.ps1"
             if ($extractedTars.Count -gt 0) {
                 Write-Log "Found $($extractedTars.Count) Windows image tar(s), importing from directory" -Console
-                &$importImageScript -ImageDir $tempImagesDir -Windows -ShowLogs:$ShowLogs
+                &$importImageScript -ImageDir $tempImagesDir -Windows -Nodes $Nodes -ShowLogs:$ShowLogs
                 $importExitCode = $LASTEXITCODE
             } else {
                 $imageFiles = Get-ChildItem -Path $tempImagesDir -Recurse -File
                 if ($imageFiles.Count -gt 0) {
                     Write-Log "Importing extracted Windows image files from directory" -Console
-                    &$importImageScript -ImageDir $tempImagesDir -Windows -ShowLogs:$ShowLogs
+                    &$importImageScript -ImageDir $tempImagesDir -Windows -Nodes $Nodes -ShowLogs:$ShowLogs
                     $importExitCode = $LASTEXITCODE
                 } else {
                     Write-Log "Warning: No Windows image files found after extraction" -Console
