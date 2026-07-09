@@ -30,8 +30,8 @@ BeforeAll {
 }
 
 Describe 'Headlamp plugin lock file' -Tag 'unit', 'ci', 'addon', 'dashboard' {
-    It 'declares exactly three plugins' {
-        $script:lock.plugins.Count | Should -Be 3
+    It 'declares exactly five plugins' {
+        $script:lock.plugins.Count | Should -Be 5
     }
 
     It 'maps each plugin to a /plugins/<pluginDir> matching the image name' {
