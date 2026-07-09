@@ -244,32 +244,6 @@ function Test-KedaCapabilityAvailable {
     return $false
 }
 
-function Test-KyvernoCapabilityAvailable {
-    <#
-    .SYNOPSIS
-    Returns $true when Kyverno is present in the cluster, regardless of how it was installed
-    (the K2s 'security' addon policy engine or an external Kyverno install).
-    Detection checks: kyverno namespace (Active), then clusterpolicies.kyverno.io CRD,
-    then policies.kyverno.io CRD.
-    #>
-    Write-Log '[Dashboard][Plugin] Checking Kyverno capability'
-    if (Test-NamespaceActive -Name 'kyverno') {
-        Write-Log '[Dashboard][Plugin] Kyverno: kyverno namespace found'
-        return $true
-    }
-    $crd = (Invoke-Kubectl -Params 'get', 'crd', 'clusterpolicies.kyverno.io', '--ignore-not-found').Output
-    if ($crd) {
-        Write-Log '[Dashboard][Plugin] Kyverno: clusterpolicies CRD found'
-        return $true
-    }
-    $crd2 = (Invoke-Kubectl -Params 'get', 'crd', 'policies.kyverno.io', '--ignore-not-found').Output
-    if ($crd2) {
-        Write-Log '[Dashboard][Plugin] Kyverno: policies CRD found'
-        return $true
-    }
-    Write-Log '[Dashboard][Plugin] Kyverno capability not detected'
-    return $false
-}
 
 # ── Plugin Registry ───────────────────────────────────────────────────────────
 
@@ -308,11 +282,6 @@ function Get-RegisteredHeadlampPlugins {
             Name     = 'keda-plugin'
             Image    = 'shsk2s.azurecr.io/headlamp-plugin-keda:0.1.2'
             Detector = { Test-KedaCapabilityAvailable }
-        },
-        [pscustomobject]@{
-            Name     = 'kyverno-plugin'
-            Image    = 'shsk2s.azurecr.io/headlamp-plugin-kyverno:0.1.0'
-            Detector = { Test-KyvernoCapabilityAvailable }
         }
     )
 }
@@ -685,5 +654,5 @@ Export-ModuleMember -Function Get-HeadlampManifestsDirectory, Get-HeadlampChartD
     Install-HeadlampViaHelm, Uninstall-HeadlampViaHelm, Enable-MetricsServer, Wait-ForHeadlampAvailable, `
     Write-HeadlampUsageForUser, Get-RegisteredHeadlampPlugins, `
     Test-FluxCapabilityAvailable, Test-CertManagerCapabilityAvailable, Test-PrometheusCapabilityAvailable, `
-    Test-KedaCapabilityAvailable, Test-KyvernoCapabilityAvailable, `
+    Test-KedaCapabilityAvailable, `
     New-PluginInitContainer, Apply-HeadlampPluginPatch, Remove-HeadlampPluginPatch, Sync-HeadlampPlugins, Wait-ForHeadlampRollout
