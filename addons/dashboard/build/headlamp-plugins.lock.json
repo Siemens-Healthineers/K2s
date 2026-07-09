@@ -99,30 +99,6 @@
         "localPath": "plugins/keda-0.1.2.tar.gz",
         "sha256": "979996aa0d0efdbc852baf6977e178c955264e346fea2c82df94b2d58ef57501"
       }
-    },
-    {
-      "name": "kyverno",
-      "pluginDir": "kyverno-plugin",
-      "version": "0.1.0",
-      "image": "shsk2s.azurecr.io/headlamp-plugin-kyverno:0.1.0",
-      "detectionSource": "github-releases",
-      "acquisition": "prebuilt",
-      "upstreamReleaseRef": {
-        "owner": "headlamp-k8s",
-        "repo": "plugins",
-        "tagPattern": "kyverno-{version}"
-      },
-      "source": {
-        "type": "git",
-        "repo": "https://github.com/headlamp-k8s/plugins.git",
-        "ref": "kyverno-0.1.0",
-        "subdir": "kyverno"
-      },
-      "prebuilt": {
-        "url": "https://github.com/headlamp-k8s/plugins/releases/download/kyverno-0.1.0/headlamp-k8s-kyverno-0.1.0.tar.gz",
-        "localPath": "plugins/kyverno-0.1.0.tar.gz",
-        "sha256": "eb6d99eed8e2e4187e5d5e007c116b9e10224cd403d83f8aa87780fafcf6e059"
-      }
     }
   ]
 }

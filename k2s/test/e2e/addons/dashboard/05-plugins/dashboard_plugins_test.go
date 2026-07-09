@@ -47,8 +47,8 @@ type pluginCase struct {
 // (addons/dashboard/build/headlamp-plugin-images.unit.tests.ps1), which is the single source
 // of truth; keeping versions out of this file removes E2E version drift by construction.
 //
-// The cert-manager and kyverno plugins are intentionally NOT included here: they are already
-// validated end-to-end by 02-securityenhanced (the security addon provides both capabilities).
+// The cert-manager plugin is intentionally NOT included here: it is already
+// validated end-to-end by 02-securityenhanced (the security addon provides the capability).
 // This suite covers the remaining plugins whose providers are otherwise unexercised.
 var pluginCases = []pluginCase{
 	{
