@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText:  © 2024 Siemens Healthineers AG
+// SPDX-FileCopyrightText:  © 2026 Siemens Healthineers AG
 // SPDX-License-Identifier:   MIT
 
 package copy
@@ -27,6 +27,8 @@ const (
 	timeoutFlag     = "timeout"
 	portFlag        = "port"
 	longDescription = `Copies files/folders to/from nodes (default: to node).
+
+By default this targets the control-plane node; pass --ip-addr to copy to/from a specific node (e.g. a worker node).
 
 The copy command behaves similar to the 'cp' command on Linux:
 - If the target file exists, it will be overwritten without prompting.
@@ -60,7 +62,7 @@ Remote node paths can but do not need to contain a tilde (~) since the working d
 func NewCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "copy",
-		Short:   "Copies files/folders between host and nodes.",
+		Short:   "Copies files/folders between host and a node (default: the control-plane node).",
 		Long:    longDescription,
 		Example: example,
 		RunE:    copy,

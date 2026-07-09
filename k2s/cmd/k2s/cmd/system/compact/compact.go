@@ -26,8 +26,9 @@ var (
 
 var CompactCmd = &cobra.Command{
 	Use:   "compact",
-	Short: "Compact VHDX disk to reclaim unused space",
-	Long: `Compacts the Kubemaster VHDX file to reclaim disk space freed by deleted images and files.
+	Short: "Compact VHDX disk to reclaim unused space (control-plane node only)",
+	Long: `Compacts the KubeMaster VHDX file (the control-plane node disk) to reclaim disk space freed by deleted images and files.
+This affects only the control-plane node; worker nodes and the local host are not touched.
 
 Supported setups: k2s (standard) and Linux-only.
 Not supported: WSL-based and build-only setups (no Hyper-V VHDX present).`,
