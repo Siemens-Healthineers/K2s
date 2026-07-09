@@ -28,6 +28,7 @@ Param (
 $clusterModule = "$PSScriptRoot/../../lib/modules/k2s/k2s.cluster.module/k2s.cluster.module.psm1"
 $infraModule = "$PSScriptRoot/../../lib/modules/k2s/k2s.infra.module/k2s.infra.module.psm1"
 $addonsModule = "$PSScriptRoot\..\addons.module.psm1"
+$dashboardModule = "$PSScriptRoot\..\dashboard\dashboard.module.psm1"
 
 Import-Module $clusterModule, $infraModule, $addonsModule
 
@@ -64,6 +65,22 @@ if ((Test-IsAddonEnabled -Addon ([PSCustomObject]@{Name = 'autoscaling'})) -ne $
 Write-Log 'Uninstalling KEDA' -Console
 (Invoke-Kubectl -Params 'delete', '-f', $kedaManifest).Output | Write-Log
 Remove-AddonFromSetupJson -Addon ([pscustomobject] @{Name = 'autoscaling' })
+
+# sync Headlamp plugins - KEDA is now removed
+if (Test-Path $dashboardModule) {
+    Import-Module $dashboardModule -Force
+    if (Get-Command Sync-HeadlampPlugins -ErrorAction SilentlyContinue) {
+        Write-Log '[Dashboard][Plugin] Syncing Headlamp plugins after autoscaling disable' -Console
+        try {
+            Sync-HeadlampPlugins
+        }
+        catch {
+            # Plugin sync is best-effort: a failure here must not fail the primary addon operation.
+            Write-Log "[Dashboard][Plugin] Headlamp plugin sync failed (autoscaling disable continues): $($_.Exception.Message)" -Console
+        }
+    }
+}
+
 Write-Log 'Uninstallation of autoscaling addon finished' -Console
 
 if ($EncodeStructuredOutput -eq $true) {
