@@ -119,6 +119,7 @@ function Invoke-SSHOnce {
 function Invoke-SSHWithKey {
     param (
         [Parameter(Mandatory = $false)]
+        [string]
         $Command = $(throw 'Command not specified'),
         [Parameter(Mandatory = $false)]
         [switch]
@@ -130,12 +131,7 @@ function Invoke-SSHWithKey {
         [uint16]$ExecutionTimeoutSeconds = 0
     )
     $userOnRemoteMachine = "$UserName@$IpAddress"
-    $params = '-n', '-o', 'BatchMode=yes', '-o', 'StrictHostKeyChecking=no', '-i', $key, $userOnRemoteMachine
-
-    # Support both string and array-based commands: an array is flattened into one
-    # SSH argument per element (avoids shell metacharacter injection), while a string
-    # is appended as a single argument (legacy behavior).
-    $params += $Command
+    $params = '-n', '-o', 'BatchMode=yes', '-o', 'StrictHostKeyChecking=no', '-i', $key, $userOnRemoteMachine, $Command
 
     if ($Nested -eq $true) {
         # omit the "-n" param
@@ -406,9 +402,7 @@ function Invoke-CmdOnVmViaSSHKey(
     [uint16]$ExecutionTimeoutSeconds = 0) {
 
     if (!$NoLog) {
-        # Format command for logging: handle both string and array-based commands
-        $cmdForLogging = if ($CmdToExecute -is [array]) { $CmdToExecute -join ' ' } else { $CmdToExecute }
-        Write-Log "cmd: $cmdForLogging, retries: $Retries, timeout: $Timeout sec, execution timeout: $ExecutionTimeoutSeconds sec, ignore err: $IgnoreErrors, nested: $Nested, ip address: $IpAddress"
+        Write-Log "cmd: $CmdToExecute, retries: $Retries, timeout: $Timeout sec, execution timeout: $ExecutionTimeoutSeconds sec, ignore err: $IgnoreErrors, nested: $Nested, ip address: $IpAddress"
     }
     $Stoploop = $false
     [uint16]$Retrycount = 1
@@ -418,8 +412,7 @@ function Invoke-CmdOnVmViaSSHKey(
             $success = ($LASTEXITCODE -eq 0)
 
             if (!$success -and !$IgnoreErrors) {
-                $cmdForError = if ($CmdToExecute -is [array]) { $CmdToExecute -join ' ' } else { $CmdToExecute }
-                throw "Error occurred while executing command '$cmdForError' in control plane (exit code: '$LASTEXITCODE')"
+                throw "Error occurred while executing command '$CmdToExecute' in control plane (exit code: '$LASTEXITCODE')"
             }
             $Stoploop = $true
         }
@@ -429,8 +422,7 @@ function Invoke-CmdOnVmViaSSHKey(
                 $Stoploop = $true
             }
             else {
-                $cmdForLogging = if ($CmdToExecute -is [array]) { $CmdToExecute -join ' ' } else { $CmdToExecute }
-                Write-Log "cmd: $cmdForLogging will be retried.."
+                Write-Log "cmd: $CmdToExecute will be retried.."
 
                 if ($null -ne $RepairCmd -and !$IgnoreErrors) {
                     Write-Log "Executing repair cmd: $RepairCmd"

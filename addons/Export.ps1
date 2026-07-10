@@ -31,123 +31,6 @@ $ociModule = "$PSScriptRoot\oci.module.psm1"
 
 Import-Module $infraModule, $clusterModule, $nodeModule, $addonsModule, $exportModule, $ociModule
 
-function ConvertTo-SshShellSingleQuoted {
-    param(
-        [Parameter(Mandatory = $true)]
-        [string]$Value
-    )
-
-    return "'" + ($Value -replace "'", "'`"'`"'") + "'"
-}
-
-function Assert-ValidDebianPackageToken {
-    param(
-        [Parameter(Mandatory = $true)]
-        [string]$PackageName
-    )
-
-    # Evidence: offline_usage.linux.deb package entries in addon manifests are apt package tokens, not shell fragments.
-    if ($PackageName -notmatch '^[a-z0-9][a-z0-9+.-]*(?::[a-z0-9][a-z0-9+.-]*)?$') {
-        throw "Invalid debian package token '$PackageName'. Only apt package identifiers are allowed."
-    }
-
-    return $PackageName
-}
-
-function Assert-ValidRemotePackageDirectoryToken {
-    param(
-        [Parameter(Mandatory = $true)]
-        [string]$DirectoryToken
-    )
-
-    # Evidence: export directory token comes from addon directory names and implementation suffixes.
-    if ($DirectoryToken -notmatch '^[A-Za-z0-9._-]+$') {
-        throw "Invalid export directory token '$DirectoryToken'. Allowed characters: A-Z, a-z, 0-9, dot, underscore, hyphen."
-    }
-
-    return $DirectoryToken
-}
-
-function Assert-ValidContainerImageReference {
-    param(
-        [Parameter(Mandatory = $true)]
-        [string]$ImageReference
-    )
-
-    # Evidence: image references are collected from addon manifest input (offline_usage.additionalImages*)
-    # and YAML parsing, then used in pull operations in this script.
-    if ([string]::IsNullOrWhiteSpace($ImageReference)) {
-        throw 'Invalid image reference: value is empty.'
-    }
-
-    if ($ImageReference -match '\s' -or $ImageReference -match '[`"''$;|&<>\\\(\)\{\}]') {
-        throw "Invalid image reference '$ImageReference'. Disallowed whitespace or shell metacharacters detected."
-    }
-
-    # Accept standard container image forms with optional registry[:port], path components,
-    # optional :tag and optional @sha256:digest.
-    if ($ImageReference -notmatch '^(?:[A-Za-z0-9.-]+(?::[0-9]+)?/)?[A-Za-z0-9._-]+(?:/[A-Za-z0-9._-]+)*(?::[A-Za-z0-9_][A-Za-z0-9_.-]{0,127})?(?:@sha256:[A-Fa-f0-9]{64})?$') {
-        throw "Invalid image reference '$ImageReference'. Expected a standard container image reference."
-    }
-
-    return $ImageReference
-}
-
-function Assert-ValidRepoCommandFragment {
-    param(
-        [Parameter(Mandatory = $true)]
-        [string]$RepoCommand
-    )
-
-    # Evidence: repo fragments are untrusted manifest input and are executed remotely via SSH.
-    # Enforce a strict token allow-list for generic fragments.
-    if ($RepoCommand -match '[\r\n]') {
-        throw 'Invalid repo command fragment: newlines are not allowed.'
-    }
-
-    if ($RepoCommand -match '(\|\||&&|[|&;`<>])') {
-        throw "Invalid repo command fragment '$RepoCommand'. Disallowed shell control/chaining tokens detected (|, ||, &, &&, ;, `, <, >)."
-    }
-
-    if ($RepoCommand -match '\$\(') {
-        throw "Invalid repo command fragment '$RepoCommand'. Command substitution is not allowed."
-    }
-
-    if ($RepoCommand -match '[\$\{\}]') {
-        throw "Invalid repo command fragment '$RepoCommand'. Variable interpolation tokens are not allowed."
-    }
-
-    return $RepoCommand
-}
-
-function Resolve-RepoSetupCommands {
-    param(
-        [Parameter(Mandatory = $true)]
-        [string]$RepoCommand
-    )
-
-    # Evidence: addons/gpu-node/addon.manifest.yaml uses a single NVIDIA setup fragment with pipes and &&.
-    # For that known case, parse controlled URLs and compose fixed commands instead of executing manifest shell directly.
-    $nvidiaRepoPattern = "^curl --retry 3 --retry-all-errors -fsSL (?<gpgUrl>https://nvidia\.github\.io/libnvidia-container/gpgkey) -x (?<proxy>[^\s]+) \| sudo gpg --dearmor --batch --yes -o /usr/share/keyrings/nvidia-container-toolkit-keyring\.gpg && curl --retry 3 --retry-all-errors -s -L (?<listUrl>https://nvidia\.github\.io/libnvidia-container/stable/deb/nvidia-container-toolkit\.list) -x (?<proxy2>[^\s]+) \| sed 's#deb https://#deb \[signed-by=/usr/share/keyrings/nvidia-container-toolkit-keyring\.gpg\] https://#g' \| sudo tee /etc/apt/sources\.list\.d/nvidia-container-toolkit\.list$"
-
-    if ($RepoCommand -match $nvidiaRepoPattern) {
-        if ($Matches.proxy -ne $Matches.proxy2) {
-            throw "Invalid repo command fragment '$RepoCommand'. Proxy value mismatch detected in NVIDIA repo setup command."
-        }
-
-        $quotedGpgUrl = ConvertTo-SshShellSingleQuoted -Value $Matches.gpgUrl
-        $quotedListUrl = ConvertTo-SshShellSingleQuoted -Value $Matches.listUrl
-        $quotedProxy = ConvertTo-SshShellSingleQuoted -Value $Matches.proxy
-
-        return @(
-            "curl --retry 3 --retry-all-errors -fsSL $quotedGpgUrl -x $quotedProxy | sudo gpg --dearmor --batch --yes -o /usr/share/keyrings/nvidia-container-toolkit-keyring.gpg",
-            "curl --retry 3 --retry-all-errors -s -L $quotedListUrl -x $quotedProxy | sed 's#deb https://#deb [signed-by=/usr/share/keyrings/nvidia-container-toolkit-keyring.gpg] https://#g' | sudo tee /etc/apt/sources.list.d/nvidia-container-toolkit.list > /dev/null"
-        )
-    }
-
-    throw "Unsupported repo setup command fragment '$RepoCommand'. Only explicitly allowlisted safe patterns are supported for addon export."
-}
-
 # Read K2s version for export metadata and file naming
 $k2sVersion = Get-Content "$PSScriptRoot\..\VERSION" -Raw | ForEach-Object { $_.Trim() }
 
@@ -602,12 +485,8 @@ try {
 
             Write-Log "[AddonExport] === PULLING LINUX IMAGES ==="
             foreach ($image in $linuxImages) {
-                $safeImageReference = Assert-ValidContainerImageReference -ImageReference $image
-                Write-Log "Pulling linux image $safeImageReference"
-                $quotedImageReference = ConvertTo-SshShellSingleQuoted -Value $safeImageReference
-                # Use array-based command to prevent shell injection: each argument is a separate array element
-                $cmdArray = @('sudo', 'buildah', 'pull', '--', $quotedImageReference, '2>&1')
-                $pull = Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -Retries 5 -CmdToExecute $cmdArray
+                Write-Log "Pulling linux image $image"
+                $pull = Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -Retries 5 -CmdToExecute "sudo buildah pull $image 2>&1"
                 Write-Log "[AddonExport] Pull result for $image : Success=$($pull.Success) Output='$($pull.Output)'"
                 Write-Log $pull.Output
                 if (!$pull.Success) {
@@ -624,11 +503,10 @@ try {
             }
 
             foreach ($image in $windowsImages) {
-                $safeImageReference = Assert-ValidContainerImageReference -ImageReference $image
-                Write-Log "Pulling windows image $safeImageReference"
+                Write-Log "Pulling windows image $image"
                 $kubeBinPath = Get-KubeBinPath
-                &$(Get-NerdctlExe) -n 'k8s.io' pull $safeImageReference --all-platforms 2>&1 | Out-Null
-                &$(Get-CrictlExe) --config $kubeBinPath\crictl.yaml pull $safeImageReference
+                &$(Get-NerdctlExe) -n 'k8s.io' pull $image --all-platforms 2>&1 | Out-Null
+                &$(Get-CrictlExe) --config $kubeBinPath\crictl.yaml pull $image
                 if (!$?) {
                     $errMsg = "Pulling linux image $image failed"
                     if ($EncodeStructuredOutput -eq $true) {
@@ -754,7 +632,6 @@ try {
                 Write-Log '---'
                 Write-Log "Downloading packages for addon $addonName" -Console
                 $linuxPackages = $implementation.offline_usage.linux
-                $safeRemoteDirName = Assert-ValidRemotePackageDirectoryToken -DirectoryToken $dirName
 
                 # adding repos for debian packages download
                 $repos = $linuxPackages.repos
@@ -762,10 +639,7 @@ try {
                     Write-Log 'Adding repos for debian packages download'
                     foreach ($repo in $repos) {
                         $repoWithReplacedHttpProxyPlaceHolder = $repo.Replace('__LOCAL_HTTP_PROXY__', "$(Get-ConfiguredKubeSwitchIP):8181")
-                        $repoSetupCommands = Resolve-RepoSetupCommands -RepoCommand $repoWithReplacedHttpProxyPlaceHolder
-                        foreach ($repoSetupCommand in $repoSetupCommands) {
-                            (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute $repoSetupCommand).Output | Write-Log
-                        }
+                        (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute "$repoWithReplacedHttpProxyPlaceHolder").Output | Write-Log
                     }
 
                     (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute 'sudo apt-get update > /dev/null 2>&1').Output | Write-Log
@@ -777,18 +651,10 @@ try {
                     (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute 'sudo apt-get clean > /dev/null 2>&1').Output | Write-Log
                     foreach ($package in $debianPackages) {
                         if (!(Get-DebianPackageAvailableOffline -addon $manifest.metadata.name -implementation $implementation.name -package $package)) {
-                            $safePackageToken = Assert-ValidDebianPackageToken -PackageName $package
-                            $quotedPackage = ConvertTo-SshShellSingleQuoted -Value $safePackageToken
-                            $remotePackageDir = "./${safeRemoteDirName}/${safePackageToken}"
-                            $quotedRemotePackageDir = ConvertTo-SshShellSingleQuoted -Value $remotePackageDir
                             Write-Log "Downloading debian package `"$package`" with dependencies"
-                            # Use array-based commands to prevent shell injection: each argument is a separate array element
-                            $aptGetCmdArray = @('sudo', 'DEBIAN_FRONTEND=noninteractive', 'apt-get', '--download-only', 'reinstall', '-y', '--', $quotedPackage, '>', '/dev/null', '2>&1')
-                            (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute $aptGetCmdArray).Output | Write-Log
-                            $mkdirCmdArray = @('mkdir', '-p', '--', $quotedRemotePackageDir)
-                            (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute $mkdirCmdArray).Output | Write-Log
-                            $cpCmdArray = @('sudo', 'cp', '/var/cache/apt/archives/*.deb', $quotedRemotePackageDir)
-                            (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute $cpCmdArray).Output | Write-Log
+                            (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute "sudo DEBIAN_FRONTEND=noninteractive apt-get --download-only reinstall -y $package > /dev/null 2>&1").Output | Write-Log
+                            (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute "mkdir -p .$dirName/${package}").Output | Write-Log
+                            (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute "sudo cp /var/cache/apt/archives/*.deb .$dirName/${package}").Output | Write-Log
                             (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute 'sudo apt-get clean > /dev/null 2>&1').Output | Write-Log
                         }
                     }
@@ -796,7 +662,7 @@ try {
                     $targetDebianPkgDir = "${packagesStaging}\debianpackages"
 
                     mkdir -Force $targetDebianPkgDir | Out-Null
-                    Copy-FromControlPlaneViaSSHKey -Source "./${safeRemoteDirName}/*" -Target $targetDebianPkgDir
+                    Copy-FromControlPlaneViaSSHKey -Source ".$dirName/*" -Target $targetDebianPkgDir
                 }
 
                 # download linux packages via curl
