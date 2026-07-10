@@ -36,7 +36,6 @@ const (
 	fluxPluginName        = "flux-plugin"
 	prometheusPluginName  = "prometheus-plugin"
 	kedaPluginName        = "keda-plugin"
-	kyvernoPluginName     = "kyverno-plugin"
 )
 
 var (
@@ -158,14 +157,13 @@ var _ = Describe("'dashboard' addon", Ordered, func() {
 
 			It("does not inject any Headlamp plugin init-containers, volume, or mount when no plugin capability is present", func(ctx context.Context) {
 				// Plugin activation is capability-driven, not always-on. With only the dashboard
-				// enabled (no cert-manager/flux/prometheus/keda/kyverno capability in the cluster),
+				// enabled (no cert-manager/flux/prometheus/keda capability in the cluster),
 				// Sync-HeadlampPlugins must leave the headlamp deployment free of every K2s plugin
 				// init-container, the shared plugins volume, and the main-container mount.
 				suite.Cluster().ExpectDeploymentNotToHaveInitContainer(ctx, headlampDeployment, headlampNamespace, certManagerPluginName)
 				suite.Cluster().ExpectDeploymentNotToHaveInitContainer(ctx, headlampDeployment, headlampNamespace, fluxPluginName)
 				suite.Cluster().ExpectDeploymentNotToHaveInitContainer(ctx, headlampDeployment, headlampNamespace, prometheusPluginName)
 				suite.Cluster().ExpectDeploymentNotToHaveInitContainer(ctx, headlampDeployment, headlampNamespace, kedaPluginName)
-				suite.Cluster().ExpectDeploymentNotToHaveInitContainer(ctx, headlampDeployment, headlampNamespace, kyvernoPluginName)
 
 				suite.Cluster().ExpectDeploymentNotToHaveVolume(ctx, headlampDeployment, headlampNamespace, headlampPluginsVolume)
 				suite.Cluster().ExpectDeploymentNotToHaveVolumeMount(ctx, headlampDeployment, headlampNamespace, headlampContainerName, headlampPluginsVolume)

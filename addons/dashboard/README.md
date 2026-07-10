@@ -120,7 +120,6 @@ there is nothing to enable per plugin:
 | flux | Flux GitOps view | the Flux capability is present (`rollout fluxcd` or external Flux) |
 | prometheus | Prometheus/metrics view | the monitoring capability is present |
 | keda | KEDA autoscaling (ScaledObjects/ScaledJobs) view | the KEDA capability is present (`autoscaling` addon or external KEDA) |
-| kyverno | Kyverno policies and policy reports view | the Kyverno capability is present (`security` addon policy engine or external Kyverno) |
 
 How it works:
 
