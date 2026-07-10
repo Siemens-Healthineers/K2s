@@ -31,6 +31,21 @@
         "spec": {
             "type": "object",
             "properties": {
+                "gitops": {
+                    "description": "Optional GitOps delivery settings for addon deployment behavior",
+                    "type": "object",
+                    "properties": {
+                        "prunePolicy": {
+                            "description": "Controls GitOps pruning for this addon. Use 'disabled' for safe defaults, especially for stateful addons. Set to 'enabled' only for stateless addons.",
+                            "type": "string",
+                            "enum": [
+                                "enabled",
+                                "disabled"
+                            ],
+                            "default": "disabled"
+                        }
+                    }
+                },
                 "implementations": {
                     "description": "Implementations of the addon",
                     "type": "array",

@@ -137,6 +137,8 @@ The rollout addon includes an **addon-sync** feature (enabled by default via `--
 
 1. **Export** — create an OCI artifact from a K2s addon: `k2s addons export <name> -d C:\exports --omit-images --omit-packages`
 2. **Push** _(manual, consumer)_ — publish the artifact to the registry: `oras copy --from-oci-layout ... <registry>/addons/<name>:<version>`
+   - Optional signing (post-push): `cosign sign --yes --key <cosign.key> --tlog-upload=false --allow-insecure-registry <registry>/addons/<name>:<version>`
+   - For full verification setup (Flux `verify:` + `k2s addons enable rollout fluxcd --signing-public-key`), see `fluxcd/README.md`. For ArgoCD signature verification limitation, see `argocd/README.md`.
 3. **Detect** — the GitOps tool detects the new artifact digest
 4. **Sync** — a Windows HostProcess job extracts definition files (manifests, scripts, Helm charts, config) to the addon catalog on the Windows host
 5. **Enable** _(manual, consumer)_ — `k2s addons enable <name>` starts the addon's Kubernetes workloads

@@ -23,12 +23,14 @@ metadata:
     app.kubernetes.io/part-of: k2s
     k2s.io/addon: ADDON_NAME_PLACEHOLDER
 spec:
-  interval: 1m
+  interval: 5m
   sourceRef:
     kind: OCIRepository
     name: addon-sync-ADDON_NAME_PLACEHOLDER
   path: ./gitops-sync
   prune: true
+  # force:true is intentional to catch host-side drift; wait:true only gates CronJob apply,
+  # while addon health is tracked via the addon-sync-status ConfigMap.
   force: true
   wait: true
   timeout: 10m

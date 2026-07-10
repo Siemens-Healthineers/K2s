@@ -1146,6 +1146,7 @@ finally {
 }
 
 Remove-Item -Force "$tmpExportDir" -Recurse -Confirm:$False -ErrorAction SilentlyContinue
+
 Write-Log '---'
 Write-Log "Addons exported successfully as OCI-compliant artifact to $finalExportPath" -Console
 Write-Log "OCI Image Layout structure:" -Console

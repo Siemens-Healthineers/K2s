@@ -30,6 +30,10 @@ Param (
     [string] $Ingress = 'none',
     [parameter(Mandatory = $false, HelpMessage = 'Deploy addon-sync infrastructure for GitOps addon delivery')]
     [switch] $AddonSync = $true,
+    [parameter(Mandatory = $false, HelpMessage = 'Allow insecure HTTP access to the local addon-sync OCI registry')]
+    [switch] $InsecureRegistry = $false,
+    [parameter(Mandatory = $false, HelpMessage = 'Path to cosign public key file for addon-sync signature verification')]
+    [string] $SigningPublicKey = '',
     [parameter(Mandatory = $false, HelpMessage = 'JSON config object to override preceeding parameters')]
     [pscustomobject] $Config,
     [parameter(Mandatory = $false, HelpMessage = 'If set to true, will encode and send result as structured data to the CLI.')]
@@ -184,6 +188,107 @@ if ($AddonSync) {
             exit 1
         }
         Write-Log "K2S_INSTALL_DIR set to $kubePath" -Console
+
+        if ($InsecureRegistry) {
+            Write-Log '[AddonSync] Enabling insecure addon-sync registry access (INSECURE=true)' -Console
+            $insecurePatch = "{\"data\":{\"INSECURE\":\"true\"}}"
+            $kubectlCmd = Invoke-Kubectl -Params 'patch', 'configmap', 'addon-sync-config', '-n', 'k2s-addon-sync', '--type', 'merge', '-p', $insecurePatch
+            $kubectlCmd.Output | Write-Log
+            if (-not $kubectlCmd.Success) {
+                $errMsg = 'Failed to patch addon-sync-config with INSECURE=true'
+                if ($EncodeStructuredOutput -eq $true) {
+                    $err = New-Error -Code (Get-ErrCodeAddonEnableFailed) -Message $errMsg
+                    Send-ToCli -MessageType $MessageType -Message @{Error = $err }
+                    return
+                }
+
+                Write-Log $errMsg -Error
+                exit 1
+            }
+        }
+
+        if (-not [string]::IsNullOrWhiteSpace($SigningPublicKey)) {
+            if (-not (Test-Path -LiteralPath $SigningPublicKey)) {
+                $errMsg = "Signing public key file not found: $SigningPublicKey"
+                if ($EncodeStructuredOutput -eq $true) {
+                    $err = New-Error -Code (Get-ErrCodeAddonEnableFailed) -Message $errMsg
+                    Send-ToCli -MessageType $MessageType -Message @{Error = $err }
+                    return
+                }
+
+                Write-Log $errMsg -Error
+                exit 1
+            }
+
+            Write-Log "[AddonSync] Applying cosign public key secret from '$SigningPublicKey'" -Console
+            $kubectlCmd = Invoke-Kubectl -Params 'create', 'secret', 'generic', 'k2s-cosign-key', '--from-file', "cosign.pub=$SigningPublicKey", '-n', 'k2s-addon-sync', '--dry-run=client', '-o', 'yaml'
+            if (-not $kubectlCmd.Success) {
+                $errMsg = 'Failed to render k2s-cosign-key secret manifest from signing-public-key'
+                if ($EncodeStructuredOutput -eq $true) {
+                    $err = New-Error -Code (Get-ErrCodeAddonEnableFailed) -Message $errMsg
+                    Send-ToCli -MessageType $MessageType -Message @{Error = $err }
+                    return
+                }
+
+                Write-Log $errMsg -Error
+                exit 1
+            }
+
+            $secretManifest = $kubectlCmd.Output -join [Environment]::NewLine
+            $secretManifestFile = Join-Path ([System.IO.Path]::GetTempPath()) 'addon-sync-cosign-key-secret.yaml'
+            Set-Content -Path $secretManifestFile -Value $secretManifest -Encoding UTF8
+            $kubectlCmd = Invoke-Kubectl -Params 'apply', '-f', $secretManifestFile
+            $kubectlCmd.Output | Write-Log
+            Remove-Item $secretManifestFile -Force -ErrorAction SilentlyContinue
+            if (-not $kubectlCmd.Success) {
+                $errMsg = 'Failed to apply k2s-cosign-key secret in namespace k2s-addon-sync'
+                if ($EncodeStructuredOutput -eq $true) {
+                    $err = New-Error -Code (Get-ErrCodeAddonEnableFailed) -Message $errMsg
+                    Send-ToCli -MessageType $MessageType -Message @{Error = $err }
+                    return
+                }
+
+                Write-Log $errMsg -Error
+                exit 1
+            }
+
+            Write-Log '[Rollout] Provisioned cosign public key Secret k2s-cosign-key' -Console
+        }
+
+        $appProjectTemplatePath = Join-Path $PSScriptRoot '..\..\common\manifests\addon-sync\argocd\appproject.yaml'
+        $appProjectTemplatePath = [System.IO.Path]::GetFullPath($appProjectTemplatePath)
+        if (Test-Path -LiteralPath $appProjectTemplatePath) {
+            Write-Log '[AddonSync] Applying ArgoCD AppProject for addon-sync managed Applications' -Console
+            $registryHost = 'k2s.registry.local:30500'
+            $registryUrlCmd = Invoke-Kubectl -Params 'get', 'configmap', 'addon-sync-config', '-n', 'k2s-addon-sync', '-o', 'jsonpath={.data.REGISTRY_URL}'
+            if ($registryUrlCmd.Success) {
+                $registryUrl = ($registryUrlCmd.Output -join '').Trim()
+                if (-not [string]::IsNullOrWhiteSpace($registryUrl)) {
+                    $registryHost = $registryUrl -replace '^oci://', ''
+                }
+            }
+            $appProjectYaml = Get-Content -LiteralPath $appProjectTemplatePath -Raw
+            $appProjectYaml = $appProjectYaml.Replace('REGISTRY_HOST_PLACEHOLDER', $registryHost)
+            $appProjectPath = Join-Path ([System.IO.Path]::GetTempPath()) 'addon-sync-appproject.yaml'
+            Set-Content -Path $appProjectPath -Value $appProjectYaml -Encoding UTF8
+            $kubectlCmd = Invoke-Kubectl -Params 'apply', '-f', $appProjectPath
+            $kubectlCmd.Output | Write-Log
+            Remove-Item $appProjectPath -Force -ErrorAction SilentlyContinue
+            if (-not $kubectlCmd.Success) {
+                $errMsg = "Failed to apply addon-sync AppProject from $appProjectTemplatePath"
+                if ($EncodeStructuredOutput -eq $true) {
+                    $err = New-Error -Code (Get-ErrCodeAddonEnableFailed) -Message $errMsg
+                    Send-ToCli -MessageType $MessageType -Message @{Error = $err }
+                    return
+                }
+
+                Write-Log $errMsg -Error
+                exit 1
+            }
+        } else {
+            Write-Log "Warning: addon-sync AppProject template not found at $appProjectTemplatePath" -Console
+        }
+
         Write-Log 'addon-sync-poller CronJob deployed — it will poll the registry every 5 minutes for new addon artifacts.' -Console
         Write-Log 'Infrastructure deployed successfully' -Console
         Write-Log 'Push an addon OCI artifact to the registry; the poller will detect it within 5 minutes and sync it to the K2s addons directory.' -Console

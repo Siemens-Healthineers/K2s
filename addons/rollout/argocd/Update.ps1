@@ -9,6 +9,16 @@ $rolloutModule = "$PSScriptRoot\rollout.module.psm1"
 
 Import-Module $addonsModule, $rolloutModule
 
+$addonSyncInsecureValue = $null
+$addonSyncConfigExists = (Invoke-Kubectl -Params 'get', 'configmap', 'addon-sync-config', '-n', 'k2s-addon-sync', '--ignore-not-found').Output
+if ((($addonSyncConfigExists -join '').Trim()).Length -gt 0) {
+    $insecureGetCmd = Invoke-Kubectl -Params 'get', 'configmap', 'addon-sync-config', '-n', 'k2s-addon-sync', '-o', 'jsonpath={.data.INSECURE}'
+    if ($insecureGetCmd.Success -and -not [string]::IsNullOrWhiteSpace(($insecureGetCmd.Output -join '').Trim())) {
+        $addonSyncInsecureValue = ($insecureGetCmd.Output -join '').Trim()
+        Write-Log "[AddonSync] Preserving existing INSECURE value '$addonSyncInsecureValue' during rollout/argocd update" -Console
+    }
+}
+
 Update-IngressForAddon -Addon ([pscustomobject] @{Name = 'rollout'; Implementation = 'argocd' })
 
 $EnancedSecurityEnabled = Test-LinkerdServiceAvailability
@@ -31,6 +41,17 @@ if ($EnancedSecurityEnabled) {
 (Invoke-Kubectl -Params 'rollout', 'restart', 'statefulset', '-n', 'rollout').Output | Write-Log
 (Invoke-Kubectl -Params 'rollout', 'status', 'deployment', '-n', 'rollout', '--timeout', '60s').Output | Write-Log
 (Invoke-Kubectl -Params 'rollout', 'status', 'statefulset', '-n', 'rollout', '--timeout', '60s').Output | Write-Log
+
+if (-not [string]::IsNullOrWhiteSpace($addonSyncInsecureValue)) {
+    $insecurePatch = "{\"data\":{\"INSECURE\":\"$addonSyncInsecureValue\"}}"
+    $insecurePatchCmd = Invoke-Kubectl -Params 'patch', 'configmap', 'addon-sync-config', '-n', 'k2s-addon-sync', '--type', 'merge', '-p', $insecurePatch
+    $insecurePatchCmd.Output | Write-Log
+    if ($insecurePatchCmd.Success) {
+        Write-Log "[AddonSync] Re-applied preserved INSECURE value '$addonSyncInsecureValue' after rollout/argocd update" -Console
+    } else {
+        Write-Log '[AddonSync] Failed to re-apply preserved INSECURE value after rollout/argocd update' -Error
+    }
+}
 
 if (Test-NginxGatewayAvailability) {
     Write-Log 'Creating ArgoCD CA certificate ConfigMap for nginx-gw BackendTLSPolicy' -Console

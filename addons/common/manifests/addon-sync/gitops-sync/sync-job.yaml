@@ -39,7 +39,7 @@ metadata:
     # Replaced by Export.ps1 — ensures Job spec changes on each version change so Flux (force: true) recreates it.
     k2s.io/addon-version: "ADDON_VERSION_PLACEHOLDER"
 spec:
-  schedule: "*/1 * * * *"
+  schedule: "*/5 * * * *"
   concurrencyPolicy: Forbid
   successfulJobsHistoryLimit: 3
   failedJobsHistoryLimit: 5
@@ -47,7 +47,7 @@ spec:
     spec:
       ttlSecondsAfterFinished: 300
       activeDeadlineSeconds: 300
-      backoffLimit: 0
+      backoffLimit: 1
       template:
         metadata:
           labels:
@@ -68,7 +68,6 @@ spec:
             windowsOptions:
               hostProcess: true
               runAsUserName: "NT AUTHORITY\\SYSTEM"
-          hostPID: true
           containers:
             - name: addon-sync
               image: shsk2s.azurecr.io/pause-win:v1.8.0

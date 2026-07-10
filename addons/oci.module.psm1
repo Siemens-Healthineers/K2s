@@ -326,6 +326,105 @@ function New-TarArchive {
     return (Test-Path $DestinationPath)
 }
 
+function Test-IsSafeTarEntryPath {
+    <#
+    .SYNOPSIS
+    Validates tar entry path safety and destination containment
+    #>
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$EntryPath,
+        [Parameter(Mandatory = $true)]
+        [string]$DestinationRoot
+    )
+
+    if ([string]::IsNullOrWhiteSpace($EntryPath)) {
+        return $false
+    }
+
+    $trimmed = $EntryPath.Trim()
+
+    if ($trimmed.StartsWith('/') -or $trimmed.StartsWith('\\')) {
+        return $false
+    }
+
+    if ($trimmed -match '^[A-Za-z]:') {
+        return $false
+    }
+
+    $entrySegments = $trimmed -split '[\\/]'
+    if ($entrySegments -contains '..') {
+        return $false
+    }
+
+    $relative = $trimmed -replace '/', '\\'
+    try {
+        $candidatePath = [System.IO.Path]::GetFullPath((Join-Path $DestinationRoot $relative))
+        $normalizedRoot = [System.IO.Path]::GetFullPath($DestinationRoot)
+        if (-not $normalizedRoot.EndsWith([System.IO.Path]::DirectorySeparatorChar)) {
+            $normalizedRoot += [System.IO.Path]::DirectorySeparatorChar
+        }
+
+        return $candidatePath.StartsWith($normalizedRoot, [System.StringComparison]::OrdinalIgnoreCase)
+    }
+    catch {
+        return $false
+    }
+}
+
+function Test-TarArchiveSafeForExtraction {
+    <#
+    .SYNOPSIS
+    Validates tar archive contents before extraction
+    #>
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$ArchivePath,
+        [Parameter(Mandatory = $true)]
+        [string]$DestinationRoot,
+        [Parameter(Mandatory = $false)]
+        [switch]$Gzip
+    )
+
+    # Evidence: addons/common/manifests/addon-sync/base/scripts/Sync-Addons.ps1
+    # rejects link entries and validates extraction containment before untar.
+    $listArgs = if ($Gzip) { @('-tvzf', $ArchivePath) } else { @('-tvf', $ArchivePath) }
+    $listResult = & tar @listArgs 2>&1
+    if ($LASTEXITCODE -ne 0) {
+        throw "[OCI] tar list failed for '$ArchivePath': $listResult"
+    }
+
+    foreach ($rawLine in $listResult) {
+        $line = $rawLine.ToString()
+        if ([string]::IsNullOrWhiteSpace($line)) {
+            continue
+        }
+
+        if ($line.Length -lt 1) {
+            throw "[OCI] Invalid tar entry metadata: '$line'"
+        }
+
+        $entryType = $line.Substring(0, 1)
+        if ($entryType -eq 'l' -or $entryType -eq 'h') {
+            throw "[OCI] Unsafe tar entry type '$entryType' rejected (symlink/hardlink not allowed): $line"
+        }
+
+        $entryMatch = [regex]::Match($line, '^[^\s]+\s+\d+\s+\S+\s+\S+\s+\d+\s+\w+\s+\d+\s+[\d:]+\s+(?<path>.+)$')
+        if (-not $entryMatch.Success) {
+            throw "[OCI] Unable to parse tar entry metadata: $line"
+        }
+
+        $entryPath = $entryMatch.Groups['path'].Value
+        if ($entryPath.Contains(' -> ')) {
+            $entryPath = $entryPath.Split(@(' -> '), 2, [System.StringSplitOptions]::None)[0]
+        }
+
+        if (-not (Test-IsSafeTarEntryPath -EntryPath $entryPath -DestinationRoot $DestinationRoot)) {
+            throw "[OCI] Unsafe tar entry path rejected: $entryPath"
+        }
+    }
+}
+
 function Expand-TarGzArchive {
     <#
     .SYNOPSIS
@@ -341,6 +440,8 @@ function Expand-TarGzArchive {
     if (-not (Test-Path $DestinationPath)) {
         New-Item -ItemType Directory -Path $DestinationPath -Force | Out-Null
     }
+
+    Test-TarArchiveSafeForExtraction -ArchivePath $ArchivePath -DestinationRoot $DestinationPath -Gzip
     
     $currentLocation = Get-Location
     try {
@@ -373,6 +474,8 @@ function Expand-TarArchive {
     if (-not (Test-Path $DestinationPath)) {
         New-Item -ItemType Directory -Path $DestinationPath -Force | Out-Null
     }
+
+    Test-TarArchiveSafeForExtraction -ArchivePath $ArchivePath -DestinationRoot $DestinationPath
     
     $currentLocation = Get-Location
     try {

@@ -14,6 +14,8 @@
 #   ADDON_NAME_PLACEHOLDER     — addon folder name (e.g. monitoring, rollout)
 #   REGISTRY_HOST_PLACEHOLDER  — registry host:port (e.g. k2s.registry.local:30500)
 #   INSECURE_PLACEHOLDER       — "true" or "false"
+#   ADDON_SEMVER_CONSTRAINT_PLACEHOLDER — Flux OCI semver constraint
+#                                      (recommended bounded range, e.g. ">=1.0.0 <2.0.0")
 apiVersion: source.toolkit.fluxcd.io/v1
 kind: OCIRepository
 metadata:
@@ -25,11 +27,20 @@ metadata:
     app.kubernetes.io/part-of: k2s
     k2s.io/addon: ADDON_NAME_PLACEHOLDER
 spec:
-  interval: 1m
+  interval: 5m
   url: oci://REGISTRY_HOST_PLACEHOLDER/addons/ADDON_NAME_PLACEHOLDER
   ref:
-    semver: ">=0.0.0-0"
+    semver: "ADDON_SEMVER_CONSTRAINT_PLACEHOLDER"
   insecure: INSECURE_PLACEHOLDER
   layerSelector:
     mediaType: application/vnd.k2s.addon.deploy.v1.tar+gzip
     operation: extract
+  # Supply-chain verification (opt-in). Uncomment after you cosign-sign the pushed
+  # artifact in the registry:
+  #   cosign sign --yes --key <cosign.key> --tlog-upload=false --allow-insecure-registry <REGISTRY_HOST>/addons/<name>:<tag>
+  # and provision the public key:
+  #   k2s addons enable rollout fluxcd --signing-public-key <cosign.pub>
+  # verify:
+  #   provider: cosign
+  #   secretRef:
+  #     name: k2s-cosign-key

@@ -1,0 +1,23 @@
+# SPDX-FileCopyrightText: © 2026 Siemens Healthineers AG
+#
+# SPDX-License-Identifier: MIT
+
+# ArgoCD AppProject for addon-sync managed Applications.
+#
+# Constrains addon-sync Applications to the local OCI registry and in-cluster
+# destinations. REGISTRY_HOST_PLACEHOLDER is substituted by
+# rollout/argocd/Enable.ps1 at enable time before applying.
+apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: k2s-addon-sync
+  namespace: rollout
+spec:
+  sourceRepos:
+    - oci://REGISTRY_HOST_PLACEHOLDER/*
+  destinations:
+    - namespace: '*'
+      server: https://kubernetes.default.svc
+  clusterResourceWhitelist:
+    - group: ''
+      kind: Namespace

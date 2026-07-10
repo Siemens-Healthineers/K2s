@@ -21,5 +21,5 @@ data:
   # Patched to the actual install path by rollout Enable.ps1; default C:\k covers manual apply.
   K2S_INSTALL_DIR: "C:\\k"
 
-  # Allow HTTP connections to the local K2s registry (NodePort, no TLS).
-  INSECURE: "true"
+  # TLS is required by default. HTTP is opt-in via `k2s addons enable rollout <impl> --insecure-registry`.
+  INSECURE: "false"

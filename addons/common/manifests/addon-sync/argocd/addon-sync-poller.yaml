@@ -37,7 +37,7 @@ spec:
     spec:
       ttlSecondsAfterFinished: 300
       activeDeadlineSeconds: 300
-      backoffLimit: 0
+      backoffLimit: 1
       template:
         metadata:
           labels:
@@ -55,7 +55,6 @@ spec:
               value: "Windows"
               effect: "NoSchedule"
           hostNetwork: true
-          hostPID: true
           securityContext:
             windowsOptions:
               hostProcess: true

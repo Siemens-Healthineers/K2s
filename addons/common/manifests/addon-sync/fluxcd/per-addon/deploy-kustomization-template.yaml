@@ -13,6 +13,11 @@
 # Placeholders must be replaced by the consumer before applying with kubectl:
 #   ADDON_NAME_PLACEHOLDER       — addon folder name (e.g. monitoring, rollout)
 #   ADDON_NAMESPACE_PLACEHOLDER  — namespace the addon installs into (e.g. monitoring)
+#   ADDON_SEMVER_CONSTRAINT_PLACEHOLDER — semver constraint used by the paired
+#                                        deploy OCIRepository (recommended bounded
+#                                        range, e.g. ">=1.0.0 <2.0.0")
+#   ADDON_PRUNE_PLACEHOLDER      — default false; set true only for stateless addons
+#                                  with gitops.prunePolicy=enabled
 apiVersion: kustomize.toolkit.fluxcd.io/v1
 kind: Kustomization
 metadata:
@@ -24,15 +29,17 @@ metadata:
     app.kubernetes.io/part-of: k2s
     k2s.io/addon: ADDON_NAME_PLACEHOLDER
 spec:
-  interval: 1m
-  retryInterval: 1m
+  interval: 5m
+  retryInterval: 5m
   sourceRef:
     kind: OCIRepository
     name: addon-deploy-ADDON_NAME_PLACEHOLDER
   # Root of the extracted deploy layer (cluster-plane manifests only; the host-plane
   # gitops-sync/ Job and helm chart/ subfolder are excluded at export time).
   path: ./
-  prune: true
+  # Default false; set true only for stateless addons with gitops.prunePolicy=enabled.
+  prune: ADDON_PRUNE_PLACEHOLDER
+  # wait:true uses Flux/kstatus readiness of applied resources and satisfies deploy-path health gating.
   wait: true
   timeout: 10m
   targetNamespace: ADDON_NAMESPACE_PLACEHOLDER

@@ -600,6 +600,62 @@ Describe 'Backoff Policy: Failure State Management' -Tag 'unit', 'ci', 'addon', 
 }
 
 # ===========================================================================
+# Test 9 — Registry-unreachable digest fetch participates in backoff
+# ===========================================================================
+Describe 'Registry-unreachable digest fetch backoff behavior' -Tag 'unit', 'ci', 'addon', 'gitops-sync', 'backoff' {
+
+    It 'records and increments failure state using synthetic digest marker for repeated fetch failures' {
+        $addonName = 'registry-unreachable-addon'
+        $markerDigest = 'sha256:registry-unreachable'
+        $failureFile = Join-Path $script:TestStateDir "$addonName.failure"
+        Remove-Item -Path $failureFile -Force -ErrorAction SilentlyContinue
+
+        # First unreachable fetch failure
+        Set-AddonFailureState -AddonName $addonName -CurrentDigest $markerDigest
+        $state1 = Get-AddonFailureState -AddonName $addonName
+        $state1 | Should -Not -BeNullOrEmpty
+        $state1.CurrentDigest | Should -Be $markerDigest
+        $state1.AttemptCount | Should -Be 1
+
+        # Repeated unreachable fetch failure must accumulate attempts on the same marker
+        Set-AddonFailureState -AddonName $addonName -CurrentDigest $markerDigest
+        $state2 = Get-AddonFailureState -AddonName $addonName
+        $state2.CurrentDigest | Should -Be $markerDigest
+        $state2.AttemptCount | Should -Be 2
+    }
+
+    It 'skips addon while within backoff window for synthetic registry-unreachable marker' {
+        $addonName = 'registry-unreachable-backoff-addon'
+        $markerDigest = 'sha256:registry-unreachable'
+        $failureFile = Join-Path $script:TestStateDir "$addonName.failure"
+
+        $failureState = @{
+            CurrentDigest  = $markerDigest
+            AttemptCount   = 2
+            LastAttemptUtc = [DateTime]::UtcNow.AddMinutes(-1).ToString('O')
+        }
+        $failureState | ConvertTo-Json -Depth 10 | Set-Content -Path $failureFile -Encoding UTF8 -Force
+
+        (Test-ShouldSkipForBackoff -AddonName $addonName -CurrentDigest $markerDigest) | Should -BeTrue
+    }
+
+    It 'clears failure state after a subsequent successful sync path' {
+        $addonName = 'registry-unreachable-clear-addon'
+        $markerDigest = 'sha256:registry-unreachable'
+        $failureFile = Join-Path $script:TestStateDir "$addonName.failure"
+
+        Set-AddonFailureState -AddonName $addonName -CurrentDigest $markerDigest
+        (Test-Path $failureFile) | Should -BeTrue
+
+        # Success path in Sync-Addons.ps1 calls Clear-AddonFailureState after a successful pull/extract.
+        Clear-AddonFailureState -AddonName $addonName
+
+        (Test-Path $failureFile) | Should -BeFalse
+        (Get-AddonFailureState -AddonName $addonName) | Should -BeNullOrEmpty
+    }
+}
+
+# ===========================================================================
 # Test 6 — Backup Retention (No Restore.ps1 available)
 # ===========================================================================
 Describe 'Backup Retention: Update Failure Without Restore' -Tag 'unit', 'ci', 'addon', 'gitops-sync', 'backup' {

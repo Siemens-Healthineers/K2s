@@ -155,15 +155,27 @@ kubectl -n k2s-addon-sync get ocirepository,kustomization
 
 1. Export the addon as OCI layout.
 2. Push the exported artifact to your registry.
-3. Flux detects the new tag and addon-sync updates the local addon catalog.
-4. Enable the addon explicitly.
+3. (Optional) Sign the pushed registry reference with cosign.
+4. Provision the cosign public key and enable `verify:` in the per-addon `OCIRepository` for signature validation.
+5. Flux detects the new tag and addon-sync updates the local addon catalog.
+6. Enable the addon explicitly.
 
 ```console
 k2s addons export <ADDON_NAME> -d <export-dir> --omit-images --omit-packages
 oras copy --from-oci-layout <exported-oci-tar>:<tag> <REGISTRY_URL>/addons/<ADDON_NAME>:<tag>
+cosign sign --yes --key <cosign.key> --tlog-upload=false --allow-insecure-registry <REGISTRY_HOST>/addons/<ADDON_NAME>:<tag>
+k2s addons enable rollout fluxcd --signing-public-key <cosign.pub>
+# In per-addon OCIRepository template, uncomment verify:
+# verify:
+#   provider: cosign
+#   secretRef:
+#     name: k2s-cosign-key
 k2s addons ls
 k2s addons enable <ADDON_NAME>
 ```
+
+Use `--allow-insecure-registry` only for local HTTP registries.
+`--tlog-upload=false` is required for offline/no-Rekor environments.
 
 ### Custom registry values (example)
 

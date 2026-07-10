@@ -31,6 +31,8 @@ This guide uses the following placeholders:
 - `<REGISTRY_URL>` -- `oci://<REGISTRY_HOST>`
 - `<ADDON_NAME>` -- addon repository name under `addons/`
 - `<TAG>` -- addon artifact tag (typically the exported addon version)
+- `ADDON_SEMVER_CONSTRAINT_PLACEHOLDER` -- semver selector used in per-addon templates; use a bounded range (for example, `>=1.0.0 <2.0.0`) or an exact tag
+- `ADDON_PRUNE_PLACEHOLDER` -- `true` or `false`; default `false`; enable only for stateless addons
 
 ## Prerequisites
 
@@ -68,7 +70,7 @@ Per-addon FluxCD resources (`OCIRepository addon-sync-<ADDON_NAME>` and `Kustomi
 
 **How FluxCD triggers sync:**
 
-1. Each addon has its own `OCIRepository addon-sync-<ADDON_NAME>` watching `addons/<ADDON_NAME>` every minute -- Flux selects the highest matching semver tag via `ref.semver: ">=0.0.0-0"` and detects when the selected revision changes
+1. Each addon has its own `OCIRepository addon-sync-<ADDON_NAME>` watching `addons/<ADDON_NAME>` every 5 minutes -- Flux selects the highest matching semver tag via `ref.semver: "ADDON_SEMVER_CONSTRAINT_PLACEHOLDER"` (recommended bounded range, for example `>=1.0.0 <2.0.0`) and detects when the selected revision changes
 2. When a new revision is selected, Flux extracts the **manifests layer** from the artifact (using `layerSelector` with media type `application/vnd.k2s.addon.manifests.v1.tar+gzip`)
 3. The manifests layer contains a `gitops-sync/` directory with a `sync-job.yaml` -- a HostProcess Job template injected by `Export.ps1` during export, with the addon name embedded
 4. The per-addon `Kustomization addon-sync-<ADDON_NAME>` applies `gitops-sync/sync-job.yaml`, which creates a HostProcess Job on the Windows node
@@ -77,7 +79,7 @@ Per-addon FluxCD resources (`OCIRepository addon-sync-<ADDON_NAME>` and `Kustomi
 !!! success "No global trigger required"
     Each addon has its own `OCIRepository` watching only its repository (`addons/<ADDON_NAME>`).
     Pushing a new versioned tag only triggers reconciliation for that specific addon, not all addons at once.
-    FluxCD polls every minute (`interval: 1m` on `OCIRepository`). The ArgoCD poller CronJob runs every 5 minutes — a deliberate trade-off for simplicity (no separate Linux pod, no K8s API state).
+    FluxCD polls every 5 minutes (`interval: 5m` on `OCIRepository`). The ArgoCD poller CronJob runs every 5 minutes.
 
 !!! info "The export timestamp"
     `Export.ps1` replaces a timestamp placeholder in the Job annotation on each export. Combined with Flux's `force: true` setting, this ensures the Job is recreated every time the artifact changes.
@@ -106,6 +108,15 @@ The addon-sync infrastructure deployed for ArgoCD includes:
 | `addon-sync-config` | `ConfigMap` | Registry URL, K2s install dir, insecure flag |
 | `addon-sync-script` | `ConfigMap` | Contains `Sync-Addons.ps1` (generated from file) |
 
+ArgoCD per-addon delivery uses an `Application` template with:
+
+- `project: k2s-addon-sync` (not `default`)
+- `revisionHistoryLimit: 10`
+- `targetRevision: "ADDON_SEMVER_CONSTRAINT_PLACEHOLDER"`
+- `syncPolicy.automated.prune: ADDON_PRUNE_PLACEHOLDER`
+
+Known limitation: ArgoCD native `oci://` source cannot verify OCI signatures. For signature verification, use FluxCD `OCIRepository.verify` with cosign.
+
 **How ArgoCD triggers sync:**
 
 ArgoCD cannot natively watch raw OCI artifact layers (unlike FluxCD's `OCIRepository`). Instead, the `addon-sync-poller` CronJob polls the registry directly, running as a Windows HostProcess at the same privilege level as the sync Jobs:
@@ -130,6 +141,64 @@ When addon-sync runs with `-ApplyIfEnabled true` for an already-enabled addon:
 
 !!! important "Push and enable are manual consumer steps"
     The poller automates the download and extraction of addon artifacts. Pushing artifacts to the registry **and** enabling addons are both deliberate actions taken by the consumer.
+
+### Hardening defaults and authority boundaries
+
+- `INSECURE` default is `false` (TLS required by default).
+- To opt into HTTP registry access, enable rollout with `--insecure-registry`:
+
+```console
+k2s addons enable rollout fluxcd --insecure-registry
+k2s addons enable rollout argocd --insecure-registry
+```
+
+- Upgrade behavior preserves the existing `INSECURE` value.
+- Enablement authority remains `setup.json` via CLI actions: `k2s addons enable <name>` / `k2s addons disable <name>` are authoritative.
+- GitOps addon-sync delivers files and can update the version of already-enabled addons; it does not enable or disable addons.
+
+### Supply-chain signing (opt-in)
+
+Signing is a manual post-push step. Export does not sign artifacts.
+
+1. Export the addon OCI artifact:
+
+```console
+k2s addons export <ADDON_NAME> -d C:\exports --omit-images --omit-packages
+```
+
+2. Push it to the registry (see [Push to registry](#push-to-registry)).
+
+3. Sign the pushed registry reference:
+
+```bash
+cosign sign --yes --key <cosign.key> --tlog-upload=false --allow-insecure-registry <REGISTRY_HOST>/addons/<ADDON_NAME>:<TAG>
+```
+
+4. Provision the cosign public key for Flux verification:
+
+```console
+k2s addons enable rollout fluxcd --signing-public-key <cosign.pub>
+```
+
+5. In per-addon Flux `OCIRepository` templates, uncomment `verify:` and set:
+
+- `provider: cosign`
+- `secretRef.name: k2s-cosign-key`
+
+For local HTTP registries, include `--allow-insecure-registry` when signing.
+`--tlog-upload=false` is required for offline/no-Rekor environments.
+
+Known limitation: ArgoCD native `oci://` source cannot verify OCI signatures. Use FluxCD `OCIRepository.verify` for verified supply chain.
+
+### pause-win preload invariant
+
+`shsk2s.azurecr.io/pause-win:v1.8.0` is the pre-loaded containerd Windows HostProcess sandbox image (`IfNotPresent`, exclude-from-export).
+It is never pulled as addon content during GitOps runtime and must already exist from K2s node installation.
+
+### Addon update coverage
+
+The addons `gpu-node`, `kubevirt`, and `storage/smb` do not provide `Update.ps1`.
+For these addons, cluster-plane Kubernetes resources are applied natively by Flux deploy `Kustomization` / Argo `Application`, while host-plane scripts are version-stable.
 
 ### Disabling Addon-Sync
 
@@ -191,7 +260,7 @@ addons/<ADDON_NAME>:<TAG>    <- per-addon artifact (versioned tag, e.g. v1.2.3)
 ```
 
 Addon-sync discovers all repos matching `addons/*` automatically (ArgoCD).
-For FluxCD, each addon's `OCIRepository addon-sync-<ADDON_NAME>` selects the highest semver-matching tag in `addons/<ADDON_NAME>` via `ref.semver: ">=0.0.0-0"`. A single versioned push is sufficient -- no `latest` tag is needed.
+For FluxCD, each addon's `OCIRepository addon-sync-<ADDON_NAME>` selects the highest semver-matching tag in `addons/<ADDON_NAME>` via `ref.semver: "ADDON_SEMVER_CONSTRAINT_PLACEHOLDER"` (recommended bounded range, for example `>=1.0.0 <2.0.0`). A single versioned push is sufficient -- no `latest` tag is needed.
 
 To find the tag, inspect the exported `index.json`:
 
@@ -217,6 +286,14 @@ $orasExe = Join-Path $k2sInstallDir 'bin\oras.exe'
 # One push -- FluxCD semver selection and ArgoCD tag selection both pick it up automatically
 & $orasExe copy --from-oci-layout "${tarFile}:$tag" --to-plain-http <REGISTRY_HOST>/addons/<ADDON_NAME>:$tag
 ```
+
+Optional signing step (recommended for Flux verification):
+
+```bash
+cosign sign --yes --key <cosign.key> --tlog-upload=false --allow-insecure-registry <REGISTRY_HOST>/addons/<ADDON_NAME>:<TAG>
+```
+
+Use `--allow-insecure-registry` only for local HTTP registries.
 
 Complete example with the monitoring addon:
 
@@ -273,7 +350,9 @@ Substitute placeholders and apply:
 $k2sInstallDir = (kubectl get configmap addon-sync-config -n k2s-addon-sync -o jsonpath='{.data.K2S_INSTALL_DIR}').Trim()
 $addonName     = '<ADDON_NAME>'                 # <-- change to your addon folder name
 $registryHost  = '<REGISTRY_HOST>'              # <-- e.g. k2s.registry.local:30500
-$insecure      = 'true'                         # <-- set to 'false' for TLS registries
+$insecure      = 'false'                        # <-- default; set to 'true' only for HTTP registries
+$semverConstraint = '>=1.0.0 <2.0.0'            # <-- recommended bounded range or exact tag
+$prune = 'false'                                # <-- default; enable only for stateless addons
 
 $templateDir = Join-Path $k2sInstallDir 'addons\common\manifests\addon-sync\fluxcd\per-addon'
 
@@ -285,6 +364,8 @@ foreach ($template in @('ocirepository-template.yaml', 'kustomization-template.y
     $content = $content -replace 'ADDON_NAME_PLACEHOLDER',    $addonName
     $content = $content -replace 'REGISTRY_HOST_PLACEHOLDER', $registryHost
     $content = $content -replace 'INSECURE_PLACEHOLDER',      $insecure
+    $content = $content -replace 'ADDON_SEMVER_CONSTRAINT_PLACEHOLDER', $semverConstraint
+    $content = $content -replace 'ADDON_PRUNE_PLACEHOLDER',   $prune
     Set-Content -Path (Join-Path $tmpDir $template) -Value $content -Encoding UTF8
 }
 
@@ -425,7 +506,7 @@ kubectl edit configmap addon-sync-config -n k2s-addon-sync
 |-----|---------|-------------|
 | `REGISTRY_URL` | Example local value: `oci://k2s.registry.local:30500` | Base OCI registry URL (registry host only, no repository path). Sync-Addons.ps1 discovers per-addon repos at `addons/<ADDON_NAME>` automatically |
 | `K2S_INSTALL_DIR` | `C:\k` | K2s installation directory on the Windows host |
-| `INSECURE` | `true` | Allow HTTP registry connections (required for local insecure registries, such as local K2s dev/test) |
+| `INSECURE` | `false` | TLS required by default; set `true` only for HTTP registries (or use `k2s addons enable rollout <fluxcd|argocd> --insecure-registry`) |
 
 ### Polling Interval
 
@@ -435,7 +516,7 @@ kubectl edit configmap addon-sync-config -n k2s-addon-sync
 kubectl edit ocirepository addon-sync-<ADDON_NAME> -n k2s-addon-sync
 ```
 
-Change `spec.interval` (e.g., `1m` for faster polling, `30m` for less frequent checks).
+Change `spec.interval` (default `5m`; for example, `2m` for faster polling or `30m` for less frequent checks).
 
 **ArgoCD** -- addon sync runs via the `addon-sync-poller` CronJob on a polling schedule. To inspect or adjust the schedule:
 

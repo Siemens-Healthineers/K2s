@@ -29,6 +29,12 @@ spec:
               - name: addon-sync
                 default: true
                 description: Deploy addon-sync infrastructure for GitOps addon delivery from OCI registry
+              - name: insecure-registry
+                default: false
+                description: Allow insecure HTTP access to the local addon-sync OCI registry
+              - name: signing-public-key
+                default: ""
+                description: Path to cosign public key file (cosign.pub) for signature verification
             examples:
               - cmd: k2s addons enable rollout argocd
                 comment: Enable rollout with ArgoCD in k2s
@@ -43,6 +49,10 @@ spec:
                 scriptParameterName: Ingress
               - cliFlagName: addon-sync
                 scriptParameterName: AddonSync
+              - cliFlagName: insecure-registry
+                scriptParameterName: InsecureRegistry
+              - cliFlagName: signing-public-key
+                scriptParameterName: SigningPublicKey
         disable:
           cli:
             examples:
@@ -80,6 +90,12 @@ spec:
               - name: addon-sync
                 default: true
                 description: Deploy addon-sync infrastructure for GitOps addon delivery from OCI registry
+              - name: insecure-registry
+                default: false
+                description: Allow insecure HTTP access to the local addon-sync OCI registry
+              - name: signing-public-key
+                default: ""
+                description: Path to cosign public key file (cosign.pub) for signature verification
             examples:
               - cmd: k2s addons enable rollout fluxcd
                 comment: Enable rollout with Flux CD in k2s
@@ -94,6 +110,10 @@ spec:
                 scriptParameterName: Ingress
               - cliFlagName: addon-sync
                 scriptParameterName: AddonSync
+              - cliFlagName: insecure-registry
+                scriptParameterName: InsecureRegistry
+              - cliFlagName: signing-public-key
+                scriptParameterName: SigningPublicKey
         disable:
           cli:
             examples:

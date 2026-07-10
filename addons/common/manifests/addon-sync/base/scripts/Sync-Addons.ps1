@@ -1051,6 +1051,7 @@ foreach ($addonRepoName in $addonRepos) {
     $sanitizedFullRef = Get-SanitizedRegistryUrl $fullRef
 
     # Fetch current digest (needed for both digest-check and backoff logic)
+    $registryUnreachableDigest = 'sha256:registry-unreachable'
     $currentDigest = $null
     $digestFetchFailed = $false
     try {
@@ -1061,10 +1062,12 @@ foreach ($addonRepoName in $addonRepos) {
             $currentDigest = ($descriptorJson | Out-String | ConvertFrom-Json).digest
         } else {
             Write-SyncLog "  Digest fetch failed for '$addonRepoName' (exit $LASTEXITCODE): $(Get-SanitizedRegistryUrl ($descriptorJson | Out-String))" -Warning
+            $currentDigest = $registryUnreachableDigest
             $digestFetchFailed = $true
         }
     } catch {
         Write-SyncLog "  Digest fetch error for '$addonRepoName': $(Get-SanitizedRegistryUrl ($_ | Out-String))" -Warning
+        $currentDigest = $registryUnreachableDigest
         $digestFetchFailed = $true
     }
 
@@ -1098,6 +1101,17 @@ foreach ($addonRepoName in $addonRepos) {
         }
 
         $skippedCount++
+        continue
+    }
+
+    if ($digestFetchFailed) {
+        # Evidence (same file): Test-ShouldSkipForBackoff and Set-AddonFailureState
+        # key retries by CurrentDigest, so a stable marker enables exponential backoff
+        # for repeated registry-unreachable manifest fetch failures.
+        Set-AddonFailureState -AddonName $addonRepoName -CurrentDigest $registryUnreachableDigest
+        Write-SyncLog "[Sync] Registry manifest fetch failed for '$addonRepoName'; recorded failure state with synthetic digest marker for backoff"
+        Set-AddonStatusConfigMap -StateKey $addonRepoName -Phase 'Failed'
+        $failedCount++
         continue
     }
 

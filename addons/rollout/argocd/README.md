@@ -120,8 +120,9 @@ k2s addons enable rollout argocd
 
 1. Export the addon as OCI layout.
 2. Push the exported artifact to your registry under `addons/<name>:<tag>`.
-3. Wait for addon-sync to detect and pull the new digest.
-4. Enable the addon with K2s.
+3. (Optional) Sign the pushed registry reference with cosign.
+4. Wait for addon-sync to detect and pull the new digest.
+5. Enable the addon with K2s.
 
 ```console
 # 1) Export
@@ -130,12 +131,21 @@ k2s addons export <ADDON_NAME> -d C:\exports --omit-images --omit-packages
 # 2) Push (example)
 oras copy --from-oci-layout C:\exports\<exported-addon>.oci.tar:<tag> <REGISTRY_HOST>/addons/<ADDON_NAME>:<tag>
 
-# 3) Verify it is now available locally
+# 3) Optional signing (post-push)
+cosign sign --yes --key <cosign.key> --tlog-upload=false --allow-insecure-registry <REGISTRY_HOST>/addons/<ADDON_NAME>:<tag>
+
+# 4) Verify it is now available locally
 k2s addons ls
 
-# 4) Deploy workloads
+# 5) Deploy workloads
 k2s addons enable <ADDON_NAME>
 ```
+
+Use `--allow-insecure-registry` only for local HTTP registries.
+`--tlog-upload=false` is required for offline/no-Rekor environments.
+
+Known limitation: ArgoCD native `oci://` Application source cannot verify OCI signatures.
+For verified supply chain workflows, use the FluxCD path with `OCIRepository.verify` and cosign key provisioning.
 
 ### Custom registry values (example)
 

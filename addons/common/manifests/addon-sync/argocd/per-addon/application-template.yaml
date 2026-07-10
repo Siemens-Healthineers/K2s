@@ -18,6 +18,9 @@
 #   ADDON_NAME_PLACEHOLDER       — addon folder name (e.g. monitoring, rollout)
 #   REGISTRY_HOST_PLACEHOLDER    — registry host:port (e.g. k2s.registry.local:30500)
 #   ADDON_NAMESPACE_PLACEHOLDER  — namespace the addon installs into (e.g. monitoring)
+#   ADDON_SEMVER_CONSTRAINT_PLACEHOLDER — semver constraint for OCI tag selection
+#   ADDON_PRUNE_PLACEHOLDER       — default false; enable only for stateless addons
+#                                   with gitops.prunePolicy=enabled
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
@@ -32,18 +35,24 @@ metadata:
   finalizers:
     - resources-finalizer.argocd.argoproj.io
 spec:
-  project: default
+  project: k2s-addon-sync
+  revisionHistoryLimit: 10
   source:
+    # Known limitation: Argo native oci:// source cannot verify artifact signatures.
+    # For signed supply chains, use the Flux path (cosign verify) or an external
+    # admission policy.
     repoURL: oci://REGISTRY_HOST_PLACEHOLDER/addons/ADDON_NAME_PLACEHOLDER
     # Highest matching immutable semver tag; ArgoCD tracks the resolved digest.
-    targetRevision: ">=0.0.0-0"
+    targetRevision: "ADDON_SEMVER_CONSTRAINT_PLACEHOLDER"
     path: .
   destination:
     server: https://kubernetes.default.svc
     namespace: ADDON_NAMESPACE_PLACEHOLDER
   syncPolicy:
     automated:
-      prune: true
+      prune: ADDON_PRUNE_PLACEHOLDER
+      # Evidence (SHARED CONTRACT, 2026-07-10): default false; enable only for
+      # stateless addons with gitops.prunePolicy=enabled.
       selfHeal: true
     syncOptions:
       - CreateNamespace=true
@@ -54,3 +63,4 @@ spec:
         duration: 30s
         factor: 2
         maxDuration: 5m
+

@@ -208,14 +208,14 @@ var _ = Describe("'rollout fluxcd' GitOps addon sync", Ordered, func() {
 			GinkgoWriter.Printf("[Test] Kustomization template found: %s\n", templatePath)
 		})
 
-		It("OCIRepository template contains the expected FluxCD semver ref selector", func(ctx context.Context) {
+		It("OCIRepository template contains the semver placeholder token used for runtime constraint injection", func(ctx context.Context) {
 			templatePath := filepath.Join(suite.RootDir(), perAddonTemplateSubDir, "ocirepository-template.yaml")
 
 			content, err := os.ReadFile(templatePath)
 			Expect(err).ToNot(HaveOccurred())
 
-			Expect(string(content)).To(ContainSubstring(`semver: ">=0.0.0-0"`),
-				"OCIRepository template must use semver selector >=0.0.0-0 to select highest tag")
+			Expect(string(content)).To(ContainSubstring(`semver: "ADDON_SEMVER_CONSTRAINT_PLACEHOLDER"`),
+				"OCIRepository template must expose ADDON_SEMVER_CONSTRAINT_PLACEHOLDER for runtime semver injection")
 		})
 
 		It("OCIRepository template uses the manifests layer selector for gitops-sync extraction", func(ctx context.Context) {
@@ -371,9 +371,10 @@ var _ = Describe("'rollout fluxcd' GitOps addon sync", Ordered, func() {
 			ociRepoYAMLFile, err = renderTemplate(
 				filepath.Join(suite.RootDir(), perAddonTemplateSubDir, "ocirepository-template.yaml"),
 				map[string]string{
-					"ADDON_NAME_PLACEHOLDER":    testAddonName,
-					"REGISTRY_HOST_PLACEHOLDER": registryHost,
-					"INSECURE_PLACEHOLDER":      "true",
+					"ADDON_NAME_PLACEHOLDER":              testAddonName,
+					"REGISTRY_HOST_PLACEHOLDER":           registryHost,
+					"INSECURE_PLACEHOLDER":                "true",
+					"ADDON_SEMVER_CONSTRAINT_PLACEHOLDER": ">=0.0.0-0",
 				})
 			Expect(err).ToNot(HaveOccurred(), "failed to render OCIRepository template")
 
@@ -741,9 +742,10 @@ var _ = Describe("'rollout fluxcd' GitOps addon sync", Ordered, func() {
 				badOciRepoYAMLFile, err = renderTemplate(
 					filepath.Join(suite.RootDir(), perAddonTemplateSubDir, "ocirepository-template.yaml"),
 					map[string]string{
-						"ADDON_NAME_PLACEHOLDER":    badAddonName,
-						"REGISTRY_HOST_PLACEHOLDER": registryHost,
-						"INSECURE_PLACEHOLDER":      "true",
+						"ADDON_NAME_PLACEHOLDER":              badAddonName,
+						"REGISTRY_HOST_PLACEHOLDER":           registryHost,
+						"INSECURE_PLACEHOLDER":                "true",
+						"ADDON_SEMVER_CONSTRAINT_PLACEHOLDER": ">=0.0.0-0",
 					})
 				Expect(err).ToNot(HaveOccurred(), "failed to render OCIRepository template for bad addon")
 

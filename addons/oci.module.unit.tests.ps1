@@ -282,4 +282,43 @@ Describe 'Module exports correct public functions' -Tag 'unit', 'ci', 'addon', '
             Get-Command -Module $moduleName -Name 'ConvertTo-CanonicalJson' | Should -Not -BeNullOrEmpty
         }
     }
+
+}
+
+Describe 'Tar extraction safety checks' -Tag 'unit', 'ci', 'addon', 'oci' {
+    It 'Expand-TarArchive rejects path traversal entries' {
+        InModuleScope $moduleName {
+            Mock -ModuleName $moduleName Test-Path { return $true }
+            Mock -ModuleName $moduleName New-Item { }
+            Mock -ModuleName $moduleName tar {
+                return @('drwxr-xr-x 0 0 0 0 Jan 1 00:00 good/', '-rw-r--r-- 0 0 0 1 Jan 1 00:00 ../evil.txt')
+            } -ParameterFilter { $args -contains '-tvf' }
+
+            { Expand-TarArchive -ArchivePath 'C:\tmp\a.tar' -DestinationPath 'C:\tmp\out' } | Should -Throw '*[OCI] Unsafe tar entry path rejected*'
+        }
+    }
+
+    It 'Expand-TarGzArchive rejects absolute path entries' {
+        InModuleScope $moduleName {
+            Mock -ModuleName $moduleName Test-Path { return $true }
+            Mock -ModuleName $moduleName New-Item { }
+            Mock -ModuleName $moduleName tar {
+                return @('-rw-r--r-- 0 0 0 1 Jan 1 00:00 /root/evil.txt')
+            } -ParameterFilter { $args -contains '-tvzf' }
+
+            { Expand-TarGzArchive -ArchivePath 'C:\tmp\a.tar.gz' -DestinationPath 'C:\tmp\out' } | Should -Throw '*[OCI] Unsafe tar entry path rejected*'
+        }
+    }
+
+    It 'Expand-TarArchive rejects symlink entries' {
+        InModuleScope $moduleName {
+            Mock -ModuleName $moduleName Test-Path { return $true }
+            Mock -ModuleName $moduleName New-Item { }
+            Mock -ModuleName $moduleName tar {
+                return @('lrwxrwxrwx 0 0 0 0 Jan 1 00:00 link -> target')
+            } -ParameterFilter { $args -contains '-tvf' }
+
+            { Expand-TarArchive -ArchivePath 'C:\tmp\a.tar' -DestinationPath 'C:\tmp\out' } | Should -Throw '*[OCI] Unsafe tar entry type*'
+        }
+    }
 }
