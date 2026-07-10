@@ -55,8 +55,8 @@
     {
       "name": "prometheus",
       "pluginDir": "prometheus-plugin",
-      "version": "0.8.2",
-      "image": "shsk2s.azurecr.io/headlamp-plugin-prometheus:0.8.2",
+      "version": "0.9.0",
+      "image": "shsk2s.azurecr.io/headlamp-plugin-prometheus:0.9.0",
       "detectionSource": "github-releases",
       "acquisition": "prebuilt",
       "upstreamReleaseRef": {
@@ -67,13 +67,37 @@
       "source": {
         "type": "git",
         "repo": "https://github.com/headlamp-k8s/plugins.git",
-        "ref": "prometheus-0.8.2",
+        "ref": "prometheus-0.9.0",
         "subdir": "prometheus"
       },
       "prebuilt": {
-        "url": "https://github.com/headlamp-k8s/plugins/releases/download/prometheus-0.8.2/prometheus-0.8.2.tar.gz",
-        "localPath": "plugins/prometheus-0.8.2.tar.gz",
-        "sha256": "1280172868a81e73f537eba55dc0dc765defa50142b9312008c2bae702a3c7a8"
+        "url": "https://github.com/headlamp-k8s/plugins/releases/download/prometheus-0.9.0/prometheus-0.9.0.tar.gz",
+        "localPath": "plugins/prometheus-0.9.0.tar.gz",
+        "sha256": "061cd8ad94d4795f397c85ee7338fc724d59d11f7853f6b78dea28e4931cc021"
+      }
+    },
+    {
+      "name": "keda",
+      "pluginDir": "keda-plugin",
+      "version": "0.1.2",
+      "image": "shsk2s.azurecr.io/headlamp-plugin-keda:0.1.2",
+      "detectionSource": "github-releases",
+      "acquisition": "prebuilt",
+      "upstreamReleaseRef": {
+        "owner": "headlamp-k8s",
+        "repo": "plugins",
+        "tagPattern": "keda-{version}"
+      },
+      "source": {
+        "type": "git",
+        "repo": "https://github.com/headlamp-k8s/plugins.git",
+        "ref": "keda-0.1.2",
+        "subdir": "keda"
+      },
+      "prebuilt": {
+        "url": "https://github.com/headlamp-k8s/plugins/releases/download/keda-0.1.2/headlamp-k8s-keda-0.1.2.tar.gz",
+        "localPath": "plugins/keda-0.1.2.tar.gz",
+        "sha256": "979996aa0d0efdbc852baf6977e178c955264e346fea2c82df94b2d58ef57501"
       }
     }
   ]
