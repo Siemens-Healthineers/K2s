@@ -589,6 +589,20 @@ function Convert-VhdxToRootfs {
 
     $vmName = $RootfsWslProvisioningVmName
 
+    # The rootfs creation VM must temporarily hold, under /var/tmp/rootfs (disk-backed root fs),
+    # the copied source vhdx, the fully extracted (uncompressed) root filesystem and the resulting
+    # tarball all at once. /tmp is a RAM-backed tmpfs (~half of RAM) and is too small for this.
+    # Provide more disk than the control plane defaults to avoid scp 'write failure'
+    # / 'no space left on device' errors as the produced image grows in size.
+    $sourceVhdxSizeBytes = (Get-Item -Path $SourceVhdxPath).Length
+    $requiredDiskSize = [uint64]$sourceVhdxSizeBytes * 6 + 20GB
+    $rootfsVmDiskSize = [System.Math]::Max([uint64]$VMDiskSize, $requiredDiskSize)
+    $rootfsVmMemory = [System.Math]::Max([long]$VMMemoryStartupBytes, [long]8GB)
+    $sourceVhdxSizeGB = [System.Math]::Round($sourceVhdxSizeBytes / 1GB, 2)
+    $rootfsVmDiskSizeGB = [System.Math]::Round($rootfsVmDiskSize / 1GB, 2)
+    $rootfsVmMemoryGB = [System.Math]::Round($rootfsVmMemory / 1GB, 2)
+    Write-Log "Rootfs creation VM '$vmName': source vhdx ${sourceVhdxSizeGB}GB -> using disk ${rootfsVmDiskSizeGB}GB, memory ${rootfsVmMemoryGB}GB" -Console
+
     $Hook = {
         New-RootfsForWSL -IpAddress $(Get-VmIpForProvisioningKubeNode) -UserName $(Get-DefaultUserNameKubeNode) -UserPwd $(Get-DefaultUserPwdKubeNode) -VhdxFile $SourceVhdxPath -TargetFilePath $TargetRootfsFilePath
     }
@@ -597,8 +611,8 @@ function Convert-VhdxToRootfs {
         VhdxPath=$rootfsCreatorHostVhdxPath
         VmName=$vmName
         Hook = $Hook
-        VMDiskSize = $VMDiskSize
-        VMMemoryStartupBytes = $VMMemoryStartupBytes
+        VMDiskSize = $rootfsVmDiskSize
+        VMMemoryStartupBytes = $rootfsVmMemory
         VMProcessorCount = $VMProcessorCount
     }
     Start-VmBasedOnKubenodeBaseImage @vmBasedOnKubenodeBaseImageStartParams
@@ -660,18 +674,24 @@ Function New-RootfsForWSL {
         Remove-Item $TargetFilePath -Force
     }
 
-    &$executeRemoteCommand "sudo mkdir -p /tmp/rootfs"
-    &$executeRemoteCommand "sudo chmod 755 /tmp/rootfs"
-    &$executeRemoteCommand "sudo chown $UserName /tmp/rootfs"
+    # Stage the conversion on the disk-backed root filesystem (/var/tmp), NOT /tmp.
+    # On these VMs /tmp is a tmpfs (RAM-backed, ~half of RAM) and cannot hold the copied vhdx
+    # plus the fully extracted rootfs plus the tarball, which causes 'No space left on device'.
+    &$executeRemoteCommand "sudo mkdir -p /var/tmp/rootfs"
+    &$executeRemoteCommand "sudo chmod 755 /var/tmp/rootfs"
+    &$executeRemoteCommand "sudo chown $UserName /var/tmp/rootfs"
 
-    $target = '/tmp/rootfs/'
+    Write-Log "Available space on rootfs creation VM (staging dir /var/tmp) before copying the vhdx:"
+    &$executeRemoteCommand "df -h /var/tmp"
+
+    $target = '/var/tmp/rootfs/'
     $filename = Split-Path $VhdxFile -Leaf
     # Allow a couple of retries for the large VHDX file transfer (3GB+) to tolerate transient SCP failures.
     Copy-ToRemoteComputerViaUserAndPwd -Source $VhdxFile -Target $target -IpAddress $IpAddress -Retries 2
 
-    &$executeRemoteCommand "cd /tmp/rootfs && sudo mkdir mntfs"
-    &$executeRemoteCommand "cd /tmp/rootfs && sudo modprobe nbd"
-    &$executeRemoteCommand "cd /tmp/rootfs && sudo qemu-nbd -c /dev/nbd0 ./$filename"
+    &$executeRemoteCommand "cd /var/tmp/rootfs && sudo mkdir mntfs"
+    &$executeRemoteCommand "cd /var/tmp/rootfs && sudo modprobe nbd"
+    &$executeRemoteCommand "cd /var/tmp/rootfs && sudo qemu-nbd -c /dev/nbd0 ./$filename"
 
     $waitFile = @'
 #!/bin/bash \n
@@ -692,44 +712,44 @@ waitFile() { \n
 $@ \n
 '@
 
-    &$executeRemoteCommand "sudo touch /tmp/rootfs/waitfile.sh"
-    &$executeRemoteCommand "sudo chmod +x /tmp/rootfs/waitfile.sh"
-    &$executeRemoteCommand "echo -e '$waitFile' | sudo tee -a /tmp/rootfs/waitfile.sh" | Out-Null
-    &$executeRemoteCommand "cd /tmp/rootfs && sed -i 's/\r//g' waitfile.sh"
-    &$executeRemoteCommand "cd /tmp/rootfs && ./waitfile.sh waitFile /dev/nbd0p1 'a' 30"
+    &$executeRemoteCommand "sudo touch /var/tmp/rootfs/waitfile.sh"
+    &$executeRemoteCommand "sudo chmod +x /var/tmp/rootfs/waitfile.sh"
+    &$executeRemoteCommand "echo -e '$waitFile' | sudo tee -a /var/tmp/rootfs/waitfile.sh" | Out-Null
+    &$executeRemoteCommand "cd /var/tmp/rootfs && sed -i 's/\r//g' waitfile.sh"
+    &$executeRemoteCommand "cd /var/tmp/rootfs && ./waitfile.sh waitFile /dev/nbd0p1 'a' 30"
 
-    &$executeRemoteCommand "cd /tmp/rootfs && sudo mount /dev/nbd0p1 mntfs"
+    &$executeRemoteCommand "cd /var/tmp/rootfs && sudo mount /dev/nbd0p1 mntfs"
 
-    &$executeRemoteCommand "cd /tmp/rootfs && sudo cp -a mntfs rootfs"
+    &$executeRemoteCommand "cd /var/tmp/rootfs && sudo cp -a mntfs rootfs"
 
     # WSL-specific fixes: The rootfs is from Hyper-V and has PARTUUID entries in fstab
     # that don't exist in WSL, causing systemd to hang waiting for non-existent devices
     Write-Log "Applying WSL-specific fixes to rootfs (fstab, boot-efi.mount)..."
     # Fix fstab - replace PARTUUID entries with /dev/sdb (WSL standard)
-    &$executeRemoteCommand 'cd /tmp/rootfs && echo "/dev/sdb / ext4 rw,discard,errors=remount-ro 0 1" | sudo tee rootfs/etc/fstab'
+    &$executeRemoteCommand 'cd /var/tmp/rootfs && echo "/dev/sdb / ext4 rw,discard,errors=remount-ro 0 1" | sudo tee rootfs/etc/fstab'
     # Mask boot-efi.mount - prevents waiting for non-existent EFI partition
-    &$executeRemoteCommand "cd /tmp/rootfs && sudo ln -sf /dev/null rootfs/etc/systemd/system/boot-efi.mount"
+    &$executeRemoteCommand "cd /var/tmp/rootfs && sudo ln -sf /dev/null rootfs/etc/systemd/system/boot-efi.mount"
     # Configure systemd for cgroups v1 compatibility (WSL2 kernel uses cgroups v1)
-    &$executeRemoteCommand "cd /tmp/rootfs && sudo mkdir -p rootfs/etc/systemd/system/user@.service.d"
-    &$executeRemoteCommand 'cd /tmp/rootfs && echo -e "[Service]\nDelegate=yes" | sudo tee rootfs/etc/systemd/system/user@.service.d/delegate.conf'
-    &$executeRemoteCommand "cd /tmp/rootfs && sudo mkdir -p rootfs/etc/systemd/logind.conf.d"
-    &$executeRemoteCommand 'cd /tmp/rootfs && echo -e "[Login]\nKillUserProcesses=no" | sudo tee rootfs/etc/systemd/logind.conf.d/wsl.conf'
+    &$executeRemoteCommand "cd /var/tmp/rootfs && sudo mkdir -p rootfs/etc/systemd/system/user@.service.d"
+    &$executeRemoteCommand 'cd /var/tmp/rootfs && echo -e "[Service]\nDelegate=yes" | sudo tee rootfs/etc/systemd/system/user@.service.d/delegate.conf'
+    &$executeRemoteCommand "cd /var/tmp/rootfs && sudo mkdir -p rootfs/etc/systemd/logind.conf.d"
+    &$executeRemoteCommand 'cd /var/tmp/rootfs && echo -e "[Login]\nKillUserProcesses=no" | sudo tee rootfs/etc/systemd/logind.conf.d/wsl.conf'
 
-    &$executeRemoteCommand "cd /tmp/rootfs && sudo umount mntfs"
-    &$executeRemoteCommand "cd /tmp/rootfs && sudo qemu-nbd -d /dev/nbd0"
-    &$executeRemoteCommand "cd /tmp/rootfs && ./waitfile.sh waitFile /dev/nbd0p1 'd' 30"
-    &$executeRemoteCommand "cd /tmp/rootfs && sudo rmmod nbd"
-    &$executeRemoteCommand "cd /tmp/rootfs && sudo rmdir mntfs"
+    &$executeRemoteCommand "cd /var/tmp/rootfs && sudo umount mntfs"
+    &$executeRemoteCommand "cd /var/tmp/rootfs && sudo qemu-nbd -d /dev/nbd0"
+    &$executeRemoteCommand "cd /var/tmp/rootfs && ./waitfile.sh waitFile /dev/nbd0p1 'd' 30"
+    &$executeRemoteCommand "cd /var/tmp/rootfs && sudo rmmod nbd"
+    &$executeRemoteCommand "cd /var/tmp/rootfs && sudo rmdir mntfs"
 
-    &$executeRemoteCommand "cd /tmp/rootfs && sudo rm $filename"
+    &$executeRemoteCommand "cd /var/tmp/rootfs && sudo rm $filename"
 
-    &$executeRemoteCommand "cd /tmp/rootfs && sudo tar -zcpf rootfs.tar.gz -C ./rootfs ."  -IgnoreErrors
-    &$executeRemoteCommand 'cd /tmp/rootfs && sudo chown "$(id -un)" rootfs.tar.gz'
+    &$executeRemoteCommand "cd /var/tmp/rootfs && sudo tar -zcpf rootfs.tar.gz -C ./rootfs ."  -IgnoreErrors
+    &$executeRemoteCommand 'cd /var/tmp/rootfs && sudo chown "$(id -un)" rootfs.tar.gz'
 
-    Copy-FromRemoteComputerViaUserAndPwd -Source "/tmp/rootfs/rootfs.tar.gz" -Target "$TargetPath" -IpAddress $IpAddress
+    Copy-FromRemoteComputerViaUserAndPwd -Source "/var/tmp/rootfs/rootfs.tar.gz" -Target "$TargetPath" -IpAddress $IpAddress
     Rename-Item -Path "$TargetPath\rootfs.tar.gz" -NewName $RootfsName -Force -ErrorAction SilentlyContinue
     Remove-Item "$TargetPath\rootfs.tar.gz" -Force -ErrorAction SilentlyContinue
-    &$executeRemoteCommand "sudo rm -rf /tmp/rootfs"
+    &$executeRemoteCommand "sudo rm -rf /var/tmp/rootfs"
 
     if (!(Test-Path $TargetFilePath)) {
         throw "The provisioned base image is not available as $TargetFilePath for WSL2"
