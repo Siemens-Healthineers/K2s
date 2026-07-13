@@ -11,7 +11,7 @@
 
 FROM mcr.microsoft.com/windows/nanoserver:20H2
 COPY login.exe .
-# download from https://github.com/ory/hydra/releases/download/v2.3.0/hydra_2.3.0-windows_sqlite_64bit.zip 
+# download from https://github.com/ory/hydra/releases/download/v26.2.0/hydra_2.3.0-windows_sqlite_64bit.zip 
 # and unzip to get hydra.exe
 COPY hydra.exe .
 
