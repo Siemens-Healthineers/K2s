@@ -223,7 +223,7 @@ Describe 'Wait-ForHeadlampAvailable' -Tag 'unit', 'ci', 'addon', 'dashboard' {
                     $Label -eq 'app.kubernetes.io/name=headlamp' -and
                     $Namespace -eq 'dashboard' -and
                     $Condition -eq 'Ready' -and
-                    $TimeoutSeconds -eq 200
+                    $TimeoutSeconds -eq 300
                 }
             }
         }
@@ -435,6 +435,14 @@ Describe 'Module exports correct public functions' -Tag 'unit', 'ci', 'addon', '
         }
     }
 
+    It 'exports Test-KedaCapabilityAvailable' {
+        InModuleScope $moduleName {
+            $fn = Get-Command -Module $moduleName -Name 'Test-KedaCapabilityAvailable' -ErrorAction SilentlyContinue
+            $fn | Should -Not -BeNullOrEmpty
+        }
+    }
+
+
     It 'does not export the removed Test-SecurityAddonAvailability' {
         InModuleScope $moduleName {
             $fn = Get-Command -Module $moduleName -Name 'Test-SecurityAddonAvailability' -ErrorAction SilentlyContinue
@@ -546,10 +554,10 @@ Describe 'Linkerd annotation null-safety logic (Update.ps1 guard pattern)' -Tag 
 # ── Headlamp Plugin Framework Tests ───────────────────────────────────────────
 
 Describe 'Get-RegisteredHeadlampPlugins' -Tag 'unit', 'ci', 'addon', 'dashboard', 'plugin' {
-    It 'returns exactly 3 plugins' {
+    It 'returns exactly 4 plugins' {
         InModuleScope $moduleName {
             $result = @(Get-RegisteredHeadlampPlugins)
-            $result.Count | Should -Be 3
+            $result.Count | Should -Be 4
         }
     }
 
@@ -573,6 +581,14 @@ Describe 'Get-RegisteredHeadlampPlugins' -Tag 'unit', 'ci', 'addon', 'dashboard'
             $result | Where-Object { $_.Name -eq 'prometheus-plugin' } | Should -Not -BeNullOrEmpty
         }
     }
+
+    It 'includes a keda-plugin registration' {
+        InModuleScope $moduleName {
+            $result = @(Get-RegisteredHeadlampPlugins)
+            $result | Where-Object { $_.Name -eq 'keda-plugin' } | Should -Not -BeNullOrEmpty
+        }
+    }
+
 
     It 'every registration has a non-empty Image' {
         InModuleScope $moduleName {
@@ -620,7 +636,7 @@ Describe 'Test-FluxCapabilityAvailable' -Tag 'unit', 'ci', 'addon', 'dashboard',
     Context 'flux-system namespace exists' {
         BeforeAll {
             Mock -ModuleName $moduleName Invoke-Kubectl {
-                return [pscustomobject]@{ Success = $true; Output = 'flux-system   Active   5d' }
+                return [pscustomobject]@{ Success = $true; Output = 'Active' }
             }
             Mock -ModuleName $moduleName Write-Log { }
         }
@@ -682,7 +698,7 @@ Describe 'Test-CertManagerCapabilityAvailable' -Tag 'unit', 'ci', 'addon', 'dash
     Context 'cert-manager namespace exists' {
         BeforeAll {
             Mock -ModuleName $moduleName Invoke-Kubectl {
-                return [pscustomobject]@{ Success = $true; Output = 'cert-manager   Active   3d' }
+                return [pscustomobject]@{ Success = $true; Output = 'Active' }
             }
             Mock -ModuleName $moduleName Write-Log { }
         }
@@ -741,7 +757,7 @@ Describe 'Test-CertManagerCapabilityAvailable' -Tag 'unit', 'ci', 'addon', 'dash
         BeforeAll {
             # cert-manager namespace exists (installed by nginx, not security)
             Mock -ModuleName $moduleName Invoke-Kubectl {
-                return [pscustomobject]@{ Success = $true; Output = 'cert-manager   Active   1d' }
+                return [pscustomobject]@{ Success = $true; Output = 'Active' }
             }
             Mock -ModuleName $moduleName Write-Log { }
         }
@@ -753,15 +769,69 @@ Describe 'Test-CertManagerCapabilityAvailable' -Tag 'unit', 'ci', 'addon', 'dash
             }
         }
     }
+
+    Context 'cert-manager namespace is Terminating and CRD already gone' {
+        BeforeAll {
+            # Regression guard: a namespace lingering in 'Terminating' after Uninstall-CertManager
+            # must NOT count as a live capability, otherwise Sync-HeadlampPlugins would retain the
+            # cert-manager plugin init-container after the security/ingress addon was disabled.
+            Mock -ModuleName $moduleName Invoke-Kubectl {
+                $script:cmTermKubectlCall++
+                if ($script:cmTermKubectlCall -eq 1) {
+                    # namespace phase check
+                    return [pscustomobject]@{ Success = $true; Output = 'Terminating' }
+                }
+                # CRD check (already deleted)
+                return [pscustomobject]@{ Success = $true; Output = '' }
+            }
+            Mock -ModuleName $moduleName Write-Log { }
+        }
+
+        BeforeEach {
+            $script:cmTermKubectlCall = 0
+        }
+
+        It 'returns false when the namespace is only Terminating' {
+            InModuleScope $moduleName {
+                $result = Test-CertManagerCapabilityAvailable
+                $result | Should -Be $false
+            }
+        }
+    }
 }
 
 Describe 'Test-PrometheusCapabilityAvailable' -Tag 'unit', 'ci', 'addon', 'dashboard', 'plugin' {
-    Context 'Prometheus CRD present' {
+    Context 'monitoring namespace is Active' {
         BeforeAll {
             Mock -ModuleName $moduleName Invoke-Kubectl {
+                return [pscustomobject]@{ Success = $true; Output = 'Active' }
+            }
+            Mock -ModuleName $moduleName Write-Log { }
+        }
+
+        It 'returns true when the monitoring namespace is found' {
+            InModuleScope $moduleName {
+                $result = Test-PrometheusCapabilityAvailable
+                $result | Should -Be $true
+            }
+        }
+    }
+
+    Context 'namespace absent but prometheuses CRD present' {
+        BeforeAll {
+            Mock -ModuleName $moduleName Invoke-Kubectl {
+                $script:promKubectlCall++
+                # First call = namespace phase (empty), second call = CRD check (found)
+                if ($script:promKubectlCall -eq 1) {
+                    return [pscustomobject]@{ Success = $true; Output = '' }
+                }
                 return [pscustomobject]@{ Success = $true; Output = 'prometheuses.monitoring.coreos.com   2023-01-01' }
             }
             Mock -ModuleName $moduleName Write-Log { }
+        }
+
+        BeforeEach {
+            $script:promKubectlCall = 0
         }
 
         It 'returns true when the prometheuses CRD is found' {
@@ -772,11 +842,12 @@ Describe 'Test-PrometheusCapabilityAvailable' -Tag 'unit', 'ci', 'addon', 'dashb
         }
     }
 
-    Context 'CRD absent but prometheus-operated service present' {
+    Context 'namespace and CRD absent but prometheus-operated service present' {
         BeforeAll {
             Mock -ModuleName $moduleName Invoke-Kubectl {
                 $script:promKubectlCall++
-                if ($script:promKubectlCall -eq 1) {
+                # 1 = namespace phase (empty), 2 = CRD (empty), 3 = service (found)
+                if ($script:promKubectlCall -le 2) {
                     return [pscustomobject]@{ Success = $true; Output = '' }
                 }
                 return [pscustomobject]@{ Success = $true; Output = 'prometheus-operated   ClusterIP   None' }
@@ -798,7 +869,36 @@ Describe 'Test-PrometheusCapabilityAvailable' -Tag 'unit', 'ci', 'addon', 'dashb
         }
     }
 
-    Context 'neither CRD nor service present' {
+    Context 'monitoring namespace is Terminating and CRD/service already gone' {
+        BeforeAll {
+            # Regression guard: a namespace lingering in 'Terminating' after the monitoring
+            # addon is disabled must NOT count as a live capability, otherwise
+            # Sync-HeadlampPlugins would retain the prometheus plugin init-container.
+            Mock -ModuleName $moduleName Invoke-Kubectl {
+                $script:promKubectlCall++
+                if ($script:promKubectlCall -eq 1) {
+                    # namespace phase check
+                    return [pscustomobject]@{ Success = $true; Output = 'Terminating' }
+                }
+                # CRD + service checks (already deleted)
+                return [pscustomobject]@{ Success = $true; Output = '' }
+            }
+            Mock -ModuleName $moduleName Write-Log { }
+        }
+
+        BeforeEach {
+            $script:promKubectlCall = 0
+        }
+
+        It 'returns false when the namespace is only Terminating' {
+            InModuleScope $moduleName {
+                $result = Test-PrometheusCapabilityAvailable
+                $result | Should -Be $false
+            }
+        }
+    }
+
+    Context 'neither namespace, CRD nor service present' {
         BeforeAll {
             Mock -ModuleName $moduleName Invoke-Kubectl {
                 return [pscustomobject]@{ Success = $true; Output = '' }
@@ -809,6 +909,67 @@ Describe 'Test-PrometheusCapabilityAvailable' -Tag 'unit', 'ci', 'addon', 'dashb
         It 'returns false when no Prometheus indicators are found' {
             InModuleScope $moduleName {
                 $result = Test-PrometheusCapabilityAvailable
+                $result | Should -Be $false
+            }
+        }
+    }
+}
+
+Describe 'Test-KedaCapabilityAvailable' -Tag 'unit', 'ci', 'addon', 'dashboard', 'plugin' {
+    Context 'autoscaling namespace exists' {
+        BeforeAll {
+            Mock -ModuleName $moduleName Invoke-Kubectl {
+                return [pscustomobject]@{ Success = $true; Output = 'Active' }
+            }
+            Mock -ModuleName $moduleName Write-Log { }
+        }
+
+        It 'returns true when the autoscaling namespace is found' {
+            InModuleScope $moduleName {
+                $result = Test-KedaCapabilityAvailable
+                $result | Should -Be $true
+            }
+        }
+    }
+
+    Context 'autoscaling namespace absent but KEDA CRD present' {
+        BeforeAll {
+            Mock -ModuleName $moduleName Invoke-Kubectl {
+                $script:kedaKubectlCall++
+                # First call = namespace check (empty), second call = CRD check (found)
+                if ($script:kedaKubectlCall -eq 1) {
+                    return [pscustomobject]@{ Success = $true; Output = '' }
+                }
+                return [pscustomobject]@{ Success = $true; Output = 'scaledobjects.keda.sh   2023-01-01' }
+            }
+            Mock -ModuleName $moduleName Write-Log { }
+        }
+
+        BeforeEach {
+            # Reset in the test-file script scope — the same scope the mock closure
+            # increments (see Flux context for rationale).
+            $script:kedaKubectlCall = 0
+        }
+
+        It 'returns true when the scaledobjects CRD is found' {
+            InModuleScope $moduleName {
+                $result = Test-KedaCapabilityAvailable
+                $result | Should -Be $true
+            }
+        }
+    }
+
+    Context 'neither namespace nor CRD present' {
+        BeforeAll {
+            Mock -ModuleName $moduleName Invoke-Kubectl {
+                return [pscustomobject]@{ Success = $true; Output = '' }
+            }
+            Mock -ModuleName $moduleName Write-Log { }
+        }
+
+        It 'returns false when no KEDA indicators are found' {
+            InModuleScope $moduleName {
+                $result = Test-KedaCapabilityAvailable
                 $result | Should -Be $false
             }
         }
@@ -1468,6 +1629,7 @@ Describe 'Sync-HeadlampPlugins' -Tag 'unit', 'ci', 'addon', 'dashboard', 'plugin
             Mock -ModuleName $moduleName Test-FluxCapabilityAvailable         { return $true }
             Mock -ModuleName $moduleName Test-CertManagerCapabilityAvailable  { return $false }
             Mock -ModuleName $moduleName Test-PrometheusCapabilityAvailable   { return $true }
+            Mock -ModuleName $moduleName Test-KedaCapabilityAvailable         { return $false }
             Mock -ModuleName $moduleName New-PluginInitContainer {
                 param ($Name, $Image)
                 return [pscustomobject]@{ Name = $Name; Image = $Image }

@@ -23,7 +23,7 @@ function Invoke-DownloadDnsProxyArtifacts($downloadsBaseDirectory, $Proxy) {
     Write-Log "Create folder '$dnsproxyDownloadsDirectory'"
     mkdir $dnsproxyDownloadsDirectory | Out-Null
     Write-Log 'Download dnsproxy'
-    Invoke-DownloadFile "$compressedFile" https://github.com/AdguardTeam/dnsproxy/releases/download/v0.82.1/dnsproxy-windows-amd64-v0.82.1.zip $true $Proxy
+    Invoke-DownloadFile "$compressedFile" https://github.com/AdguardTeam/dnsproxy/releases/download/v0.83.0/dnsproxy-windows-amd64-v0.83.0.zip $true $Proxy
     Write-Log '  ...done'
     Write-Log "Extract downloaded file '$compressedFile'"
     $ErrorActionPreference = 'SilentlyContinue'

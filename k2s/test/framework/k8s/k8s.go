@@ -702,6 +702,165 @@ func (c *Cluster) ExpectPodsUnderDeploymentReady(ctx context.Context, labelName 
 	}, c.testStepTimeout, c.testStepPollInterval, ctx).Should(BeTrue())
 }
 
+// getDeploymentSpec fetches the current Deployment and returns its pod template spec.
+// Returns (spec, true) on success or (zero, false) when the deployment cannot be read,
+// so callers can retry inside an Eventually block during a rollout.
+func (c *Cluster) getDeploymentSpec(ctx context.Context, name string, namespace string) (corev1.PodSpec, bool) {
+	clientSet, err := kubernetes.NewForConfig(c.Client().Resources().GetConfig())
+	if err != nil {
+		return corev1.PodSpec{}, false
+	}
+	dep, err := clientSet.AppsV1().Deployments(namespace).Get(ctx, name, metav1.GetOptions{})
+	if err != nil {
+		GinkgoWriter.Println("Could not read deployment <", name, "> in namespace <", namespace, ">:", err)
+		return corev1.PodSpec{}, false
+	}
+	return dep.Spec.Template.Spec, true
+}
+
+// ExpectDeploymentInitContainer waits until the deployment's pod template contains an
+// init-container with the given name. When expectedImage is non-empty, the init-container's
+// image must contain that substring (tolerant of registry/tag/digest variations).
+// Generic and reusable across addons — no plugin-specific logic.
+func (c *Cluster) ExpectDeploymentInitContainer(ctx context.Context, name string, namespace string, initContainerName string, expectedImage string) {
+	GinkgoWriter.Println("Waiting for init-container <", initContainerName, "> on deployment <", name, "> (namespace <", namespace, ">)..")
+
+	Eventually(func() bool {
+		spec, ok := c.getDeploymentSpec(ctx, name, namespace)
+		if !ok {
+			return false
+		}
+		for _, ic := range spec.InitContainers {
+			if ic.Name != initContainerName {
+				continue
+			}
+			if expectedImage != "" && !strings.Contains(ic.Image, expectedImage) {
+				GinkgoWriter.Println("Init-container <", initContainerName, "> found but image <", ic.Image, "> does not contain <", expectedImage, ">")
+				return false
+			}
+			GinkgoWriter.Println("Init-container <", initContainerName, "> present with image <", ic.Image, ">")
+			return true
+		}
+		return false
+	}, c.testStepTimeout, c.testStepPollInterval, ctx).Should(BeTrue(),
+		"deployment %s/%s should have init-container %q (image containing %q)", namespace, name, initContainerName, expectedImage)
+}
+
+// ExpectDeploymentNotToHaveInitContainer waits until the deployment's pod template no longer
+// contains an init-container with the given name (used to assert reconciliation/removal).
+func (c *Cluster) ExpectDeploymentNotToHaveInitContainer(ctx context.Context, name string, namespace string, initContainerName string) {
+	GinkgoWriter.Println("Waiting for init-container <", initContainerName, "> to be absent from deployment <", name, "> (namespace <", namespace, ">)..")
+
+	Eventually(func() bool {
+		spec, ok := c.getDeploymentSpec(ctx, name, namespace)
+		if !ok {
+			return false
+		}
+		for _, ic := range spec.InitContainers {
+			if ic.Name == initContainerName {
+				GinkgoWriter.Println("Init-container <", initContainerName, "> still present, waiting for removal..")
+				return false
+			}
+		}
+		return true
+	}, c.testStepTimeout, c.testStepPollInterval, ctx).Should(BeTrue(),
+		"deployment %s/%s should not have init-container %q", namespace, name, initContainerName)
+}
+
+// ExpectDeploymentVolume waits until the deployment's pod template contains a volume with the given name.
+func (c *Cluster) ExpectDeploymentVolume(ctx context.Context, name string, namespace string, volumeName string) {
+	GinkgoWriter.Println("Waiting for volume <", volumeName, "> on deployment <", name, "> (namespace <", namespace, ">)..")
+
+	Eventually(func() bool {
+		spec, ok := c.getDeploymentSpec(ctx, name, namespace)
+		if !ok {
+			return false
+		}
+		for _, v := range spec.Volumes {
+			if v.Name == volumeName {
+				return true
+			}
+		}
+		return false
+	}, c.testStepTimeout, c.testStepPollInterval, ctx).Should(BeTrue(),
+		"deployment %s/%s should have volume %q", namespace, name, volumeName)
+}
+
+// ExpectDeploymentNotToHaveVolume waits until the deployment's pod template no longer contains
+// a volume with the given name.
+func (c *Cluster) ExpectDeploymentNotToHaveVolume(ctx context.Context, name string, namespace string, volumeName string) {
+	GinkgoWriter.Println("Waiting for volume <", volumeName, "> to be absent from deployment <", name, "> (namespace <", namespace, ">)..")
+
+	Eventually(func() bool {
+		spec, ok := c.getDeploymentSpec(ctx, name, namespace)
+		if !ok {
+			return false
+		}
+		for _, v := range spec.Volumes {
+			if v.Name == volumeName {
+				return false
+			}
+		}
+		return true
+	}, c.testStepTimeout, c.testStepPollInterval, ctx).Should(BeTrue(),
+		"deployment %s/%s should not have volume %q", namespace, name, volumeName)
+}
+
+// ExpectDeploymentVolumeMount waits until the named container in the deployment's pod template
+// mounts the given volume. When mountPath is non-empty, the mount path must match as well.
+func (c *Cluster) ExpectDeploymentVolumeMount(ctx context.Context, name string, namespace string, containerName string, volumeName string, mountPath string) {
+	GinkgoWriter.Println("Waiting for volume-mount <", volumeName, "> on container <", containerName, "> of deployment <", name, ">..")
+
+	Eventually(func() bool {
+		spec, ok := c.getDeploymentSpec(ctx, name, namespace)
+		if !ok {
+			return false
+		}
+		for _, ctr := range spec.Containers {
+			if ctr.Name != containerName {
+				continue
+			}
+			for _, vm := range ctr.VolumeMounts {
+				if vm.Name != volumeName {
+					continue
+				}
+				if mountPath != "" && vm.MountPath != mountPath {
+					GinkgoWriter.Println("Volume-mount <", volumeName, "> found but path <", vm.MountPath, "> != <", mountPath, ">")
+					return false
+				}
+				return true
+			}
+		}
+		return false
+	}, c.testStepTimeout, c.testStepPollInterval, ctx).Should(BeTrue(),
+		"container %q in deployment %s/%s should mount volume %q at %q", containerName, namespace, name, volumeName, mountPath)
+}
+
+// ExpectDeploymentNotToHaveVolumeMount waits until the named container in the deployment's pod
+// template no longer mounts the given volume.
+func (c *Cluster) ExpectDeploymentNotToHaveVolumeMount(ctx context.Context, name string, namespace string, containerName string, volumeName string) {
+	GinkgoWriter.Println("Waiting for volume-mount <", volumeName, "> to be absent from container <", containerName, "> of deployment <", name, ">..")
+
+	Eventually(func() bool {
+		spec, ok := c.getDeploymentSpec(ctx, name, namespace)
+		if !ok {
+			return false
+		}
+		for _, ctr := range spec.Containers {
+			if ctr.Name != containerName {
+				continue
+			}
+			for _, vm := range ctr.VolumeMounts {
+				if vm.Name == volumeName {
+					return false
+				}
+			}
+		}
+		return true
+	}, c.testStepTimeout, c.testStepPollInterval, ctx).Should(BeTrue(),
+		"container %q in deployment %s/%s should not mount volume %q", containerName, namespace, name, volumeName)
+}
+
 func (c *Cluster) ExpectPodsInReadyState(ctx context.Context, labelName string, namespace string) {
 	client := c.Client()
 	clientSet, err := kubernetes.NewForConfig(client.Resources().GetConfig())

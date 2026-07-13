@@ -412,6 +412,14 @@ k2s addons import <addon> [flags]
 | Flag | Short | Description |
 |------|-------|-------------|
 | `--zip` | `-z` | Path to the OCI artifact tar file |
+| `--node` | | Target node name for addon image import (e.g. `worker-1`); defaults to control-plane and local Windows host when omitted |
+
+By default the addon images are imported onto the control-plane node and the local Windows host. Use `--node` to import them onto a specific worker node instead. The node must exist and be in the `Ready` state; otherwise the command fails without importing anything.
+
+```console
+# Import an addon and distribute its images to a specific worker node
+k2s addons import registry -f C:\tmp\addons.oci.tar --node worker-1
+```
 
 ### addons backup
 
