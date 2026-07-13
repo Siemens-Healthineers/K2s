@@ -43,7 +43,7 @@ if ($EnancedSecurityEnabled) {
 (Invoke-Kubectl -Params 'rollout', 'status', 'statefulset', '-n', 'rollout', '--timeout', '60s').Output | Write-Log
 
 if (-not [string]::IsNullOrWhiteSpace($addonSyncInsecureValue)) {
-    $insecurePatch = "{\"data\":{\"INSECURE\":\"$addonSyncInsecureValue\"}}"
+    $insecurePatch = '{\"data\":{\"INSECURE\":\"' + $addonSyncInsecureValue + '\"}}'
     $insecurePatchCmd = Invoke-Kubectl -Params 'patch', 'configmap', 'addon-sync-config', '-n', 'k2s-addon-sync', '--type', 'merge', '-p', $insecurePatch
     $insecurePatchCmd.Output | Write-Log
     if ($insecurePatchCmd.Success) {

@@ -184,7 +184,7 @@ if ($AddonSync) {
 
         if ($InsecureRegistry) {
             Write-Log '[AddonSync] Enabling insecure addon-sync registry access (INSECURE=true)' -Console
-            $insecurePatch = "{\"data\":{\"INSECURE\":\"true\"}}"
+            $insecurePatch = '{\"data\":{\"INSECURE\":\"true\"}}'
             $kubectlCmd = Invoke-Kubectl -Params 'patch', 'configmap', 'addon-sync-config', '-n', 'k2s-addon-sync', '--type', 'merge', '-p', $insecurePatch
             $kubectlCmd.Output | Write-Log
             if (-not $kubectlCmd.Success) {
