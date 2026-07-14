@@ -12,6 +12,7 @@ import (
 
 	"github.com/pterm/pterm"
 	"github.com/samber/lo"
+	ac "github.com/siemens-healthineers/k2s/cmd/k2s/cmd/addons/common"
 	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/common"
 	"github.com/siemens-healthineers/k2s/cmd/k2s/utils"
 	cconfig "github.com/siemens-healthineers/k2s/internal/contracts/config"
@@ -83,6 +84,28 @@ func newAddonCmd(addon addons.Addon, cmdName string) (*cobra.Command, error) {
 			}
 
 			cmdConfig := (*implementation.Commands)[cmdName]
+			if cmdConfig.Cli != nil {
+				cmd.Example = cmdConfig.Cli.Examples.String()
+
+				for _, flag := range cmdConfig.Cli.Flags {
+					if err := addFlag(flag, cmd.Flags()); err != nil {
+						return nil, err
+					}
+				}
+			}
+
+			cmd.Flags().SortFlags = false
+			cmd.Flags().PrintDefaults()
+		}
+	}
+
+	if cmd.RunE == nil {
+		if defaultImplementation, found := ac.FindDefaultImplementationForAddon(addon); found {
+			cmd.RunE = func(cmd *cobra.Command, args []string) error {
+				return runCmd(cmd, addon, cmdName, defaultImplementation)
+			}
+
+			cmdConfig := (*defaultImplementation.Commands)[cmdName]
 			if cmdConfig.Cli != nil {
 				cmd.Example = cmdConfig.Cli.Examples.String()
 

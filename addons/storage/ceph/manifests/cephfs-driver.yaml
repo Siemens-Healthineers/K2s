@@ -7,3 +7,13 @@ kind: Driver
 metadata:
   name: cephfs.csi.ceph.com
   namespace: ceph-csi-operator-system
+spec:
+  controllerPlugin:
+    replicas: 1
+    labels:
+      app.kubernetes.io/component: cephfs-controller
+      app.kubernetes.io/part-of: k2s-ceph-csi
+  nodePlugin:
+    labels:
+      app.kubernetes.io/component: cephfs-nodeplugin
+      app.kubernetes.io/part-of: k2s-ceph-csi

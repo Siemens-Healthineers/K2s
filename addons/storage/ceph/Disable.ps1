@@ -69,15 +69,62 @@ if ($null -eq (Invoke-Kubectl -Params 'get', 'namespace', 'ceph-csi-operator-sys
 
 Write-Log 'Uninstalling storage ceph' -Console
 
-$CrdsDirectory = "$PSScriptRoot\manifests\crds"
-(Invoke-Kubectl -Params 'delete', '-f', $CrdsDirectory).Output | Write-Log
-
 $cephStorageYamlDir = "$PSScriptRoot\manifests"
-(Invoke-Kubectl -Params 'delete', '-k', $cephStorageYamlDir, '--ignore-not-found').Output | Write-Log
+(Invoke-Kubectl -Params 'delete', '-k', $cephStorageYamlDir, '--ignore-not-found', '--wait=false').Output | Write-Log
 
-(Invoke-Kubectl -Params 'delete', 'namespace', 'ceph-csi-operator-system', '--ignore-not-found').Output | Write-Log
+# Remove finalizers from any remaining Ceph CSI custom resources. The operator normally
+# clears these finalizers, but since its namespace is deleted below, nobody would remove
+# them afterwards - leaving the CRs (and thus their CRDs) stuck in 'Terminating' forever.
+# The finalizer patch is written to a temp file and passed via --patch-file, and the CR
+# list is retrieved with custom-columns; both avoid inline JSON/jsonpath with embedded
+# double quotes, which PowerShell mangles when passing arguments to kubectl.exe.
+$cephCrKinds = @(
+    'clientprofiles.csi.ceph.io',
+    'clientprofilemappings.csi.ceph.io',
+    'drivers.csi.ceph.io',
+    'cephconnections.csi.ceph.io',
+    'operatorconfigs.csi.ceph.io'
+)
+$finalizerPatchFile = Join-Path ([System.IO.Path]::GetTempPath()) ("k2s-ceph-finalizer-" + [guid]::NewGuid().ToString() + ".json")
+Set-Content -Path $finalizerPatchFile -Value '{"metadata":{"finalizers":null}}' -Encoding ascii -NoNewline
+try {
+    foreach ($crKind in $cephCrKinds) {
+        $getResult = Invoke-Kubectl -Params 'get', $crKind, '--all-namespaces', '--ignore-not-found', '-o', 'custom-columns=NS:.metadata.namespace,NAME:.metadata.name', '--no-headers'
+        if (-not $getResult.Success) {
+            # CRD for this kind no longer exists (already deleted) - nothing to clean up.
+            continue
+        }
+        $crLines = @($getResult.Output | ForEach-Object { "$_" } | Where-Object { $_ -match '\S' })
+        foreach ($entry in $crLines) {
+            $cols = ($entry.Trim() -split '\s+')
+            $crNamespace = $cols[0]
+            $crName = $cols[1]
+            if ([string]::IsNullOrWhiteSpace($crName)) {
+                continue
+            }
+            Write-Log "[Ceph] Removing finalizers from $crKind $crNamespace/$crName"
+            (Invoke-Kubectl -Params 'patch', $crKind, $crName, '-n', $crNamespace, '--type', 'merge', '--patch-file', $finalizerPatchFile).Output | Write-Log
+        }
+    }
+}
+finally {
+    Remove-Item -Path $finalizerPatchFile -Force -ErrorAction SilentlyContinue
+}
 
-(Invoke-Kubectl -Params 'delete', 'namespace', 'ceph-csi-cephfs', '--ignore-not-found').Output | Write-Log
+(Invoke-Kubectl -Params 'delete', 'storageclass', 'ceph-cephfs', '--ignore-not-found').Output | Write-Log
+
+# Remove the CSIDriver object that the operator creates dynamically for the CephFS driver.
+# It is cluster-scoped and not part of any manifest, so 'delete -k' does not remove it and it
+# survives namespace deletion. Because the Driver CR finalizer is stripped above, the operator
+# never gets to delete it either - so remove it explicitly to avoid leaving it orphaned.
+(Invoke-Kubectl -Params 'delete', 'csidriver', 'cephfs.csi.ceph.com', '--ignore-not-found').Output | Write-Log
+
+(Invoke-Kubectl -Params 'delete', 'namespace', 'ceph-csi-operator-system', '--ignore-not-found', '--wait=false').Output | Write-Log
+
+(Invoke-Kubectl -Params 'delete', 'namespace', 'ceph-csi-cephfs', '--ignore-not-found', '--wait=false').Output | Write-Log
+
+$CrdsDirectory = "$PSScriptRoot\manifests\crds"
+(Invoke-Kubectl -Params 'delete', '-f', $CrdsDirectory, '--ignore-not-found', '--wait=false').Output | Write-Log
 
 $gatewayApiCrds = "$PSScriptRoot\common\manifests\crds\crd.yaml"
 (Invoke-Kubectl -Params 'delete', '--ignore-not-found', '--timeout=30s', '-f', $gatewayApiCrds).Output | Write-Log

@@ -16,6 +16,64 @@ import (
 	"github.com/samber/lo"
 )
 
+var defaultImplementations = map[string]string{
+	"storage": "smb",
+}
+
+func FindDefaultImplementationForAddon(addon addons.Addon) (addons.Implementation, bool) {
+	defaultImplementationName, hasDefaultImplementation := defaultImplementations[strings.ToLower(addon.Metadata.Name)]
+	if !hasDefaultImplementation {
+		return addons.Implementation{}, false
+	}
+
+	for _, impl := range addon.Spec.Implementations {
+		if strings.EqualFold(impl.Name, defaultImplementationName) {
+			return impl, true
+		}
+	}
+
+	return addons.Implementation{}, false
+}
+
+func findDefaultImplementation(allAddons addons.Addons, addonName string) (addons.Addon, addons.Implementation, bool) {
+	for _, addon := range allAddons {
+		if !strings.EqualFold(addon.Metadata.Name, addonName) {
+			continue
+		}
+
+		impl, found := FindDefaultImplementationForAddon(addon)
+		if found {
+			return addon, impl, true
+		}
+	}
+
+	return addons.Addon{}, addons.Implementation{}, false
+}
+
+func findImplementationByCommandName(allAddons addons.Addons, cmdName string) (addons.Addon, addons.Implementation, bool) {
+	for _, addon := range allAddons {
+		for _, impl := range addon.Spec.Implementations {
+			if strings.EqualFold(impl.AddonsCmdName, cmdName) {
+				return addon, impl, true
+			}
+		}
+	}
+
+	return addons.Addon{}, addons.Implementation{}, false
+}
+
+func collectValidCommandNames(allAddons addons.Addons) []string {
+	valid := make([]string, 0)
+	for _, addon := range allAddons {
+		for _, impl := range addon.Spec.Implementations {
+			valid = append(valid, impl.AddonsCmdName)
+		}
+	}
+	sort.Strings(valid)
+
+	return valid
+}
+
 type addonInfos struct{ allAddons addons.Addons }
 
 func LogAddons(allAddons addons.Addons) {
@@ -32,27 +90,24 @@ func FindImplementation(allAddons addons.Addons, args []string) (addon addons.Ad
 		return addon, impl, fmt.Errorf("expected ADDON [IMPLEMENTATION]")
 	}
 
+	if len(args) == 1 {
+		defaultAddon, defaultImpl, found := findDefaultImplementation(allAddons, args[0])
+		if found {
+			return defaultAddon, defaultImpl, nil
+		}
+	}
+
 	cmdName := args[0]
 	if len(args) == 2 {
 		cmdName = args[0] + " " + args[1]
 	}
 
-	for _, a := range allAddons {
-		for _, i := range a.Spec.Implementations {
-			if strings.EqualFold(i.AddonsCmdName, cmdName) {
-				return a, i, nil
-			}
-		}
+	resolvedAddon, resolvedImplementation, found := findImplementationByCommandName(allAddons, cmdName)
+	if found {
+		return resolvedAddon, resolvedImplementation, nil
 	}
 
-	valid := make([]string, 0)
-	for _, a := range allAddons {
-		for _, i := range a.Spec.Implementations {
-			valid = append(valid, i.AddonsCmdName)
-		}
-	}
-	sort.Strings(valid)
-
+	valid := collectValidCommandNames(allAddons)
 	return addon, impl, fmt.Errorf("unknown addon '%s' (valid: %s)", cmdName, strings.Join(valid, ", "))
 }
 

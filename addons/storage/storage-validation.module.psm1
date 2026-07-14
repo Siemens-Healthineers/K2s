@@ -25,22 +25,30 @@ function Test-StorageImplementationEnabled {
         [string]$Implementation
     )
 
+    $regPath = 'HKLM:\Software\K2s\Addons\storage'
+    $valueName = "$($Implementation)Enabled"
+
+    if (Test-Path $regPath) {
+        $enabled = Get-ItemProperty -Path $regPath -Name $valueName -ErrorAction SilentlyContinue
+        if ($null -ne $enabled) {
+            return ($enabled.$valueName -eq $true)
+        }
+    }
+
     switch ($Implementation) {
         'smb' {
-            # Check if SMB share is mounted or SMB storage is active
-            if (Test-Path 'HKLM:\Software\K2s\Addons\storage') {
-                $enabled = Get-ItemProperty -Path 'HKLM:\Software\K2s\Addons\storage' -Name 'smbEnabled' -ErrorAction SilentlyContinue
-                if ($enabled -and $enabled.smbEnabled -eq $true) {
-                    return $true
-                }
-            }
             return $false
         }
         'ceph' {
-            # Check if Ceph CSI namespaces exist in cluster
+            # Fall back to cluster markers when the registry state is absent.
             try {
-                $ns = kubectl get namespace ceph-csi-rbd -o json 2>$null | ConvertFrom-Json -ErrorAction SilentlyContinue
-                if ($ns -and $ns.metadata.name -eq 'ceph-csi-rbd') {
+                $ns = kubectl get namespace ceph-csi-operator-system -o json 2>$null | ConvertFrom-Json -ErrorAction SilentlyContinue
+                if ($ns -and $ns.metadata.name -eq 'ceph-csi-operator-system') {
+                    return $true
+                }
+
+                $sc = kubectl get storageclass ceph-cephfs -o json 2>$null | ConvertFrom-Json -ErrorAction SilentlyContinue
+                if ($sc -and $sc.metadata.name -eq 'ceph-cephfs') {
                     return $true
                 }
             }

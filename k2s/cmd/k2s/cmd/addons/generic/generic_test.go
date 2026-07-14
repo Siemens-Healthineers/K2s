@@ -165,6 +165,29 @@ var _ = Describe("generic pkg", func() {
 				Expect(result.Long).To(ContainSubstring("- smb:"))
 				Expect(result.Long).To(ContainSubstring("- ceph:"))
 			})
+
+			It("defaults the parent storage command to smb", func() {
+				command := "enable"
+				addon := addons.Addon{
+					Metadata: addons.AddonMetadata{
+						Name: "storage",
+					},
+					Spec: addons.AddonSpec{
+						Implementations: []addons.Implementation{
+							{Name: "smb", Commands: &map[string]addons.AddonCmd{command: {}}},
+							{Name: "ceph", Commands: &map[string]addons.AddonCmd{command: {}}},
+						},
+					},
+				}
+
+				result, err := newAddonCmd(addon, command)
+
+				Expect(err).ToNot(HaveOccurred())
+				Expect(result.RunE).ToNot(BeNil())
+				Expect(result.Commands()).To(HaveLen(2))
+				Expect(result.Commands()[0].Use).To(Equal("smb"))
+				Expect(result.Commands()[1].Use).To(Equal("ceph"))
+			})
 		})
 
 		When("no CLI config exists", func() {

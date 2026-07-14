@@ -35,6 +35,19 @@ Initialize-Logging -ShowLogs:$ShowLogs
 
 $addonName = Get-AddonNameFromFolderPath -BaseFolderPath $PSScriptRoot
 
+if ((Test-IsAddonEnabled -Addon ([pscustomobject] @{Name = 'storage'; Implementation = 'smb' })) -ne $true) {
+    $errMsg = "Addon 'storage smb' is already disabled, nothing to do."
+
+    if ($EncodeStructuredOutput -eq $true) {
+        $err = New-Error -Severity Warning -Code (Get-ErrCodeAddonAlreadyDisabled) -Message $errMsg
+        Send-ToCli -MessageType $MessageType -Message @{Error = $err }
+        return
+    }
+
+    Write-Log $errMsg -Error
+    exit 1
+}
+
 if ($Force -and $Keep) {
     $errMsg = 'Disable storage smb failed: Cannot use both Force and Keep parameters at the same time.'
     if ($EncodeStructuredOutput) {

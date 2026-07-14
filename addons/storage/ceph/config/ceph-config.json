@@ -1,9 +1,9 @@
 {
   "comment": "Ceph CSI Configuration - Update values with your Ceph cluster details",
-  "monitorEndpoints": "172.19.1.103:6789,172.19.1.101:6789,172.19.1.102:6789",
+  "monitorEndpoints": "172.19.1.102:6789,172.19.1.104:6789,172.19.1.103:6789,172.19.1.105:6789",
   "cephUser": "admin",
-  "cephKey": "AQCapitqpopKIxAAY3fyITTwYLHen/sSKZc9Gg==",
-  "clusterId": "b3d9d996-6626-11f1-9c74-00155d130f17",
+  "cephKey": "AQC3hlBq/SWfLRAAAE1J+uOgh2vEi/JO2Q40Ew==",
+  "clusterId": "63d54e0a-7c22-11f1-8fbf-00155d130ff3",
   "cephfsPool": "cephfs",
   "cephfsFilesystem": "cephfs"
 }
