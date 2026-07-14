@@ -2292,7 +2292,7 @@ spec:
     spec:
       containers:
         - name: keycloak
-          image: quay.io/keycloak/keycloak:26.6.4
+          image: quay.io/keycloak/keycloak:26.7.0
           args:
             # Use 'start' command for production
             - start
