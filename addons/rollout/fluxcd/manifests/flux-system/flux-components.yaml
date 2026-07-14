@@ -1987,7 +1987,7 @@ spec:
                 description: |-
                   URL is the dynamic fetch link for the latest Artifact.
                   It is provided on a "best effort" basis, and using the precise
-                  BucketStatus.Artifact data is recommended.
+                  HelmChartStatus.Artifact data is recommended.
                 type: string
             type: object
         type: object
@@ -4434,7 +4434,7 @@ spec:
                 description: |-
                   ObservedExclusionList is a list of observed exclusion list. It reflects
                   the exclusion rules used for the observed scan result in
-                  spec.lastScanResult.
+                  status.lastScanResult.
                 items:
                   type: string
                 type: array
@@ -4890,7 +4890,6 @@ spec:
                 type: object
               observedSourceRevision:
                 description: |-
-                  ObservedPolicies []ObservedPolicy `json:"observedPolicies,omitempty"`
                   ObservedSourceRevision is the last observed source revision. This can be
                   used to determine if the source has been updated since last observation.
                 type: string
@@ -7225,7 +7224,7 @@ spec:
             resourceFieldRef:
               containerName: manager
               resource: limits.memory
-        image: ghcr.io/fluxcd/image-automation-controller:v1.2.2
+        image: ghcr.io/fluxcd/image-automation-controller:v1.2.3
         imagePullPolicy: IfNotPresent
         livenessProbe:
           httpGet:
@@ -7313,7 +7312,7 @@ spec:
             resourceFieldRef:
               containerName: manager
               resource: limits.memory
-        image: ghcr.io/fluxcd/image-reflector-controller:v1.2.2
+        image: ghcr.io/fluxcd/image-reflector-controller:v1.2.3
         imagePullPolicy: IfNotPresent
         livenessProbe:
           httpGet:
@@ -7405,7 +7404,7 @@ spec:
             resourceFieldRef:
               containerName: manager
               resource: limits.memory
-        image: ghcr.io/fluxcd/kustomize-controller:v1.9.2
+        image: ghcr.io/fluxcd/kustomize-controller:v1.9.3
         imagePullPolicy: IfNotPresent
         livenessProbe:
           httpGet:
@@ -7593,7 +7592,7 @@ spec:
             resourceFieldRef:
               containerName: manager
               resource: limits.memory
-        image: ghcr.io/fluxcd/source-controller:v1.9.2
+        image: ghcr.io/fluxcd/source-controller:v1.9.3
         imagePullPolicy: IfNotPresent
         livenessProbe:
           httpGet:
