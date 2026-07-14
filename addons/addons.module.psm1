@@ -1155,7 +1155,8 @@ Gets the location of nginx secure ingress yaml
 function Get-IngressNginxGatewaySecureConfig {
 	return 'ingress-nginx-gw-secure'
 }
- 
+
+<#
 .DESCRIPTION
 Gets the location of nginx secure ingress yaml
 #>
