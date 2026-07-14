@@ -4,17 +4,24 @@ SPDX-FileCopyrightText: © 2025 Siemens Healthineers AG
 SPDX-License-Identifier: MIT
 -->
 
-# Ceph CSI Operator
+# Ceph CSI Storage (CephFS)
 
-Deploy Ceph storage with CSI drivers directly via YAML manifests without Rook operator.
+Provides dynamic **CephFS (file) storage** for K2s by connecting to an existing external
+Ceph cluster through the upstream [`ceph-csi-operator`](https://github.com/ceph/ceph-csi-operator) — no Rook required.
+
+Instead of applying the CSI driver workloads directly, this addon deploys the
+`ceph-csi-operator` and a small set of custom resources. The operator then reconciles
+those resources and creates/maintains the CephFS CSI controller and node plugins for you.
 
 This implementation provides:
-- **Ceph CSI operator** deployment for CephFS (file) provisioner
+- **ceph-csi-operator** that manages the CephFS CSI controller and node plugins
+- **Custom resources** (`Driver`, `CephConnection`, `ClientProfile`) that describe the driver and Ceph connection
 - **RBAC & permissions** (ServiceAccounts, ClusterRoles, ClusterRoleBindings)
-- **StorageClass** definitions for file storage
-- **Ceph cluster connection** via Kubernetes secrets
-- **Fine-grained control** — no Rook abstraction layer
-- **Mutual exclusion** with SMB storage (only one can be enabled at a time)
+- **StorageClass** `ceph-cephfs` for `ReadWriteMany` file storage
+- **Ceph cluster connection** via a Kubernetes secret (`ceph-secret`)
+- **Mutual exclusion** with SMB storage (only one storage implementation can be enabled at a time)
+
+> All addon resources are deployed into the **`ceph-csi-operator-system`** namespace.
 
 ## Prerequisites
 
@@ -23,6 +30,12 @@ This implementation provides:
    - Admin keyring or read-only key
   - Existing CephFS data pool (e.g., `cephfs_data`)
    - CephFS filesystem configured (if using CephFS)
+   - A CephFS **subvolume group named `csi`** (the addon provisions volumes into this group).
+     Create it once on the Ceph cluster (replace `cephfs` with your filesystem name):
+
+     ```bash
+     sudo cephadm shell ceph fs subvolumegroup create cephfs csi
+     ```
 
 2. **K8s cluster** with:
    - API server reachable from K2s nodes
@@ -36,75 +49,84 @@ This implementation provides:
 
 ### 1. Prepare Ceph Details
 
-Gather from your Ceph cluster:
+Gather the following from your Ceph cluster:
 - Monitor endpoints: `10.0.0.1:6789,10.0.0.2:6789,10.0.0.3:6789`
 - Admin keyring: `AQDa1Ipn...==` (base64-encoded)
-- CephFS pool: `cephfs_data` (or custom name)
+- CephFS filesystem name (e.g. `cephfs`)
+- CephFS data pool: `cephfs_data` (or custom name)
+- Cluster ID (Ceph FSID)
+
+Run these commands on a Ceph node to obtain the values (adjust for your deployment tooling):
+
+```bash
+# Cluster ID (Ceph FSID)
+sudo cephadm shell ceph fsid
+
+# Ceph user & key (base64-encoded key used for --adminKey / cephKey)
+sudo cephadm shell ceph auth get client.admin
+
+# CephFS filesystem name (cephfsFilesystem)
+sudo cephadm shell ceph fs ls
+
+# name: cephfs, metadata pool: ..., data pools: [cephfs_data]   <-- use this
+sudo cephadm shell ceph fs ls
+
+```
 
 ### 2. Enable Addon
 
 ```console
-k2s addons enable storage ceph \
-  --monitorEndpoints "10.0.0.1:6789,10.0.0.2:6789,10.0.0.3:6789" \
-  --adminKey "AQDa1Ipnwxxxxxxxxxxxxxxxxxxxxxxxxxxx=="
+k2s addons enable storage ceph 
 ```
 
 ### 3. Verify Installation
 
+All workloads run in the `ceph-csi-operator-system` namespace:
+
 ```bash
-kubectl get pods -n ceph-csi-cephfs
-kubectl get storageclass | grep ceph
+kubectl get pods -n ceph-csi-operator-system
+kubectl get storageclass | Select-String ceph
 ```
 
-### 4. Create Volume
+Expected pods (names may vary by hash):
 
-```bash
-kubectl apply -f - <<EOF
+- `ceph-csi-operator-controller-manager` — the operator that reconciles the driver
+- `cephfs.csi.ceph.com-ctrlplugin` — CephFS CSI controller (provisioner/attacher/resizer/snapshotter)
+- `cephfs.csi.ceph.com-nodeplugin` — CephFS CSI node plugin (one pod per node)
+
+The `enable` command already waits for these to become ready before reporting success.
+
+### 4. Use the Storage
+
+There are **no manual volume-creation steps**. Enabling the addon registers the
+`ceph-cephfs` StorageClass and the CSI driver, and provisioning is **dynamic**: any workload
+that creates a `PersistentVolumeClaim` referencing `storageClassName: ceph-cephfs` gets a
+CephFS volume created and mounted automatically — you never pre-create volumes by hand.
+
+Simply reference the StorageClass from your application's PVC:
+
+```yaml
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
-  name: test-cephfs
+  name: my-app-data
 spec:
   accessModes: [ "ReadWriteMany" ]
   storageClassName: ceph-cephfs
   resources:
     requests:
       storage: 10Gi
-EOF
 ```
 
-### 5. Mount in Pod
-
-```bash
-kubectl apply -f - <<EOF
-apiVersion: v1
-kind: Pod
-metadata:
-  name: test-pod
-spec:
-  containers:
-  - name: app
-    image: busybox:latest
-    command: ['sh', '-c', 'echo hello > /mnt/data/test.txt && sleep 3600']
-    volumeMounts:
-    - name: storage
-      mountPath: /mnt/data
-  volumes:
-  - name: storage
-    persistentVolumeClaim:
-      claimName: test-cephfs
-EOF
-```
+To validate the setup end-to-end with a throwaway PVC and pod, see
+[Testing CephFS File Storage](#testing-cephfs-file-storage) below.
 
 ## Deployment Options
 
 ### Enable CephFS
 
 ```console
-k2s addons enable storage ceph \
-  --monitorEndpoints "10.0.0.1:6789,10.0.0.2:6789" \
-  --adminKey "..." \
-  --cephfsPool "cephfs_data"
+k2s addons enable storage ceph 
 ```
 
 Only CephFS file storage is supported by this addon implementation.
@@ -120,7 +142,154 @@ AccessModes: ReadWriteMany (multiple nodes)
 Usage: Shared files, multi-pod access, NFS-like behavior
 ```
 
+## Testing CephFS File Storage
+
+After enabling the addon, verify that dynamic provisioning and shared (`ReadWriteMany`)
+access work end-to-end against your Ceph cluster.
+
+### 1. Confirm the driver is ready
+
+```bash
+kubectl get pods -n ceph-csi-operator-system
+kubectl get storageclass ceph-cephfs
+kubectl get csidriver cephfs.csi.ceph.com
+```
+
+All pods should be `Running`/`Ready`, the `ceph-cephfs` StorageClass should exist, and the
+`cephfs.csi.ceph.com` CSIDriver should be registered.
+
+### 2. Ensure the `csi` subvolume group exists
+
+The addon provisions every volume into a CephFS subvolume group named `csi`. If it is
+missing, PVCs stay `Pending` with `subvolume group 'csi' does not exist`. Check whether it
+already exists on the Ceph cluster and create it if needed (replace `cephfs` with your
+filesystem name):
+
+```bash
+# List existing subvolume groups
+sudo cephadm shell ceph fs subvolumegroup ls cephfs
+
+# Create it only if 'csi' is not already listed
+sudo cephadm shell ceph fs subvolumegroup create cephfs csi
+```
+
+### 3. Create a PersistentVolumeClaim
+
+```powershell
+kubectl delete pvc ceph-test-pvc --ignore-not-found
+@'
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: ceph-test-pvc
+spec:
+  accessModes: [ "ReadWriteMany" ]
+  storageClassName: ceph-cephfs
+  resources:
+    requests:
+      storage: 1Gi
+'@ | kubectl apply -f -
+```
+
+Wait for it to bind (a `PersistentVolume` is created automatically by the CSI controller):
+
+```bash
+kubectl get pvc ceph-test-pvc
+kubectl get pv
+```
+
+Expected: `STATUS = Bound`. If it stays `Pending`, see [Troubleshooting](#troubleshooting).
+
+### 4. Write data from a pod
+
+```powershell
+@'
+apiVersion: v1
+kind: Pod
+metadata:
+  name: ceph-writer
+spec:
+  containers:
+  - name: writer
+    image: busybox:latest
+    command: ['sh', '-c', 'echo "hello from k2s ceph" > /mnt/data/hello.txt && sleep 3600']
+    volumeMounts:
+    - name: data
+      mountPath: /mnt/data
+  volumes:
+  - name: data
+    persistentVolumeClaim:
+      claimName: ceph-test-pvc
+'@ | kubectl apply -f -
+
+kubectl wait --for=condition=Ready pod/ceph-writer --timeout=120s
+kubectl exec ceph-writer -- cat /mnt/data/hello.txt
+```
+
+Expected output: `hello from k2s ceph`.
+
+### 5. Verify shared (ReadWriteMany) access
+
+Because CephFS supports `ReadWriteMany`, a second pod can read the same file concurrently:
+
+```powershell
+@'
+apiVersion: v1
+kind: Pod
+metadata:
+  name: ceph-reader
+spec:
+  containers:
+  - name: reader
+    image: busybox:latest
+    command: ['sh', '-c', 'sleep 3600']
+    volumeMounts:
+    - name: data
+      mountPath: /mnt/data
+  volumes:
+  - name: data
+    persistentVolumeClaim:
+      claimName: ceph-test-pvc
+'@ | kubectl apply -f -
+
+kubectl wait --for=condition=Ready pod/ceph-reader --timeout=120s
+kubectl exec ceph-reader -- cat /mnt/data/hello.txt
+```
+
+The reader pod sees the same `hello from k2s ceph` content written by the writer pod,
+confirming shared volume access.
+
+### 6. Clean up the test resources
+
+```bash
+kubectl delete pod ceph-writer ceph-reader --ignore-not-found
+kubectl delete pvc ceph-test-pvc --ignore-not-found
+```
+
+**What actually gets deleted at each level:**
+
+| Action | Kubernetes objects | Ceph data (`hello.txt`) | Confirmation prompt |
+|--------|--------------------|--------------------------|---------------------|
+| Delete the **pod** | PVC and PV are kept | **Kept** — still on Ceph | No |
+| Delete the **PVC** | Bound PV is removed | **Deleted** — subvolume removed from Ceph | No (immediate) |
+| Disable the **addon** | Driver/StorageClass/operator removed | Depends on flag (see [Disabling](#disabling)) | Only without `-f`/`-k` |
+
+- Deleting a **pod** only frees the compute; the PVC, PV, and the CephFS subvolume survive.
+  That is why the `ceph-reader` pod in step 5 still sees the file written by `ceph-writer`.
+- Deleting the **PVC** triggers the reclaim policy. Because the `ceph-cephfs` StorageClass uses
+  `reclaimPolicy: Delete`, the CSI controller calls `DeleteVolume` and the underlying CephFS
+  subvolume (and its data) is **permanently removed from the Ceph cluster**. There is no
+  confirmation — `kubectl delete pvc` deletes immediately, so only run it when you are sure.
+
+> To keep data even after the PVC is deleted, use a StorageClass with `reclaimPolicy: Retain`
+> instead; the PV/subvolume then remains and must be deleted manually.
+
 ## Disabling
+
+Disabling removes the addon plumbing — the `ceph-cephfs` StorageClass, the
+`cephfs.csi.ceph.com` CSIDriver, the operator, the Ceph CSI custom resources/CRDs, and the
+`ceph-csi-operator-system` namespace. What happens to your PersistentVolumes (and the CephFS
+data behind them) depends on which flag you pass.
 
 ### Prompt for Data Preservation
 
@@ -128,11 +297,33 @@ Usage: Shared files, multi-pod access, NFS-like behavior
 k2s addons disable storage ceph
 ```
 
+Without `-f`/`-k`, the command runs interactively and prompts:
+
+```
+Do you want to DELETE ALL DATA on the Ceph (CephFS) volumes? Otherwise, all data will be kept. (y/N)
+```
+
+Answer `y` to delete all PersistentVolumes (and their CephFS data); anything else keeps them.
+
+> **Delete requires the volumes to be unused.** When you choose to delete data (prompt `y` or
+> `-f`), no pods may still be mounting the `ceph-cephfs` PVCs — otherwise disable aborts with
+> `Pod '<name>' is still using PVC '<pvc>' ... Delete all workloads using the SC 'ceph-cephfs'
+> and try again.`. Remove the workloads first, then re-run disable:
+>
+> ```console
+> kubectl delete pod <your-pods> --ignore-not-found
+> k2s addons disable storage ceph
+> ```
+>
+> Choosing to keep data (`N` or `-k`) has no such requirement.
+
 ### Force Delete All Data
 
 ```console
 k2s addons disable storage ceph -f
 ```
+
+Deletes all PersistentVolumes **without confirmation** (data loss).
 
 ### Keep All Data
 
@@ -140,33 +331,60 @@ k2s addons disable storage ceph -f
 k2s addons disable storage ceph -k
 ```
 
+Keeps all PersistentVolumes **without confirmation** (data preserved).
+
+> **How deletion is handled safely.** When you choose to delete (prompt `y` or `-f`), the addon
+> deletes the PVCs bound to the `ceph-cephfs` StorageClass **while the CSI driver is still
+> running**, so `reclaimPolicy: Delete` frees the underlying CephFS subvolumes on the Ceph
+> cluster before the driver and operator are removed. When you keep data (prompt `N` or `-k`),
+> the PVCs/PVs are left intact.
+>
+> If PVs were kept and you later want to reclaim that space on the Ceph cluster, remove the
+> leftover subvolumes manually:
+> `sudo cephadm shell ceph fs subvolume rm cephfs <subvolume-name> csi`.
+
 ## Architecture
 
 ### Components Deployed
 
+Applied by the addon (`enable`):
+
 | Component | Type | Namespace |
 |-----------|------|-----------|
-| `ceph-csi-cephfs-provisioner` | StatefulSet (2) | `ceph-csi-cephfs` |
-| `ceph-csi-cephfs-nodeplugin` | DaemonSet | `ceph-csi-cephfs` |
+| `ceph-csi-operator-controller-manager` | Deployment | `ceph-csi-operator-system` |
+| `ceph-secret` | Secret | `ceph-csi-operator-system` |
+| `ceph-cephfs` | StorageClass | cluster-scoped |
+| `CephConnection/ceph-connection` | Custom resource | `ceph-csi-operator-system` |
+| `Driver/cephfs.csi.ceph.com` | Custom resource | `ceph-csi-operator-system` |
+| `ClientProfile/storage` | Custom resource | `ceph-csi-operator-system` |
+| `*.csi.ceph.io` CRDs | CustomResourceDefinition | cluster-scoped |
+
+Created and managed by the operator (from the `Driver` resource):
+
+| Component | Type | Namespace |
+|-----------|------|-----------|
+| `cephfs.csi.ceph.com-ctrlplugin` | Deployment | `ceph-csi-operator-system` |
+| `cephfs.csi.ceph.com-nodeplugin` | DaemonSet | `ceph-csi-operator-system` |
+| `cephfs.csi.ceph.com` | CSIDriver | cluster-scoped |
 
 ### Data Flow
 
 ```
-Pod requests PVC
+k2s addons enable storage ceph
+    ↓ (applies operator + CephConnection/Driver/ClientProfile)
+ceph-csi-operator reconciles the Driver resource
+    ↓ (creates ctrlplugin Deployment + nodeplugin DaemonSet + CSIDriver)
+Pod requests PVC (storageClassName: ceph-cephfs)
     ↓
-CSI Provisioner (StatefulSet)
-    ↓ (CreateVolume call)
-CSI CephFS Plugin
-    ↓ (Ceph API call)
-External Ceph Cluster
-    ↓ (Creates CephFS subvolume)
-PersistentVolume created
+CephFS CSI controller (ctrlplugin)
+    ↓ (CreateVolume → uses ceph-secret + CephConnection monitors)
+External Ceph cluster creates a CephFS subvolume
     ↓
-Node Plugin (DaemonSet)
-    ↓ (Stage/Publish volume)
-Mount to Pod
+PersistentVolume created and bound
     ↓
-Application uses volume
+CephFS CSI node plugin (nodeplugin) stages/publishes the volume
+    ↓
+Volume mounted into the Pod (ReadWriteMany)
 ```
 
 ## Configuration
@@ -175,13 +393,30 @@ File: `addons/storage/ceph/config/ceph-config.json`
 
 ```json
 {
-  "monitorEndpoints": "10.0.0.1:6789,10.0.0.2:6789",
-  "cephUser": "client.admin",
+  "monitorEndpoints": "10.0.0.1:6789,10.0.0.2:6789,10.0.0.3:6789",
+  "cephUser": "admin",
   "cephKey": "AQDa1Ipn...==",
+  "clusterId": "63d54e0a-7c22-11f1-8fbf-00155d130ff3",
   "cephfsPool": "cephfs_data",
   "cephfsFilesystem": "cephfs"
 }
 ```
+
+| Field | Required | Description |
+|-------|----------|-------------|
+| `monitorEndpoints` | Yes | Comma-separated Ceph monitor `host:port` list. Also settable via `--monitorEndpoints`. |
+| `cephKey` | Yes | Base64-encoded Ceph key for the user. Also settable via `--adminKey`. |
+| `cephUser` | No | Ceph client user (default `client.admin`). |
+| `clusterId` | No | Ceph cluster FSID (default `k2s-ceph`). |
+| `cephfsPool` | No | CephFS **data pool** name (default `cephfs_data`). Must be an actual data pool of the filesystem (see `ceph fs ls`), not the filesystem name. Also settable via `--cephfsPool`. |
+| `cephfsFilesystem` | No | CephFS filesystem name (default `cephfs`). |
+
+When no config object is passed by the CLI, `enable` falls back to this file, so the
+`edit ceph-config.json` → `k2s addons enable storage ceph` workflow works out of the box.
+
+> The generated `ceph-cephfs` StorageClass uses `clusterID: storage`, which references the
+> `ClientProfile/storage` resource created by the addon. Do not confuse this with the Ceph
+> cluster FSID in `clusterId` above.
 
 ## Validation & Mutual Exclusion
 
@@ -219,16 +454,19 @@ Enable command validates:
 
 ## Troubleshooting
 
-### 1. Provisioner Pods Not Starting
+### 1. CSI Pods Not Starting
 
 ```console
-kubectl logs -n ceph-csi-cephfs -l app=ceph-csi-cephfs --tail=50
+kubectl get pods -n ceph-csi-operator-system
+kubectl logs -n ceph-csi-operator-system -l control-plane=ceph-csi-op-controller-manager --tail=50
+kubectl logs -n ceph-csi-operator-system -l app.kubernetes.io/component=cephfs-controller,app.kubernetes.io/part-of=k2s-ceph-csi --tail=50
 ```
 
 **Common causes:**
 - Invalid monitor endpoints (typo or unreachable)
 - Invalid keyring
 - Missing Ceph pools
+- Operator has not finished reconciling the `Driver` resource yet
 
 ### 2. PVC Stuck in Pending
 
@@ -236,16 +474,36 @@ kubectl logs -n ceph-csi-cephfs -l app=ceph-csi-cephfs --tail=50
 kubectl describe pvc <pvc-name>
 ```
 
-**Check provisioner events:**
+**Check CSI controller events and logs:**
 
 ```console
-kubectl get events -n default --sort-by='.lastTimestamp'
+kubectl get events --sort-by='.lastTimestamp'
+kubectl logs -n ceph-csi-operator-system deployment/cephfs.csi.ceph.com-ctrlplugin --tail=50
 ```
 
-**Check provisioner logs:**
+**`subvolume group 'csi' does not exist`** — the CephFS subvolume group referenced by the
+addon (`ClientProfile/storage` → `spec.cephFs.subVolumeGroup: csi`) is missing on the Ceph
+cluster. Create it once (replace `cephfs` with your filesystem name), then the PVC provisions
+on the next retry:
+
+```bash
+sudo cephadm shell ceph fs subvolumegroup create cephfs csi
+sudo cephadm shell ceph fs subvolumegroup ls cephfs
+```
+
+**`invalid pool layout '<name>'--need a valid data pool`** — the `cephfsPool` in the config
+is set to the *filesystem name* instead of an actual CephFS **data pool**. Find the real data
+pool and set `cephfsPool` to it, then re-enable the addon (the StorageClass `pool` parameter is
+immutable, so it must be recreated):
+
+```bash
+sudo cephadm shell ceph fs ls
+# name: cephfs, metadata pool: ..., data pools: [cephfs_data]   <-- use the data pool
+```
 
 ```console
-kubectl logs -n ceph-csi-cephfs deployment/ceph-csi-cephfs-provisioner --tail=50
+k2s addons disable storage ceph -k
+k2s addons enable storage ceph
 ```
 
 ### 3. Verify Ceph Connectivity
@@ -263,48 +521,36 @@ ceph -m 10.0.0.1:6789 --name client.admin --keyring /etc/ceph/ceph.client.admin.
 
 ```bash
 # View secret (redacted)
-kubectl get secret ceph-secret -n ceph-csi-cephfs -o yaml
+kubectl get secret ceph-secret -n ceph-csi-operator-system -o yaml
+```
 
-# Verify keyring is readable
-kubectl exec -it <provisioner-pod> -n ceph-csi-cephfs -- cat /etc/ceph/ceph.client.admin.keyring
+### 5. Inspect Operator Custom Resources
+
+```bash
+kubectl get drivers,cephconnections,clientprofiles -n ceph-csi-operator-system
+kubectl describe driver cephfs.csi.ceph.com -n ceph-csi-operator-system
 ```
 
 ## Security Notes
 
 - **Keyring management** — Store Ceph keys securely, never commit to git
-- **RBAC** — Each provisioner runs under dedicated ServiceAccounts
+- **RBAC** — The operator and CSI plugins run under dedicated ServiceAccounts
 - **Network policies** — Consider restricting CSI driver communication
 - **TLS** — Use TLS for Ceph connections in production
 - **Quotas** — Set resource requests/limits on CSI pods
 
 ## Performance Tuning
 
-### Replica Count
+### Controller Replicas
 
-Higher replicas = better HA, more resources:
+The CephFS CSI controller (`cephfs.csi.ceph.com-ctrlplugin`) runs with **1 replica** by
+default, which matches a single-schedulable-node K2s setup. On multi-node clusters you can
+increase it for high availability by editing `spec.controllerPlugin.replicas` in
+`addons/storage/ceph/manifests/cephfs-driver.yaml` before enabling the addon.
 
-```yaml
-spec:
-  replicas: 3  # Default 2
-```
+### CephFS Mounter
 
-### Resource Limits
-
-Adjust for your workload:
-
-```yaml
-resources:
-  requests:
-    memory: "256Mi"
-    cpu: "200m"
-  limits:
-    memory: "1Gi"
-    cpu: "1000m"
-```
-
-## Advanced Usage
-
-### CephFS with Kernel Mount
+Use the kernel mounter for better throughput than FUSE:
 
 ```yaml
 apiVersion: storage.k8s.io/v1
@@ -313,12 +559,9 @@ metadata:
   name: ceph-cephfs-kernel
 provisioner: cephfs.csi.ceph.com
 parameters:
+  clusterID: storage
   mounter: kernel  # Faster than fuse
 ```
-
-### Volume Snapshots
-
-Requires external-snapshotter with a CephFS-compatible snapshot class.
 
 ## Limits
 
@@ -336,7 +579,7 @@ Requires external-snapshotter with a CephFS-compatible snapshot class.
 ## Support
 
 For issues:
-1. Check logs: `kubectl logs -n ceph-csi-cephfs ...`
+1. Check logs: `kubectl logs -n ceph-csi-operator-system ...`
 2. Verify Ceph cluster: `ceph status`
 3. Review configuration: `addons/storage/ceph/config/ceph-config.json`
 4. Check mutual exclusion: `k2s addons status storage smb`

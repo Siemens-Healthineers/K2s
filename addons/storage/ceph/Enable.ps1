@@ -475,6 +475,11 @@ Write-Log "[Ceph] Ceph CSI pods are Ready" -Console
 Update-StorageImplementationRegistry -Implementation 'ceph' -Enabled $true
 Update-StorageImplementationRegistry -Implementation 'smb' -Enabled $false
 
+# Register the addon (with its implementation) in setup.json so that it is reported as enabled
+# by 'k2s addons ls' and recognized by Test-IsAddonEnabled. Must run only after a successful
+# enable (pod readiness was already validated above).
+Add-AddonToSetupJson -Addon ([pscustomobject] @{Name = $addonName; Implementation = 'ceph' })
+
 Write-Log "[Ceph] Addon enabled successfully" -Console
 
 if ($EncodeStructuredOutput -eq $true) {

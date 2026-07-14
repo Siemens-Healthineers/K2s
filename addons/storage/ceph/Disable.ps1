@@ -67,7 +67,41 @@ if ($null -eq (Invoke-Kubectl -Params 'get', 'namespace', 'ceph-csi-operator-sys
     exit 1
 }
 
+if ($Force -and $Keep) {
+    $errMsg = 'Disable storage ceph failed: Cannot use both Force and Keep parameters at the same time.'
+    if ($EncodeStructuredOutput -eq $true) {
+        $err = New-Error -Severity Error -Code (Get-ErrCodeInvalidParameter) -Message $errMsg
+        Send-ToCli -MessageType $MessageType -Message @{Error = $err }
+        return
+    }
+    Write-Log $errMsg -Error
+    exit 1
+}
+
+# When neither -Force nor -Keep is given, ask the user (same behavior as the SMB storage addon)
+# whether the data on the Ceph (CephFS) volumes should be deleted or preserved.
+if (-not $Force -and -not $Keep) {
+    $answer = Read-Host 'Do you want to DELETE ALL DATA on the Ceph (CephFS) volumes? Otherwise, all data will be kept. (y/N)'
+    if ($answer -eq 'y') {
+        $Force = $true
+        Write-Log 'DATA DELETION CONFIRMED. All PersistentVolumes on the Ceph storage will be deleted.' -Console
+    }
+    else {
+        $Keep = $true
+        Write-Log 'DATA WILL BE KEPT. No PersistentVolumes on the Ceph storage will be deleted.' -Console
+    }
+}
+
 Write-Log 'Uninstalling storage ceph' -Console
+
+# When not keeping data, delete the PVCs bound to the ceph-cephfs StorageClass while the CSI
+# driver is still running, so the StorageClass reclaimPolicy=Delete frees the underlying CephFS
+# subvolumes. Doing this after the driver/operator is removed below would leave the subvolumes
+# orphaned on the external Ceph cluster.
+if (-not $Keep) {
+    Write-Log '[Ceph] Deleting PersistentVolumeClaims bound to StorageClass ceph-cephfs' -Console
+    Remove-PersistentVolumeClaimsForStorageClass -StorageClass 'ceph-cephfs' | Write-Log
+}
 
 $cephStorageYamlDir = "$PSScriptRoot\manifests"
 (Invoke-Kubectl -Params 'delete', '-k', $cephStorageYamlDir, '--ignore-not-found', '--wait=false').Output | Write-Log
@@ -131,6 +165,10 @@ $gatewayApiCrds = "$PSScriptRoot\common\manifests\crds\crd.yaml"
 
 # Mark Ceph as disabled in registry
 Update-StorageImplementationRegistry -Implementation 'ceph' -Enabled $false
+
+# Remove the addon (with its implementation) from setup.json so that 'k2s addons ls' no longer
+# reports it as enabled and Test-IsAddonEnabled returns false.
+Remove-AddonFromSetupJson -Addon ([pscustomobject] @{Name = $addonName; Implementation = 'ceph' })
 
 Write-Log "[Ceph] Addon disabled successfully" -Console
 

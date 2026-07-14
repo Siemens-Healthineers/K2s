@@ -4,6 +4,6 @@
   "cephUser": "admin",
   "cephKey": "AQC3hlBq/SWfLRAAAE1J+uOgh2vEi/JO2Q40Ew==",
   "clusterId": "63d54e0a-7c22-11f1-8fbf-00155d130ff3",
-  "cephfsPool": "cephfs",
+  "cephfsPool": "cephfs.cephfs.data",
   "cephfsFilesystem": "cephfs"
 }
