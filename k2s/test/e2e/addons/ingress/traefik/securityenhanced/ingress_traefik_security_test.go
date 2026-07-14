@@ -135,16 +135,20 @@ var _ = Describe("'ingress-traefik and security enhanced' addon", Ordered, func(
 			// MustExec (asserts kubectl exit code 0) instead of Exec(..., _): if traefik log
 			// retrieval fails, an empty result would make the negative assertions below pass
 			// vacuously, hiding a real error.
-			// --since (time-bounded) instead of --tail=200 so the whole ingress reconciliation
-			// window is captured regardless of traefik's log volume; a fixed tail can rotate the
-			// relevant lines out on a busy proxy and mask a real error.
-			logs := suite.Kubectl().MustExec(ctx, "logs", "-n", "ingress-traefik", "deploy/traefik", "--since=10m")
+			// --since is set well above the suite step timeout (20m) so the whole traefik log
+			// history is captured: this suite disables all addons in BeforeSuite, so the traefik
+			// pod is created fresh when the ingress-traefik addon is enabled and kubectl logs
+			// (no --previous) only returns this run's logs. A fixed --tail could otherwise rotate
+			// the relevant lines out on a busy proxy and mask a real error.
+			logs := suite.Kubectl().MustExec(ctx, "logs", "-n", "ingress-traefik", "deploy/traefik", "--since=1h")
 			Expect(logs).NotTo(ContainSubstring("service not found"))
 			// Regression guard for the removed spec.tls blocks: the Traefik keycloak/oauth2-proxy
 			// ingresses no longer declare tls referencing security/k2s-cluster-local-tls (a secret
 			// that only ever exists in the ingress-traefik namespace). Traefik must therefore no
-			// longer log the failed secret lookup. The trusted certificate for k2s.cluster.local is
-			// owned and served by the central ingress-traefik/traefik-cluster-local ingress.
+			// longer log the failed secret lookup. If the blocks were reintroduced Traefik would
+			// re-emit this error on every reconcile, so the full-history window reliably catches a
+			// regression. The trusted certificate for k2s.cluster.local is owned and served by the
+			// central ingress-traefik/traefik-cluster-local ingress.
 			Expect(logs).NotTo(ContainSubstring("secret security/k2s-cluster-local-tls does not exist"))
 		})
 
@@ -231,7 +235,9 @@ var _ = Describe("'ingress-traefik and security enhanced' addon", Ordered, func(
 			// activation order (traefik enabled first, then security). Removing the spec.tls
 			// blocks must not cause Traefik to log the failed security/k2s-cluster-local-tls
 			// lookup, and the central ingress' trusted certificate must still be served.
-			logs := suite.Kubectl().MustExec(ctx, "logs", "-n", "ingress-traefik", "deploy/traefik", "--since=10m")
+			// --since spans the full traefik log history (the pod is created fresh in this suite),
+			// so a regressed error - which would recur on every reconcile - cannot rotate out.
+			logs := suite.Kubectl().MustExec(ctx, "logs", "-n", "ingress-traefik", "deploy/traefik", "--since=1h")
 			Expect(logs).NotTo(ContainSubstring("secret security/k2s-cluster-local-tls does not exist"))
 			addons.VerifyDeploymentReachableFromHostWithStatusCode(ctx, http.StatusOK, "https://k2s.cluster.local/keycloak/realms/demo-app")
 			addons.VerifyDeploymentReachableFromHostWithStatusCode(ctx, http.StatusOK, "https://k2s.cluster.local/oauth2/start?rd=%2F")
