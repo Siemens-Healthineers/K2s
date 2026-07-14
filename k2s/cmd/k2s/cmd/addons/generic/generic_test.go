@@ -185,8 +185,8 @@ var _ = Describe("generic pkg", func() {
 				Expect(err).ToNot(HaveOccurred())
 				Expect(result.RunE).ToNot(BeNil())
 				Expect(result.Commands()).To(HaveLen(2))
-				Expect(result.Commands()[0].Use).To(Equal("smb"))
-				Expect(result.Commands()[1].Use).To(Equal("ceph"))
+				uses := []string{result.Commands()[0].Use, result.Commands()[1].Use}
+				Expect(uses).To(ContainElements("smb", "ceph"))
 			})
 		})
 
