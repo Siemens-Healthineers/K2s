@@ -83,6 +83,20 @@ function Write-SyncLog {
     Write-Host "$ts $prefix $Message"
 }
 
+$requiredBuiltinModules = @(
+    'Microsoft.PowerShell.Utility',
+    'Microsoft.PowerShell.Management'
+)
+
+foreach ($requiredModule in $requiredBuiltinModules) {
+    try {
+        Import-Module -Name $requiredModule -ErrorAction Stop
+    } catch {
+        Write-SyncLog "Failed to import required module '$requiredModule'. PSVersion: $($PSVersionTable.PSVersion), PSEdition: $($PSVersionTable.PSEdition). Error: $($_.Exception.Message)" -IsError
+        exit 1
+    }
+}
+
 # ---------------------------------------------------------------------------
 # OCI helper functions - inlined from oci.module.psm1 so the script is
 # self-contained and can run without importing PS modules from the host.
