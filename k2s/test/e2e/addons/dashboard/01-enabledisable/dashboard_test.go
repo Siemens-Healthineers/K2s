@@ -26,6 +26,18 @@ import (
 
 const testClusterTimeout = time.Minute * 10
 
+// Headlamp plugin runtime contract (must match addons/dashboard/dashboard.module.psm1).
+const (
+	headlampDeployment    = "headlamp"
+	headlampNamespace     = "dashboard"
+	headlampContainerName = "headlamp"
+	headlampPluginsVolume = "headlamp-plugins"
+	certManagerPluginName = "cert-manager-plugin"
+	fluxPluginName        = "flux-plugin"
+	prometheusPluginName  = "prometheus-plugin"
+	kedaPluginName        = "keda-plugin"
+)
+
 var (
 	suite                 *framework.K2sTestSuite
 	portForwardingSession *gexec.Session
@@ -141,6 +153,20 @@ var _ = Describe("'dashboard' addon", Ordered, func() {
 
 				url := "http://localhost:4466/dashboard/"
 				suite.Cli("curl.exe").MustExec(ctx, url, "-k", "-v", "-o", "NUL", "-m", "5", "--retry", "10", "--fail", "--retry-all-errors")
+			})
+
+			It("does not inject any Headlamp plugin init-containers, volume, or mount when no plugin capability is present", func(ctx context.Context) {
+				// Plugin activation is capability-driven, not always-on. With only the dashboard
+				// enabled (no cert-manager/flux/prometheus/keda capability in the cluster),
+				// Sync-HeadlampPlugins must leave the headlamp deployment free of every K2s plugin
+				// init-container, the shared plugins volume, and the main-container mount.
+				suite.Cluster().ExpectDeploymentNotToHaveInitContainer(ctx, headlampDeployment, headlampNamespace, certManagerPluginName)
+				suite.Cluster().ExpectDeploymentNotToHaveInitContainer(ctx, headlampDeployment, headlampNamespace, fluxPluginName)
+				suite.Cluster().ExpectDeploymentNotToHaveInitContainer(ctx, headlampDeployment, headlampNamespace, prometheusPluginName)
+				suite.Cluster().ExpectDeploymentNotToHaveInitContainer(ctx, headlampDeployment, headlampNamespace, kedaPluginName)
+
+				suite.Cluster().ExpectDeploymentNotToHaveVolume(ctx, headlampDeployment, headlampNamespace, headlampPluginsVolume)
+				suite.Cluster().ExpectDeploymentNotToHaveVolumeMount(ctx, headlampDeployment, headlampNamespace, headlampContainerName, headlampPluginsVolume)
 			})
 
 			It("prints already-enabled message when enabling the addon again and exits with non-zero", func(ctx context.Context) {
