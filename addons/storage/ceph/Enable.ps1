@@ -220,20 +220,6 @@ if ($null -eq $Config) {
 
 Read-ValidateStorageConfig -Config $Config
 
-# Create Ceph CSI namespaces
-# Write-Log "[Ceph] Creating Ceph CSI namespaces" -Console
-# $null = kubectl create namespace ceph-csi-cephfs --dry-run=client -o yaml | kubectl apply -f -
-
-# if ($LASTEXITCODE -ne 0) {
-#     Write-Log "[Ceph] ERROR: Failed to create namespaces" -Console -Error
-#     if ($EncodeStructuredOutput -eq $true) {
-#         Send-ToCli -MessageType $MessageType -Message @{Error = (New-CephStructuredError -Message "Failed to create namespaces") }
-#     }
-#     exit 1
-# }
-
-# Write-Log "[Ceph] Namespaces created successfully" -Console
-
 # Apply Ceph CSI operator manifests (CRDs first, then RBAC/operator resources)
 $cephManifestsDir = "$PSScriptRoot\manifests"
 $cephCrdsManifest = "$cephManifestsDir\crds\ceph-crd.yaml"
