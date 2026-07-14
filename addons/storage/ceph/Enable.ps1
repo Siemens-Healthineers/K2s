@@ -44,7 +44,6 @@ $infraModule = "$PSScriptRoot/../../../lib/modules/k2s/k2s.infra.module/k2s.infr
 $clusterModule = "$PSScriptRoot/../../../lib/modules/k2s/k2s.cluster.module/k2s.cluster.module.psm1"
 $addonsModule = "$PSScriptRoot\..\..\addons.module.psm1"
 $validationModule = "$PSScriptRoot\..\storage-validation.module.psm1"
-$addonName = 'storage'
 Import-Module $infraModule, $clusterModule, $addonsModule, $validationModule
 
 Initialize-Logging -ShowLogs:$ShowLogs
@@ -65,14 +64,24 @@ if ($conflictError) {
 
 if ((Test-IsAddonEnabled -Addon ([pscustomobject] @{Name = $AddonName })) -eq $true) {
     $err = New-Error -Severity Warning -Code (Get-ErrCodeAddonAlreadyEnabled) -Message "Addon '$AddonName' is already enabled, nothing to do." 
-    return @{Error = $err }
+  if ($EncodeStructuredOutput -eq $true) {
+    Send-ToCli -MessageType $MessageType -Message @{Error = $err }
+    return
+  }
+  Write-Log $err.Message -Error
+  exit 1
 }
 
 $setupInfo = Get-SetupInfo
 
 if ($setupInfo.Name -ne 'k2s') {
     $err = New-Error -Severity Warning -Code (Get-ErrCodeWrongSetupType) -Message "Addon '$AddonName' can only be enabled for 'k2s' setup type."  
-    return @{Error = $err }
+  if ($EncodeStructuredOutput -eq $true) {
+    Send-ToCli -MessageType $MessageType -Message @{Error = $err }
+    return
+  }
+  Write-Log $err.Message -Error
+  exit 1
 }
 
 Write-Log "[Ceph] Enabling Ceph storage addon" -Console
@@ -223,7 +232,6 @@ Read-ValidateStorageConfig -Config $Config
 # Apply Ceph CSI operator manifests (CRDs first, then RBAC/operator resources)
 $cephManifestsDir = "$PSScriptRoot\manifests"
 $cephCrdsManifest = "$cephManifestsDir\crds\ceph-crd.yaml"
-$cephKustomization = "$cephManifestsDir\kustomization.yaml"
 $cephOperatorManifest = "$cephManifestsDir\operator.yaml"
 
 try {
@@ -412,8 +420,8 @@ try {
   $ctrlDeployElapsed = 0
   $ctrlDeployExists = $false
   while ($ctrlDeployElapsed -lt $ctrlDeployTimeoutSeconds) {
-    & kubectl get deployment $cephfsCtrlDeploymentName -n $cephOperatorNamespace --ignore-not-found -o name 2>$null | Out-Null
-    if ($LASTEXITCODE -eq 0) {
+    $ctrlDeployResult = & kubectl get deployment $cephfsCtrlDeploymentName -n $cephOperatorNamespace --ignore-not-found -o name 2>$null
+    if (-not [string]::IsNullOrWhiteSpace($ctrlDeployResult)) {
       $ctrlDeployExists = $true
       break
     }

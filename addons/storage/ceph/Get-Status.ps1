@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: © 202 Siemens Healthineers AG
+# SPDX-FileCopyrightText: © 2026 Siemens Healthineers AG
 # SPDX-License-Identifier: MIT
 
 #Requires -RunAsAdministrator
@@ -29,8 +29,8 @@ Initialize-Logging -ShowLogs:$ShowLogs
 
 Write-Log "[Ceph] Getting Ceph CSI addon status" -Console
 
-# Check if CephFS namespace exists
-$cephfs_ns = kubectl get namespace ceph-csi-cephfs -o json 2>$null | ConvertFrom-Json -ErrorAction SilentlyContinue
+# Check if Ceph operator namespace exists
+$cephfs_ns = kubectl get namespace ceph-csi-operator-system -o json 2>$null | ConvertFrom-Json -ErrorAction SilentlyContinue
 $legacy_rbd_ns = kubectl get namespace ceph-csi-rbd -o json 2>$null | ConvertFrom-Json -ErrorAction SilentlyContinue
 
 $statusObject = @{

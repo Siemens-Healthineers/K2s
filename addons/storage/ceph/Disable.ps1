@@ -160,9 +160,6 @@ finally {
 $CrdsDirectory = "$PSScriptRoot\manifests\crds"
 (Invoke-Kubectl -Params 'delete', '-f', $CrdsDirectory, '--ignore-not-found', '--wait=false').Output | Write-Log
 
-$gatewayApiCrds = "$PSScriptRoot\common\manifests\crds\crd.yaml"
-(Invoke-Kubectl -Params 'delete', '--ignore-not-found', '--timeout=30s', '-f', $gatewayApiCrds).Output | Write-Log
-
 # Mark Ceph as disabled in registry
 Update-StorageImplementationRegistry -Implementation 'ceph' -Enabled $false
 
