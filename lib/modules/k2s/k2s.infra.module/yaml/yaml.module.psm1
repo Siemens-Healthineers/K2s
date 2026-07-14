@@ -6,6 +6,14 @@ $pathModule = "$PSScriptRoot\..\path\path.module.psm1"
 
 Import-Module $pathModule
 
+function New-CompatTemporaryFile {
+    <#
+    .SYNOPSIS
+    Creates a temporary file path compatible with New-TemporaryFile callsites
+    #>
+    return [System.IO.Path]::GetTempFileName()
+}
+
 function Test-LastExecutionForSuccess {
     return $LASTEXITCODE -eq 0
 }
@@ -22,7 +30,7 @@ function Get-FromYamlFile {
 
     $kubeBinPath = Get-KubeBinPath
     $yaml2jsonExe = [System.IO.Path]::Combine($kubeBinPath, 'yaml2json.exe')
-    $tempJsonFile = New-TemporaryFile
+    $tempJsonFile = New-CompatTemporaryFile
 
     try {
         Invoke-Expression "&`"$yaml2jsonExe`" -input `"$Path`" -output `"$tempJsonFile`" -verbosity error"

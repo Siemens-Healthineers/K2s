@@ -83,17 +83,33 @@ function Write-SyncLog {
     Write-Host "$ts $prefix $Message"
 }
 
-$requiredBuiltinModules = @(
-    'Microsoft.PowerShell.Utility',
-    'Microsoft.PowerShell.Management'
-)
+function Get-Sha256HexLower {
+    param(
+        [Parameter(Mandatory)]
+        [string]$Path
+    )
 
-foreach ($requiredModule in $requiredBuiltinModules) {
+    $stream = [System.IO.File]::OpenRead($Path)
     try {
-        Import-Module -Name $requiredModule -ErrorAction Stop
-    } catch {
-        Write-SyncLog "Failed to import required module '$requiredModule'. PSVersion: $($PSVersionTable.PSVersion), PSEdition: $($PSVersionTable.PSEdition). Error: $($_.Exception.Message)" -IsError
-        exit 1
+        $sha256 = [System.Security.Cryptography.SHA256]::Create()
+        try {
+            $hashBytes = $sha256.ComputeHash($stream)
+        }
+        finally {
+            $sha256.Dispose()
+        }
+    }
+    finally {
+        $stream.Dispose()
+    }
+
+    return ([System.BitConverter]::ToString($hashBytes).Replace('-', '').ToLowerInvariant())
+}
+
+function New-CompatTemporaryFile {
+    $tempPath = [System.IO.Path]::GetTempFileName()
+    return [PSCustomObject]@{
+        FullName = $tempPath
     }
 }
 
@@ -116,7 +132,7 @@ function Get-BlobPathByDigest {
         throw "Blob not found for digest: $Digest"
     }
     # Integrity check
-    $computed = (Get-FileHash -Path $blobPath -Algorithm SHA256).Hash.ToLower()
+    $computed = Get-Sha256HexLower -Path $blobPath
     if ($computed -ne $hash) {
         throw "Blob integrity check failed for $Digest (computed sha256:$computed)"
     }
@@ -386,14 +402,14 @@ function Sync-AddonFromOciLayout {
                             foreach ($line in ($originalContent -split "`r?`n")) {
                                 if ($line.StartsWith('#') -or $line.Trim() -eq '') { $headerLines += $line } else { break }
                             }
-                            $tempJson = New-TemporaryFile
+                            $tempJson = New-CompatTemporaryFile
                             try {
                                 $existingManifest | ConvertTo-Json -Depth 100 | Set-Content -Path $tempJson.FullName -Encoding UTF8
                                 $yamlOutput = & $yqExe eval -P '.' $tempJson.FullName
                                 $yamlContent = if ($yamlOutput -is [array]) { $yamlOutput -join "`n" } else { $yamlOutput.ToString() }
                                 [System.IO.File]::WriteAllText($destManifestPath, (($headerLines -join "`n") + "`n" + $yamlContent), [System.Text.UTF8Encoding]::new($false))
                                 Write-SyncLog "    Merged manifest saved"
-                            } finally { Remove-Item -Path $tempJson -Force -ErrorAction SilentlyContinue }
+                            } finally { Remove-Item -Path $tempJson.FullName -Force -ErrorAction SilentlyContinue }
                         } else {
                             Write-SyncLog "    yq.exe not found, copying manifest as-is" -Warning
                             Copy-Item -Path $configManifestSrc -Destination $destManifestPath -Force

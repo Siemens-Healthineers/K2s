@@ -54,31 +54,9 @@ if ($runningFromDelta) {
 	$infraModule = "$PSScriptRoot\..\..\..\modules\k2s\k2s.infra.module\k2s.infra.module.psm1"
 }
 
-# Preload core built-ins here so downstream scripts have required cmdlets in PowerShell 7 sessions.
-$coreModules = @(
-    'Microsoft.PowerShell.Utility',
-    'Microsoft.PowerShell.Management'
-)
+Import-Module $infraModule
 
-if ($IsWindows -or $env:OS -eq 'Windows_NT') {
-    foreach ($coreModule in $coreModules) {
-        try {
-            Import-Module -Name $coreModule -ErrorAction Stop | Out-Null
-        } catch {
-            Write-Error "[Invoke-ExecScript] Failed to import module '$coreModule' (PSVersion=$($PSVersionTable.PSVersion), PSEdition=$($PSVersionTable.PSEdition)). Error: $($_.Exception.Message)"
-            exit 1
-        }
-    }
-}
-
-try {
-    Import-Module $infraModule -ErrorAction Stop
-} catch {
-    Write-Error "[Invoke-ExecScript] Failed to import infra module '$infraModule'. Error: $($_.Exception.Message)"
-    exit 1
-}
-
-if (-not [string]::IsNullOrWhiteSpace($Script) -and $Script.Contains("-ShowLogs")) {
+if ($Script.Contains("-ShowLogs")) {
     Initialize-Logging -ShowLogs:$true
 }
 

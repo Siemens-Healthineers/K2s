@@ -1314,7 +1314,7 @@ Describe 'Import-CACertificateToWindowsStore' -Tag 'unit', 'ci', 'addon' {
         Mock -ModuleName $moduleName Get-TrustedRootStoreLocation { return 'Cert:\\LocalMachine\\Root' }
         Mock -ModuleName $moduleName Invoke-Kubectl { return [pscustomobject]@{ Output = $script:b64 } }
         Mock -ModuleName $moduleName Import-Certificate { }
-        Mock -CommandName New-TemporaryFile { return [pscustomobject]@{ FullName = 'C:\\temp\\ca.crt' } }
+        Mock -CommandName New-CompatTemporaryFile { return [pscustomobject]@{ FullName = 'C:\\temp\\ca.crt' } }
         Mock -CommandName Out-File { }
         Mock -CommandName Import-Certificate { }
         Mock -CommandName Remove-Item { }
