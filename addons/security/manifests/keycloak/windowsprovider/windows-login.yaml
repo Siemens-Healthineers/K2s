@@ -21,7 +21,7 @@ spec:
     spec:
       containers:
         - name: windows-login
-          image: shsk2s.azurecr.io/login:v1.2.0 #windows_image
+          image: shsk2s.azurecr.io/login:v1.3.0 #windows_image
           workingDir: "%CONTAINER_SANDBOX_MOUNT_POINT%"
           command:
             - "%CONTAINER_SANDBOX_MOUNT_POINT%\\login.exe"
