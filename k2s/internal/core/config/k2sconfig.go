@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText:  © 2025 Siemens Healthineers AG
+// SPDX-FileCopyrightText:  © 2026 Siemens Healthineers AG
 // SPDX-License-Identifier:   MIT
 
 package config
@@ -42,10 +42,15 @@ type configDir struct {
 	Logs string `json:"logs"`
 }
 
-const configFileRelPath = "cfg\\config.json"
+// configFileRelDir and configFileName are joined via filepath.Join so the
+// correct OS path separator is used on both Windows and Linux.
+const (
+	configFileRelDir = "cfg"
+	configFileName   = "config.json"
+)
 
 func ReadK2sConfig(k2sInstallDir string) (*cconfig.K2sConfig, error) {
-	configFilePath := filepath.Join(k2sInstallDir, configFileRelPath)
+	configFilePath := filepath.Join(k2sInstallDir, configFileRelDir, configFileName)
 
 	configJson, err := json.FromFile[configJson](configFilePath)
 	if err != nil {
@@ -73,7 +78,7 @@ func ReadK2sConfig(k2sInstallDir string) (*cconfig.K2sConfig, error) {
 // ReadSupportedWorkerOS returns the list of supported worker OS keys (e.g. "debian12", "debian13")
 // from the supportedWorkerOS array in cfg/config.json.
 func ReadSupportedWorkerOS(k2sInstallDir string) ([]string, error) {
-	configFilePath := filepath.Join(k2sInstallDir, configFileRelPath)
+	configFilePath := filepath.Join(k2sInstallDir, configFileRelDir, configFileName)
 
 	configJson, err := json.FromFile[configJson](configFilePath)
 	if err != nil {
@@ -88,7 +93,7 @@ func ReadSupportedWorkerOS(k2sInstallDir string) ([]string, error) {
 }
 
 func ReadKubeSwitchCIDR(k2sInstallDir string) (string, error) {
-	configFilePath := filepath.Join(k2sInstallDir, configFileRelPath)
+	configFilePath := filepath.Join(k2sInstallDir, configFileRelDir, configFileName)
 
 	configJson, err := json.FromFile[configJson](configFilePath)
 	if err != nil {
