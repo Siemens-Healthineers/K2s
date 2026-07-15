@@ -3,8 +3,8 @@
 # SPDX-License-Identifier: MIT
 
 # Define the URL and file paths
-$zipUrl = 'https://github.com/ory/hydra/releases/download/v2.3.0/hydra_2.3.0-windows_sqlite_64bit.zip'
-$zipFilePath = "$PSScriptRoot\hydra_2.3.0-windows_sqlite_64bit.zip"
+$zipUrl = 'https://github.com/ory/hydra/releases/download/v26.2.0/hydra_26.2.0-windows_sqlite_64bit.zip'
+$zipFilePath = "$PSScriptRoot\hydra_26.2.0-windows_sqlite_64bit.zip"
 $extractPath = "$PSScriptRoot\hydra_extracted"
 
 # Download the ZIP file
