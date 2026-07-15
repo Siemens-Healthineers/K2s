@@ -65,10 +65,13 @@ sudo cephadm shell ceph fsid
 # Ceph user & key (base64-encoded key used for --adminKey / cephKey)
 sudo cephadm shell ceph auth get client.admin
 
-# CephFS filesystem name (cephfsFilesystem)
-sudo cephadm shell ceph fs ls
+# 0: [v2:172.x.1.102:3300/0,v1:172.x.1.x:6789/0] mon.cephadmin 
+# 3: [v2:172.x.1.103:3300/0,v1:172.x.1.x:6789/0] mon.cephhostnode1
+# use 172.19.1.x:6789,172.x.1.103:6789  for Monitor endpoints
+ sudo cephadm shell -- ceph mon dump
 
-# name: cephfs, metadata pool: ..., data pools: [cephfs_data]   <-- use this
+# name: cephfs  <-- use this for CephFS filesystem name
+# data pools: [cephfs_data]   <-- use this CephFS data pool
 sudo cephadm shell ceph fs ls
 
 ```
@@ -342,6 +345,34 @@ Keeps all PersistentVolumes **without confirmation** (data preserved).
 > If PVs were kept and you later want to reclaim that space on the Ceph cluster, remove the
 > leftover subvolumes manually:
 > `sudo cephadm shell ceph fs subvolume rm cephfs <subvolume-name> csi`.
+
+## Backup, Restore & Upgrade
+
+Because this addon connects to an **external Ceph cluster**, the user data lives on that cluster
+and is never owned or stored locally by K2s. The only state that must be preserved to re-enable the
+addon is its **connection configuration** (monitor endpoints, credentials, cluster ID, and
+pool/filesystem names). This configuration is persisted to `config/ceph-config.json` when the addon
+is enabled (including values supplied via CLI flags) and is what the backup/restore/upgrade flows
+capture.
+
+### Addon backup and restore
+
+```console
+k2s addons backup storage ceph
+k2s addons restore storage ceph
+```
+
+`backup` snapshots the ceph connection configuration into a zip archive. `restore` re-applies the
+snapshot and re-enables the addon using the restored configuration. No user data is copied, since it
+resides on the external Ceph cluster.
+
+### System backup, restore and upgrade
+
+`k2s system backup`, `k2s system restore`, and `k2s system upgrade` automatically preserve the ceph
+connection configuration through backup/restore hooks that are registered while the addon is
+enabled. During an upgrade the addon install folder is replaced (resetting `ceph-config.json` to the
+shipped defaults); the restore hook writes the backed-up configuration back before the addon is
+re-enabled, so the connection to the external Ceph cluster is retained without manual reconfiguration.
 
 ## Architecture
 

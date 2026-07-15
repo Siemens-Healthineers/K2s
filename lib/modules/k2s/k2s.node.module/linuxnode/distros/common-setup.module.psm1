@@ -931,6 +931,90 @@ function Get-GpuContainerImages {
     Write-Log '[GpuImg] Finished pulling GPU container images'
 }
 
+<#
+.SYNOPSIS
+    Pulls Ceph CSI container images for the 'storage' addon (ceph implementation).
+.DESCRIPTION
+    Reads the Ceph CSI container images from the 'storage' addon manifest
+    (addons/storage/addon.manifest.yaml, ceph implementation 'additionalImages')
+    and pulls them into the VM's container store so they can be exported into an
+    offline node package. Ceph is images-only (no host .deb packages).
+.PARAMETER UserName
+    The user name to log in into the VM.
+.PARAMETER UserPwd
+    The password to use to log in into the VM.
+.PARAMETER IpAddress
+    The IP address of the VM.
+.PARAMETER Proxy
+    Optional HTTP proxy used to reach the image registries.
+#>
+function Get-CephContainerImages {
+    param (
+        [ValidateScript({ !([string]::IsNullOrWhiteSpace($_)) })]
+        [string]$UserName = $(throw 'Argument missing: UserName'),
+        [string]$UserPwd = $(throw 'Argument missing: UserPwd'),
+        [ValidateScript({ Get-IsValidIPv4Address($_) })]
+        [string]$IpAddress = $(throw 'Argument missing: IpAddress'),
+        [string]$Proxy = ''
+    )
+    $remoteUser = "$UserName@$IpAddress"
+    $remoteUserPwd = $UserPwd
+
+    $pullRemoteImage = { param($Image = $(throw 'Argument missing: Image'), $PullCmd = $(throw 'Argument missing: PullCmd'))
+        $result = Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute $PullCmd -RemoteUser "$remoteUser" -RemoteUserPwd "$remoteUserPwd" -IgnoreErrors
+        $result.Output | Write-Log
+        if ($result.Success -eq $false) {
+            Write-Log "[CephImg] WARNING: failed to pull Ceph CSI image '$Image' (it will not be bundled for offline use)" -Console
+            return $false
+        }
+        return $true
+    }
+
+    # Resolve manifest path relative to this module's location
+    $repoRoot = (Get-Item -Path $PSScriptRoot).Parent.Parent.Parent.Parent.Parent.Parent.FullName
+    $manifestPath = Join-Path -Path $repoRoot -ChildPath 'addons\storage\addon.manifest.yaml'
+
+    if (!(Test-Path -Path $manifestPath)) {
+        throw "[CephImg] storage addon manifest not found at: $manifestPath"
+    }
+
+    $manifestContent = Get-Content -Path $manifestPath -Raw
+    if ([string]::IsNullOrWhiteSpace($manifestContent)) {
+        throw "[CephImg] storage addon manifest is empty: $manifestPath"
+    }
+
+    # Ceph CSI images live under a few registries: the ceph-csi-operator/cephcsi on quay.io,
+    # the CSI sidecars on registry.k8s.io/sig-storage (legacy k8s.gcr.io), and K2s mirror on shsk2s.azurecr.io.
+    $images = @([regex]::Matches($manifestContent, '(?:quay\.io/cephcsi|registry\.k8s\.io/sig-storage|k8s\.gcr\.io/sig-storage|shsk2s\.azurecr\.io/sig-storage)/[A-Za-z0-9_./-]+:[A-Za-z0-9_.-]+') | ForEach-Object { $_.Value } | Select-Object -Unique)
+
+    if ($images.Count -eq 0) {
+        Write-Log '[CephImg] No Ceph CSI container images found in storage addon manifest (ceph implementation may not be updated)' -Console
+        return
+    }
+
+    Write-Log "[CephImg] Pulling Ceph CSI container images from addon manifest: $($images -join ', ')"
+
+    $pulledCount = 0
+    foreach ($image in $images) {
+        if (![string]::IsNullOrWhiteSpace($Proxy)) {
+            # Normalize proxy URL - strip existing scheme and ensure http:// prefix
+            $proxyHost = $Proxy -replace '^https?://', ''
+            $pullCmd = "sudo HTTPS_PROXY=http://$proxyHost HTTP_PROXY=http://$proxyHost buildah pull '$image'"
+        } else {
+            $pullCmd = "sudo buildah pull '$image'"
+        }
+        if (&$pullRemoteImage $image $pullCmd) {
+            $pulledCount++
+        }
+    }
+
+    if ($pulledCount -eq 0) {
+        throw "[CephImg] None of the $($images.Count) Ceph CSI images could be pulled. Check registry connectivity/proxy and image references in the storage addon manifest."
+    }
+
+    Write-Log "[CephImg] Finished pulling Ceph CSI container images ($pulledCount of $($images.Count) pulled)" -Console
+}
+
 function Get-ClusterIPWebhookImages {
     param (
         [ValidateScript({ !([string]::IsNullOrWhiteSpace($_)) })]
@@ -2396,6 +2480,7 @@ Get-KubernetesImages,
 Get-FlannelImages,
 Get-NvidiaGpuDebPackagesFromInternet,
 Get-GpuContainerImages,
+Get-CephContainerImages,
 Get-KubernetesDebPackagesPath,
 Get-BuildahDebPackagesPath,
 Add-BuildahArtifactsToRemoteComputer,
