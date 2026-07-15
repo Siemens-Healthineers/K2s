@@ -500,6 +500,7 @@ k2s system package [flags]
 | `--node-package` | | Create a Linux worker node package. Requires an installed and running *K2s* cluster. The local cluster proxy is used by default; override with `-p` if needed |
 | `--os` | | Target Linux distribution for `--node-package`, for example `debian12` or `debian13` |
 | `--include-gpu` | | Include NVIDIA Container Toolkit packages for GPU support. When `k2s node add` uses a package built with this flag, GPU support is auto-configured if an NVIDIA GPU is detected |
+| `--include-ceph` | | Include Ceph CSI container images (`ceph-csi-operator`, `cephcsi`, `csi-node-driver-registrar`) for the `storage` addon's ceph implementation, so the CephFS CSI plugin can run offline on nodes added with this package |
 
 Example for node package creation:
 
@@ -511,6 +512,12 @@ Example for node package with GPU support:
 
 ```console
 k2s system package --node-package --os debian13 --include-gpu --target-dir "C:\out" --name "debian13-gpu.zip"
+```
+
+Example for node package with Ceph CSI images:
+
+```console
+k2s system package --node-package --os debian13 --include-ceph --target-dir "C:\out" --name "debian13-ceph.zip"
 ```
 
 ### system backup

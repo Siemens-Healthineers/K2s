@@ -359,7 +359,7 @@ stringData:
   userKey: $AdminKey
 "@
 
-$cephfsSecret | kubectl apply -f -
+$cephfsSecret | kubectl apply -f - 2>&1 | ForEach-Object { Write-Log "[Ceph] kubectl: $_" }
 
 if ($LASTEXITCODE -ne 0) {
     Write-Log "[Ceph] ERROR: Failed to create secrets" -Console -Error
@@ -395,7 +395,7 @@ parameters:
   csi.storage.k8s.io/node-stage-secret-namespace: $cephOperatorNamespace
 "@
 
-$cephfsSC | kubectl apply -f -
+$cephfsSC | kubectl apply -f - 2>&1 | ForEach-Object { Write-Log "[Ceph] kubectl: $_" }
 
 if ($LASTEXITCODE -ne 0) {
     Write-Log "[Ceph] ERROR: Failed to create StorageClasses" -Console -Error
@@ -473,6 +473,32 @@ Update-StorageImplementationRegistry -Implementation 'smb' -Enabled $false
 # by 'k2s addons ls' and recognized by Test-IsAddonEnabled. Must run only after a successful
 # enable (pod readiness was already validated above).
 Add-AddonToSetupJson -Addon ([pscustomobject] @{Name = $addonName; Implementation = 'ceph' })
+
+# Persist the effective connection configuration back to ceph-config.json so that values supplied
+# via CLI flags (monitor endpoints, credentials, pool/filesystem) are captured. This is what the
+# backup/restore and upgrade hooks snapshot in order to re-enable the addon later, since ceph is
+# backed by an EXTERNAL cluster and has no addon-owned data of its own.
+try {
+  $cephConfigPathToPersist = "$PSScriptRoot\config\ceph-config.json"
+  $persistedConfig = [pscustomobject]@{
+    comment          = 'Ceph CSI Configuration - Update values with your Ceph cluster details'
+    monitorEndpoints = $script:MonitorEndpoints
+    cephUser         = $script:cephUser
+    cephKey          = $script:AdminKey
+    clusterId        = $script:clusterId
+    cephfsPool       = $script:CephfsPool
+    cephfsFilesystem = $script:cephfsFilesystem
+  }
+  $persistedConfig | ConvertTo-Json -Depth 20 | Set-Content -Path $cephConfigPathToPersist -Encoding UTF8 -Force
+  Write-Log "[Ceph] Persisted effective configuration to '$cephConfigPathToPersist'" -Console
+}
+catch {
+  Write-Log "[Ceph] Warning: failed to persist ceph-config.json: $($_.Exception.Message)" -Console
+}
+
+# Register backup/restore/upgrade hooks so that 'k2s system backup/restore' and cluster upgrade
+# preserve the ceph connection configuration.
+Copy-ScriptsToHooksDir -ScriptPaths @(Get-ChildItem -Path "$PSScriptRoot\hooks" -Filter '*.ps1' | ForEach-Object { $_.FullName })
 
 Write-Log "[Ceph] Addon enabled successfully" -Console
 

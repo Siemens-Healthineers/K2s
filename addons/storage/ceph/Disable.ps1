@@ -167,6 +167,9 @@ Update-StorageImplementationRegistry -Implementation 'ceph' -Enabled $false
 # reports it as enabled and Test-IsAddonEnabled returns false.
 Remove-AddonFromSetupJson -Addon ([pscustomobject] @{Name = $addonName; Implementation = 'ceph' })
 
+# Unregister the backup/restore/upgrade hooks.
+Remove-ScriptsFromHooksDir -ScriptNames @(Get-ChildItem -Path "$PSScriptRoot\hooks" -Filter '*.ps1' | ForEach-Object { $_.Name })
+
 Write-Log "[Ceph] Addon disabled successfully" -Console
 
 if ($EncodeStructuredOutput -eq $true) {

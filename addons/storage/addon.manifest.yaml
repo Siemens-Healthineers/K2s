@@ -1,60 +1,17 @@
-# SPDX-FileCopyrightText: © 2024 Siemens Healthineers AG
+﻿# SPDX-FileCopyrightText: © 2024 Siemens Healthineers AG
 #
 # SPDX-License-Identifier: MIT
 
 apiVersion: v1
 kind: AddonManifest
 metadata:
-  name: storage
   description: Persistent storage solutions
+  name: storage
 spec:
   implementations:
-    - name: smb
-      description: StorageClass provisioning based on SMB share between K8s nodes (Windows/Linux)
-      offline_usage:
-        linux:
-          repos: []
-          deb:
-            - cifs-utils
-            - samba
-          curl: []
-          additionalImages: []
-        windows:
-          curl: []
-      commands:
-        enable:
-          cli:
-            flags:
-              - name: smbHostType
-                shorthand: t
-                default: windows
-                description: SMB host type
-                constraints:
-                  kind: validation-set
-                  validationSet:
-                    - windows
-                    - linux
-            examples:
-              - cmd: k2s addons enable storage smb
-                comment: Creates SMB share(s) between K8s nodes and Windows host system according to config in 'addons/storage/smb/config'
-          script:
-            subPath: smb/Enable.ps1
-            parameterMappings:
-              - cliFlagName: smbHostType
-                scriptParameterName: SmbHostType
+    - commands:
         disable:
           cli:
-            flags:
-              - name: force
-                shorthand: f
-                default: false
-                description: Disable the addon and DELETE ALL DATA without user confirmation
-                exclusionGroup: data-retention
-              - name: keep
-                shorthand: k
-                default: false
-                description: Disable the addon and KEEP ALL DATA without user confirmation
-                exclusionGroup: data-retention
             examples:
               - cmd: k2s addons disable storage smb
                 comment: Removes SMB share(s) between K8s nodes and prompts for data retention/deletion
@@ -62,77 +19,59 @@ spec:
                 comment: Removes SMB share(s) between K8s nodes and DELETES ALL DATA without prompting for confirmation
               - cmd: k2s addons disable storage smb -k
                 comment: Removes SMB share(s) between K8s nodes and KEEPS ALL DATA without prompting for confirmation
+            flags:
+              - default: false
+                description: Disable the addon and DELETE ALL DATA without user confirmation
+                exclusionGroup: data-retention
+                name: force
+                shorthand: f
+              - default: false
+                description: Disable the addon and KEEP ALL DATA without user confirmation
+                exclusionGroup: data-retention
+                name: keep
+                shorthand: k
           script:
-            subPath: smb/Disable.ps1
             parameterMappings:
               - cliFlagName: force
                 scriptParameterName: Force
               - cliFlagName: keep
                 scriptParameterName: Keep
-    - name: ceph
-      description: Ceph CSI operator for CephFS (file) storage provisioning
-      offline_usage:
-        linux:
-          repos: []
-          deb: []
-          curl: []
-          additionalImages:
-            - quay.io/cephcsi/ceph-csi-operator:latest
-            - quay.io/cephcsi/cephcsi:v3.10.0
-            - k8s.gcr.io/sig-storage/csi-node-driver-registrar:v2.10.0
-          additionalImagesFiles:
-            - manifests/operator.yaml
-            - manifests/csi-rbac.yaml
-        windows:
-          curl: []
-          additionalImages:
-            - quay.io/cephcsi/ceph-csi-operator:latest
-            - quay.io/cephcsi/cephcsi:v3.10.0
-            - k8s.gcr.io/sig-storage/csi-node-driver-registrar:v2.10.0
-          additionalImagesFiles:
-            - manifests/operator.yaml
-            - manifests/csi-rbac.yaml
-      commands:
+            subPath: smb/Disable.ps1
         enable:
           cli:
-            flags:
-              - name: monitorEndpoints
-                shorthand: m
-                default: ""
-                description: Ceph monitor endpoints (comma-separated, e.g., "10.0.0.1:6789,10.0.0.2:6789")
-              - name: adminKey
-                shorthand: a
-                default: ""
-                description: Base64-encoded Ceph admin keyring
-              - name: cephfsPool
-                shorthand: f
-                default: "cephfs_data"
-                description: CephFS data pool name
             examples:
-              - cmd: k2s addons enable storage ceph --monitorEndpoints "10.0.0.1:6789,10.0.0.2:6789"
-                comment: Enable Ceph CSI storage with monitor endpoints
+              - cmd: k2s addons enable storage smb
+                comment: Creates SMB share(s) between K8s nodes and Windows host system according to config in 'addons/storage/smb/config'
+            flags:
+              - constraints:
+                  kind: validation-set
+                  validationSet:
+                    - windows
+                    - linux
+                default: windows
+                description: SMB host type
+                name: smbHostType
+                shorthand: t
           script:
-            subPath: ceph/Enable.ps1
             parameterMappings:
-              - cliFlagName: monitorEndpoints
-                scriptParameterName: MonitorEndpoints
-              - cliFlagName: adminKey
-                scriptParameterName: AdminKey
-              - cliFlagName: cephfsPool
-                scriptParameterName: CephfsPool
+              - cliFlagName: smbHostType
+                scriptParameterName: SmbHostType
+            subPath: smb/Enable.ps1
+      description: StorageClass provisioning based on SMB share between K8s nodes (Windows/Linux)
+      name: smb
+      offline_usage:
+        linux:
+          additionalImages: []
+          curl: []
+          deb:
+            - cifs-utils
+            - samba
+          repos: []
+        windows:
+          curl: []
+    - commands:
         disable:
           cli:
-            flags:
-              - name: force
-                shorthand: f
-                default: false
-                description: Disable the addon and DELETE ALL PERSISTENTVOLUMES without user confirmation
-                exclusionGroup: data-retention
-              - name: keep
-                shorthand: k
-                default: false
-                description: Disable the addon and KEEP ALL PERSISTENTVOLUMES without user confirmation
-                exclusionGroup: data-retention
             examples:
               - cmd: k2s addons disable storage ceph
                 comment: Removes Ceph CSI provisioners and prompts for data retention/deletion
@@ -140,13 +79,72 @@ spec:
                 comment: Removes Ceph CSI provisioners and DELETES ALL DATA without prompting
               - cmd: k2s addons disable storage ceph -k
                 comment: Removes Ceph CSI provisioners and KEEPS ALL DATA without prompting
+            flags:
+              - default: false
+                description: Disable the addon and DELETE ALL PERSISTENTVOLUMES without user confirmation
+                exclusionGroup: data-retention
+                name: force
+                shorthand: f
+              - default: false
+                description: Disable the addon and KEEP ALL PERSISTENTVOLUMES without user confirmation
+                exclusionGroup: data-retention
+                name: keep
+                shorthand: k
           script:
-            subPath: ceph/Disable.ps1
             parameterMappings:
               - cliFlagName: force
                 scriptParameterName: Force
               - cliFlagName: keep
                 scriptParameterName: Keep
+            subPath: ceph/Disable.ps1
+        enable:
+          cli:
+            examples:
+              - cmd: k2s addons enable storage ceph --monitorEndpoints "10.0.0.1:6789,10.0.0.2:6789"
+                comment: Enable Ceph CSI storage with monitor endpoints
+            flags:
+              - default: ""
+                description: Ceph monitor endpoints (comma-separated, e.g., "10.0.0.1:6789,10.0.0.2:6789")
+                name: monitorEndpoints
+                shorthand: m
+              - default: ""
+                description: Base64-encoded Ceph admin keyring
+                name: adminKey
+                shorthand: a
+              - default: cephfs_data
+                description: CephFS data pool name
+                name: cephfsPool
+                shorthand: f
+          script:
+            parameterMappings:
+              - cliFlagName: monitorEndpoints
+                scriptParameterName: MonitorEndpoints
+              - cliFlagName: adminKey
+                scriptParameterName: AdminKey
+              - cliFlagName: cephfsPool
+                scriptParameterName: CephfsPool
+            subPath: ceph/Enable.ps1
         status:
           script:
             subPath: ceph/Get-Status.ps1
+      description: Ceph CSI operator for CephFS (file) storage provisioning
+      name: ceph
+      offline_usage:
+        linux:
+          additionalImages:
+            - quay.io/cephcsi/ceph-csi-operator:v1.0.4
+            - quay.io/cephcsi/cephcsi:v3.17.0
+            - registry.k8s.io/sig-storage/csi-node-driver-registrar:v2.17.0
+            - registry.k8s.io/sig-storage/csi-provisioner:v6.2.0
+            - registry.k8s.io/sig-storage/csi-attacher:v4.12.0
+            - registry.k8s.io/sig-storage/csi-resizer:v2.1.0
+            - registry.k8s.io/sig-storage/csi-snapshotter:v8.5.0
+            - registry.k8s.io/sig-storage/livenessprobe:v2.18.0
+          additionalImagesFiles:
+            - manifests/operator.yaml
+            - manifests/csi-rbac.yaml
+          curl: []
+          deb: []
+          repos: []
+        windows:
+          curl: []
