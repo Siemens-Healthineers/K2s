@@ -147,7 +147,7 @@ spec:
         - --kubelet-use-node-status-port
         - --kubelet-insecure-tls
         - --metric-resolution=15s
-        image: registry.k8s.io/metrics-server/metrics-server:v0.8.1
+        image: registry.k8s.io/metrics-server/metrics-server:v0.9.0
         imagePullPolicy: IfNotPresent
         livenessProbe:
           failureThreshold: 3
