@@ -124,6 +124,24 @@ var _ = Describe("'ingress-traefik and security enhanced' addon", Ordered, func(
 			GinkgoWriter.Println(">>> TEST: Albums connectivity verified")
 		})
 
+		It("creates traefik split ingress for keycloak and oauth2-proxy with middleware, no service-not-found errors", func(ctx context.Context) {
+			// Scenario A: both backends present -> both Ingresses + oauth2 middleware are created.
+			kc := suite.Kubectl().MustExec(ctx, "get", "ingress", "keycloak", "-n", "security", "--ignore-not-found")
+			Expect(kc).To(ContainSubstring("keycloak"))
+			o2p := suite.Kubectl().MustExec(ctx, "get", "ingress", "oauth2-proxy", "-n", "security", "--ignore-not-found")
+			Expect(o2p).To(ContainSubstring("oauth2-proxy"))
+			mw := suite.Kubectl().MustExec(ctx, "get", "middleware", "oauth2-proxy-forwarder-signin", "-n", "security", "--ignore-not-found")
+			Expect(mw).To(ContainSubstring("oauth2-proxy-forwarder-signin"))
+			// MustExec (asserts kubectl exit code 0) instead of Exec(..., _): if traefik log
+			// retrieval fails, an empty result would make the negative assertion below pass
+			// vacuously, hiding a real "service not found" error.
+			// --since (time-bounded) instead of --tail=200 so the whole ingress reconciliation
+			// window is captured regardless of traefik's log volume; a fixed tail can rotate the
+			// relevant lines out on a busy proxy and mask a real error.
+			logs := suite.Kubectl().MustExec(ctx, "logs", "-n", "ingress-traefik", "deploy/traefik", "--since=10m")
+			Expect(logs).NotTo(ContainSubstring("service not found"))
+		})
+
 		It("Deactivates all the addons", func(ctx context.Context) {
 			GinkgoWriter.Println(">>> TEST: Deactivating all addons")
 			suite.Kubectl().MustExec(ctx, "delete", "-k", "..\\..\\traefik\\workloads")
@@ -132,19 +150,28 @@ var _ = Describe("'ingress-traefik and security enhanced' addon", Ordered, func(
 			GinkgoWriter.Println(">>> TEST: All addons deactivated")
 		})
 
+		It("removes all traefik split security ingress resources on disable", func(ctx context.Context) {
+			// MustExec asserts kubectl exited 0. With --ignore-not-found kubectl returns an
+			// empty body and exit code 0 when the resource is gone, so BeEmpty() still holds
+			// for the "removed" case while a genuine API/connection failure now fails the test
+			// instead of masquerading as an empty (== removed) result.
+			kc := suite.Kubectl().MustExec(ctx, "get", "ingress", "keycloak", "-n", "security", "--ignore-not-found")
+			Expect(kc).To(BeEmpty())
+			o2p := suite.Kubectl().MustExec(ctx, "get", "ingress", "oauth2-proxy", "-n", "security", "--ignore-not-found")
+			Expect(o2p).To(BeEmpty())
+			mw := suite.Kubectl().MustExec(ctx, "get", "middleware", "oauth2-proxy-forwarder-signin", "-n", "security", "--ignore-not-found")
+			Expect(mw).To(BeEmpty())
+		})
+
 		It("retains cmctl.exe, the cert-manager CLI", func(ctx context.Context) {
-			GinkgoWriter.Println(">>> TEST: Verifying cmctl.exe is retained")
 			cmCtlPath := path.Join(suite.RootDir(), "bin", "cmctl.exe")
 			_, err := os.Stat(cmCtlPath)
 			Expect(err).To(BeNil())
-			GinkgoWriter.Println(">>> TEST: cmctl.exe retention verified")
 		})
 
 		It("removed the ca-issuer-root-secret", func(ctx context.Context) {
-			GinkgoWriter.Println(">>> TEST: Verifying ca-issuer-root-secret removal")
 			output := suite.Kubectl().MustExec(ctx, "get", "secrets", "-A")
 			Expect(output).NotTo(ContainSubstring("ca-issuer-root-secret"))
-			GinkgoWriter.Println(">>> TEST: ca-issuer-root-secret removal verified")
 		})
 	})
 

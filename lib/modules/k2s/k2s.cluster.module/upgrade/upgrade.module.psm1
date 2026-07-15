@@ -567,7 +567,12 @@ function Assert-UpgradeVersionIsValid {
 		Write-Log "Force flag set - allowing upgrade from $VersionInstalled to $VersionToBeUsed" -Console
 		return $true
 	}
-	return $nextVersion.Major - $currentVersion.Major -eq 0 -and $nextVersion.Minor - $currentVersion.Minor -le 1
+
+	if ($nextVersion.Major -gt $currentVersion.Major) {
+		return $true
+	}
+
+	return $nextVersion.Major -eq $currentVersion.Major -and $nextVersion.Minor - $currentVersion.Minor -le 1
 }
 
 function Get-TempPath {
@@ -698,7 +703,7 @@ function Assert-UpgradeOperation {
     # Version validation - can be bypassed with Force flag
     $validUpgrade = Assert-UpgradeVersionIsValid -VersionInstalled $currentVersion -VersionToBeUsed $nextVersion -Force:$Force
     if (-not $validUpgrade) {
-        throw "Upgrade not supported from $currentVersion to $nextVersion. Major version must be the same and minor version increase must be consecutive!"
+		throw "Upgrade not supported from $currentVersion to $nextVersion. Minor version increase must be consecutive unless upgrading to a newer major version!"
     }
 
     # if(!(Restart-ClusterIfBuildVersionMismatch -CurrentVersion $currentVersion -NextVersion $nextVersion -InstallFolder $installFolder -KubePath $kubePath)) {
