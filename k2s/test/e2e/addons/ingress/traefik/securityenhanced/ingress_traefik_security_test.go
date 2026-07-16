@@ -124,7 +124,7 @@ var _ = Describe("'ingress-traefik and security enhanced' addon", Ordered, func(
 			GinkgoWriter.Println(">>> TEST: Albums connectivity verified")
 		})
 
-		It("creates traefik split ingress for keycloak and oauth2-proxy with middleware, no service-not-found errors", func(ctx context.Context) {
+		It("creates traefik split ingress for keycloak and oauth2-proxy with middleware, no service-not-found or redundant TLS-secret errors", func(ctx context.Context) {
 			// Scenario A: both backends present -> both Ingresses + oauth2 middleware are created.
 			kc := suite.Kubectl().MustExec(ctx, "get", "ingress", "keycloak", "-n", "security", "--ignore-not-found")
 			Expect(kc).To(ContainSubstring("keycloak"))
@@ -133,13 +133,34 @@ var _ = Describe("'ingress-traefik and security enhanced' addon", Ordered, func(
 			mw := suite.Kubectl().MustExec(ctx, "get", "middleware", "oauth2-proxy-forwarder-signin", "-n", "security", "--ignore-not-found")
 			Expect(mw).To(ContainSubstring("oauth2-proxy-forwarder-signin"))
 			// MustExec (asserts kubectl exit code 0) instead of Exec(..., _): if traefik log
-			// retrieval fails, an empty result would make the negative assertion below pass
-			// vacuously, hiding a real "service not found" error.
-			// --since (time-bounded) instead of --tail=200 so the whole ingress reconciliation
-			// window is captured regardless of traefik's log volume; a fixed tail can rotate the
-			// relevant lines out on a busy proxy and mask a real error.
-			logs := suite.Kubectl().MustExec(ctx, "logs", "-n", "ingress-traefik", "deploy/traefik", "--since=10m")
+			// retrieval fails, an empty result would make the negative assertions below pass
+			// vacuously, hiding a real error.
+			// --since is set well above the suite step timeout (20m) so the whole traefik log
+			// history is captured: this suite disables all addons in BeforeSuite, so the traefik
+			// pod is created fresh when the ingress-traefik addon is enabled and kubectl logs
+			// (no --previous) only returns this run's logs. A fixed --tail could otherwise rotate
+			// the relevant lines out on a busy proxy and mask a real error.
+			logs := suite.Kubectl().MustExec(ctx, "logs", "-n", "ingress-traefik", "deploy/traefik", "--since=1h")
 			Expect(logs).NotTo(ContainSubstring("service not found"))
+			// Regression guard for the removed spec.tls blocks: the Traefik keycloak/oauth2-proxy
+			// ingresses no longer declare tls referencing security/k2s-cluster-local-tls (a secret
+			// that only ever exists in the ingress-traefik namespace). Traefik must therefore no
+			// longer log the failed secret lookup. If the blocks were reintroduced Traefik would
+			// re-emit this error on every reconcile, so the full-history window reliably catches a
+			// regression. The trusted certificate for k2s.cluster.local is owned and served by the
+			// central ingress-traefik/traefik-cluster-local ingress.
+			Expect(logs).NotTo(ContainSubstring("secret security/k2s-cluster-local-tls does not exist"))
+		})
+
+		It("serves keycloak and oauth2-proxy over HTTPS with the trusted k2s.cluster.local certificate", func(ctx context.Context) {
+			// The HTTP client used here trusts ONLY the K2s self-signed CA (loaded from the
+			// cluster secret, see addons.VerifyDeploymentReachableFromHostWithStatusCode). A
+			// successful HTTPS response therefore proves that the central ingress' trusted
+			// certificate is served for the security routes even though the keycloak/oauth2-proxy
+			// ingresses no longer declare a spec.tls block. Redirects are followed, so the
+			// oauth2 sign-in endpoint resolves to the Keycloak login page (200).
+			addons.VerifyDeploymentReachableFromHostWithStatusCode(ctx, http.StatusOK, "https://k2s.cluster.local/keycloak/realms/demo-app")
+			addons.VerifyDeploymentReachableFromHostWithStatusCode(ctx, http.StatusOK, "https://k2s.cluster.local/oauth2/start?rd=%2F")
 		})
 
 		It("Deactivates all the addons", func(ctx context.Context) {
@@ -207,6 +228,19 @@ var _ = Describe("'ingress-traefik and security enhanced' addon", Ordered, func(
 			url := "https://k2s.cluster.local/albums-linux1"
 			addons.VerifyDeploymentReachableFromHostWithStatusCode(ctx, http.StatusOK, url, headers)
 			GinkgoWriter.Println(">>> TEST: Albums connectivity verified")
+		})
+
+		It("emits no redundant TLS-secret error and serves keycloak/oauth2 over HTTPS regardless of activation order", func(ctx context.Context) {
+			// Same regression guard as the "security first" scenario, verified for the reverse
+			// activation order (traefik enabled first, then security). Removing the spec.tls
+			// blocks must not cause Traefik to log the failed security/k2s-cluster-local-tls
+			// lookup, and the central ingress' trusted certificate must still be served.
+			// --since spans the full traefik log history (the pod is created fresh in this suite),
+			// so a regressed error - which would recur on every reconcile - cannot rotate out.
+			logs := suite.Kubectl().MustExec(ctx, "logs", "-n", "ingress-traefik", "deploy/traefik", "--since=1h")
+			Expect(logs).NotTo(ContainSubstring("secret security/k2s-cluster-local-tls does not exist"))
+			addons.VerifyDeploymentReachableFromHostWithStatusCode(ctx, http.StatusOK, "https://k2s.cluster.local/keycloak/realms/demo-app")
+			addons.VerifyDeploymentReachableFromHostWithStatusCode(ctx, http.StatusOK, "https://k2s.cluster.local/oauth2/start?rd=%2F")
 		})
 
 		It("Deactivates all the addons", func(ctx context.Context) {
