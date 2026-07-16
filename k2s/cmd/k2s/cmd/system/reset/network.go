@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText:  © 2024 Siemens Healthineers AG
+// SPDX-FileCopyrightText:  © 2026 Siemens Healthineers AG
 // SPDX-License-Identifier:   MIT
 
 package reset
@@ -19,7 +19,7 @@ import (
 
 var resetNetworkCmd = &cobra.Command{
 	Use:   "network",
-	Short: "Reset network (restart required)",
+	Short: "Reset host network (restart required)",
 	RunE:  resetNetwork,
 }
 

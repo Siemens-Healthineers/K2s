@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText:  © 2025 Siemens Healthineers AG
+// SPDX-FileCopyrightText:  © 2026 Siemens Healthineers AG
 // SPDX-License-Identifier:   MIT
 
 package certificate
@@ -36,7 +36,7 @@ k2s system certificate autorotation -d
 
 	autoRotationCmd = &cobra.Command{
 		Use:   "autorotation",
-		Short: "Manages kubelet certificate auto-rotation",
+		Short: "Manages kubelet certificate auto-rotation (control-plane node only)",
 		Long: `
 Manages the kubelet certificate auto-rotation configuration.
 
