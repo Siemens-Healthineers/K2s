@@ -11,10 +11,6 @@ metadata:
     traefik.ingress.kubernetes.io/router.tls: 'true'
 spec:
   ingressClassName: traefik
-  tls:
-    - hosts:
-        - k2s.cluster.local
-      secretName: k2s-cluster-local-tls
   rules:
     - host: k2s.cluster.local
       http:
