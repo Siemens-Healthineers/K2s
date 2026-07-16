@@ -134,6 +134,22 @@ k2s addons enable storage ceph
 
 Only CephFS file storage is supported by this addon implementation.
 
+### Creating an Offline Ceph Node Package
+
+To add worker nodes that can run the CephFS CSI plugin in air-gapped environments:
+
+```console
+# Create a node package with Ceph support (use --include-ceph to include the Ceph CSI images)
+k2s system package --node-package --os debian13 --include-ceph --target-dir C:\packages --name debian13-node-ceph.zip
+
+# Transfer the package to the air-gapped environment and use it when adding the node
+k2s node add --ip-addr 192.168.1.50 --username admin --node-package C:\packages\debian13-node-ceph.zip
+```
+
+The package bundles the Ceph CSI container images (`ceph-csi-operator`, `cephcsi`, and the
+`sig-storage` CSI sidecars) so the addon's ceph implementation can run without pulling images from
+the internet.
+
 ## Storage Classes
 
 ### CephFS (File Storage)
