@@ -5,13 +5,56 @@
 apiVersion: v1
 kind: AddonManifest
 metadata:
-  description: Persistent storage solutions
   name: storage
+  description: Persistent storage solutions
 spec:
   implementations:
-    - commands:
+    - name: smb
+      description: StorageClass provisioning based on SMB share between K8s nodes (Windows/Linux)
+      offline_usage:
+        linux:
+          repos: []
+          deb:
+            - cifs-utils
+            - samba
+          curl: []
+          additionalImages: []
+        windows:
+          curl: []
+      commands:
+        enable:
+          cli:
+            flags:
+              - name: smbHostType
+                shorthand: t
+                default: windows
+                description: SMB host type
+                constraints:
+                  kind: validation-set
+                  validationSet:
+                    - windows
+                    - linux
+            examples:
+              - cmd: k2s addons enable storage smb
+                comment: Creates SMB share(s) between K8s nodes and Windows host system according to config in 'addons/storage/smb/config'
+          script:
+            subPath: smb/Enable.ps1
+            parameterMappings:
+              - cliFlagName: smbHostType
+                scriptParameterName: SmbHostType
         disable:
           cli:
+            flags:
+              - name: force
+                shorthand: f
+                default: false
+                description: Disable the addon and DELETE ALL DATA without user confirmation
+                exclusionGroup: data-retention
+              - name: keep
+                shorthand: k
+                default: false
+                description: Disable the addon and KEEP ALL DATA without user confirmation
+                exclusionGroup: data-retention
             examples:
               - cmd: k2s addons disable storage smb
                 comment: Removes SMB share(s) between K8s nodes and prompts for data retention/deletion
@@ -19,118 +62,20 @@ spec:
                 comment: Removes SMB share(s) between K8s nodes and DELETES ALL DATA without prompting for confirmation
               - cmd: k2s addons disable storage smb -k
                 comment: Removes SMB share(s) between K8s nodes and KEEPS ALL DATA without prompting for confirmation
-            flags:
-              - default: false
-                description: Disable the addon and DELETE ALL DATA without user confirmation
-                exclusionGroup: data-retention
-                name: force
-                shorthand: f
-              - default: false
-                description: Disable the addon and KEEP ALL DATA without user confirmation
-                exclusionGroup: data-retention
-                name: keep
-                shorthand: k
           script:
-            parameterMappings:
-              - cliFlagName: force
-                scriptParameterName: Force
-              - cliFlagName: keep
-                scriptParameterName: Keep
             subPath: smb/Disable.ps1
-        enable:
-          cli:
-            examples:
-              - cmd: k2s addons enable storage smb
-                comment: Creates SMB share(s) between K8s nodes and Windows host system according to config in 'addons/storage/smb/config'
-            flags:
-              - constraints:
-                  kind: validation-set
-                  validationSet:
-                    - windows
-                    - linux
-                default: windows
-                description: SMB host type
-                name: smbHostType
-                shorthand: t
-          script:
-            parameterMappings:
-              - cliFlagName: smbHostType
-                scriptParameterName: SmbHostType
-            subPath: smb/Enable.ps1
-      description: StorageClass provisioning based on SMB share between K8s nodes (Windows/Linux)
-      name: smb
-      offline_usage:
-        linux:
-          additionalImages: []
-          curl: []
-          deb:
-            - cifs-utils
-            - samba
-          repos: []
-        windows:
-          curl: []
-    - commands:
-        disable:
-          cli:
-            examples:
-              - cmd: k2s addons disable storage ceph
-                comment: Removes Ceph CSI provisioners and prompts for data retention/deletion
-              - cmd: k2s addons disable storage ceph -f
-                comment: Removes Ceph CSI provisioners and DELETES ALL DATA without prompting
-              - cmd: k2s addons disable storage ceph -k
-                comment: Removes Ceph CSI provisioners and KEEPS ALL DATA without prompting
-            flags:
-              - default: false
-                description: Disable the addon and DELETE ALL PERSISTENTVOLUMES without user confirmation
-                exclusionGroup: data-retention
-                name: force
-                shorthand: f
-              - default: false
-                description: Disable the addon and KEEP ALL PERSISTENTVOLUMES without user confirmation
-                exclusionGroup: data-retention
-                name: keep
-                shorthand: k
-          script:
             parameterMappings:
               - cliFlagName: force
                 scriptParameterName: Force
               - cliFlagName: keep
                 scriptParameterName: Keep
-            subPath: ceph/Disable.ps1
-        enable:
-          cli:
-            examples:
-              - cmd: k2s addons enable storage ceph --monitorEndpoints "10.0.0.1:6789,10.0.0.2:6789"
-                comment: Enable Ceph CSI storage with monitor endpoints
-            flags:
-              - default: ""
-                description: Ceph monitor endpoints (comma-separated, e.g., "10.0.0.1:6789,10.0.0.2:6789")
-                name: monitorEndpoints
-                shorthand: m
-              - default: ""
-                description: Base64-encoded Ceph admin keyring
-                name: adminKey
-                shorthand: a
-              - default: cephfs_data
-                description: CephFS data pool name
-                name: cephfsPool
-                shorthand: f
-          script:
-            parameterMappings:
-              - cliFlagName: monitorEndpoints
-                scriptParameterName: MonitorEndpoints
-              - cliFlagName: adminKey
-                scriptParameterName: AdminKey
-              - cliFlagName: cephfsPool
-                scriptParameterName: CephfsPool
-            subPath: ceph/Enable.ps1
-        status:
-          script:
-            subPath: ceph/Get-Status.ps1
+    - name: ceph
       description: Ceph CSI operator for CephFS (file) storage provisioning
-      name: ceph
       offline_usage:
         linux:
+          repos: []
+          deb: []
+          curl: []
           additionalImages:
             - quay.io/cephcsi/ceph-csi-operator:v1.0.4
             - quay.io/cephcsi/cephcsi:v3.17.0
@@ -143,8 +88,50 @@ spec:
           additionalImagesFiles:
             - manifests/operator.yaml
             - manifests/csi-rbac.yaml
-          curl: []
-          deb: []
-          repos: []
         windows:
           curl: []
+      commands:
+        enable:
+          cli:
+            examples:
+              - cmd: k2s addons enable storage ceph
+                comment: Enables Ceph CSI CephFS storage provisioning using config in 'addons/storage/ceph/config'
+          script:
+            subPath: ceph/Enable.ps1
+            parameterMappings:
+              - cliFlagName: monitorEndpoints
+                scriptParameterName: MonitorEndpoints
+              - cliFlagName: adminKey
+                scriptParameterName: AdminKey
+              - cliFlagName: cephfsPool
+                scriptParameterName: CephfsPool
+        disable:
+          cli:
+            flags:
+              - name: force
+                shorthand: f
+                default: false
+                description: Disable the addon and DELETE ALL PERSISTENTVOLUMES without user confirmation
+                exclusionGroup: data-retention
+              - name: keep
+                shorthand: k
+                default: false
+                description: Disable the addon and KEEP ALL PERSISTENTVOLUMES without user confirmation
+                exclusionGroup: data-retention
+            examples:
+              - cmd: k2s addons disable storage ceph
+                comment: Removes Ceph CSI provisioners and prompts for data retention/deletion
+              - cmd: k2s addons disable storage ceph -f
+                comment: Removes Ceph CSI provisioners and DELETES ALL DATA without prompting
+              - cmd: k2s addons disable storage ceph -k
+                comment: Removes Ceph CSI provisioners and KEEPS ALL DATA without prompting
+          script:
+            subPath: ceph/Disable.ps1
+            parameterMappings:
+              - cliFlagName: force
+                scriptParameterName: Force
+              - cliFlagName: keep
+                scriptParameterName: Keep
+        status:
+          script:
+            subPath: ceph/Get-Status.ps1
