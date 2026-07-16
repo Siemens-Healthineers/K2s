@@ -144,8 +144,9 @@ When addon-sync runs with `-ApplyIfEnabled true` for an already-enabled addon:
 
 ### Hardening defaults and authority boundaries
 
-- `INSECURE` default is `false` (TLS required by default).
-- To opt into HTTP registry access, enable rollout with `--insecure-registry`:
+- `INSECURE` default is `true` — K2s ships with a local HTTP NodePort registry.
+- When using a TLS-protected registry, set `INSECURE` to `false` in the ConfigMap, or
+  patch it via `--insecure-registry` if you need to switch back to HTTP:
 
 ```console
 k2s addons enable rollout fluxcd --insecure-registry
@@ -350,7 +351,7 @@ Substitute placeholders and apply:
 $k2sInstallDir = (kubectl get configmap addon-sync-config -n k2s-addon-sync -o jsonpath='{.data.K2S_INSTALL_DIR}').Trim()
 $addonName     = '<ADDON_NAME>'                 # <-- change to your addon folder name
 $registryHost  = '<REGISTRY_HOST>'              # <-- e.g. k2s.registry.local:30500
-$insecure      = 'false'                        # <-- default; set to 'true' only for HTTP registries
+$insecure      = 'true'                         # <-- default for K2s local HTTP registry; set to 'false' for TLS registries
 $semverConstraint = '>=1.0.0 <2.0.0'            # <-- recommended bounded range or exact tag
 $prune = 'false'                                # <-- default; enable only for stateless addons
 
@@ -506,7 +507,7 @@ kubectl edit configmap addon-sync-config -n k2s-addon-sync
 |-----|---------|-------------|
 | `REGISTRY_URL` | Example local value: `oci://k2s.registry.local:30500` | Base OCI registry URL (registry host only, no repository path). Sync-Addons.ps1 discovers per-addon repos at `addons/<ADDON_NAME>` automatically |
 | `K2S_INSTALL_DIR` | `C:\k` | K2s installation directory on the Windows host |
-| `INSECURE` | `false` | TLS required by default; set `true` only for HTTP registries (or use `k2s addons enable rollout <fluxcd|argocd> --insecure-registry`) |
+| `INSECURE` | `true` | HTTP by default (K2s local NodePort registry). Set `false` when using a TLS-protected registry. |
 
 ### Polling Interval
 

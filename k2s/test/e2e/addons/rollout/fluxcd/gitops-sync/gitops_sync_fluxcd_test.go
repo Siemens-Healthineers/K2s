@@ -1241,7 +1241,9 @@ func digestFilePath(addonName string) string {
 }
 
 func failureStateFilePath() string {
-	return filepath.Join(suite.RootDir(), "addons", ".addon-sync-digests", testAddonName+".failure")
+	// Evidence: Sync-Addons.ps1 line 947 — $stateDir = Join-Path $addonsDir '.addon-sync-state'
+	// Failure state files are <addonName>.failure under .addon-sync-state/, not .addon-sync-digests/.
+	return filepath.Join(suite.RootDir(), "addons", ".addon-sync-state", testAddonName+".failure")
 }
 
 func ensureDigestFileReset(addonName string) {
