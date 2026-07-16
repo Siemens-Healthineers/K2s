@@ -54,6 +54,16 @@ if ($runningFromDelta) {
 	$infraModule = "$PSScriptRoot\..\..\..\modules\k2s\k2s.infra.module\k2s.infra.module.psm1"
 }
 
+# Normalize PSModulePath to WinPS 5.1 canonical paths when inherited from pwsh 7
+if ($env:PSModulePath -match 'PowerShell[/\\]7') {
+	$env:PSModulePath = @(
+		"$env:USERPROFILE\Documents\WindowsPowerShell\Modules",
+		"$env:ProgramFiles\WindowsPowerShell\Modules",
+		"$env:SystemRoot\System32\WindowsPowerShell\v1.0\Modules"
+	) -join ';'
+	Write-Host "[Invoke-ExecScript] PSModulePath normalized to WinPS 5.1 canonical paths (pwsh 7 pollution detected)"
+}
+
 Import-Module $infraModule
 
 if ($Script.Contains("-ShowLogs")) {

@@ -1886,6 +1886,75 @@ function Get-CAIssuerName {
     return 'K2s Self-Signed CA'
 }
 
+function Test-CertificateProviderAvailable {
+	try {
+		$null = Get-PSDrive -Name 'Cert' -ErrorAction Stop
+		return $true
+	}
+	catch {
+		return $false
+	}
+}
+
+function Import-CertificateToTrustedRootStore {
+	param(
+		[Parameter(Mandatory = $true)]
+		[string]$CertificatePath,
+		[Parameter(Mandatory = $true)]
+		[string]$CertStoreLocation
+	)
+
+	if (Test-CertificateProviderAvailable) {
+		Import-Certificate -FilePath $CertificatePath -CertStoreLocation $CertStoreLocation | Out-Null
+		return
+	}
+
+	$certificate = [System.Security.Cryptography.X509Certificates.X509Certificate2]::new($CertificatePath)
+	$store = [System.Security.Cryptography.X509Certificates.X509Store]::new(
+		[System.Security.Cryptography.X509Certificates.StoreName]::Root,
+		[System.Security.Cryptography.X509Certificates.StoreLocation]::LocalMachine
+	)
+
+	try {
+		$store.Open([System.Security.Cryptography.X509Certificates.OpenFlags]::ReadWrite)
+		$store.Add($certificate)
+	}
+	finally {
+		$store.Close()
+		$certificate.Dispose()
+	}
+}
+
+function Remove-CertificateFromTrustedRootStore {
+	param(
+		[Parameter(Mandatory = $true)]
+		[string]$IssuerName,
+		[Parameter(Mandatory = $true)]
+		[string]$TrustedRootStoreLocation
+	)
+
+	if (Test-CertificateProviderAvailable) {
+		Get-ChildItem -Path $TrustedRootStoreLocation | Where-Object { $_.Subject -match $IssuerName } | Remove-Item
+		return
+	}
+
+	$store = [System.Security.Cryptography.X509Certificates.X509Store]::new(
+		[System.Security.Cryptography.X509Certificates.StoreName]::Root,
+		[System.Security.Cryptography.X509Certificates.StoreLocation]::LocalMachine
+	)
+
+	try {
+		$store.Open([System.Security.Cryptography.X509Certificates.OpenFlags]::ReadWrite)
+		$matchingCertificates = @($store.Certificates | Where-Object { $_.Subject -match $IssuerName })
+		foreach ($certificate in $matchingCertificates) {
+			$store.Remove($certificate)
+		}
+	}
+	finally {
+		$store.Close()
+	}
+}
+
 function New-CompatTemporaryFile {
 	<#
 	.SYNOPSIS
@@ -1917,11 +1986,7 @@ function Import-CACertificateToWindowsStore {
     
     [Text.Encoding]::Utf8.GetString([Convert]::FromBase64String($b64secret)) | Out-File -Encoding utf8 -FilePath $tempFile.FullName -Force
     
-    $params = @{
-        FilePath          = $tempFile.FullName
-        CertStoreLocation = $certLocationStore
-    }
-    Import-Certificate @params
+	Import-CertificateToTrustedRootStore -CertificatePath $tempFile.FullName -CertStoreLocation $certLocationStore
     Remove-Item -Path $tempFile.FullName -Force
 }
 
@@ -2213,7 +2278,7 @@ function Uninstall-CertManager {
     Write-Log 'Removing CA issuer certificate from trusted root' -Console
     $caIssuerName = Get-CAIssuerName
     $trustedRootStoreLocation = Get-TrustedRootStoreLocation
-    Get-ChildItem -Path $trustedRootStoreLocation | Where-Object { $_.Subject -match $caIssuerName } | Remove-Item
+	Remove-CertificateFromTrustedRootStore -IssuerName $caIssuerName -TrustedRootStoreLocation $trustedRootStoreLocation
 }
 
 function Wait-ForK8sSecret {

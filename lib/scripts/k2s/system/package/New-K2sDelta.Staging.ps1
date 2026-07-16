@@ -272,6 +272,21 @@ function Copy-WindowsNodeArtifactsToStaging {
         ErrorMessage        = ''
     }
 
+    $zipFileType = 'System.IO.Compression.ZipFile' -as [type]
+    if (-not $zipFileType) {
+        try {
+            Add-Type -AssemblyName System.IO.Compression.FileSystem -ErrorAction Stop
+        }
+        catch {
+            # Validate availability below to keep behavior deterministic across PowerShell versions.
+        }
+
+        $zipFileType = 'System.IO.Compression.ZipFile' -as [type]
+        if (-not $zipFileType) {
+            throw "System.IO.Compression.ZipFile type is unavailable. Failed to load assembly 'System.IO.Compression.FileSystem'."
+        }
+    }
+
     # Mapping from ZIP folder names to target bin/ folder names
     # Each entry: SourceFolder = @{ Target = 'target/path'; Subdir = 'optional/subdir'; Rename = @{'old.exe'='new.exe'} }
     # 
@@ -321,7 +336,7 @@ function Copy-WindowsNodeArtifactsToStaging {
         return $result
     }
 
-    # Build hash map of old ZIP entries for comparison (using CRC32 for efficiency)
+    # Build hash map of old ZIP entries for comparison using cross-version-safe metadata
     $oldEntryMap = @{}
     if (Test-Path $oldWinArtifactsZip) {
         Write-Log "[WinArtifacts] Building hash map from old WindowsNodeArtifacts.zip for comparison..." -Console
@@ -330,10 +345,10 @@ function Copy-WindowsNodeArtifactsToStaging {
             try {
                 foreach ($entry in $oldZip.Entries) {
                     if (-not $entry.FullName.EndsWith('/')) {
-                        # Use CRC32 + length as a fast comparison key
+                        # Use LastWriteTime UTC ticks + length as a cross-version-safe comparison key
                         $oldEntryMap[$entry.FullName] = @{
-                            Crc32  = $entry.Crc32
-                            Length = $entry.Length
+                            LastWriteTimeUtcTicks = $entry.LastWriteTime.UtcDateTime.Ticks
+                            Length                = $entry.Length
                         }
                     }
                 }
@@ -353,7 +368,6 @@ function Copy-WindowsNodeArtifactsToStaging {
     Write-Log "[WinArtifacts] Extracting changed Windows binaries from WindowsNodeArtifacts.zip..." -Console
 
     try {
-        Add-Type -AssemblyName System.IO.Compression.FileSystem
         $zip = [System.IO.Compression.ZipFile]::OpenRead($winArtifactsZip)
 
         try {
@@ -400,6 +414,8 @@ function Copy-WindowsNodeArtifactsToStaging {
                         continue
                     }
 
+                    $newEntryLastWriteTicks = $entry.LastWriteTime.UtcDateTime.Ticks
+
                     # Check if file changed compared to old package
                     $isNew = $false
                     $isChanged = $false
@@ -407,7 +423,7 @@ function Copy-WindowsNodeArtifactsToStaging {
                         $oldEntry = $oldEntryMap[$entry.FullName]
                         if ($null -eq $oldEntry) {
                             $isNew = $true
-                        } elseif ($oldEntry.Crc32 -ne $entry.Crc32 -or $oldEntry.Length -ne $entry.Length) {
+                        } elseif ($oldEntry.LastWriteTimeUtcTicks -ne $newEntryLastWriteTicks -or $oldEntry.Length -ne $entry.Length) {
                             $isChanged = $true
                         } else {
                             # File unchanged - skip extraction

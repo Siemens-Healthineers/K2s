@@ -1313,10 +1313,9 @@ Describe 'Import-CACertificateToWindowsStore' -Tag 'unit', 'ci', 'addon' {
         Mock -ModuleName $moduleName Write-Log { }
         Mock -ModuleName $moduleName Get-TrustedRootStoreLocation { return 'Cert:\\LocalMachine\\Root' }
         Mock -ModuleName $moduleName Invoke-Kubectl { return [pscustomobject]@{ Output = $script:b64 } }
-        Mock -ModuleName $moduleName Import-Certificate { }
+        Mock -ModuleName $moduleName Import-CertificateToTrustedRootStore { }
         Mock -CommandName New-CompatTemporaryFile { return [pscustomobject]@{ FullName = 'C:\\temp\\ca.crt' } }
         Mock -CommandName Out-File { }
-        Mock -CommandName Import-Certificate { }
         Mock -CommandName Remove-Item { }
     }
 
@@ -1327,9 +1326,45 @@ Describe 'Import-CACertificateToWindowsStore' -Tag 'unit', 'ci', 'addon' {
             Import-CACertificateToWindowsStore
 
             Should -Invoke Invoke-Kubectl -Times 1 -Scope It -ParameterFilter { $Params -contains 'ca-issuer-root-secret' }
-            Should -Invoke Import-Certificate -Times 1 -Scope It
+            Should -Invoke Import-CertificateToTrustedRootStore -Times 1 -Scope It
         }
 
+    }
+}
+
+Describe 'Import-CertificateToTrustedRootStore' -Tag 'unit', 'ci', 'addon' {
+    Context 'Cert provider is available' {
+        BeforeAll {
+            Mock -ModuleName $moduleName Test-CertificateProviderAvailable { return $true }
+            Mock -ModuleName $moduleName Import-Certificate { }
+        }
+
+        It 'imports using Import-Certificate' {
+            InModuleScope -ModuleName $moduleName {
+                Import-CertificateToTrustedRootStore -CertificatePath 'C:\\temp\\ca.crt' -CertStoreLocation 'Cert:\\LocalMachine\\Root'
+
+                Should -Invoke Import-Certificate -Times 1 -Scope It -ParameterFilter {
+                    $FilePath -eq 'C:\\temp\\ca.crt' -and $CertStoreLocation -eq 'Cert:\\LocalMachine\\Root'
+                }
+            }
+        }
+    }
+
+    Context 'Cert provider is not available' {
+        BeforeAll {
+            Mock -ModuleName $moduleName Test-CertificateProviderAvailable { return $false }
+        }
+
+        It 'does not use Import-Certificate cmdlet' {
+            InModuleScope -ModuleName $moduleName {
+                Mock -ModuleName $moduleName Import-Certificate { throw 'cmdlet should not be called' }
+                Mock -CommandName Test-Path { return $true }
+
+                Import-CertificateToTrustedRootStore -CertificatePath 'C:\\Windows\\System32\\drivers\\etc\\hosts' -CertStoreLocation 'Cert:\\LocalMachine\\Root'
+
+                Should -Invoke Import-Certificate -Times 0 -Scope It
+            }
+        }
     }
 }
 
@@ -1518,13 +1553,7 @@ Describe 'Uninstall-CertManager' -Tag 'unit', 'ci', 'addon' {
         Mock -ModuleName $moduleName Remove-Cmctl { }
         Mock -ModuleName $moduleName Get-CAIssuerName { return 'K2s Self-Signed CA' }
         Mock -ModuleName $moduleName Get-TrustedRootStoreLocation { return 'Cert:\\LocalMachine\\Root' }
-        Mock -ModuleName $moduleName Get-ChildItem {
-            return @(
-                [pscustomobject]@{ Subject = 'CN=K2s Self-Signed CA' },
-                [pscustomobject]@{ Subject = 'CN=Other' }
-            )
-        }
-        Mock -ModuleName $moduleName Remove-Item { }
+        Mock -ModuleName $moduleName Remove-CertificateFromTrustedRootStore { }
         Mock -ModuleName $moduleName Test-IsAddonEnabled { return $false }
     }
 
@@ -1534,7 +1563,7 @@ Describe 'Uninstall-CertManager' -Tag 'unit', 'ci', 'addon' {
 
             Should -Invoke Invoke-Kubectl -Times 2 -Scope It -ParameterFilter { $Params -contains 'delete' -and $Params -contains '-f' }
             Should -Invoke Remove-Cmctl -Times 0 -Scope It
-            Should -Invoke Remove-Item -Times 1 -Scope It
+            Should -Invoke Remove-CertificateFromTrustedRootStore -Times 1 -Scope It
         }
     }
 
@@ -1547,7 +1576,48 @@ Describe 'Uninstall-CertManager' -Tag 'unit', 'ci', 'addon' {
             # Implementation always uninstalls regardless of security addon
             Should -Invoke Invoke-Kubectl -Times 2 -Scope It
             Should -Invoke Remove-Cmctl -Times 0 -Scope It
-            Should -Invoke Remove-Item -Times 1 -Scope It
+            Should -Invoke Remove-CertificateFromTrustedRootStore -Times 1 -Scope It
+        }
+    }
+}
+
+Describe 'Remove-CertificateFromTrustedRootStore' -Tag 'unit', 'ci', 'addon' {
+    Context 'Cert provider is available' {
+        BeforeAll {
+            Mock -ModuleName $moduleName Test-CertificateProviderAvailable { return $true }
+            Mock -ModuleName $moduleName Get-ChildItem {
+                return @(
+                    [pscustomobject]@{ Subject = 'CN=K2s Self-Signed CA' },
+                    [pscustomobject]@{ Subject = 'CN=Other' }
+                )
+            }
+            Mock -ModuleName $moduleName Remove-Item { }
+        }
+
+        It 'removes matching certificates from cert provider store' {
+            InModuleScope -ModuleName $moduleName {
+                Remove-CertificateFromTrustedRootStore -IssuerName 'K2s Self-Signed CA' -TrustedRootStoreLocation 'Cert:\\LocalMachine\\Root'
+
+                Should -Invoke Get-ChildItem -Times 1 -Scope It -ParameterFilter { $Path -eq 'Cert:\\LocalMachine\\Root' }
+                Should -Invoke Remove-Item -Times 1 -Scope It
+            }
+        }
+    }
+
+    Context 'Cert provider is not available' {
+        BeforeAll {
+            Mock -ModuleName $moduleName Test-CertificateProviderAvailable { return $false }
+            Mock -ModuleName $moduleName Get-ChildItem { throw 'Get-ChildItem should not be called' }
+            Mock -ModuleName $moduleName Remove-Item { throw 'Remove-Item should not be called' }
+        }
+
+        It 'does not use cert provider cmdlets' {
+            InModuleScope -ModuleName $moduleName {
+                Remove-CertificateFromTrustedRootStore -IssuerName 'K2s Self-Signed CA' -TrustedRootStoreLocation 'Cert:\\LocalMachine\\Root'
+
+                Should -Invoke Get-ChildItem -Times 0 -Scope It
+                Should -Invoke Remove-Item -Times 0 -Scope It
+            }
         }
     }
 }
