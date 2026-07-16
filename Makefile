@@ -12,7 +12,7 @@ build:
 
 # Remove the binaries produced by build.sh.
 clean:
-	rm -f ./k2s ./bin/cloudinitisobuilder ./bin/httpproxy ./bin/yaml2json
+	rm -f ./bin/k2s ./bin/cloudinitisobuilder ./bin/httpproxy ./bin/yaml2json
 
 help:
 	@echo "Targets:"

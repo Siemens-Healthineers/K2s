@@ -109,4 +109,4 @@ make build
 make clean
 ```
 
-This builds `k2s` into the repository root and the Linux helper executables (`cloudinitisobuilder`, `httpproxy`, `yaml2json`) into `bin/`. To route Go module downloads through a proxy, pass `./build.sh --proxy http://proxy.example.com:8080`.
+This builds all executables (`k2s`, `cloudinitisobuilder`, `httpproxy`, `yaml2json`) into `bin/`. To route Go module downloads through a proxy, pass `./build.sh --proxy http://proxy.example.com:8080`.
