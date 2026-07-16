@@ -768,9 +768,12 @@ function Set-AddonStatusConfigMap {
             return
         }
 
-        $patchObj = @{ data = @{} }
-        $patchObj.data[$StateKey] = $Phase
-        $patchJson = $patchObj | ConvertTo-Json -Compress
+        # Evidence: PowerShell 5.1 strips bare double quotes from arguments passed to
+        # native executables via & operator.  Follow the repo-wide convention of
+        # single-quoted strings with backslash-escaped inner quotes so the C-runtime
+        # receives valid JSON.  $StateKey is validated alphanumeric+._- above;
+        # $Phase is always a simple word (Synced/Failed/Skipped) — both are safe.
+        $patchJson = '{\"data\":{\"' + $StateKey + '\":\"' + $Phase + '\"}}'
         $maxAttempts = 5
 
         for ($attempt = 1; $attempt -le $maxAttempts; $attempt++) {
