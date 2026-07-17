@@ -1314,7 +1314,7 @@ Describe 'Import-CACertificateToWindowsStore' -Tag 'unit', 'ci', 'addon' {
         Mock -ModuleName $moduleName Get-TrustedRootStoreLocation { return 'Cert:\\LocalMachine\\Root' }
         Mock -ModuleName $moduleName Invoke-Kubectl { return [pscustomobject]@{ Output = $script:b64 } }
         Mock -ModuleName $moduleName Import-CertificateToTrustedRootStore { }
-        Mock -CommandName New-CompatTemporaryFile { return [pscustomobject]@{ FullName = 'C:\\temp\\ca.crt' } }
+        Mock -ModuleName $moduleName New-CompatTemporaryFile { return [pscustomobject]@{ FullName = 'C:\\temp\\ca.crt' } }
         Mock -CommandName Out-File { }
         Mock -CommandName Remove-Item { }
     }
@@ -1353,14 +1353,24 @@ Describe 'Import-CertificateToTrustedRootStore' -Tag 'unit', 'ci', 'addon' {
     Context 'Cert provider is not available' {
         BeforeAll {
             Mock -ModuleName $moduleName Test-CertificateProviderAvailable { return $false }
+            Mock -ModuleName $moduleName Import-Certificate { throw 'cmdlet should not be called' }
         }
 
-        It 'does not use Import-Certificate cmdlet' {
+        It 'uses fallback path without invoking Import-Certificate' {
             InModuleScope -ModuleName $moduleName {
-                Mock -ModuleName $moduleName Import-Certificate { throw 'cmdlet should not be called' }
-                Mock -CommandName Test-Path { return $true }
+                # Evidence: Import-CertificateToTrustedRootStore uses ::new constructors, not New-Object.
+                # See addons.module.psm1 Import-CertificateToTrustedRootStore implementation.
+                $tempNonCertFile = Join-Path -Path $env:TEMP -ChildPath ("k2s-non-cert-{0}.crt" -f ([guid]::NewGuid().ToString()))
+                Set-Content -Path $tempNonCertFile -Value 'NOT A CERTIFICATE' -Encoding ascii
 
-                Import-CertificateToTrustedRootStore -CertificatePath 'C:\\Windows\\System32\\drivers\\etc\\hosts' -CertStoreLocation 'Cert:\\LocalMachine\\Root'
+                try {
+                    {
+                        Import-CertificateToTrustedRootStore -CertificatePath $tempNonCertFile -CertStoreLocation 'Cert:\\LocalMachine\\Root'
+                    } | Should -Throw
+                }
+                finally {
+                    Remove-Item -Path $tempNonCertFile -Force -ErrorAction SilentlyContinue
+                }
 
                 Should -Invoke Import-Certificate -Times 0 -Scope It
             }
@@ -1612,6 +1622,15 @@ Describe 'Remove-CertificateFromTrustedRootStore' -Tag 'unit', 'ci', 'addon' {
         }
 
         It 'does not use cert provider cmdlets' {
+            $currentIdentity = [Security.Principal.WindowsIdentity]::GetCurrent()
+            $principal = [Security.Principal.WindowsPrincipal]::new($currentIdentity)
+            $isElevated = $principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
+            if (-not $isElevated) {
+                # Fallback path can open LocalMachine\Root via .NET store APIs, which requires elevation.
+                Set-ItResult -Skipped -Because 'Requires admin to open LocalMachine Root store in fallback path'
+                return
+            }
+
             InModuleScope -ModuleName $moduleName {
                 Remove-CertificateFromTrustedRootStore -IssuerName 'K2s Self-Signed CA' -TrustedRootStoreLocation 'Cert:\\LocalMachine\\Root'
 

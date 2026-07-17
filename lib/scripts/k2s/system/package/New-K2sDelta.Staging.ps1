@@ -272,6 +272,36 @@ function Copy-WindowsNodeArtifactsToStaging {
         ErrorMessage        = ''
     }
 
+    # Use a bounded content sample when metadata matches to avoid false "unchanged" results.
+    function Get-ZipEntrySampleHash {
+        param(
+            [Parameter(Mandatory = $true)]
+            $Entry
+        )
+
+        $stream = $Entry.Open()
+        $sha256 = [System.Security.Cryptography.SHA256]::Create()
+        try {
+            $buffer = New-Object byte[] 4096
+            $bytesRead = $stream.Read($buffer, 0, $buffer.Length)
+            $hashBytes = if ($bytesRead -gt 0) {
+                $sha256.ComputeHash($buffer, 0, $bytesRead)
+            } else {
+                $sha256.ComputeHash([byte[]]@())
+            }
+
+            return [System.BitConverter]::ToString($hashBytes).Replace('-', '').ToLowerInvariant()
+        }
+        finally {
+            if ($stream) {
+                $stream.Dispose()
+            }
+            if ($sha256) {
+                $sha256.Dispose()
+            }
+        }
+    }
+
     $zipFileType = 'System.IO.Compression.ZipFile' -as [type]
     if (-not $zipFileType) {
         try {
@@ -327,6 +357,7 @@ function Copy-WindowsNodeArtifactsToStaging {
 
     $winArtifactsZip = Join-Path $Context.NewExtract 'bin\WindowsNodeArtifacts.zip'
     $oldWinArtifactsZip = Join-Path $Context.OldExtract 'bin\WindowsNodeArtifacts.zip'
+    $hasLoggedZeroTicksWarning = $false
     
     if (-not (Test-Path $winArtifactsZip)) {
         $result.ErrorMessage = "WindowsNodeArtifacts.zip not found at: $winArtifactsZip"
@@ -345,10 +376,17 @@ function Copy-WindowsNodeArtifactsToStaging {
             try {
                 foreach ($entry in $oldZip.Entries) {
                     if (-not $entry.FullName.EndsWith('/')) {
-                        # Use LastWriteTime UTC ticks + length as a cross-version-safe comparison key
+                        $entryLastWriteTicks = $entry.LastWriteTime.UtcDateTime.Ticks
+                        if ($entryLastWriteTicks -eq 0 -and -not $hasLoggedZeroTicksWarning) {
+                            Write-Log "[WinArtifacts][Warning] ZIP entry '$($entry.FullName)' has LastWriteTime ticks 0; using sample-hash fallback for safe comparison." -Console
+                            $hasLoggedZeroTicksWarning = $true
+                        }
+
+                        # Keep metadata key and include sample hash for same-metadata verification later.
                         $oldEntryMap[$entry.FullName] = @{
-                            LastWriteTimeUtcTicks = $entry.LastWriteTime.UtcDateTime.Ticks
+                            LastWriteTimeUtcTicks = $entryLastWriteTicks
                             Length                = $entry.Length
+                            SampleHash            = Get-ZipEntrySampleHash -Entry $entry
                         }
                     }
                 }
@@ -415,6 +453,10 @@ function Copy-WindowsNodeArtifactsToStaging {
                     }
 
                     $newEntryLastWriteTicks = $entry.LastWriteTime.UtcDateTime.Ticks
+                    if ($newEntryLastWriteTicks -eq 0 -and -not $hasLoggedZeroTicksWarning) {
+                        Write-Log "[WinArtifacts][Warning] ZIP entry '$($entry.FullName)' has LastWriteTime ticks 0; using sample-hash fallback for safe comparison." -Console
+                        $hasLoggedZeroTicksWarning = $true
+                    }
 
                     # Check if file changed compared to old package
                     $isNew = $false
@@ -426,10 +468,15 @@ function Copy-WindowsNodeArtifactsToStaging {
                         } elseif ($oldEntry.LastWriteTimeUtcTicks -ne $newEntryLastWriteTicks -or $oldEntry.Length -ne $entry.Length) {
                             $isChanged = $true
                         } else {
-                            # File unchanged - skip extraction
-                            $skippedCount++
-                            $result.UnchangedFiles++
-                            continue
+                            $newEntrySampleHash = Get-ZipEntrySampleHash -Entry $entry
+                            if ($oldEntry.SampleHash -ne $newEntrySampleHash) {
+                                $isChanged = $true
+                            } else {
+                                # File unchanged - skip extraction
+                                $skippedCount++
+                                $result.UnchangedFiles++
+                                continue
+                            }
                         }
                     } else {
                         # No old package to compare - treat all as new

@@ -19,7 +19,15 @@ Describe 'OCI fallback helpers' -Tag 'unit', 'ci', 'oci', 'addon' {
 
                     $actual = Get-Sha256HexLower -Path $tmpFile
 
-                    $expected = [System.Security.Cryptography.SHA256]::Create().ComputeHash([System.IO.File]::ReadAllBytes($tmpFile))
+                    $sha256 = [System.Security.Cryptography.SHA256]::Create()
+                    try {
+                        $expected = $sha256.ComputeHash([System.IO.File]::ReadAllBytes($tmpFile))
+                    }
+                    finally {
+                        if ($sha256) {
+                            $sha256.Dispose()
+                        }
+                    }
                     $expectedHex = ([System.BitConverter]::ToString($expected).Replace('-', '').ToLowerInvariant())
 
                     $actual | Should -Be $expectedHex
