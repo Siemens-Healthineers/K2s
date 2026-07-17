@@ -791,13 +791,26 @@ function Set-AddonStatusConfigMap {
                     Write-SyncLog "[Status] ConfigMap patch failed after $maxAttempts attempts: $(Get-SanitizedMessage $outputStr)" -IsError
                 }
             } else {
-                # Non-conflict error: fail fast without retry.
-                Write-SyncLog "[Status] ConfigMap patch failed (non-retryable): $(Get-SanitizedMessage $outputStr)" -IsError
+                # Non-conflict error: classify by type.
+                # Connection errors (missing kubeconfig, API server unreachable) are best-effort
+                # failures in a HostProcess environment; log as WARNING. Other errors are ERROR.
+                if ($outputStr -match 'couldn.*t get current server|dial tcp|connect|refused|Not Found') {
+                    Write-SyncLog "[Status] ConfigMap patch skipped (kubectl connectivity issue, best-effort): $(Get-SanitizedMessage $outputStr)" -Warning
+                } else {
+                    Write-SyncLog "[Status] ConfigMap patch failed (non-retryable): $(Get-SanitizedMessage $outputStr)" -IsError
+                }
                 return
             }
         }
     } catch {
-        Write-SyncLog "[Status] ConfigMap patch threw unexpectedly: $(Get-SanitizedMessage $_.ToString())" -IsError
+        # Connection/kubeconfig errors are expected in HostProcess pod environment where kubectl
+        # has no kubeconfig. Log as WARNING. Other unexpected exceptions are still ERROR.
+        $errorMsg = $_.ToString()
+        if ($errorMsg -match 'couldn.*t get current server|dial tcp|connect|refused|kubeconfig') {
+            Write-SyncLog "[Status] ConfigMap patch skipped (kubectl connectivity issue, best-effort): $(Get-SanitizedMessage $errorMsg)" -Warning
+        } else {
+            Write-SyncLog "[Status] ConfigMap patch threw unexpectedly: $(Get-SanitizedMessage $errorMsg)" -IsError
+        }
     }
 }
 
