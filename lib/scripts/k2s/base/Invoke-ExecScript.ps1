@@ -61,7 +61,7 @@ if ($env:PSModulePath -match 'PowerShell[/\\]7') {
 		"$env:ProgramFiles\WindowsPowerShell\Modules",
 		"$env:SystemRoot\System32\WindowsPowerShell\v1.0\Modules"
 	) -join ';'
-	Write-Host "[Invoke-ExecScript] PSModulePath normalized to WinPS 5.1 canonical paths (pwsh 7 pollution detected)"
+	Write-Host "[Invoke-ExecScript] PSModulePath normalized to WinPS 5.1 canonical paths (pwsh 7 environment detected)"
 }
 
 Import-Module $infraModule
