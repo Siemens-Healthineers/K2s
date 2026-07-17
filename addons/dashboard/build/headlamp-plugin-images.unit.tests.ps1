@@ -146,14 +146,14 @@ Describe 'Lock and Get-RegisteredHeadlampPlugins parity' -Tag 'unit', 'ci', 'add
 
 Describe 'Get-Sha256HexLower helper' -Tag 'unit', 'ci', 'addon', 'dashboard' {
     BeforeAll {
-        $script:methodsModuleName = (Import-Module (Join-Path $PSScriptRoot 'Build-HeadlampPluginImages.Methods.ps1') -PassThru -Force).Name
+        . (Join-Path $PSScriptRoot 'Build-HeadlampPluginImages.Methods.ps1')
     }
 
     It 'returns the expected lowercase 64-char SHA256 hex for known content' {
         $tempFile = Join-Path ([IO.Path]::GetTempPath()) ("hlplugin-sha256-" + [guid]::NewGuid().ToString('N') + '.txt')
         [System.IO.File]::WriteAllText($tempFile, 'headlamp-hash-test-content')
         try {
-            $actual = & (Get-Module $script:methodsModuleName) { Get-Sha256HexLower -Path $args[0] } $tempFile
+            $actual = Get-Sha256HexLower -Path $tempFile
 
             $expectedBytes = [System.Text.Encoding]::UTF8.GetBytes('headlamp-hash-test-content')
             $sha256 = [System.Security.Cryptography.SHA256]::Create()
