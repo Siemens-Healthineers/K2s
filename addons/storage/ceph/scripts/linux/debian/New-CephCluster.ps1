@@ -105,6 +105,183 @@ Function New-CephClusterOnNode {
     return $scriptOutput
 }
 
+function Get-CephNodeAccessDetails {
+    param (
+        [pscustomobject]$Config,
+        [string]$NodeName = '',
+        [string]$IpAddress = ''
+    )
+
+    $resolvedNodeName = "$NodeName".Trim()
+    if ([string]::IsNullOrWhiteSpace($resolvedNodeName) -and $null -ne $Config) {
+        $clusterHostIp = "$($Config.clusterHostNodeIp)".Trim()
+        $osdHostIp = "$($Config.osdHostNodeIp)".Trim()
+
+        if (-not [string]::IsNullOrWhiteSpace($IpAddress) -and $IpAddress -eq $clusterHostIp) {
+            $resolvedNodeName = "$($Config.clusterHostNode)".Trim()
+        }
+        elseif (-not [string]::IsNullOrWhiteSpace($IpAddress) -and $IpAddress -eq $osdHostIp) {
+            $resolvedNodeName = "$($Config.osdHostNode)".Trim()
+        }
+    }
+
+    $resolvedUserName = 'remote'
+    if (-not [string]::IsNullOrWhiteSpace($resolvedNodeName)) {
+        try {
+            $targetNodeConfig = Get-NodeConfig -NodeName $resolvedNodeName
+            if ($null -ne $targetNodeConfig -and -not [string]::IsNullOrWhiteSpace($targetNodeConfig.Username)) {
+                $resolvedUserName = $targetNodeConfig.Username
+            }
+        }
+        catch {
+            Write-Log "[Ceph] WARNING: Could not resolve SSH user for node '$resolvedNodeName': $($_.Exception.Message)" -Console
+        }
+    }
+
+    return [pscustomobject]@{
+        NodeName = $resolvedNodeName
+        UserName = $resolvedUserName
+    }
+}
+
+function Invoke-CephOsdPreparation {
+    param (
+        [Parameter(Mandatory = $true)][string]$BootstrapNodeIp,
+        [Parameter(Mandatory = $true)][string]$BootstrapNodeUserName,
+        [string]$CephPubKey = '',
+        [string]$Proxy = '',
+        [pscustomobject]$Config,
+        [switch]$ShowLogs = $false
+    )
+
+    $osdNodeIp = if ($null -ne $Config -and -not [string]::IsNullOrWhiteSpace("$($Config.osdHostNodeIp)".Trim())) {
+        "$($Config.osdHostNodeIp)".Trim()
+    }
+    else {
+        $BootstrapNodeIp
+    }
+
+    $osdNodeName = if ($null -ne $Config -and -not [string]::IsNullOrWhiteSpace("$($Config.osdHostNode)".Trim())) {
+        "$($Config.osdHostNode)".Trim()
+    }
+    else {
+        if ($null -ne $Config) { "$($Config.clusterHostNode)".Trim() } else { '' }
+    }
+
+    $osdAccess = Get-CephNodeAccessDetails -Config $Config -NodeName $osdNodeName -IpAddress $osdNodeIp
+    if ([string]::IsNullOrWhiteSpace($osdAccess.UserName)) {
+        $osdAccess.UserName = $BootstrapNodeUserName
+    }
+
+    if ($osdNodeIp -ne $BootstrapNodeIp) {
+        if ([string]::IsNullOrWhiteSpace($CephPubKey)) {
+            Write-Log "[Ceph] ERROR: Cannot prepare OSD host '$osdNodeIp' because the cephadm public key was not available from bootstrap output." -Console -Error
+            exit 1
+        }
+
+        $prepareHostScript = Join-Path $PSScriptRoot 'prepare-ceph-osd-host.sh'
+        if (-not (Test-Path $prepareHostScript)) {
+            Write-Log "[Ceph] ERROR: OSD host preparation script not found: '$prepareHostScript'" -Console -Error
+            exit 1
+        }
+
+        Write-Log "[Ceph] Preparing remote OSD host '$osdNodeIp'$(if ($osdAccess.NodeName) { " ($($osdAccess.NodeName))" }) for cephadm..." -Console
+        $hostPrepOutput = Invoke-RemoteScript -LocalScriptPath $prepareHostScript `
+                            -UserName $osdAccess.UserName `
+                            -IpAddress $osdNodeIp `
+                            -UserPwd '' `
+                            -Arguments @($CephPubKey, $Proxy) `
+                            -CleanupAfterExecution `
+                            -Retries 2
+
+        $hostPrepReady = ($hostPrepOutput | Out-String) -match 'K2S_CEPH_OSD_HOST_READY=1'
+        if (-not $hostPrepReady) {
+            Write-Log "[Ceph] ERROR: OSD host preparation did not complete successfully on node '$osdNodeIp'." -Console -Error
+            exit 1
+        }
+    }
+    else {
+        Write-Log "[Ceph] Bootstrap node '$BootstrapNodeIp' is also the OSD host; skipping prepare-ceph-osd-host.sh because bootstrap already installed the required host packages." -Console
+    }
+
+    [uint32]$osdDiskSizeGB = 20
+    $configuredDiskSize = if ($null -ne $Config) { "$($Config.osdDiskSizeGB)".Trim() } else { '' }
+    if (-not [string]::IsNullOrWhiteSpace($configuredDiskSize)) {
+        $parsedDiskSize = 0
+        if ([uint32]::TryParse($configuredDiskSize, [ref]$parsedDiskSize) -and $parsedDiskSize -gt 0) {
+            $osdDiskSizeGB = $parsedDiskSize
+        }
+        else {
+            Write-Log "[Ceph] WARNING: Invalid osdDiskSizeGB '$configuredDiskSize' in ceph-config.json. Falling back to ${osdDiskSizeGB} GiB." -Console
+        }
+    }
+
+    $prepareDiskScript = Join-Path $PSScriptRoot 'osd\New-CephOsdDisk.ps1'
+    if (-not (Test-Path $prepareDiskScript)) {
+        Write-Log "[Ceph] ERROR: OSD disk preparation orchestrator not found: '$prepareDiskScript'" -Console -Error
+        exit 1
+    }
+
+    Write-Log "[Ceph] Preparing OSD disk on node '$osdNodeIp'$(if ($osdAccess.NodeName) { " ($($osdAccess.NodeName))" })..." -Console
+    $prepareDiskOutput = & $prepareDiskScript -NodeIp $osdNodeIp -UserName $osdAccess.UserName -DiskSizeGB $osdDiskSizeGB -Config $Config -ShowLogs:$ShowLogs
+    if ($LASTEXITCODE -ne 0) {
+        Write-Log "[Ceph] ERROR: OSD disk preparation failed on node '$osdNodeIp' (exit code $LASTEXITCODE)." -Console -Error
+        exit 1
+    }
+
+    $prepareDiskOutputText = ($prepareDiskOutput | Out-String)
+    $preparedDiskLine = $prepareDiskOutputText -split "`r?`n" | Where-Object { $_.Trim().StartsWith('K2S_CEPH_OSD_DISK=') } | Select-Object -Last 1
+    $preparedDisk = if (-not [string]::IsNullOrWhiteSpace($preparedDiskLine)) { $preparedDiskLine.Trim().Substring('K2S_CEPH_OSD_DISK='.Length).Trim() } else { '' }
+
+    if ([string]::IsNullOrWhiteSpace($preparedDisk)) {
+        Write-Log "[Ceph] ERROR: OSD disk preparation finished but no device path was returned." -Console -Error
+        exit 1
+    }
+
+    $orchestratorHostName = if (-not [string]::IsNullOrWhiteSpace($osdAccess.NodeName)) {
+        "$($osdAccess.NodeName)".Trim()
+    }
+    else {
+        if ($null -ne $Config) { "$($Config.clusterHostNode)".Trim() } else { '' }
+    }
+
+    if ([string]::IsNullOrWhiteSpace($orchestratorHostName)) {
+        $hostnameResult = Invoke-CmdOnVmViaSSHKey -CmdToExecute 'hostname -s' -UserName $osdAccess.UserName -IpAddress $osdNodeIp -NoLog -IgnoreErrors -Retries 2
+        $orchestratorHostName = (($hostnameResult.Output | Out-String).Trim() -split "`r?`n" | Select-Object -First 1).Trim()
+    }
+
+    if ([string]::IsNullOrWhiteSpace($orchestratorHostName)) {
+        Write-Log "[Ceph] ERROR: Could not resolve Ceph host name for node '$osdNodeIp' to add labels/osd." -Console -Error
+        exit 1
+    }
+
+    $addOsdScript = Join-Path $PSScriptRoot 'add-ceph-host-labels-and-osd.sh'
+    if (-not (Test-Path $addOsdScript)) {
+        Write-Log "[Ceph] ERROR: Ceph OSD add script not found: '$addOsdScript'" -Console -Error
+        exit 1
+    }
+
+    $clusterFsid = if ($null -ne $Config) { "$($Config.clusterId)".Trim() } else { '' }
+    $addOsdScriptArgs = @($orchestratorHostName, $preparedDisk)
+    if (-not [string]::IsNullOrWhiteSpace($clusterFsid)) {
+        $addOsdScriptArgs += $clusterFsid
+    }
+
+    Write-Log "[Ceph] Adding labels (osd/mgr/mds) and creating OSD on '$($orchestratorHostName):$($preparedDisk)'..." -Console
+    $addOsdOutput = Invoke-RemoteScript -LocalScriptPath $addOsdScript `
+                        -UserName $BootstrapNodeUserName `
+                        -IpAddress $BootstrapNodeIp `
+                        -UserPwd '' `
+                        -Arguments $addOsdScriptArgs `
+                        -CleanupAfterExecution `
+                        -Retries 2
+
+    if (($addOsdOutput | Out-String) -match '\[CephOsdAdd\]\s+ERROR:') {
+        Write-Log "[Ceph] ERROR: Failed while labeling host / adding OSD. See previous CephOsdAdd logs." -Console -Error
+        exit 1
+    }
+}
+
 <#
 .SYNOPSIS
 Extracts the Ceph dashboard connection details from cephadm bootstrap output.
@@ -201,25 +378,84 @@ Function Add-CephWindowsHostEntry {
 
 <#
 .SYNOPSIS
+Builds an X509Certificate2 from a PEM-encoded certificate string.
+
+.DESCRIPTION
+Extracts the first PEM certificate block, base64-decodes it and constructs an
+X509Certificate2. Returns $null when the input contains no valid certificate.
+#>
+Function ConvertFrom-PemCertificate {
+    param (
+        [Parameter(Mandatory = $true)][AllowEmptyString()][string]$Pem
+    )
+
+    if ([string]::IsNullOrWhiteSpace($Pem)) { return $null }
+
+    $match = [regex]::Match($Pem, '-----BEGIN CERTIFICATE-----(?<b64>.*?)-----END CERTIFICATE-----', [System.Text.RegularExpressions.RegexOptions]::Singleline)
+    if (-not $match.Success) { return $null }
+
+    $b64 = ($match.Groups['b64'].Value -replace '\s', '')
+    if ([string]::IsNullOrWhiteSpace($b64)) { return $null }
+
+    try {
+        $bytes = [System.Convert]::FromBase64String($b64)
+        return New-Object System.Security.Cryptography.X509Certificates.X509Certificate2(, $bytes)
+    }
+    catch {
+        return $null
+    }
+}
+
+<#
+.SYNOPSIS
 Fetches the Ceph dashboard's TLS certificate and imports it into the Windows
 trusted root store, returning its thumbprint.
 
 .DESCRIPTION
 The cephadm dashboard serves a self-signed certificate. To avoid the browser
-'Not secure' warning, this performs a TLS handshake against <IpAddress>:<Port>,
-captures the server certificate, and imports it into Cert:\LocalMachine\Root.
-Returns the certificate thumbprint (so Disable.ps1 can remove it), or $null on
-failure. Idempotent: skips import when the certificate is already trusted.
+'Not secure' warning, this captures the server certificate and imports it into
+Cert:\LocalMachine\Root. When a node SSH -UserName is supplied, the certificate is
+retrieved over the already-trusted SSH channel using the node's own openssl (the
+robust path); otherwise a direct TLS handshake from Windows is attempted as a
+fallback. Returns the certificate thumbprint (so Disable.ps1 can remove it), or
+$null on failure. Idempotent: skips import when the certificate is already trusted.
 #>
 Function Import-CephDashboardCertificate {
     param (
         [Parameter(Mandatory = $true)][string]$IpAddress,
-        [Parameter(Mandatory = $true)][int]$Port
+        [Parameter(Mandatory = $true)][int]$Port,
+        [Parameter(Mandatory = $false)][string]$UserName = ''
     )
 
     $remoteCert = $null
-    $attempts = 5
-    for ($i = 1; $i -le $attempts; $i++) {
+
+    # Preferred path: retrieve the served certificate over SSH using the node's own openssl.
+    # The cephadm dashboard serves TLS 1.2/1.3 with a self-signed cert whose leaf CN is the node
+    # IP; a direct SslStream handshake from Windows PowerShell 5.1 / Schannel frequently fails with
+    # "A call to SSPI failed" (self-signed + IP target + TLS 1.3 negotiation). Reading the PEM on
+    # the Linux node avoids the Windows Schannel handshake entirely.
+    if (-not [string]::IsNullOrWhiteSpace($UserName)) {
+        try {
+            $fetchCertCmd = "echo | sudo openssl s_client -connect 127.0.0.1:$Port 2>/dev/null | sed -ne '/-BEGIN CERTIFICATE-/,/-END CERTIFICATE-/p'"
+            $sshResult = Invoke-CmdOnVmViaSSHKey -CmdToExecute $fetchCertCmd -UserName $UserName -IpAddress $IpAddress -NoLog -IgnoreErrors -Retries 3 -Timeout 3
+            $remoteCert = ConvertFrom-PemCertificate -Pem ($sshResult.Output | Out-String)
+            if ($null -ne $remoteCert) {
+                Write-Log '[Ceph] Retrieved Ceph dashboard certificate from node over SSH'
+            }
+            else {
+                Write-Log '[Ceph] SSH retrieval did not return a certificate; falling back to a direct TLS handshake'
+            }
+        }
+        catch {
+            Write-Log "[Ceph] WARNING: SSH retrieval of Ceph dashboard certificate failed ($($_.Exception.Message)); falling back to a direct TLS handshake"
+        }
+    }
+
+    # Fallback path: direct TLS handshake from Windows (used when no SSH user is available or the
+    # SSH retrieval above did not yield a certificate).
+    if ($null -eq $remoteCert) {
+        $attempts = 5
+        for ($i = 1; $i -le $attempts; $i++) {
         $tcpClient = $null
         $sslStream = $null
         try {
@@ -247,9 +483,10 @@ Function Import-CephDashboardCertificate {
                 Start-Sleep -Seconds 3
             }
         }
-        finally {
-            if ($sslStream) { $sslStream.Dispose() }
-            if ($tcpClient) { $tcpClient.Dispose() }
+            finally {
+                if ($sslStream) { $sslStream.Dispose() }
+                if ($tcpClient) { $tcpClient.Dispose() }
+            }
         }
     }
 
@@ -321,8 +558,16 @@ Function Register-CephDashboardAccess {
     }
 
     # 2) Trust the dashboard's self-signed certificate so the browser shows it as secure.
-    #    Connect by IP (which is always reachable) to fetch the exact cert the server presents.
-    $thumbprint = Import-CephDashboardCertificate -IpAddress $NodeIp -Port $dashboardPort
+    #    Prefer fetching the served cert over SSH (robust against Windows Schannel/SSPI failures);
+    #    fall back to a direct TLS handshake by IP when no SSH user can be resolved.
+    $sshUserName = ''
+    $dashboardClusterHostNode = "$($Config.clusterHostNode)".Trim()
+    if (-not [string]::IsNullOrWhiteSpace($dashboardClusterHostNode)) {
+        $dashboardNodeConfig = Get-NodeConfig -NodeName $dashboardClusterHostNode
+        if ($null -ne $dashboardNodeConfig) { $sshUserName = $dashboardNodeConfig.Username }
+    }
+
+    $thumbprint = Import-CephDashboardCertificate -IpAddress $NodeIp -Port $dashboardPort -UserName $sshUserName
     if (-not [string]::IsNullOrWhiteSpace($thumbprint)) {
         $Config | Add-Member -NotePropertyName 'dashboardCertThumbprint' -NotePropertyValue $thumbprint -Force
     }
@@ -444,6 +689,33 @@ $bootstrapOutput = New-CephClusterOnNode -UserName $nodeUserName `
 # Surface the cephadm dashboard connection details (URL / user / password) back into the
 # shared config object so Enable.ps1 can print them in the PowerShell console.
 Set-CephDashboardDetailsFromBootstrapOutput -BootstrapOutput $bootstrapOutput -Config $Config
+if ($null -ne $Config) {
+    $dashboardUrl = if ($Config.PSObject.Properties.Name -contains 'dashboardUrl') { "$($Config.dashboardUrl)".Trim() } else { '' }
+    $dashboardUser = if ($Config.PSObject.Properties.Name -contains 'dashboardUser') { "$($Config.dashboardUser)".Trim() } else { '' }
+    $dashboardPassword = if ($Config.PSObject.Properties.Name -contains 'dashboardPassword') { "$($Config.dashboardPassword)".Trim() } else { '' }
+
+    if (-not [string]::IsNullOrWhiteSpace($dashboardUrl)) {
+        Write-Log '[Ceph] Dashboard details captured from bootstrap:' -Console
+        Write-Log "[Ceph]   URL: $dashboardUrl" -Console
+        if (-not [string]::IsNullOrWhiteSpace($dashboardUser)) {
+            Write-Log "[Ceph]   User: $dashboardUser" -Console
+        }
+        if (-not [string]::IsNullOrWhiteSpace($dashboardPassword)) {
+            Write-Log "[Ceph]   Password: $dashboardPassword" -Console
+        }
+    }
+}
+
+# After bootstrap, tell the user (on the CLI) that a new volume drive will be consumed for the
+# Ceph OSD, and surface the cephadm public key so additional OSD hosts can be prepared with
+# scripts\linux\debian\prepare-ceph-osd-host.sh.
+Write-Log '[Ceph] A new (empty) volume drive will be consumed to create the Ceph OSD.' -Console
+$cephPubKeyLine = ($bootstrapOutput | Out-String) -split "`r?`n" | Where-Object { $_.Trim().StartsWith('K2S_CEPH_PUB_KEY=') } | Select-Object -Last 1
+if (-not [string]::IsNullOrWhiteSpace($cephPubKeyLine)) {
+    $cephPubKeyValue = $cephPubKeyLine.Trim().Substring('K2S_CEPH_PUB_KEY='.Length).Trim()
+    Write-Log '[Ceph] To add another machine as an OSD host, authorize this cephadm public key on it (see scripts\linux\debian\prepare-ceph-osd-host.sh):' -Console
+    Write-Log "[Ceph]   $cephPubKeyValue" -Console
+}
 
 # Make the cephadm dashboard reachable and trusted from the K2s host: add a hosts entry so the
 # node hostname resolves to the node IP, and import the dashboard's self-signed certificate into
@@ -464,6 +736,8 @@ if (-not $connectionResolved) {
     Write-Log "[Ceph] ERROR: New Ceph cluster provisioning did not yield valid connection details on node '$NodeIp'." -Console -Error
     exit 1
 }
+
+Invoke-CephOsdPreparation -BootstrapNodeIp $NodeIp -BootstrapNodeUserName $nodeUserName -CephPubKey $cephPubKeyValue -Proxy $Proxy -Config $Config -ShowLogs:$ShowLogs
 
 Write-Log "[Ceph] Ceph cluster connection details resolved successfully"
 exit 0

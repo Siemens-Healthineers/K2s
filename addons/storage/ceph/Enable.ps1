@@ -328,6 +328,39 @@ if ([string]::IsNullOrWhiteSpace($clusterMode)) { $clusterMode = 'existing' }
 # after the cluster has been created (below).
 if ($clusterMode -eq 'existing') {
   Read-ValidateStorageConfig -Config $Config
+
+  # Pre-flight reachability check: when the config identifies the Ceph host node, confirm over SSH
+  # that the node is reachable and that the LIVE cluster identity (fsid / CephFS filesystem / pool)
+  # matches ceph-config.json before creating any Kubernetes resources. This turns a silent, minutes-
+  # long CSI pod hang (unreachable/mismatched cluster) into an immediate, actionable failure.
+  $existingHostNodeIp = if ($Config -and ($Config.PSObject.Properties.Name -contains 'clusterHostNodeIp')) { "$($Config.clusterHostNodeIp)".Trim() } else { '' }
+  $existingDistribution = if ($Config -and ($Config.PSObject.Properties.Name -contains 'clusterDistribution')) { "$($Config.clusterDistribution)".Trim().ToLowerInvariant() } else { '' }
+
+  if (-not [string]::IsNullOrWhiteSpace($existingHostNodeIp)) {
+    $verifyClusterScript = $null
+    switch -Regex ($existingDistribution) {
+      '^debian' { $verifyClusterScript = "$PSScriptRoot\scripts\linux\debian\Test-CephCluster.ps1" }
+      default { $verifyClusterScript = $null }
+    }
+
+    if ($verifyClusterScript -and (Test-Path $verifyClusterScript)) {
+      Write-Log "[Ceph] Verifying connectivity to the described Ceph cluster on node '$existingHostNodeIp' before installing CSI" -Console
+      & $verifyClusterScript -NodeIp $existingHostNodeIp -Config $Config -ShowLogs:$ShowLogs
+      if ($LASTEXITCODE -ne 0) {
+        Write-Log '[Ceph] ERROR: unable to connect to the described cluster details , please verify ceph-config.json' -Console -Error
+        if ($EncodeStructuredOutput -eq $true) {
+          Send-ToCli -MessageType $MessageType -Message @{Error = (New-CephStructuredError -Message 'unable to connect to the described cluster details , please verify ceph-config.json') }
+        }
+        exit 1
+      }
+    }
+    else {
+      Write-Log "[Ceph] Skipping SSH pre-flight check: no verification script available for distribution '$existingDistribution'." -Console
+    }
+  }
+  else {
+    Write-Log "[Ceph] Skipping SSH pre-flight check: 'clusterHostNodeIp' is not set in ceph-config.json." -Console
+  }
 }
 
 if ($clusterMode -ne 'existing') {

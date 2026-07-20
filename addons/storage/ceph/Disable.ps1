@@ -266,7 +266,10 @@ if (-not [string]::IsNullOrWhiteSpace($dashboardHost)) {
             $content = @(Get-Content -Path $hostFile)
             $filtered = @($content | Where-Object { $_ -notmatch $pattern })
             if ($filtered.Count -ne $content.Count) {
-                Set-Content -Path $hostFile -Value $filtered -Encoding ascii -Force
+                # Use WriteAllLines instead of Set-Content: Set-Content throws
+                # 'Stream was not readable' when the resulting array is empty (e.g. the
+                # dashboard entry was the only line in the hosts file).
+                [System.IO.File]::WriteAllLines($hostFile, [string[]]$filtered, [System.Text.Encoding]::ASCII)
                 Write-Log "[Ceph] Removed hosts entry for '$dashboardHost' from '$hostFile'" -Console
             }
         }

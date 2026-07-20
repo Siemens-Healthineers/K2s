@@ -117,16 +117,19 @@ sudo dpkg --configure -a 2>/dev/null || true
 sudo apt-get --fix-broken install -y 2>/dev/null || true
 sudo apt-get autoremove -y 2>/dev/null || true
 
-# Remove Ceph-related container images left on the node. This covers both the Ceph daemon
-# image pulled by the bootstrap (quay.io/ceph/ceph, quay.io/ceph/ceph-grafana) and the Ceph
-# CSI images cached for the driver pods (quay.io/cephcsi/*).
+# Remove Ceph-related container images left on the node. This covers the Ceph daemon
+# image pulled by the bootstrap (quay.io/ceph/ceph, quay.io/ceph/ceph-grafana), the Ceph
+# CSI images cached for the driver pods (quay.io/cephcsi/*) and the upstream CSI sidecar
+# images the ceph-csi driver pulls onto this node's containerd
+# (registry.k8s.io/sig-storage/* e.g. csi-node-driver-registrar, csi-provisioner,
+# csi-attacher, csi-resizer, csi-snapshotter, livenessprobe).
 #
 # On a K2s Linux node several container engines can hold these images and may share or use
 # separate stores (buildah is the primary tool and shares containers/storage with podman;
 # containerd is accessed via nerdctl/crictl). The bootstrap uses podman, but 'buildah images'
 # also lists them, so remove from every engine that is present. The container engines
 # themselves are left installed as they are general-purpose tools used elsewhere.
-CEPH_IMAGE_PATTERN='^quay\.io/(ceph/|cephcsi/)'
+CEPH_IMAGE_PATTERN='^(quay\.io/(ceph/|cephcsi/)|registry\.k8s\.io/sig-storage/)'
 
 remove_ceph_images_with_engine() {
     local tool="$1"
@@ -155,7 +158,7 @@ remove_ceph_images_with_engine nerdctl Repository
 # containerd via crictl (columns: IMAGE  TAG  IMAGE-ID  SIZE). crictl has no Go-template
 # formatting, so parse the tabular output. Guarded so it is a no-op when crictl is unconfigured.
 if command -v crictl >/dev/null 2>&1; then
-    ceph_crictl_imgs="$(sudo crictl images 2>/dev/null | awk 'NR>1 && $1 ~ /^quay\.io\/(ceph\/|cephcsi\/)/ {print $1":"$2}' | sort -u)"
+    ceph_crictl_imgs="$(sudo crictl images 2>/dev/null | awk 'NR>1 && $1 ~ /^(quay\.io\/(ceph\/|cephcsi\/)|registry\.k8s\.io\/sig-storage\/)/ {print $1":"$2}' | sort -u)"
     if [ -n "$ceph_crictl_imgs" ]; then
         log_info "Removing Ceph container images via crictl"
         echo "$ceph_crictl_imgs" | while IFS= read -r img; do

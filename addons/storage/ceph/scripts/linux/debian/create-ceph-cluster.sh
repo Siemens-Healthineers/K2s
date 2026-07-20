@@ -184,6 +184,18 @@ else
     log_info "Ceph cluster bootstrap completed on Debian"
 fi
 
+# After bootstrap, surface OSD guidance: cephadm consumes an empty/raw data drive on a host to
+# create an OSD. Emit the cephadm cluster public key so ADDITIONAL OSD hosts can authorize it for
+# root SSH (see prepare-ceph-osd-host.sh); on the bootstrap node cephadm already has key access.
+log_info "A new (empty) volume drive will be consumed to create the Ceph OSD."
+log_info "Attach a raw/unused disk to an OSD host, then let cephadm provision the OSD on it."
+CEPH_PUB_KEY="$(sudo cat /etc/ceph/ceph.pub 2>/dev/null)"
+if [ -n "$CEPH_PUB_KEY" ]; then
+    log_info "cephadm cluster public key (authorize on additional OSD hosts via prepare-ceph-osd-host.sh):"
+    echo "$CEPH_PUB_KEY" | sed 's/^/[CephNew]   /'
+    echo "K2S_CEPH_PUB_KEY=${CEPH_PUB_KEY}"
+fi
+
 # ---------------------------------------------------------------------------
 # Create the CephFS filesystem and read back the ACTUAL cluster connection
 # values so the addon can persist them into ceph-config.json and connect the
