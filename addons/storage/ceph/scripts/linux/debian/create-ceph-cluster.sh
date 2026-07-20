@@ -1,0 +1,247 @@
+#!/bin/bash
+# SPDX-FileCopyrightText: © 2026 Siemens Healthineers AG
+#
+# SPDX-License-Identifier: MIT
+#
+# create-ceph-cluster.sh  -  Debian (12/13) variant
+#
+# Bootstraps a new Ceph cluster on this node using cephadm and creates the
+# CephFS filesystem/pool used by the storage/ceph addon CSI installation.
+#
+# Invoked remotely by addons/storage/ceph/scripts/linux/debian/New-CephCluster.ps1
+# via Invoke-RemoteScript when ceph-config.json requests a new cluster
+# (clusterMode != 'existing', clusterDistribution = 'debian12' or 'debian13').
+#
+# Arguments:
+#   $1 - Optional HTTP/HTTPS proxy URL
+#   $2 - Ceph image reference from storage addon additionalImages
+#   $3 - CephFS filesystem name to create (from ceph-config.json 'cephfsFilesystem')
+
+PROXY="${1:-}"
+CEPH_IMAGE_INPUT="${2:-}"
+CEPH_FS_NAME="${3:-cephfs}"
+
+log_info() {
+    echo "[CephNew] $1"
+}
+
+log_error() {
+    echo "[CephNew] ERROR: $1" >&2
+}
+
+log_info "Starting new Ceph cluster bootstrap on Debian"
+
+cleanup_proxy_config() {
+    if [ -n "$PROXY" ]; then
+        sudo rm -f /etc/apt/apt.conf.d/95k2s-proxy
+    fi
+}
+
+trap cleanup_proxy_config EXIT
+
+# APT sandbox config
+echo 'APT::Sandbox::User "root";' | sudo tee /etc/apt/apt.conf.d/10sandbox-for-k2s > /dev/null
+
+# Configure apt proxy if provided (ensures apt-get uses the same proxy path)
+if [ -n "$PROXY" ]; then
+    log_info "Configuring apt proxy: $PROXY"
+    printf 'Acquire::http::Proxy "%s";\nAcquire::https::Proxy "%s";\n' "$PROXY" "$PROXY" | sudo tee /etc/apt/apt.conf.d/95k2s-proxy > /dev/null
+fi
+
+# Ensure a container engine (podman) is available. cephadm requires podman (or docker)
+# to pull and run the Ceph daemon containers; on a freshly provisioned node it may be missing.
+if ! command -v podman >/dev/null 2>&1; then
+    log_info "podman not found, installing it via apt-get"
+    sudo apt-get update
+    if ! sudo apt-get install -y podman; then
+        log_error "Failed to install podman (required by cephadm)"
+        exit 1
+    fi
+fi
+log_info "Using container engine: $(command -v podman)"
+
+# Derive the Ceph version from the image tag (e.g. quay.io/ceph/ceph:v20.2.2 -> 20.2.2)
+CEPH_VERSION="${CEPH_IMAGE_INPUT##*:}"   # strip repo/name, keep tag -> v20.2.2
+CEPH_VERSION="${CEPH_VERSION#v}"          # strip leading 'v' -> 20.2.2
+if [ -z "$CEPH_VERSION" ]; then
+    log_error "Could not determine Ceph version from image '$CEPH_IMAGE_INPUT'"
+    exit 1
+fi
+log_info "Detected Ceph version from image tag: $CEPH_VERSION"
+
+# Download the matching cephadm bootstrap binary (proxy used for download.ceph.com access)
+curl -x "$PROXY" --remote-name --location "https://download.ceph.com/rpm-$CEPH_VERSION/el9/noarch/cephadm"
+
+# Make the downloaded cephadm binary executable
+sudo chmod +x  cephadm
+
+# Use the Ceph image from the storage addon manifest for bootstrapping
+CEPH_IMAGE="$CEPH_IMAGE_INPUT"
+log_info "Using Ceph image from storage addon manifest: $CEPH_IMAGE"
+
+if [ -n "$PROXY" ]; then
+    log_info "Pulling Ceph image via proxy for quay.io access: $CEPH_IMAGE"
+    if ! sudo env HTTP_PROXY="$PROXY" HTTPS_PROXY="$PROXY" podman pull "$CEPH_IMAGE"; then
+        log_error "Failed to pull Ceph image '$CEPH_IMAGE' with proxy"
+        exit 1
+    fi
+else
+    log_info "Pulling Ceph image without proxy: $CEPH_IMAGE"
+    if ! sudo podman pull "$CEPH_IMAGE"; then
+        log_error "Failed to pull Ceph image '$CEPH_IMAGE'"
+        exit 1
+    fi
+fi
+
+
+# $CEPH_IMAGE already holds e.g. quay.io/ceph/ceph:v20.2.2
+# Determine the Ceph release codename (e.g. 'nautilus', 'octopus', 'pacific', 'quincy') from the image
+CEPH_RELEASE="$(sudo podman run --rm --entrypoint ceph "$CEPH_IMAGE_INPUT" --version 2>/dev/null \
+    | sed -E 's/^.*\) ([[:alpha:]]+) \(stable\).*/\1/')"
+
+if [ -z "$CEPH_RELEASE" ]; then
+    log_error "Could not determine Ceph release codename from image '$CEPH_IMAGE_INPUT'"
+    exit 1
+fi
+log_info "Detected Ceph release codename: $CEPH_RELEASE"
+
+# Install gnupg for apt-key management (required for adding the Ceph repository)
+sudo apt-get install -y gnupg
+sudo rm -f /etc/apt/trusted.gpg.d/ceph.asc
+
+# cephadm's add-repo/install use Python (urllib), which does NOT read the apt proxy config.
+# Pass the proxy via the standard http_proxy/https_proxy env vars so it can reach
+# download.ceph.com; on air-gapped nodes DNS resolution otherwise fails.
+CEPHADM_PROXY_ENV=()
+if [ -n "$PROXY" ]; then
+    CEPHADM_PROXY_ENV=(http_proxy="$PROXY" https_proxy="$PROXY" HTTP_PROXY="$PROXY" HTTPS_PROXY="$PROXY")
+fi
+
+# Add the Ceph repository for the detected release and install cephadm.
+# These are best-effort: they provide the host-side 'ceph' CLI but are not required
+# for the bootstrap itself (which runs everything inside the pre-pulled container image).
+sudo env "${CEPHADM_PROXY_ENV[@]}" ./cephadm add-repo --release "$CEPH_RELEASE" || \
+    log_info "add-repo failed (continuing; host-side ceph CLI may be unavailable)"
+
+sudo env "${CEPHADM_PROXY_ENV[@]}" ./cephadm install || \
+    log_info "cephadm install failed (continuing; using downloaded cephadm binary for bootstrap)"
+
+# Prefer the freshly downloaded cephadm binary: its version matches the target Ceph image,
+# whereas a system-installed cephadm may be an older/mismatched release.
+CEPHADM_BIN=''
+if [ -x "$(pwd)/cephadm" ]; then
+    CEPHADM_BIN="$(pwd)/cephadm"
+fi
+if [ -z "$CEPHADM_BIN" ]; then
+    CEPHADM_BIN="$(command -v cephadm 2>/dev/null || true)"
+fi
+if [ -z "$CEPHADM_BIN" ]; then
+    # /usr/sbin is not always in PATH for non-root SSH sessions on Debian
+    for candidate in /usr/sbin/cephadm /usr/bin/cephadm /sbin/cephadm; do
+        if [ -x "$candidate" ]; then
+            CEPHADM_BIN="$candidate"
+            break
+        fi
+    done
+fi
+if [ -z "$CEPHADM_BIN" ]; then
+    log_error "cephadm was not found after installation (searched PATH and /usr/sbin, /usr/bin, /sbin)"
+    exit 1
+fi
+log_info "Using cephadm binary: $CEPHADM_BIN"
+
+if [ -z "$CEPH_IMAGE_INPUT" ]; then
+    log_error "Missing required Ceph image argument (storage addon additionalImages entry)"
+    exit 1
+fi
+
+
+# Determine the monitor IP address for the bootstrap process (first non-loopback IP)
+MON_IP="$(hostname -I | awk '{print $1}')"
+if [ -z "$MON_IP" ]; then
+    log_error "Failed to resolve monitor IP from hostname -I"
+    exit 1
+fi
+
+log_info "Bootstrapping Ceph cluster with image '$CEPH_IMAGE' and MON_IP '$MON_IP'"
+
+# Idempotency: if a Ceph cluster was already bootstrapped on this node (e.g. the addon was
+# enabled before and disabled while keeping the cluster), do NOT bootstrap again - that would
+# fail. Detect an existing cluster by looking for an fsid-named directory under /var/lib/ceph
+# and just reuse it; the value-collection step below then reads back the real connection details.
+EXISTING_FSID="$(sudo ls /var/lib/ceph 2>/dev/null | grep -E '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$' | head -n1)"
+
+if [ -n "$EXISTING_FSID" ]; then
+    log_info "A Ceph cluster already exists on this node (fsid '$EXISTING_FSID'); skipping bootstrap and reusing it"
+else
+    # --skip-pull: image is already present in podman's store (pulled above).
+    # --allow-mismatched-release: the container image is the authoritative Ceph version;
+    #   tolerate a version-string difference between the cephadm tool and the image release.
+    if ! sudo "$CEPHADM_BIN" --image "$CEPH_IMAGE" bootstrap --mon-ip "$MON_IP" --skip-pull --allow-mismatched-release; then
+        log_error "cephadm bootstrap failed"
+        exit 1
+    fi
+    log_info "Ceph cluster bootstrap completed on Debian"
+fi
+
+# ---------------------------------------------------------------------------
+# Create the CephFS filesystem and read back the ACTUAL cluster connection
+# values so the addon can persist them into ceph-config.json and connect the
+# CSI driver to the freshly provisioned cluster (instead of the placeholder
+# values shipped in the config template).
+#
+# All ceph commands run inside 'cephadm shell' so they work even when a
+# host-side ceph CLI was not installed. The resulting values are emitted as
+# K2S_CEPH_* marker lines that New-CephCluster.ps1 parses.
+# ---------------------------------------------------------------------------
+log_info "Creating CephFS filesystem '$CEPH_FS_NAME' and collecting connection details"
+
+CLUSTER_DETAILS="$(sudo "$CEPHADM_BIN" shell --env K2S_FS_NAME="$CEPH_FS_NAME" -- bash -c '
+    # Create the CephFS volume (idempotent). This also deploys an MDS and
+    # creates the "cephfs.<name>.meta" / "cephfs.<name>.data" pools.
+    ceph fs volume create "$K2S_FS_NAME" >/dev/null 2>&1 || true
+
+    FSID="$(ceph fsid 2>/dev/null)"
+    ADMIN_KEY="$(ceph auth get-key client.admin 2>/dev/null)"
+
+    # Monitor endpoints: extract the v1 (msgr1) "IP:6789" addresses used by the CSI driver.
+    MON_ENDPOINTS="$(ceph mon dump 2>/dev/null | grep -oE "([0-9]{1,3}\.){3}[0-9]{1,3}:6789" | sort -u | paste -sd, -)"
+
+    # Data pool for the filesystem. Prefer querying it; fall back to the
+    # deterministic name that "ceph fs volume create" uses.
+    DATA_POOL="$(ceph fs ls 2>/dev/null | sed -n "s/.*name: ${K2S_FS_NAME},.*data pools: \[\([^ ]*\).*/\1/p")"
+    if [ -z "$DATA_POOL" ]; then
+        DATA_POOL="cephfs.${K2S_FS_NAME}.data"
+    fi
+
+    echo "K2S_CEPH_FSID=${FSID}"
+    echo "K2S_CEPH_MON_ENDPOINTS=${MON_ENDPOINTS}"
+    echo "K2S_CEPH_ADMIN_KEY=${ADMIN_KEY}"
+    echo "K2S_CEPH_FS_NAME=${K2S_FS_NAME}"
+    echo "K2S_CEPH_DATA_POOL=${DATA_POOL}"
+    # ceph-csi expects the user id WITHOUT the "client." prefix (it prepends it internally).
+    echo "K2S_CEPH_USER=admin"
+')"
+
+# Re-emit the marker lines on stdout so the calling PowerShell can parse them.
+# (Do NOT log the admin key to the console; the PowerShell side masks it.)
+echo "$CLUSTER_DETAILS" | grep -E '^K2S_CEPH_' | while IFS= read -r line; do
+    case "$line" in
+        K2S_CEPH_ADMIN_KEY=*) log_info "Collected K2S_CEPH_ADMIN_KEY=<hidden>" ;;
+        *) log_info "Collected $line" ;;
+    esac
+done
+echo "$CLUSTER_DETAILS" | grep -E '^K2S_CEPH_'
+
+# Fail loudly if the essential connection values could not be read back. Otherwise the addon
+# would continue with the placeholder config values and the CSI driver would never connect.
+COLLECTED_FSID="$(echo "$CLUSTER_DETAILS" | sed -n 's/^K2S_CEPH_FSID=//p')"
+COLLECTED_KEY="$(echo "$CLUSTER_DETAILS" | sed -n 's/^K2S_CEPH_ADMIN_KEY=//p')"
+COLLECTED_MONS="$(echo "$CLUSTER_DETAILS" | sed -n 's/^K2S_CEPH_MON_ENDPOINTS=//p')"
+if [ -z "$COLLECTED_FSID" ] || [ -z "$COLLECTED_KEY" ] || [ -z "$COLLECTED_MONS" ]; then
+    log_error "Failed to read back the Ceph connection details from the cluster (fsid/key/mon endpoints missing)."
+    log_error "The Ceph cluster may not be healthy yet. Check 'sudo cephadm shell -- ceph -s' on the node."
+    exit 1
+fi
+
+log_info "Finished collecting Ceph cluster connection details"

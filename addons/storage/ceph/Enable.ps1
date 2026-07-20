@@ -105,6 +105,90 @@ function New-CephStructuredError {
   return (New-Error -Code 'addon-enable-failed' -Message $Message)
 }
 
+function Write-CephUsageForUser {
+  param(
+    [Parameter(Mandatory = $false)]
+    [string]$MonitorEndpoints = '',
+    [Parameter(Mandatory = $false)]
+    [string]$CephfsFilesystem = '',
+    [Parameter(Mandatory = $false)]
+    [string]$CephfsPool = '',
+    [Parameter(Mandatory = $false)]
+    [string]$ClusterId = '',
+    [Parameter(Mandatory = $false)]
+    [string]$DashboardUrl = '',
+    [Parameter(Mandatory = $false)]
+    [string]$DashboardUser = '',
+    [Parameter(Mandatory = $false)]
+    [string]$DashboardPassword = ''
+  )
+
+  @"
+
+                                        USAGE NOTES
+ The Ceph CSI storage addon is enabled. Dynamic CephFS provisioning is available
+ through the following Kubernetes StorageClass:
+
+     StorageClass:      ceph-cephfs
+     Provisioner:       cephfs.csi.ceph.com
+     Monitor endpoints: $MonitorEndpoints
+     CephFS filesystem: $CephfsFilesystem
+     CephFS pool:       $CephfsPool
+     Cluster ID:        $ClusterId
+
+ To use it, reference the StorageClass in a PersistentVolumeClaim, for example:
+
+     apiVersion: v1
+     kind: PersistentVolumeClaim
+     metadata:
+       name: my-cephfs-pvc
+     spec:
+       accessModes:
+         - ReadWriteMany
+       storageClassName: ceph-cephfs
+       resources:
+         requests:
+           storage: 1Gi
+
+ Inspect the provisioner workloads with:
+     kubectl get pods -n $cephOperatorNamespace
+"@ -split "`r`n" | ForEach-Object { Write-Log $_ -Console }
+
+  if (-not [string]::IsNullOrWhiteSpace($DashboardUrl)) {
+    @"
+
+                                     CEPH DASHBOARD
+ A new Ceph cluster was provisioned. The Ceph dashboard is available at:
+
+     URL:      $DashboardUrl
+     User:     $DashboardUser
+     Password: $DashboardPassword
+
+ Store these credentials securely and change the password after first login.
+
+                                     CEPH CLI ACCESS
+ On the Ceph host node you can access the Ceph CLI as follows.
+
+ In case of multi-cluster or non-default config:
+
+     sudo cephadm shell --fsid $ClusterId -c /etc/ceph/ceph.conf -k /etc/ceph/ceph.client.admin.keyring
+
+ Or, if you are only running a single cluster on this host:
+
+     sudo cephadm shell
+
+ Cluster configuration is saved on the host under:
+
+     /var/lib/ceph/$ClusterId/config
+
+ Optionally, enable telemetry to help improve Ceph (see
+ https://docs.ceph.com/en/latest/mgr/telemetry/):
+
+     ceph telemetry on
+"@ -split "`r`n" | ForEach-Object { Write-Log $_ -Console }
+  }
+}
+
 function Get-CephOperatorNamespace {
   param(
     [Parameter(Mandatory = $true)]
@@ -227,7 +311,86 @@ if ($null -eq $Config) {
   }
 }
 
-Read-ValidateStorageConfig -Config $Config
+
+# Determine how the Ceph cluster is provided. 'existing' (default) connects to an
+# already-running Ceph cluster using the values validated below and continues with the
+# CSI installation. Any other value provisions a NEW Ceph cluster on the target node
+# (clusterHostNodeIp), dispatching to the OS-specific creation script selected by
+# clusterDistribution, before continuing with the CSI installation.
+$clusterMode = 'existing'
+if ($Config -and ($Config.PSObject.Properties.Name -contains 'clusterMode')) {
+  $clusterMode = "$($Config.clusterMode)".Trim()
+}
+if ([string]::IsNullOrWhiteSpace($clusterMode)) { $clusterMode = 'existing' }
+
+# For an existing Ceph cluster, validate the supplied connection config now. For a new cluster the
+# config holds placeholder values until provisioning completes, so validation is deferred until
+# after the cluster has been created (below).
+if ($clusterMode -eq 'existing') {
+  Read-ValidateStorageConfig -Config $Config
+}
+
+if ($clusterMode -ne 'existing') {
+  Write-Log "[Ceph] clusterMode='$clusterMode' - a new Ceph cluster will be provisioned before CSI installation" -Console
+
+  $clusterHostNodeIp = "$($Config.clusterHostNodeIp)".Trim()
+  $clusterDistribution = "$($Config.clusterDistribution)".Trim().ToLowerInvariant()
+
+  if ([string]::IsNullOrWhiteSpace($clusterHostNodeIp)) {
+    Write-Log "[Ceph] ERROR: 'clusterHostNodeIp' is required in ceph-config.json when clusterMode is not 'existing'." -Console -Error
+    if ($EncodeStructuredOutput -eq $true) {
+      Send-ToCli -MessageType $MessageType -Message @{Error = (New-CephStructuredError -Message 'clusterHostNodeIp is required for new Ceph cluster creation') }
+    }
+    exit 1
+  }
+  if ([string]::IsNullOrWhiteSpace($clusterDistribution)) {
+    Write-Log "[Ceph] ERROR: 'clusterDistribution' is required in ceph-config.json when clusterMode is not 'existing'." -Console -Error
+    if ($EncodeStructuredOutput -eq $true) {
+      Send-ToCli -MessageType $MessageType -Message @{Error = (New-CephStructuredError -Message 'clusterDistribution is required for new Ceph cluster creation') }
+    }
+    exit 1
+  }
+
+  # Select the OS-specific new-cluster creation script from clusterDistribution.
+  # Debian 12 and Debian 13 share the same distribution-neutral scripts under scripts\linux\debian.
+  $newClusterScript = $null
+  switch -Regex ($clusterDistribution) {
+    '^debian' { $newClusterScript = "$PSScriptRoot\scripts\linux\debian\New-CephCluster.ps1" }
+    default {
+      Write-Log "[Ceph] ERROR: Unsupported clusterDistribution '$clusterDistribution'. Supported values: windows, debian12, debian13." -Console -Error
+      if ($EncodeStructuredOutput -eq $true) {
+        Send-ToCli -MessageType $MessageType -Message @{Error = (New-CephStructuredError -Message "Unsupported clusterDistribution '$clusterDistribution'") }
+      }
+      exit 1
+    }
+  }
+
+  if (-not (Test-Path $newClusterScript)) {
+    Write-Log "[Ceph] ERROR: New Ceph cluster creation script not found at '$newClusterScript'." -Console -Error
+    if ($EncodeStructuredOutput -eq $true) {
+      Send-ToCli -MessageType $MessageType -Message @{Error = (New-CephStructuredError -Message "New Ceph cluster creation script not found for distribution '$clusterDistribution'") }
+    }
+    exit 1
+  }
+
+  Write-Log "[Ceph] Dispatching new Ceph cluster creation to '$newClusterScript' (node=$clusterHostNodeIp, distribution=$clusterDistribution)" -Console
+  & $newClusterScript -NodeIp $clusterHostNodeIp -Config $Config -ShowLogs:$ShowLogs
+  if ($LASTEXITCODE -ne 0) {
+    Write-Log "[Ceph] ERROR: New Ceph cluster creation failed (exit code $LASTEXITCODE)." -Console -Error
+    if ($EncodeStructuredOutput -eq $true) {
+      Send-ToCli -MessageType $MessageType -Message @{Error = (New-CephStructuredError -Message 'New Ceph cluster creation failed') }
+    }
+    exit 1
+  }
+  Write-Log '[Ceph] New Ceph cluster created successfully; continuing with CSI installation' -Console
+
+  # The new-cluster script wrote the ACTUAL connection values read back from the freshly
+  # provisioned cluster (monitorEndpoints, cephKey, cephfsFilesystem, cephfsPool, clusterId,
+  # cephUser) into $Config. Validate and load them so the placeholder values used before
+  # provisioning are replaced by the real ones for the CSI installation, the ceph-config.json
+  # persistence, and the usage summary printed at the end.
+  Read-ValidateStorageConfig -Config $Config
+}
 
 # Apply Ceph CSI operator manifests (CRDs first, then RBAC/operator resources)
 $cephManifestsDir = "$PSScriptRoot\manifests"
@@ -489,6 +652,30 @@ try {
     cephfsPool       = $script:CephfsPool
     cephfsFilesystem = $script:cephfsFilesystem
   }
+
+  # When the addon provisioned a NEW Ceph cluster (clusterMode != 'existing'), the cluster now
+  # EXISTS, so persist clusterMode as 'existing'. This ensures a subsequent enable connects to the
+  # already-provisioned cluster instead of trying to create it again. The provisioning details
+  # (host node + distribution) are persisted so that Disable.ps1 can offer to tear down the
+  # on-node Ceph cluster it created.
+  if ($clusterMode -ne 'existing') {
+    $persistedConfig | Add-Member -NotePropertyName 'clusterMode' -NotePropertyValue 'existing' -Force
+    if ($Config) {
+      $persistedConfig | Add-Member -NotePropertyName 'clusterHostNode' -NotePropertyValue "$($Config.clusterHostNode)" -Force
+      $persistedConfig | Add-Member -NotePropertyName 'clusterHostNodeIp' -NotePropertyValue "$($Config.clusterHostNodeIp)" -Force
+      $persistedConfig | Add-Member -NotePropertyName 'clusterDistribution' -NotePropertyValue "$($Config.clusterDistribution)" -Force
+
+      # Persist the dashboard URL plus the local-access artifacts the new-cluster script created
+      # (Windows hosts entry hostname + trusted-root certificate thumbprint) so Disable.ps1 can
+      # remove them again when the addon is disabled.
+      foreach ($dashProp in 'dashboardUrl', 'dashboardHost', 'dashboardCertThumbprint') {
+        if ($Config.PSObject.Properties.Name -contains $dashProp -and -not [string]::IsNullOrWhiteSpace("$($Config.$dashProp)")) {
+          $persistedConfig | Add-Member -NotePropertyName $dashProp -NotePropertyValue "$($Config.$dashProp)" -Force
+        }
+      }
+    }
+  }
+
   $persistedConfig | ConvertTo-Json -Depth 20 | Set-Content -Path $cephConfigPathToPersist -Encoding UTF8 -Force
   Write-Log "[Ceph] Persisted effective configuration to '$cephConfigPathToPersist'" -Console
 }
@@ -501,6 +688,18 @@ catch {
 Copy-ScriptsToHooksDir -ScriptPaths @(Get-ChildItem -Path "$PSScriptRoot\hooks" -Filter '*.ps1' | ForEach-Object { $_.FullName })
 
 Write-Log "[Ceph] Addon enabled successfully" -Console
+
+$dashboardUrl = if ($Config -and ($Config.PSObject.Properties.Name -contains 'dashboardUrl')) { "$($Config.dashboardUrl)" } else { '' }
+$dashboardUser = if ($Config -and ($Config.PSObject.Properties.Name -contains 'dashboardUser')) { "$($Config.dashboardUser)" } else { '' }
+$dashboardPassword = if ($Config -and ($Config.PSObject.Properties.Name -contains 'dashboardPassword')) { "$($Config.dashboardPassword)" } else { '' }
+
+Write-CephUsageForUser -MonitorEndpoints $script:MonitorEndpoints `
+                       -CephfsFilesystem $script:cephfsFilesystem `
+                       -CephfsPool $script:CephfsPool `
+                       -ClusterId $script:clusterId `
+                       -DashboardUrl $dashboardUrl `
+                       -DashboardUser $dashboardUser `
+                       -DashboardPassword $dashboardPassword
 
 if ($EncodeStructuredOutput -eq $true) {
     Send-ToCli -MessageType $MessageType -Message @{
