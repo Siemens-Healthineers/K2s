@@ -252,11 +252,9 @@ if (-not [string]::IsNullOrWhiteSpace($clusterHostNodeIp)) {
     }
 }
 
-# Remove the local dashboard-access artifacts that Enable.ps1 created so the cephadm dashboard was
-# reachable and trusted from this host: the Windows hosts entry (hostname -> node IP) and the
-# dashboard's self-signed certificate in the trusted root store.
+# Remove the local dashboard-access artifact that Enable.ps1 created so the cephadm dashboard was
+# reachable from this host: the Windows hosts entry (hostname -> node IP).
 $dashboardHost = if ($Config -and ($Config.PSObject.Properties.Name -contains 'dashboardHost')) { "$($Config.dashboardHost)".Trim() } else { '' }
-$dashboardCertThumbprint = if ($Config -and ($Config.PSObject.Properties.Name -contains 'dashboardCertThumbprint')) { "$($Config.dashboardCertThumbprint)".Trim() } else { '' }
 
 if (-not [string]::IsNullOrWhiteSpace($dashboardHost)) {
     $hostFile = 'C:\Windows\System32\drivers\etc\hosts'
@@ -276,19 +274,6 @@ if (-not [string]::IsNullOrWhiteSpace($dashboardHost)) {
     }
     catch {
         Write-Log "[Ceph] WARNING: Failed to remove hosts entry for '$dashboardHost': $($_.Exception.Message)" -Console
-    }
-}
-
-if (-not [string]::IsNullOrWhiteSpace($dashboardCertThumbprint)) {
-    try {
-        $certPath = "Cert:\LocalMachine\Root\$dashboardCertThumbprint"
-        if (Test-Path $certPath) {
-            Remove-Item -Path $certPath -Force
-            Write-Log "[Ceph] Removed Ceph dashboard certificate (thumbprint $dashboardCertThumbprint) from trusted root" -Console
-        }
-    }
-    catch {
-        Write-Log "[Ceph] WARNING: Failed to remove Ceph dashboard certificate (thumbprint $dashboardCertThumbprint): $($_.Exception.Message)" -Console
     }
 }
 

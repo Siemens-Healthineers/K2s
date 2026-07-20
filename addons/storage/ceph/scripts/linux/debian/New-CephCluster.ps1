@@ -378,153 +378,13 @@ Function Add-CephWindowsHostEntry {
 
 <#
 .SYNOPSIS
-Builds an X509Certificate2 from a PEM-encoded certificate string.
+Makes the cephadm dashboard reachable from the K2s Windows host.
 
 .DESCRIPTION
-Extracts the first PEM certificate block, base64-decodes it and constructs an
-X509Certificate2. Returns $null when the input contains no valid certificate.
-#>
-Function ConvertFrom-PemCertificate {
-    param (
-        [Parameter(Mandatory = $true)][AllowEmptyString()][string]$Pem
-    )
-
-    if ([string]::IsNullOrWhiteSpace($Pem)) { return $null }
-
-    $match = [regex]::Match($Pem, '-----BEGIN CERTIFICATE-----(?<b64>.*?)-----END CERTIFICATE-----', [System.Text.RegularExpressions.RegexOptions]::Singleline)
-    if (-not $match.Success) { return $null }
-
-    $b64 = ($match.Groups['b64'].Value -replace '\s', '')
-    if ([string]::IsNullOrWhiteSpace($b64)) { return $null }
-
-    try {
-        $bytes = [System.Convert]::FromBase64String($b64)
-        return New-Object System.Security.Cryptography.X509Certificates.X509Certificate2(, $bytes)
-    }
-    catch {
-        return $null
-    }
-}
-
-<#
-.SYNOPSIS
-Fetches the Ceph dashboard's TLS certificate and imports it into the Windows
-trusted root store, returning its thumbprint.
-
-.DESCRIPTION
-The cephadm dashboard serves a self-signed certificate. To avoid the browser
-'Not secure' warning, this captures the server certificate and imports it into
-Cert:\LocalMachine\Root. When a node SSH -UserName is supplied, the certificate is
-retrieved over the already-trusted SSH channel using the node's own openssl (the
-robust path); otherwise a direct TLS handshake from Windows is attempted as a
-fallback. Returns the certificate thumbprint (so Disable.ps1 can remove it), or
-$null on failure. Idempotent: skips import when the certificate is already trusted.
-#>
-Function Import-CephDashboardCertificate {
-    param (
-        [Parameter(Mandatory = $true)][string]$IpAddress,
-        [Parameter(Mandatory = $true)][int]$Port,
-        [Parameter(Mandatory = $false)][string]$UserName = ''
-    )
-
-    $remoteCert = $null
-
-    # Preferred path: retrieve the served certificate over SSH using the node's own openssl.
-    # The cephadm dashboard serves TLS 1.2/1.3 with a self-signed cert whose leaf CN is the node
-    # IP; a direct SslStream handshake from Windows PowerShell 5.1 / Schannel frequently fails with
-    # "A call to SSPI failed" (self-signed + IP target + TLS 1.3 negotiation). Reading the PEM on
-    # the Linux node avoids the Windows Schannel handshake entirely.
-    if (-not [string]::IsNullOrWhiteSpace($UserName)) {
-        try {
-            $fetchCertCmd = "echo | sudo openssl s_client -connect 127.0.0.1:$Port 2>/dev/null | sed -ne '/-BEGIN CERTIFICATE-/,/-END CERTIFICATE-/p'"
-            $sshResult = Invoke-CmdOnVmViaSSHKey -CmdToExecute $fetchCertCmd -UserName $UserName -IpAddress $IpAddress -NoLog -IgnoreErrors -Retries 3 -Timeout 3
-            $remoteCert = ConvertFrom-PemCertificate -Pem ($sshResult.Output | Out-String)
-            if ($null -ne $remoteCert) {
-                Write-Log '[Ceph] Retrieved Ceph dashboard certificate from node over SSH'
-            }
-            else {
-                Write-Log '[Ceph] SSH retrieval did not return a certificate; falling back to a direct TLS handshake'
-            }
-        }
-        catch {
-            Write-Log "[Ceph] WARNING: SSH retrieval of Ceph dashboard certificate failed ($($_.Exception.Message)); falling back to a direct TLS handshake"
-        }
-    }
-
-    # Fallback path: direct TLS handshake from Windows (used when no SSH user is available or the
-    # SSH retrieval above did not yield a certificate).
-    if ($null -eq $remoteCert) {
-        $attempts = 5
-        for ($i = 1; $i -le $attempts; $i++) {
-        $tcpClient = $null
-        $sslStream = $null
-        try {
-            $tcpClient = New-Object System.Net.Sockets.TcpClient
-            $tcpClient.Connect($IpAddress, $Port)
-            $sslStream = New-Object System.Net.Security.SslStream($tcpClient.GetStream(), $false, ([System.Net.Security.RemoteCertificateValidationCallback] { $true }))
-
-            # Explicitly negotiate modern TLS. The default AuthenticateAsClient($host) overload
-            # lets the OS pick the protocol, which on Windows PowerShell 5.1 can fail against the
-            # cephadm dashboard (which serves TLS 1.2/1.3 only) with "A call to SSPI failed".
-            # SslProtocols.Tls13 only exists on .NET Framework 4.8+, so add it defensively.
-            $sslProtocols = [System.Security.Authentication.SslProtocols]::Tls12
-            if ([enum]::GetNames([System.Security.Authentication.SslProtocols]) -contains 'Tls13') {
-                $sslProtocols = $sslProtocols -bor [System.Security.Authentication.SslProtocols]::Tls13
-            }
-            $sslStream.AuthenticateAsClient($IpAddress, $null, $sslProtocols, $false)
-            $remoteCert = New-Object System.Security.Cryptography.X509Certificates.X509Certificate2($sslStream.RemoteCertificate)
-            break
-        }
-        catch {
-            if ($i -eq $attempts) {
-                Write-Log "[Ceph] WARNING: Could not retrieve Ceph dashboard certificate from ${IpAddress}:${Port}: $($_.Exception.Message)" -Console
-            }
-            else {
-                Start-Sleep -Seconds 3
-            }
-        }
-            finally {
-                if ($sslStream) { $sslStream.Dispose() }
-                if ($tcpClient) { $tcpClient.Dispose() }
-            }
-        }
-    }
-
-    if ($null -eq $remoteCert) { return $null }
-
-    $thumbprint = $remoteCert.Thumbprint
-    try {
-        $existing = Get-ChildItem -Path 'Cert:\LocalMachine\Root' -ErrorAction SilentlyContinue | Where-Object { $_.Thumbprint -eq $thumbprint }
-        if ($existing) {
-            Write-Log "[Ceph] Ceph dashboard certificate already trusted (thumbprint $thumbprint)" -Console
-            return $thumbprint
-        }
-
-        $tempFile = New-TemporaryFile
-        $certBytes = $remoteCert.Export([System.Security.Cryptography.X509Certificates.X509ContentType]::Cert)
-        [System.IO.File]::WriteAllBytes($tempFile.FullName, $certBytes)
-        Import-Certificate -FilePath $tempFile.FullName -CertStoreLocation 'Cert:\LocalMachine\Root' | Out-Null
-        Remove-Item -Path $tempFile.FullName -Force -ErrorAction SilentlyContinue
-        Write-Log "[Ceph] Imported Ceph dashboard certificate into trusted root (thumbprint $thumbprint)" -Console
-        return $thumbprint
-    }
-    catch {
-        Write-Log "[Ceph] WARNING: Failed to import Ceph dashboard certificate (thumbprint $thumbprint): $($_.Exception.Message)" -Console
-        return $null
-    }
-}
-
-<#
-.SYNOPSIS
-Makes the cephadm dashboard reachable and trusted from the K2s Windows host.
-
-.DESCRIPTION
-cephadm exposes the dashboard at https://<node-hostname>:8443/ with a self-signed
-certificate. From the K2s host that hostname does not resolve and the certificate
-is untrusted ('Not secure'). This adds a hosts entry (hostname -> node IP) so the
-URL resolves and imports the dashboard certificate into the trusted root store so
-the browser trusts it. The hostname and certificate thumbprint are written back
-into the shared config so Enable.ps1 persists them and Disable.ps1 can undo them.
+cephadm exposes the dashboard at https://<node-hostname>:8443/. From the K2s host
+that hostname does not resolve. This adds a hosts entry (hostname -> node IP) so the
+URL resolves in the browser. The hostname is written back into the shared config so
+Enable.ps1 persists it and Disable.ps1 can undo it.
 #>
 Function Register-CephDashboardAccess {
     param (
@@ -534,42 +394,26 @@ Function Register-CephDashboardAccess {
 
     $dashboardUrl = "$($Config.dashboardUrl)".Trim()
     if ([string]::IsNullOrWhiteSpace($dashboardUrl)) {
-        Write-Log "[Ceph] No dashboard URL resolved; skipping host entry and certificate trust setup." -Console
+        Write-Log "[Ceph] No dashboard URL resolved; skipping host entry setup." -Console
         return
     }
 
     $uri = $null
     try { $uri = [uri]$dashboardUrl } catch { $uri = $null }
     if ($null -eq $uri) {
-        Write-Log "[Ceph] WARNING: Could not parse dashboard URL '$dashboardUrl'; skipping host entry and certificate trust setup." -Console
+        Write-Log "[Ceph] WARNING: Could not parse dashboard URL '$dashboardUrl'; skipping host entry setup." -Console
         return
     }
 
     $dashboardHost = $uri.Host
-    $dashboardPort = if ($uri.IsDefaultPort) { 443 } else { $uri.Port }
 
     $parsedIp = $null
     $isIpHost = [System.Net.IPAddress]::TryParse($dashboardHost, [ref]$parsedIp)
 
-    # 1) Make the node hostname resolve to the node IP (skip when cephadm already used an IP).
+    # Make the node hostname resolve to the node IP (skip when cephadm already used an IP).
     if (-not $isIpHost) {
         Add-CephWindowsHostEntry -HostName $dashboardHost -IpAddress $NodeIp
         $Config | Add-Member -NotePropertyName 'dashboardHost' -NotePropertyValue $dashboardHost -Force
-    }
-
-    # 2) Trust the dashboard's self-signed certificate so the browser shows it as secure.
-    #    Prefer fetching the served cert over SSH (robust against Windows Schannel/SSPI failures);
-    #    fall back to a direct TLS handshake by IP when no SSH user can be resolved.
-    $sshUserName = ''
-    $dashboardClusterHostNode = "$($Config.clusterHostNode)".Trim()
-    if (-not [string]::IsNullOrWhiteSpace($dashboardClusterHostNode)) {
-        $dashboardNodeConfig = Get-NodeConfig -NodeName $dashboardClusterHostNode
-        if ($null -ne $dashboardNodeConfig) { $sshUserName = $dashboardNodeConfig.Username }
-    }
-
-    $thumbprint = Import-CephDashboardCertificate -IpAddress $NodeIp -Port $dashboardPort -UserName $sshUserName
-    if (-not [string]::IsNullOrWhiteSpace($thumbprint)) {
-        $Config | Add-Member -NotePropertyName 'dashboardCertThumbprint' -NotePropertyValue $thumbprint -Force
     }
 }
 

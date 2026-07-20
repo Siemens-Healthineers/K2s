@@ -701,7 +701,7 @@ try {
       # Persist the dashboard URL plus the local-access artifacts the new-cluster script created
       # (Windows hosts entry hostname + trusted-root certificate thumbprint) so Disable.ps1 can
       # remove them again when the addon is disabled.
-      foreach ($dashProp in 'dashboardUrl', 'dashboardHost', 'dashboardCertThumbprint') {
+      foreach ($dashProp in 'dashboardUrl', 'dashboardHost') {
         if ($Config.PSObject.Properties.Name -contains $dashProp -and -not [string]::IsNullOrWhiteSpace("$($Config.$dashProp)")) {
           $persistedConfig | Add-Member -NotePropertyName $dashProp -NotePropertyValue "$($Config.$dashProp)" -Force
         }
