@@ -107,10 +107,34 @@ Write-Log 'Creating rollout namespace' -Console
 
 Write-Log 'Installing Flux addon' -Console
 $kustomizationDir = Get-FluxConfig
-(Invoke-Kubectl -Params 'apply', '-k', $kustomizationDir).Output | Write-Log
+$kubectlCmd = Invoke-Kubectl -Params 'apply', '--server-side', '-k', $kustomizationDir
+$kubectlCmd.Output | Write-Log
+if (-not $kubectlCmd.Success) {
+    $errMsg = 'rollout addon (Flux) manifests could not be applied successfully!'
+    if ($EncodeStructuredOutput -eq $true) {
+        $err = New-Error -Code (Get-ErrCodeAddonEnableFailed) -Message $errMsg
+        Send-ToCli -MessageType $MessageType -Message @{Error = $err }
+        return
+    }
+
+    Write-Log $errMsg -Error
+    exit 1
+}
 
 Write-Log 'Waiting for Flux controllers to be ready...' -Console
-(Invoke-Kubectl -Params 'wait', '--for=condition=available', '--timeout=180s', 'deployment', '--all', '-n', 'rollout').Output | Write-Log
+$kubectlCmd = Invoke-Kubectl -Params 'wait', '--for=condition=available', '--timeout=180s', 'deployment', '--all', '-n', 'rollout'
+$kubectlCmd.Output | Write-Log
+if (-not $kubectlCmd.Success) {
+    $errMsg = 'rollout addon (Flux controllers) could not be deployed successfully!'
+    if ($EncodeStructuredOutput -eq $true) {
+        $err = New-Error -Code (Get-ErrCodeAddonEnableFailed) -Message $errMsg
+        Send-ToCli -MessageType $MessageType -Message @{Error = $err }
+        return
+    }
+
+    Write-Log $errMsg -Error
+    exit 1
+}
 
 if ($Ingress -ne 'none') {
     Enable-IngressAddon -Ingress:$Ingress

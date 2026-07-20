@@ -101,7 +101,34 @@ Write-Log 'Creating rollout namespace'
 
 Write-Log 'Installing rollout addon' -Console
 $rolloutConfig = Get-RolloutConfig
-(Invoke-Kubectl -Params 'apply' , '-n', $rolloutNamespace, '-k', $rolloutConfig).Output | Write-Log
+$kubectlCmd = Invoke-Kubectl -Params 'apply', '--server-side', '-n', $rolloutNamespace, '-k', $rolloutConfig
+$kubectlCmd.Output | Write-Log
+if (-not $kubectlCmd.Success) {
+    $errMsg = 'rollout addon manifests could not be applied successfully!'
+    if ($EncodeStructuredOutput -eq $true) {
+        $err = New-Error -Code (Get-ErrCodeAddonEnableFailed) -Message $errMsg
+        Send-ToCli -MessageType $MessageType -Message @{Error = $err }
+        return
+    }
+
+    Write-Log $errMsg -Error
+    exit 1
+}
+
+# Validate that ApplicationSet CRD is established before waiting on Argo deployments.
+$kubectlCmd = Invoke-Kubectl -Params 'wait', '--for=condition=Established', '--timeout=180s', 'crd/applicationsets.argoproj.io'
+$kubectlCmd.Output | Write-Log
+if (-not $kubectlCmd.Success) {
+    $errMsg = 'ApplicationSet CRD was not established successfully during rollout addon enablement.'
+    if ($EncodeStructuredOutput -eq $true) {
+        $err = New-Error -Code (Get-ErrCodeAddonEnableFailed) -Message $errMsg
+        Send-ToCli -MessageType $MessageType -Message @{Error = $err }
+        return
+    }
+
+    Write-Log $errMsg -Error
+    exit 1
+}
 
 Write-Log 'Waiting for pods being ready...' -Console
 
