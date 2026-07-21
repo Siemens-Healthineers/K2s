@@ -296,6 +296,69 @@ function Remove-CephCsiNodeImages {
 
 <#
 .SYNOPSIS
+Resolves the local Hyper-V VM name that hosts the given guest IP.
+
+.DESCRIPTION
+Mirrors the robust resolution used during enable (New-CephOsdDisk.ps1): first an ARP/MAC lookup on
+the K2s control-plane switch - which works even when Hyper-V guest integration services do NOT report
+the guest IP - and only then falls back to the direct guest-IP adapter lookup. Returns $null when no
+local VM matches (e.g. a bare-metal OSD host).
+
+The teardown previously used the guest-IP lookup alone, which silently returned no VM whenever the
+guest IP was not reported by integration services, leaving the OSD VHDX disks attached to the VM
+(visible as sdb/sdc inside the guest) after the addon was disabled.
+#>
+function Resolve-CephHyperVVmNameByIp {
+    param(
+        [Parameter(Mandatory = $true)][string] $IpAddress
+    )
+
+    try {
+        $kubeSwitchName = Get-ControlPlaneNodeDefaultSwitchName
+        if (-not [string]::IsNullOrWhiteSpace($kubeSwitchName)) {
+            Test-Connection -ComputerName $IpAddress -Count 2 -Quiet -ErrorAction SilentlyContinue | Out-Null
+
+            $arpEntry = Get-NetNeighbor -IPAddress $IpAddress -ErrorAction SilentlyContinue | Where-Object { $_.State -ne 'Unreachable' } | Select-Object -First 1
+            if ($null -ne $arpEntry -and -not [string]::IsNullOrWhiteSpace($arpEntry.LinkLayerAddress)) {
+                $targetMac = $arpEntry.LinkLayerAddress -replace '-', ''
+                $vmsOnKubeSwitch = @(Get-VM | Where-Object {
+                        $adapters = Get-VMNetworkAdapter -VMName $_.Name -ErrorAction SilentlyContinue
+                        @($adapters | Where-Object { $_.SwitchName -eq $kubeSwitchName }).Count -gt 0
+                    })
+
+                foreach ($vm in $vmsOnKubeSwitch) {
+                    $adapters = @(Get-VMNetworkAdapter -VMName $vm.Name -ErrorAction SilentlyContinue)
+                    foreach ($adapter in $adapters) {
+                        $vmMac = $adapter.MacAddress -replace '-', ''
+                        if ($vmMac -eq $targetMac) {
+                            Write-Log "[Ceph] Matched node '$IpAddress' to Hyper-V VM '$($vm.Name)' via ARP/MAC lookup on switch '$kubeSwitchName'."
+                            return $vm.Name
+                        }
+                    }
+                }
+            }
+        }
+    }
+    catch {
+        Write-Log "[Ceph] Hyper-V ARP/MAC detection failed for '$IpAddress': $($_.Exception.Message)"
+    }
+
+    try {
+        $vmAdapter = Get-VMNetworkAdapter -All -ErrorAction SilentlyContinue | Where-Object { @($_.IPAddresses) -contains $IpAddress } | Select-Object -First 1
+        if ($null -ne $vmAdapter -and -not [string]::IsNullOrWhiteSpace($vmAdapter.VMName)) {
+            Write-Log "[Ceph] Matched node '$IpAddress' to Hyper-V VM '$($vmAdapter.VMName)' via direct guest-IP adapter lookup."
+            return $vmAdapter.VMName
+        }
+    }
+    catch {
+        Write-Log "[Ceph] Hyper-V guest-IP detection failed for '$IpAddress': $($_.Exception.Message)"
+    }
+
+    return $null
+}
+
+<#
+.SYNOPSIS
 Removes the virtual OSD disk volumes (VHDX files) that the addon created on Hyper-V VMs.
 
 .DESCRIPTION
@@ -327,30 +390,18 @@ function Remove-CephOsdVirtualDisks {
     $clusterIdDisplay = if (-not [string]::IsNullOrWhiteSpace($clusterId)) { $clusterId } else { 'unknown' }
 
     # Attempt to resolve the VM name from the node name
-    $vmName = $null
     $controlPlaneNodeName = Get-ConfigControlPlaneNodeHostname
+    $nodeIp = ''
     if ($ClusterHostNode -eq $controlPlaneNodeName) {
-        # Control plane node - resolve via Hyper-V
-        try {
-            $controlPlaneIp = "$(Get-ConfiguredIPControlPlane)".Trim()
-            if (-not [string]::IsNullOrWhiteSpace($controlPlaneIp)) {
-                $vmName = Get-VM | Where-Object {
-                    @(Get-VMNetworkAdapter -VMName $_.Name -ErrorAction SilentlyContinue | Where-Object { @($_.IPAddresses) -contains $controlPlaneIp }).Count -gt 0
-                } | Select-Object -ExpandProperty Name | Select-Object -First 1
-            }
-        }
-        catch {
-            Write-Log "[Ceph] Could not resolve Hyper-V VM for control plane node: $($_.Exception.Message)"
-        }
+        # Control plane node - IP comes from the control-plane configuration.
+        $nodeIp = "$(Get-ConfiguredIPControlPlane)".Trim()
     }
     else {
-        # Regular worker node - might be Hyper-V or bare-metal
+        # Regular worker node - might be Hyper-V or bare-metal; IP comes from cluster.json.
         try {
             $nodeConfig = Get-NodeConfig -NodeName $ClusterHostNode
             if ($null -ne $nodeConfig -and -not [string]::IsNullOrWhiteSpace($nodeConfig.IpAddress)) {
-                $vmName = Get-VM | Where-Object {
-                    @(Get-VMNetworkAdapter -VMName $_.Name -ErrorAction SilentlyContinue | Where-Object { @($_.IPAddresses) -contains $nodeConfig.IpAddress }).Count -gt 0
-                } | Select-Object -ExpandProperty Name | Select-Object -First 1
+                $nodeIp = "$($nodeConfig.IpAddress)".Trim()
             }
         }
         catch {
@@ -358,8 +409,16 @@ function Remove-CephOsdVirtualDisks {
         }
     }
 
+    # Use the same robust ARP/MAC + guest-IP resolution as enable so the VM is still found when
+    # Hyper-V integration services do not report the guest IP (which previously caused the OSD
+    # disks to be left attached after disable).
+    $vmName = $null
+    if (-not [string]::IsNullOrWhiteSpace($nodeIp)) {
+        $vmName = Resolve-CephHyperVVmNameByIp -IpAddress $nodeIp
+    }
+
     if ([string]::IsNullOrWhiteSpace($vmName)) {
-        Write-Log "[Ceph] Could not identify a local Hyper-V VM for node '$ClusterHostNode'; skipping OSD virtual disk cleanup (may be bare-metal)." -Console
+        Write-Log "[Ceph] Could not identify a local Hyper-V VM for node '$ClusterHostNode' (ip '$nodeIp'); skipping OSD virtual disk cleanup (may be bare-metal)." -Console
         return
     }
 
@@ -392,8 +451,9 @@ function Remove-CephOsdVirtualDisks {
             $diskName = Split-Path $diskPath -Leaf
 
             try {
-                # Detach the disk from the VM
-                Remove-VMHardDiskDrive -VMHardDiskDrive $disk -Force -ErrorAction SilentlyContinue
+                # Detach the disk from the VM. Remove-VMHardDiskDrive has no -VMHardDiskDrive/-Force
+                # combo; it is addressed by its controller coordinates (same call the enable rollback uses).
+                Remove-VMHardDiskDrive -VMName $disk.VMName -ControllerType $disk.ControllerType -ControllerNumber $disk.ControllerNumber -ControllerLocation $disk.ControllerLocation -ErrorAction SilentlyContinue
                 Write-Log "[Ceph] Detached virtual disk '$diskName' from VM '$vmName'."
 
                 # Remove the VHDX file

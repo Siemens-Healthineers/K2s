@@ -315,11 +315,11 @@ function Invoke-CephOsdPreparation {
 
     Write-Log "[Ceph] OSD configuration: count=$osdCount, size=${osdDiskSizeGB}GiB" -Console
 
-    # Add host labels once (osd/mgr/mds) before creating OSDs, to avoid repeating label operations per disk.
+    # Add the host label once (osd) before creating OSDs, to avoid repeating label operations per disk.
     # Only pass hostname; cluster fsid is not needed for label-only operation.
     $addLabelsScriptArgs = @($orchestratorHostName)
 
-    Write-Log "[Ceph] Adding host labels (osd/mgr/mds) on '$orchestratorHostName'..." -Console
+    Write-Log "[Ceph] Adding host label (osd) on '$orchestratorHostName'..." -Console
     $addLabelsOutput = Invoke-RemoteScript -LocalScriptPath $addOsdScript `
                             -UserName $BootstrapNodeUserName `
                             -IpAddress $BootstrapNodeIp `
@@ -629,6 +629,15 @@ $bootstrapOutput = New-CephClusterOnNode -UserName $nodeUserName `
 # Surface the cephadm dashboard connection details (URL / user / password) back into the
 # shared config object so Enable.ps1 can print them in the PowerShell console.
 Set-CephDashboardDetailsFromBootstrapOutput -BootstrapOutput $bootstrapOutput -Config $Config
+
+# Make the cephadm dashboard reachable from the K2s host BEFORE displaying it: cephadm builds the
+# URL from the node hostname (which can resolve to 'localhost'/HTTP 404 from the host), so rewrite
+# it to use the node IP directly. Doing this first ensures the URL shown to the user is the working
+# node-IP URL rather than the raw cephadm hostname/localhost URL.
+if ($null -ne $Config) {
+    Register-CephDashboardAccess -Config $Config -NodeIp $NodeIp
+}
+
 if ($null -ne $Config) {
     $dashboardUrl = if ($Config.PSObject.Properties.Name -contains 'dashboardUrl') { "$($Config.dashboardUrl)".Trim() } else { '' }
     $dashboardUser = if ($Config.PSObject.Properties.Name -contains 'dashboardUser') { "$($Config.dashboardUser)".Trim() } else { '' }
@@ -655,12 +664,6 @@ if (-not [string]::IsNullOrWhiteSpace($cephPubKeyLine)) {
     $cephPubKeyValue = $cephPubKeyLine.Trim().Substring('K2S_CEPH_PUB_KEY='.Length).Trim()
     Write-Log '[Ceph] To add another machine as an OSD host, authorize this cephadm public key on it (see scripts\linux\debian\prepare-ceph-osd-host.sh):' -Console
     Write-Log "[Ceph]   $cephPubKeyValue" -Console
-}
-
-# Make the cephadm dashboard reachable from the K2s host: cephadm builds the URL from the node
-# hostname, which can return HTTP 404 from the host, so rewrite it to use the node IP directly.
-if ($null -ne $Config) {
-    Register-CephDashboardAccess -Config $Config -NodeIp $NodeIp
 }
 
 # Read the ACTUAL Ceph connection values (monitor endpoints, admin key, filesystem/pool, fsid)

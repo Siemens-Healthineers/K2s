@@ -222,7 +222,10 @@ fi
 # --skip-pull: image is already present in podman's store (pulled above).
 # --allow-mismatched-release: the container image is the authoritative Ceph version;
 #   tolerate a version-string difference between the cephadm tool and the image release.
-if ! sudo "$CEPHADM_BIN" --image "$CEPH_IMAGE" bootstrap --mon-ip "$MON_IP" --ssh-user "$CEPH_SSH_USER" --skip-pull --allow-mismatched-release; then
+# --skip-monitoring-stack: do NOT deploy the Prometheus/Grafana/Alertmanager/node-exporter
+#   monitoring stack. K2s only needs core Ceph + CephFS for CSI, so skipping it avoids pulling
+#   quay.io/ceph/grafana and quay.io/prometheus/* images and keeps the footprint minimal.
+if ! sudo "$CEPHADM_BIN" --image "$CEPH_IMAGE" bootstrap --mon-ip "$MON_IP" --ssh-user "$CEPH_SSH_USER" --skip-pull --allow-mismatched-release --skip-monitoring-stack; then
     log_error "cephadm bootstrap failed"
     exit 1
 fi
