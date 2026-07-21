@@ -16,10 +16,12 @@
 #   $1 - Optional HTTP/HTTPS proxy URL
 #   $2 - Ceph image reference from storage addon additionalImages
 #   $3 - CephFS filesystem name to create (from ceph-config.json 'cephfsFilesystem')
+#   $4 - SSH user for cephadm host management (defaults to 'remote')
 
 PROXY="${1:-}"
 CEPH_IMAGE_INPUT="${2:-}"
 CEPH_FS_NAME="${3:-cephfs}"
+CEPH_SSH_USER="${4:-remote}"
 
 log_info() {
     echo "[CephNew] $1"
@@ -188,29 +190,48 @@ if [ -z "$MON_IP" ]; then
 fi
 
 log_info "Bootstrapping Ceph cluster with image '$CEPH_IMAGE' and MON_IP '$MON_IP'"
+log_info "Using cephadm SSH user '$CEPH_SSH_USER' for host management"
 
-# Idempotency: if a Ceph cluster was already bootstrapped on this node (e.g. the addon was
-# enabled before and disabled while keeping the cluster), do NOT bootstrap again - that would
-# fail. Detect an existing cluster by looking for an fsid-named directory under /var/lib/ceph
-# and just reuse it; the value-collection step below then reads back the real connection details.
-EXISTING_FSID="$(sudo ls /var/lib/ceph 2>/dev/null | grep -E '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$' | head -n1)"
+# Fresh-install behavior: if cluster state already exists on this node (including leftovers from
+# an interrupted previous run), remove it automatically so we always bootstrap a clean, new cluster.
+EXISTING_FSIDS="$(sudo ls /var/lib/ceph 2>/dev/null | grep -E '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$' || true)"
 
-if [ -n "$EXISTING_FSID" ]; then
-    log_info "A Ceph cluster already exists on this node (fsid '$EXISTING_FSID'); skipping bootstrap and reusing it"
-else
-    # --skip-pull: image is already present in podman's store (pulled above).
-    # --allow-mismatched-release: the container image is the authoritative Ceph version;
-    #   tolerate a version-string difference between the cephadm tool and the image release.
-    if ! sudo "$CEPHADM_BIN" --image "$CEPH_IMAGE" bootstrap --mon-ip "$MON_IP" --skip-pull --allow-mismatched-release; then
-        log_error "cephadm bootstrap failed"
-        exit 1
-    fi
-    log_info "Ceph cluster bootstrap completed on Debian"
+if [ -n "$EXISTING_FSIDS" ]; then
+    log_info "WARNING: Existing Ceph cluster state detected on this node."
+    log_info "WARNING: Existing Ceph cluster(s) will be removed automatically before new bootstrap."
+    log_info "WARNING: ALL DATA in those cluster(s) will be lost."
+
+    while IFS= read -r existing_fsid; do
+        [ -n "$existing_fsid" ] || continue
+        log_info "Removing existing Ceph cluster fsid '$existing_fsid'"
+
+        if ! timeout 300 sudo "$CEPHADM_BIN" rm-cluster --force --zap-osds --fsid "$existing_fsid"; then
+            log_info "rm-cluster failed for '$existing_fsid' (continuing with manual cleanup of Ceph directories/services)"
+        fi
+    done <<< "$EXISTING_FSIDS"
+
+    # Ensure no stale Ceph runtime/config state survives the auto-cleanup.
+    sudo systemctl stop 'ceph-*.target' 2>/dev/null || true
+    sudo systemctl stop 'ceph-*.service' 2>/dev/null || true
+    sudo systemctl stop ceph.target 2>/dev/null || true
+    sudo rm -rf /etc/ceph /var/lib/ceph /var/log/ceph /run/ceph
+
+    log_info "Finished cleanup of existing Ceph cluster state"
 fi
+
+# --skip-pull: image is already present in podman's store (pulled above).
+# --allow-mismatched-release: the container image is the authoritative Ceph version;
+#   tolerate a version-string difference between the cephadm tool and the image release.
+if ! sudo "$CEPHADM_BIN" --image "$CEPH_IMAGE" bootstrap --mon-ip "$MON_IP" --ssh-user "$CEPH_SSH_USER" --skip-pull --allow-mismatched-release; then
+    log_error "cephadm bootstrap failed"
+    exit 1
+fi
+log_info "Ceph cluster bootstrap completed on Debian"
 
 # After bootstrap, surface OSD guidance: cephadm consumes an empty/raw data drive on a host to
 # create an OSD. Emit the cephadm cluster public key so ADDITIONAL OSD hosts can authorize it for
-# root SSH (see prepare-ceph-osd-host.sh); on the bootstrap node cephadm already has key access.
+# '$CEPH_SSH_USER' SSH access (see prepare-ceph-osd-host.sh); on the bootstrap node cephadm already
+# has key access.
 log_info "A new (empty) volume drive will be consumed to create the Ceph OSD."
 log_info "Attach a raw/unused disk to an OSD host, then let cephadm provision the OSD on it."
 CEPH_PUB_KEY="$(sudo cat /etc/ceph/ceph.pub 2>/dev/null)"
@@ -232,7 +253,7 @@ fi
 # ---------------------------------------------------------------------------
 log_info "Creating CephFS filesystem '$CEPH_FS_NAME' and collecting connection details"
 
-CLUSTER_DETAILS="$(sudo "$CEPHADM_BIN" shell --env K2S_FS_NAME="$CEPH_FS_NAME" -- bash -c '
+if ! CLUSTER_DETAILS="$(timeout 300 sudo "$CEPHADM_BIN" shell --env K2S_FS_NAME="$CEPH_FS_NAME" -- bash -c '
     # Create the CephFS volume (idempotent). This also deploys an MDS and
     # creates the "cephfs.<name>.meta" / "cephfs.<name>.data" pools.
     ceph fs volume create "$K2S_FS_NAME" >/dev/null 2>&1 || true
@@ -257,7 +278,11 @@ CLUSTER_DETAILS="$(sudo "$CEPHADM_BIN" shell --env K2S_FS_NAME="$CEPH_FS_NAME" -
     echo "K2S_CEPH_DATA_POOL=${DATA_POOL}"
     # ceph-csi expects the user id WITHOUT the "client." prefix (it prepends it internally).
     echo "K2S_CEPH_USER=admin"
-')"
+')"; then
+    log_error "Timed out while creating CephFS/collecting cluster details via cephadm shell."
+    log_error "If this follows a previous failed run, clean up the stale cluster first and retry enable."
+    exit 1
+fi
 
 # Re-emit the marker lines on stdout so the calling PowerShell can parse them.
 # (Do NOT log the admin key to the console; the PowerShell side masks it.)

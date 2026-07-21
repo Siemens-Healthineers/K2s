@@ -2,7 +2,6 @@
     "cephfsPool":  "cephfs.cephfs.data",
     "cephfsFilesystem":  "cephfs",
     "clusterHostNode":  "kubemaster",
-    "cephClusterId":  "",
     "osdcount":  2,
     "osdsize":  20
 }

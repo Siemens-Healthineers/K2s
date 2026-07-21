@@ -10,7 +10,7 @@ Creates a new Ceph cluster on a Debian Linux target node.
 .DESCRIPTION
 Invoked by the storage/ceph addon Enable.ps1 when ceph-config.json sets
 'clusterMode' to a value other than 'existing' and 'clusterDistribution' resolves
-to 'debian12' or 'debian13'. Provisions a fresh Ceph cluster on the node identified by -NodeIp and
+to 'debian13'. Provisions a fresh Ceph cluster on the node identified by -NodeIp and
 writes the resulting connection details (monitorEndpoints, cephKey, clusterId) back
 into the provided configuration so the subsequent CSI installation can connect.
 
@@ -96,7 +96,7 @@ Function New-CephClusterOnNode {
                         -UserName $UserName `
                         -IpAddress $IpAddress `
                         -UserPwd $UserPwd `
-                        -Arguments @($Proxy, $CephBootstrapImage, $CephFsFilesystem) `
+                        -Arguments @($Proxy, $CephBootstrapImage, $CephFsFilesystem, $UserName) `
                         -CleanupAfterExecution `
                         -Retries 2
 
@@ -141,6 +141,52 @@ function Get-CephNodeAccessDetails {
     return [pscustomobject]@{
         NodeName = $resolvedNodeName
         UserName = $resolvedUserName
+    }
+}
+
+<#
+.SYNOPSIS
+Detaches and deletes OSD virtual disks that were created during the current run.
+
+.DESCRIPTION
+Rolls back ceph-osd-*.vhdx files created earlier in the same OSD-provisioning loop when a
+later OSD (or cluster) step fails. Without this, a partially successful run leaves those
+disks attached to the VM where they accumulate across retries (sdb, sdc, sdf, ...) and
+break single-new-device detection on subsequent enable attempts. The owning VM is resolved
+by matching the VHDX path against every VM's attached disks, so no VM name is required.
+#>
+function Remove-CreatedOsdVhdxPaths {
+    param(
+        [string[]] $VhdxPaths
+    )
+
+    if ($null -eq $VhdxPaths -or $VhdxPaths.Count -eq 0) { return }
+
+    foreach ($vhdxPath in $VhdxPaths) {
+        if ([string]::IsNullOrWhiteSpace($vhdxPath)) { continue }
+
+        try {
+            $attachedDrives = @(Get-VM -ErrorAction SilentlyContinue |
+                    Get-VMHardDiskDrive -ErrorAction SilentlyContinue |
+                    Where-Object { -not [string]::IsNullOrWhiteSpace($_.Path) -and $_.Path -eq $vhdxPath })
+            foreach ($drive in $attachedDrives) {
+                Remove-VMHardDiskDrive -VMName $drive.VMName -ControllerType $drive.ControllerType -ControllerNumber $drive.ControllerNumber -ControllerLocation $drive.ControllerLocation -ErrorAction SilentlyContinue
+                Write-Log "[Ceph] Rollback: detached OSD virtual disk '$vhdxPath' from VM '$($drive.VMName)'." -Console
+            }
+        }
+        catch {
+            Write-Log "[Ceph] Rollback: WARNING - could not detach OSD virtual disk '$vhdxPath': $($_.Exception.Message)" -Console
+        }
+
+        try {
+            if (Test-Path $vhdxPath) {
+                Remove-Item -Path $vhdxPath -Force -ErrorAction Stop
+                Write-Log "[Ceph] Rollback: deleted orphaned OSD virtual disk '$vhdxPath'." -Console
+            }
+        }
+        catch {
+            Write-Log "[Ceph] Rollback: WARNING - could not delete OSD virtual disk file '$vhdxPath': $($_.Exception.Message)" -Console
+        }
     }
 }
 
@@ -268,11 +314,36 @@ function Invoke-CephOsdPreparation {
     $clusterFsid = if ($null -ne $Config) { "$($Config.clusterId)".Trim() } else { '' }
 
     Write-Log "[Ceph] OSD configuration: count=$osdCount, size=${osdDiskSizeGB}GiB" -Console
+
+    # Add host labels once (osd/mgr/mds) before creating OSDs, to avoid repeating label operations per disk.
+    # Only pass hostname; cluster fsid is not needed for label-only operation.
+    $addLabelsScriptArgs = @($orchestratorHostName)
+
+    Write-Log "[Ceph] Adding host labels (osd/mgr/mds) on '$orchestratorHostName'..." -Console
+    $addLabelsOutput = Invoke-RemoteScript -LocalScriptPath $addOsdScript `
+                            -UserName $BootstrapNodeUserName `
+                            -IpAddress $BootstrapNodeIp `
+                            -UserPwd '' `
+                            -Arguments $addLabelsScriptArgs `
+                            -CleanupAfterExecution `
+                            -Retries 2
+
+    if (($addLabelsOutput | Out-String) -match '\[CephOsdAdd\]\s+ERROR:') {
+        Write-Log "[Ceph] ERROR: Failed while adding host labels. See previous CephOsdAdd logs." -Console -Error
+        exit 1
+    }
+
+    # Track OSD disk paths for cleanup validation by cluster ID
+    $osdDiskPaths = @()
+    # Track devices that had successful OSD provisioning so orphaned OSDs can be cleaned on failure
+    $provisionedOsdDevices = @()
+
     for ($osdIndex = 1; $osdIndex -le $osdCount; $osdIndex++) {
         Write-Log "[Ceph] Preparing OSD disk #$osdIndex of $osdCount on node '$osdNodeIp'$(if ($osdAccess.NodeName) { " ($($osdAccess.NodeName))" })..." -Console
-        $prepareDiskOutput = & $prepareDiskScript -NodeIp $osdNodeIp -UserName $osdAccess.UserName -DiskSizeGB $osdDiskSizeGB -CreateNewDisk:($osdIndex -gt 1) -Config $Config -ShowLogs:$ShowLogs
+        $prepareDiskOutput = & $prepareDiskScript -NodeIp $osdNodeIp -UserName $osdAccess.UserName -DiskSizeGB $osdDiskSizeGB -CreateNewDisk:($osdIndex -gt 1) -RemoveExistingOsdDisks:($osdIndex -eq 1) -Config $Config -ShowLogs:$ShowLogs
         if ($LASTEXITCODE -ne 0) {
             Write-Log "[Ceph] ERROR: OSD disk preparation failed on node '$osdNodeIp' for OSD #$osdIndex (exit code $LASTEXITCODE)." -Console -Error
+            Remove-CreatedOsdVhdxPaths -VhdxPaths $osdDiskPaths
             exit 1
         }
 
@@ -280,29 +351,54 @@ function Invoke-CephOsdPreparation {
         $preparedDiskLine = $prepareDiskOutputText -split "`r?`n" | Where-Object { $_.Trim().StartsWith('K2S_CEPH_OSD_DISK=') } | Select-Object -Last 1
         $preparedDisk = if (-not [string]::IsNullOrWhiteSpace($preparedDiskLine)) { $preparedDiskLine.Trim().Substring('K2S_CEPH_OSD_DISK='.Length).Trim() } else { '' }
 
+        # Track the VHDX path if one was created (for Hyper-V nodes) BEFORE validating the device,
+        # so a rollback can remove it even when the returned device path is missing.
+        $vhdxPathLine = $prepareDiskOutputText -split "`r?`n" | Where-Object { $_.Trim().StartsWith('K2S_CEPH_OSD_VHDX_PATH=') } | Select-Object -Last 1
+        if (-not [string]::IsNullOrWhiteSpace($vhdxPathLine)) {
+            $vhdxPath = $vhdxPathLine.Trim().Substring('K2S_CEPH_OSD_VHDX_PATH='.Length).Trim()
+            if (-not [string]::IsNullOrWhiteSpace($vhdxPath)) {
+                $osdDiskPaths += $vhdxPath
+            }
+        }
+
         if ([string]::IsNullOrWhiteSpace($preparedDisk)) {
             Write-Log "[Ceph] ERROR: OSD disk preparation for OSD #$osdIndex finished but no device path was returned." -Console -Error
+            Remove-CreatedOsdVhdxPaths -VhdxPaths $osdDiskPaths
             exit 1
         }
 
-        $addOsdScriptArgs = @($orchestratorHostName, $preparedDisk)
+        Write-Log "[Ceph] Creating OSD #$osdIndex on '$($orchestratorHostName):$($preparedDisk)'..." -Console
+        $createOsdScriptArgs = @($orchestratorHostName, $preparedDisk)
         if (-not [string]::IsNullOrWhiteSpace($clusterFsid)) {
-            $addOsdScriptArgs += $clusterFsid
+            $createOsdScriptArgs += $clusterFsid
         }
 
-        Write-Log "[Ceph] Adding labels (osd/mgr/mds) and creating OSD #$osdIndex on '$($orchestratorHostName):$($preparedDisk)'..." -Console
         $addOsdOutput = Invoke-RemoteScript -LocalScriptPath $addOsdScript `
                             -UserName $BootstrapNodeUserName `
                             -IpAddress $BootstrapNodeIp `
                             -UserPwd '' `
-                            -Arguments $addOsdScriptArgs `
+                            -Arguments $createOsdScriptArgs `
                             -CleanupAfterExecution `
                             -Retries 2
 
         if (($addOsdOutput | Out-String) -match '\[CephOsdAdd\]\s+ERROR:') {
-            Write-Log "[Ceph] ERROR: Failed while labeling host / adding OSD #$osdIndex. See previous CephOsdAdd logs." -Console -Error
+            Write-Log "[Ceph] ERROR: Failed while creating OSD #$osdIndex. See previous CephOsdAdd logs." -Console -Error
+            Remove-CreatedOsdVhdxPaths -VhdxPaths $osdDiskPaths
             exit 1
         }
+
+        # Track successful OSD provisioning for cleanup on later failure
+        $provisionedOsdDevices += $preparedDisk
+    }
+
+    # Store tracked OSD disk paths in config for cleanup validation by cluster ID
+    if ($null -ne $Config -and $osdDiskPaths.Count -gt 0) {
+        $Config | Add-Member -NotePropertyName 'osdDiskPaths' -NotePropertyValue ($osdDiskPaths | ConvertTo-Json -Compress) -Force
+    }
+
+    # Store provisioned OSD devices in config so they can be cleaned up if cluster setup fails after provisioning
+    if ($null -ne $Config -and $provisionedOsdDevices.Count -gt 0) {
+        $Config | Add-Member -NotePropertyName 'provisionedOsdDevices' -NotePropertyValue ($provisionedOsdDevices | ConvertTo-Json -Compress) -Force
     }
 }
 
@@ -483,17 +579,27 @@ Function Set-CephConnectionDetailsFromClusterOutput {
 }
 
 $clusterHostNode = if ($Config) { "$($Config.clusterHostNode)".Trim() } else { '' }
-$nodeConfig = $null
-if (-not [string]::IsNullOrWhiteSpace($clusterHostNode)) {
-    $nodeConfig = Get-NodeConfig -NodeName $clusterHostNode
+$controlPlaneNodeName = Get-ConfigControlPlaneNodeHostname
+if (-not [string]::IsNullOrWhiteSpace($clusterHostNode) -and $clusterHostNode -eq $controlPlaneNodeName) {
+    # Control plane node (e.g. kubemaster) is not part of cluster.json nodes.
+    $nodeUserName = "$(Get-DefaultUserNameControlPlane)".Trim()
+    if ([string]::IsNullOrWhiteSpace($nodeUserName)) { $nodeUserName = 'remote' }
+    Write-Log "[Ceph] Resolved control plane node connection: UserName='$nodeUserName', IpAddress='$NodeIp'" -Console
 }
+else {
+    $nodeConfig = $null
+    if (-not [string]::IsNullOrWhiteSpace($clusterHostNode)) {
+        $nodeConfig = Get-NodeConfig -NodeName $clusterHostNode
+    }
 
-if ($null -eq $nodeConfig) {
-    Write-Log "[Ceph] WARNING: Node '$clusterHostNode' not found in cluster.json; falling back to NodeIp='$NodeIp' and userName='remote'" -Console
-    $nodeUserName = 'remote'
-} else {
-    $nodeUserName = $nodeConfig.Username
-    Write-Log "[Ceph] Resolved node connection from cluster.json: UserName='$nodeUserName', IpAddress='$($nodeConfig.IpAddress)'" -Console
+    if ($null -eq $nodeConfig) {
+        Write-Log "[Ceph] WARNING: Node '$clusterHostNode' not found in cluster.json; falling back to NodeIp='$NodeIp' and userName='remote'" -Console
+        $nodeUserName = 'remote'
+    }
+    else {
+        $nodeUserName = $nodeConfig.Username
+        Write-Log "[Ceph] Resolved node connection from cluster.json: UserName='$nodeUserName', IpAddress='$($nodeConfig.IpAddress)'" -Console
+    }
 }
 
 $cephFsFilesystem = if ($Config) { "$($Config.cephfsFilesystem)".Trim() } else { '' }
@@ -509,6 +615,7 @@ if ([string]::IsNullOrWhiteSpace($Proxy)) {
 $cephBootstrapImage = Get-CephBootstrapImageFromStorageManifest
 
 Write-Log "[Ceph] Using Ceph bootstrap image from addon manifest: $cephBootstrapImage" -Console
+Write-Log "[Ceph] Running remote Ceph bootstrap on '$NodeIp'. This can take several minutes (image pull/package install)." -Console
 
 $bootstrapOutput = New-CephClusterOnNode -UserName $nodeUserName `
                       -UserPwd '' `

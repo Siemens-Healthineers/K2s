@@ -5,12 +5,13 @@
 #
 # add-ceph-host-labels-and-osd.sh  -  Debian13 variant
 #
-# Labels a Ceph host with osd/mgr/mds and provisions an OSD on a target device.
+# Labels a Ceph host with osd/mgr/mds and optionally provisions an OSD on a target device.
 #
 # Expected usage:
-#   ./add-ceph-host-labels-and-osd.sh <host-name> <device> [cluster-fsid]
+#   ./add-ceph-host-labels-and-osd.sh <host-name> [device] [cluster-fsid]
 #
 # Examples:
+#   ./add-ceph-host-labels-and-osd.sh deb12cephinstallationusingscript
 #   ./add-ceph-host-labels-and-osd.sh deb12cephinstallationusingscript /dev/sdb
 #   ./add-ceph-host-labels-and-osd.sh deb12cephinstallationusingscript /dev/sdb c5664782-8433-11f1-8378-00155d130f2b
 #
@@ -33,20 +34,25 @@ log_error() {
     echo "[CephOsdAdd] ERROR: $1" >&2
 }
 
-if [ -z "$HOST_NAME" ] || [ -z "$DEVICE" ]; then
-    log_error "Usage: add-ceph-host-labels-and-osd.sh <host-name> <device> [cluster-fsid]"
+if [ -z "$HOST_NAME" ]; then
+    log_error "Usage: add-ceph-host-labels-and-osd.sh <host-name> [device] [cluster-fsid]"
     exit 1
 fi
 
-if [ ! -b "$DEVICE" ]; then
-    log_error "Device '$DEVICE' is not a block device on this host."
-    exit 1
-fi
+LABELS_ONLY=0
+if [ -z "$DEVICE" ]; then
+    LABELS_ONLY=1
+else
+    if [ ! -b "$DEVICE" ]; then
+        log_error "Device '$DEVICE' is not a block device on this host."
+        exit 1
+    fi
 
-DEV_TYPE="$(lsblk -dn -o TYPE "$DEVICE" 2>/dev/null | head -n1 | tr -d '[:space:]')"
-if [ "$DEV_TYPE" != "disk" ]; then
-    log_error "Device '$DEVICE' has type '$DEV_TYPE'. Pass a whole disk (for example /dev/sdb), not a partition."
-    exit 1
+    DEV_TYPE="$(lsblk -dn -o TYPE "$DEVICE" 2>/dev/null | head -n1 | tr -d '[:space:]')"
+    if [ "$DEV_TYPE" != "disk" ]; then
+        log_error "Device '$DEVICE' has type '$DEV_TYPE'. Pass a whole disk (for example /dev/sdb), not a partition."
+        exit 1
+    fi
 fi
 
 CEPHADM_BIN=""
@@ -90,7 +96,8 @@ if ! run_ceph_cmd ceph orch host ls 2>/dev/null | grep -Eq "(^|[[:space:]])${HOS
     exit 1
 fi
 
-LABELS=(osd mgr mds)
+#LABELS=(osd mgr mds)
+LABELS=(osd)
 if [ "$ADD_MSD_LABEL" = "1" ]; then
     LABELS+=(msd)
 fi
@@ -114,6 +121,11 @@ for label in "${LABELS[@]}"; do
     exit 1
 
 done
+
+if [ "$LABELS_ONLY" = "1" ]; then
+    log_info "Labels applied on '$HOST_NAME'. No device argument provided, skipping OSD creation."
+    exit 0
+fi
 
 log_info "Adding OSD for host '$HOST_NAME' on device '$DEVICE'"
 

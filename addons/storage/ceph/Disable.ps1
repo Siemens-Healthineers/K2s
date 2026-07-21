@@ -144,34 +144,6 @@ function Get-CephClusterHostNode {
 
 <#
 .SYNOPSIS
-Clears the recorded Ceph cluster FSID ('cephClusterId') from ceph-config.json.
-
-.DESCRIPTION
-Called after the on-node cluster is torn down so a subsequent enable/disable does not reference a
-stale cluster id.
-#>
-function Clear-CephRecordedClusterId {
-    param(
-        [Parameter(Mandatory = $true)][string]$CephConfigFilePath
-    )
-
-    try {
-        if (Test-Path $CephConfigFilePath) {
-            $cephConfigOnDisk = Get-Content -Path $CephConfigFilePath -Raw | ConvertFrom-Json
-            if ($cephConfigOnDisk.PSObject.Properties.Name -contains 'cephClusterId') {
-                $cephConfigOnDisk.cephClusterId = ''
-                $cephConfigOnDisk | ConvertTo-Json -Depth 10 | Set-Content -Path $CephConfigFilePath -Encoding UTF8
-                Write-Log "[Ceph] Cleared recorded Ceph cluster id in $CephConfigFilePath" -Console
-            }
-        }
-    }
-    catch {
-        Write-Log "[Ceph] WARNING: Could not clear Ceph cluster id in '$CephConfigFilePath': $($_.Exception.Message)" -Console
-    }
-}
-
-<#
-.SYNOPSIS
 Tears down the Ceph cluster that the addon provisioned on the host node.
 
 .DESCRIPTION
@@ -185,40 +157,9 @@ function Remove-ProvisionedCephClusterOnNode {
         [Parameter(Mandatory = $true)][string]$ClusterHostNode,
         [Parameter(Mandatory = $true)][string]$ClusterHostNodeIp,
         [pscustomobject]$Config,
-        [bool]$ForceProvided,
-        [bool]$KeepProvided,
         [Parameter(Mandatory = $true)][string]$RemoveClusterScript,
-        [Parameter(Mandatory = $true)][string]$CephConfigFilePath,
         [switch]$ShowLogs
     )
-
-    # Use the flags as ORIGINALLY passed on the command line, NOT the values set by the interactive
-    # PVC data prompt (which is a separate decision). When neither is set, always ask for a dedicated
-    # confirmation - Read-Host still works against the console even in -EncodeStructuredOutput mode.
-    $deleteCephCluster = $false
-    if ($ForceProvided) {
-        $deleteCephCluster = $true
-    }
-    elseif ($KeepProvided) {
-        $deleteCephCluster = $false
-    }
-    else {
-        Write-Log '' -Console
-        Write-Log "[Ceph] WARNING: The storage ceph addon provisioned a Ceph cluster on host node '$ClusterHostNode' ($ClusterHostNodeIp)." -Console
-        $answer = Read-Host "Do you want to DELETE the Ceph cluster on host node '$ClusterHostNode'? This destroys the cluster and ALL its data and cannot be undone. (y/N)"
-        if ($answer -eq 'y') {
-            $deleteCephCluster = $true
-            Write-Log "[Ceph] CEPH CLUSTER DELETION CONFIRMED for host node '$ClusterHostNodeIp'." -Console
-        }
-        else {
-            Write-Log "[Ceph] Ceph cluster on host node '$ClusterHostNodeIp' will be KEPT." -Console
-        }
-    }
-
-    if (-not $deleteCephCluster) {
-        Write-Log "[Ceph] Only the addon/CSI resources were removed. The Ceph cluster on host node '$ClusterHostNodeIp' was NOT deleted." -Console
-        return
-    }
 
     if (-not (Test-Path $RemoveClusterScript)) {
         Write-Log "[Ceph] WARNING: Teardown script not found at '$RemoveClusterScript'; skipping on-node Ceph cluster teardown." -Console
@@ -234,7 +175,6 @@ function Remove-ProvisionedCephClusterOnNode {
     }
 
     Write-Log '[Ceph] On-node Ceph cluster teardown completed' -Console
-    Clear-CephRecordedClusterId -CephConfigFilePath $CephConfigFilePath
 }
 
 <#
@@ -354,8 +294,128 @@ function Remove-CephCsiNodeImages {
     }
 }
 
-$forceFlagProvided = $PSBoundParameters.ContainsKey('Force') -and $Force
-$keepFlagProvided = $PSBoundParameters.ContainsKey('Keep') -and $Keep
+<#
+.SYNOPSIS
+Removes the virtual OSD disk volumes (VHDX files) that the addon created on Hyper-V VMs.
+
+.DESCRIPTION
+The enable process creates dynamic VHDX files named ceph-osd-*.vhdx in the VM storage directory
+and attaches them to the cluster host VM. This cleanup function detaches and removes those files
+to fully clean up the addon. Only applies to Hyper-V VMs; bare-metal nodes are unaffected since
+those use existing physical disks.
+
+Disabling the addon tears down the ENTIRE Ceph cluster on the resolved host VM, so every attached
+ceph-osd-*.vhdx on that VM is removed - including orphaned disks left behind by a previously failed
+enable that were never recorded in the config. The cluster ID and any tracked disk paths are used
+only for logging context, not as a hard gate.
+#>
+function Remove-CephOsdVirtualDisks {
+    param(
+        [Parameter(Mandatory = $true)][string]$ClusterHostNode,
+        [Parameter(Mandatory = $false)][pscustomobject]$Config
+    )
+
+    if ([string]::IsNullOrWhiteSpace($ClusterHostNode)) {
+        Write-Log "[Ceph] No cluster host node name available; skipping OSD virtual disk cleanup." -Console
+        return
+    }
+
+    # Cluster ID is used only for logging context here - disable removes the whole cluster on this
+    # host VM, so all ceph-osd-*.vhdx are cleared even when the id or tracked paths are missing
+    # (e.g. after a failed enable that left orphaned disks behind).
+    $clusterId = if ($Config -and ($Config.PSObject.Properties.Name -contains 'clusterId')) { "$($Config.clusterId)".Trim() } else { '' }
+    $clusterIdDisplay = if (-not [string]::IsNullOrWhiteSpace($clusterId)) { $clusterId } else { 'unknown' }
+
+    # Attempt to resolve the VM name from the node name
+    $vmName = $null
+    $controlPlaneNodeName = Get-ConfigControlPlaneNodeHostname
+    if ($ClusterHostNode -eq $controlPlaneNodeName) {
+        # Control plane node - resolve via Hyper-V
+        try {
+            $controlPlaneIp = "$(Get-ConfiguredIPControlPlane)".Trim()
+            if (-not [string]::IsNullOrWhiteSpace($controlPlaneIp)) {
+                $vmName = Get-VM | Where-Object {
+                    @(Get-VMNetworkAdapter -VMName $_.Name -ErrorAction SilentlyContinue | Where-Object { @($_.IPAddresses) -contains $controlPlaneIp }).Count -gt 0
+                } | Select-Object -ExpandProperty Name | Select-Object -First 1
+            }
+        }
+        catch {
+            Write-Log "[Ceph] Could not resolve Hyper-V VM for control plane node: $($_.Exception.Message)"
+        }
+    }
+    else {
+        # Regular worker node - might be Hyper-V or bare-metal
+        try {
+            $nodeConfig = Get-NodeConfig -NodeName $ClusterHostNode
+            if ($null -ne $nodeConfig -and -not [string]::IsNullOrWhiteSpace($nodeConfig.IpAddress)) {
+                $vmName = Get-VM | Where-Object {
+                    @(Get-VMNetworkAdapter -VMName $_.Name -ErrorAction SilentlyContinue | Where-Object { @($_.IPAddresses) -contains $nodeConfig.IpAddress }).Count -gt 0
+                } | Select-Object -ExpandProperty Name | Select-Object -First 1
+            }
+        }
+        catch {
+            Write-Log "[Ceph] Could not resolve node '$ClusterHostNode' for OSD disk cleanup: $($_.Exception.Message)"
+        }
+    }
+
+    if ([string]::IsNullOrWhiteSpace($vmName)) {
+        Write-Log "[Ceph] Could not identify a local Hyper-V VM for node '$ClusterHostNode'; skipping OSD virtual disk cleanup (may be bare-metal)." -Console
+        return
+    }
+
+    try {
+        $vm = Get-VM -Name $vmName -ErrorAction SilentlyContinue
+        if ($null -eq $vm) {
+            Write-Log "[Ceph] Hyper-V VM '$vmName' not found; skipping OSD virtual disk cleanup." -Console
+            return
+        }
+
+        # Find all attached ceph-osd-*.vhdx disks on this VM
+        $allOsdDisks = @(Get-VMHardDiskDrive -VMName $vmName -ErrorAction SilentlyContinue |
+            Where-Object { -not [string]::IsNullOrWhiteSpace($_.Path) -and ((Split-Path $_.Path -Leaf) -like 'ceph-osd-*.vhdx') })
+
+        if ($allOsdDisks.Count -eq 0) {
+            Write-Log "[Ceph] No OSD virtual disks found on VM '$vmName'; nothing to remove." -Console
+            return
+        }
+
+        Write-Log "[Ceph] Found $($allOsdDisks.Count) OSD virtual disk(s) on VM '$vmName'" -Console
+
+        # Disable removes the entire cluster on this host, so remove every attached ceph-osd-*.vhdx,
+        # including untracked orphans from earlier failed enable attempts.
+        $disksToDelete = $allOsdDisks
+
+        Write-Log "[Ceph] Removing $($disksToDelete.Count) OSD virtual disk(s) from VM '$vmName' (cluster '$clusterIdDisplay')..." -Console
+
+        foreach ($disk in $disksToDelete) {
+            $diskPath = $disk.Path
+            $diskName = Split-Path $diskPath -Leaf
+
+            try {
+                # Detach the disk from the VM
+                Remove-VMHardDiskDrive -VMHardDiskDrive $disk -Force -ErrorAction SilentlyContinue
+                Write-Log "[Ceph] Detached virtual disk '$diskName' from VM '$vmName'."
+
+                # Remove the VHDX file
+                if (Test-Path $diskPath) {
+                    Remove-Item -Path $diskPath -Force -ErrorAction SilentlyContinue
+                    Write-Log "[Ceph] Deleted OSD virtual disk file: '$diskPath'" -Console
+                }
+                else {
+                    Write-Log "[Ceph] OSD virtual disk file already removed: '$diskPath'"
+                }
+            }
+            catch {
+                Write-Log "[Ceph] WARNING: Failed to remove OSD virtual disk '$diskName': $($_.Exception.Message)" -Console
+            }
+        }
+
+        Write-Log '[Ceph] OSD virtual disk cleanup completed' -Console
+    }
+    catch {
+        Write-Log "[Ceph] WARNING: OSD virtual disk cleanup failed: $($_.Exception.Message)" -Console
+    }
+}
 
 Write-Log 'Checking cluster status' -Console
 $addonName = Get-AddonNameFromFolderPath -BaseFolderPath $PSScriptRoot
@@ -405,16 +465,29 @@ if ($Force -and $Keep) {
     exit 1
 }
 
+if ($Keep) {
+    Write-Log '[Ceph] WARNING: Keep is set, so PVC/PV objects are preserved. The Ceph cluster itself will still be removed and Ceph data will be lost.' -Console
+}
+
 if (-not $Force -and -not $Keep) {
-    $answer = Read-Host 'Do you want to DELETE ALL DATA on the Ceph (CephFS) volumes? Otherwise, all data will be kept. (y/N)'
-    if ($answer -eq 'y') {
-        $Force = $true
-        Write-Log 'DATA DELETION CONFIRMED. All PersistentVolumes on the Ceph storage will be deleted.' -Console
+    $cephHostNodeForPrompt = Get-CephClusterHostNode -Config $Config
+    $cephHostNodeDisplay = if (-not [string]::IsNullOrWhiteSpace($cephHostNodeForPrompt.Name)) { $cephHostNodeForPrompt.Name } else { 'unknown-node' }
+    $cephHostIpDisplay = if (-not [string]::IsNullOrWhiteSpace($cephHostNodeForPrompt.Ip)) { $cephHostNodeForPrompt.Ip } else { 'unknown-ip' }
+
+    Write-Log '' -Console
+    Write-Log "[Ceph] WARNING: Disabling storage ceph will uninstall the Ceph cluster on '$cephHostNodeDisplay' ($cephHostIpDisplay)." -Console
+    $answer = Read-Host 'ALL DATA in the Ceph cluster will be permanently lost. Continue? (y/N)'
+    if ($answer -ne 'y') {
+        Write-Log '[Ceph] Disable operation cancelled by user.' -Console
+        if ($EncodeStructuredOutput -eq $true) {
+            Send-ToCli -MessageType $MessageType -Message @{Error = (New-Error -Severity Warning -Code 'operation-cancelled' -Message 'Disable storage ceph cancelled by user') }
+            return
+        }
+        exit 1
     }
-    else {
-        $Keep = $true
-        Write-Log 'DATA WILL BE KEPT. No PersistentVolumes on the Ceph storage will be deleted.' -Console
-    }
+
+    $Force = $true
+    Write-Log '[Ceph] DESTRUCTIVE OPERATION CONFIRMED. Ceph cluster will be removed.' -Console
 }
 
 Write-Log 'Uninstalling storage ceph' -Console
@@ -431,11 +504,11 @@ if (-not [string]::IsNullOrWhiteSpace($cephHostNode.Ip)) {
     Remove-ProvisionedCephClusterOnNode -ClusterHostNode $cephHostNode.Name `
         -ClusterHostNodeIp $cephHostNode.Ip `
         -Config $Config `
-        -ForceProvided $forceFlagProvided `
-        -KeepProvided $keepFlagProvided `
         -RemoveClusterScript "$PSScriptRoot\scripts\linux\debian\Remove-CephCluster.ps1" `
-        -CephConfigFilePath "$PSScriptRoot\config\ceph-config.json" `
         -ShowLogs:$ShowLogs
+
+    # Remove the OSD virtual disk files (VHDX) that were created on Hyper-V VMs
+    Remove-CephOsdVirtualDisks -ClusterHostNode $cephHostNode.Name -Config $Config
 }
 
 # Remove the local dashboard-access artifact that an older Enable.ps1 may have created (Windows

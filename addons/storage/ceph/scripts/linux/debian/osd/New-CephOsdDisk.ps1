@@ -50,6 +50,8 @@ Param(
     [uint32] $DiskSizeGB = 20,
     [parameter(Mandatory = $false, HelpMessage = 'Force creation of a new Hyper-V virtual disk even when K2s OSD disks already exist')]
     [switch] $CreateNewDisk = $false,
+    [parameter(Mandatory = $false, HelpMessage = 'Remove pre-existing K2s OSD virtual disks before provisioning (fresh cluster start)')]
+    [switch] $RemoveExistingOsdDisks = $false,
     [parameter(Mandatory = $false, HelpMessage = 'Parsed ceph-config.json object')]
     [pscustomobject] $Config,
     [parameter(Mandatory = $false, HelpMessage = 'Show all logs in terminal')]
@@ -92,6 +94,47 @@ if ([string]::IsNullOrWhiteSpace($sshUserName)) {
     $sshUserName = 'remote'
 }
 
+<#
+.SYNOPSIS
+Detaches and deletes a K2s OSD virtual disk that was created during this run.
+
+.DESCRIPTION
+Used to roll back a freshly created ceph-osd-*.vhdx when the subsequent disk preparation
+fails. Without this, every failed enable attempt leaves an orphaned VHDX attached to the VM,
+which then accumulate (sdb, sdc, sdf, ...) and break single-new-device detection on later runs.
+#>
+function Remove-CreatedOsdVhdx {
+    param(
+        [Parameter(Mandatory = $true)][string] $VmName,
+        [Parameter(Mandatory = $true)][string] $VhdxPath
+    )
+
+    if ([string]::IsNullOrWhiteSpace($VhdxPath)) { return }
+
+    try {
+        # Detach the disk from the VM first so the file is not locked.
+        $attached = @(Get-VMHardDiskDrive -VMName $VmName -ErrorAction SilentlyContinue |
+                Where-Object { -not [string]::IsNullOrWhiteSpace($_.Path) -and $_.Path -eq $VhdxPath })
+        foreach ($drive in $attached) {
+            Remove-VMHardDiskDrive -VMName $drive.VMName -ControllerType $drive.ControllerType -ControllerNumber $drive.ControllerNumber -ControllerLocation $drive.ControllerLocation -ErrorAction SilentlyContinue
+            Write-Log "[Ceph] Rollback: detached virtual disk '$VhdxPath' from VM '$VmName'." -Console
+        }
+    }
+    catch {
+        Write-Log "[Ceph] Rollback: WARNING - could not detach virtual disk '$VhdxPath' from VM '$VmName': $($_.Exception.Message)" -Console
+    }
+
+    try {
+        if (Test-Path $VhdxPath) {
+            Remove-Item -Path $VhdxPath -Force -ErrorAction Stop
+            Write-Log "[Ceph] Rollback: deleted orphaned OSD virtual disk '$VhdxPath'." -Console
+        }
+    }
+    catch {
+        Write-Log "[Ceph] Rollback: WARNING - could not delete virtual disk file '$VhdxPath': $($_.Exception.Message)" -Console
+    }
+}
+
 function Get-GuestWholeDiskNames {
     param(
         [string] $UserName,
@@ -101,7 +144,63 @@ function Get-GuestWholeDiskNames {
     # -e 7,11 excludes loop (major 7) and sr/cdrom (major 11) devices.
     $result = Invoke-CmdOnVmViaSSHKey -CmdToExecute 'lsblk -dn -o NAME -e 7,11' -UserName $UserName -IpAddress $IpAddress -NoLog -IgnoreErrors -Retries 3
     $names = @(($result.Output | Out-String) -split "`r?`n" | ForEach-Object { $_.Trim() } | Where-Object { $_ -ne '' })
-    return , $names
+    return $names
+}
+
+function Get-HyperVReusableOsdDevices {
+    param(
+        [string] $UserName,
+        [string] $IpAddress
+    )
+
+    # Return whole-disk devices that look like empty Hyper-V virtual disks and are safe to wipe.
+    $cmd = @'
+ROOT_SRC="$(findmnt -no SOURCE / 2>/dev/null)"
+ROOT_DISK=""
+if [ -n "$ROOT_SRC" ]; then
+    ROOT_DISK="/dev/$(lsblk -no PKNAME "$ROOT_SRC" 2>/dev/null | head -n1 | tr -d '[:space:]')"
+fi
+
+for name in $(lsblk -dn -o NAME -e 7,11 2>/dev/null); do
+    [ -n "$name" ] || continue
+    dev="/dev/$name"
+    base="$name"
+
+    vendor="$(lsblk -dn -o VENDOR "$dev" 2>/dev/null | sed 's/[[:space:]]\+$//')"
+    model="$(lsblk -dn -o MODEL "$dev" 2>/dev/null | sed 's/[[:space:]]\+$//')"
+    if ! echo "$vendor $model" | grep -qi 'virtual disk'; then
+        continue
+    fi
+
+    if [ -n "$ROOT_DISK" ] && [ "$ROOT_DISK" = "$dev" ]; then
+        continue
+    fi
+
+    if [ -n "$(lsblk -nr -o MOUNTPOINT "$dev" 2>/dev/null | grep -v '^$' || true)" ]; then
+        continue
+    fi
+    if [ -n "$(ls "/sys/block/$base/holders" 2>/dev/null || true)" ]; then
+        continue
+    fi
+    if [ -n "$(awk 'NR>1{print $1}' /proc/swaps 2>/dev/null | grep -E "^${dev}([0-9]+|p[0-9]+)?$" || true)" ]; then
+        continue
+    fi
+    if [ -n "$(lsblk -nr -o NAME "$dev" 2>/dev/null | grep -v "^$base$" || true)" ]; then
+        continue
+    fi
+    if [ -n "$(sudo blkid -o value -s TYPE "$dev" 2>/dev/null || true)" ]; then
+        continue
+    fi
+
+    echo "$dev"
+done
+'@
+
+    $result = Invoke-CmdOnVmViaSSHKey -CmdToExecute $cmd -UserName $UserName -IpAddress $IpAddress -NoLog -IgnoreErrors -Retries 3
+    $devices = @(($result.Output | Out-String) -split "`r?`n" |
+            ForEach-Object { $_.Trim() } |
+            Where-Object { -not [string]::IsNullOrWhiteSpace($_) -and $_ -match '^/dev/' })
+    return $devices
 }
 
 function Resolve-HyperVVmNameByIp {
@@ -177,22 +276,55 @@ else {
 # ---------------------------------------------------------------------------
 # Provision / prepare the OSD disk according to the node type.
 # ---------------------------------------------------------------------------
+$createdVhdxPath = ''
+
 if ($nodeType -eq 'HyperV') {
     $diskScript = Join-Path $PSScriptRoot 'hyperv\prepare-osd-disk-hyperv.sh'
 
     # If no explicit device was given, create and attach a fresh virtual disk, then discover it.
     if ([string]::IsNullOrWhiteSpace($Device)) {
+        $createAndAttachNewDisk = $true
         $vmHardDisks = @(Get-VMHardDiskDrive -VMName $vmName -ErrorAction SilentlyContinue)
         $existingK2sOsdDisks = @($vmHardDisks | Where-Object {
             -not [string]::IsNullOrWhiteSpace($_.Path) -and ((Split-Path $_.Path -Leaf) -like 'ceph-osd-*.vhdx')
         })
 
+        # A fresh cluster starts with zero OSDs, so any pre-existing K2s OSD virtual disks are orphans
+        # left behind by earlier failed attempts. Remove them up front so they neither get (incorrectly)
+        # reused nor keep accumulating (sdb, sdc, sdf, ...) and breaking single-new-device detection.
+        if ($RemoveExistingOsdDisks -and $existingK2sOsdDisks.Count -gt 0) {
+            Write-Log "[Ceph] Removing $($existingK2sOsdDisks.Count) pre-existing K2s OSD virtual disk(s) from VM '$vmName' before provisioning a fresh cluster..." -Console
+            foreach ($orphanDisk in $existingK2sOsdDisks) {
+                Remove-CreatedOsdVhdx -VmName $vmName -VhdxPath $orphanDisk.Path
+            }
+            # Rescan the guest so the detached disks disappear before we diff for the new one.
+            Invoke-CmdOnVmViaSSHKey -CmdToExecute 'for h in /sys/class/scsi_host/host*/scan; do echo "- - -" | sudo tee $h > /dev/null; done; sudo udevadm settle' -UserName $sshUserName -IpAddress $NodeIp -NoLog -IgnoreErrors -Retries 3 | Out-Null
+            Start-Sleep -Seconds 2
+            $vmHardDisks = @(Get-VMHardDiskDrive -VMName $vmName -ErrorAction SilentlyContinue)
+            $existingK2sOsdDisks = @()
+        }
+
         if ($existingK2sOsdDisks.Count -gt 0 -and -not $CreateNewDisk) {
             $existingPaths = @($existingK2sOsdDisks | ForEach-Object { $_.Path }) -join ', '
             Write-Log "[Ceph] Reusing existing K2s OSD virtual disk attachment(s) on VM '$vmName': $existingPaths" -Console
-            Write-Log "[Ceph] Skipping creation of a new virtual disk to avoid accumulating extra OSD volumes across retries." -Console
+                $reusableDevices = @(Get-HyperVReusableOsdDevices -UserName $sshUserName -IpAddress $NodeIp |
+                    Where-Object { -not [string]::IsNullOrWhiteSpace($_) -and $_ -match '^/dev/' })
+            if ($reusableDevices.Count -eq 1) {
+                $Device = $reusableDevices[0]
+                $createAndAttachNewDisk = $false
+                Write-Log "[Ceph] Reusing existing empty OSD guest device '$Device'." -Console
+            }
+            elseif ($reusableDevices.Count -gt 1) {
+                $Device = ($reusableDevices | Sort-Object | Select-Object -First 1)
+                $createAndAttachNewDisk = $false
+                Write-Log "[Ceph] Multiple reusable empty OSD guest devices found ($($reusableDevices -join ', ')); selecting '$Device'." -Console
+            }
+            else {
+                Write-Log "[Ceph] Existing OSD virtual disks are attached but none is currently reusable as an empty raw disk. Creating a new virtual disk." -Console
+            }
         }
-        else {
+
+        if ($createAndAttachNewDisk) {
             if ($existingK2sOsdDisks.Count -gt 0 -and $CreateNewDisk) {
                 Write-Log "[Ceph] Existing K2s OSD disk(s) already attached on VM '$vmName'; creating an additional OSD disk as requested." -Console
             }
@@ -214,6 +346,7 @@ if ($nodeType -eq 'HyperV') {
             try {
                 New-VHD -Path $vhdxPath -SizeBytes ([int64]$DiskSizeGB * 1GB) -Dynamic | Out-Null
                 $vhdxCreated = $true
+                $createdVhdxPath = $vhdxPath  # Track the created VHDX path for later cleanup validation
                 Add-VMHardDiskDrive -VMName $vmName -Path $vhdxPath -ControllerType SCSI
                 Write-Log "[Ceph] Attached virtual disk '$vhdxPath' to VM '$vmName'."
             }
@@ -236,12 +369,28 @@ if ($nodeType -eq 'HyperV') {
                 $Device = "/dev/$($newDisks[0])"
                 Write-Log "[Ceph] New virtual disk appeared in guest as '$Device'."
             }
-            elseif ($newDisks.Count -eq 0) {
-                Write-Log "[Ceph] Attached the virtual disk but the guest did not expose a new device; letting the script auto-detect it." -Console
-            }
             else {
-                Write-Log "[Ceph] Multiple new devices appeared in the guest ($($newDisks -join ', ')); letting the script auto-detect the empty one." -Console
-                $Device = ''
+                if ($newDisks.Count -eq 0) {
+                    Write-Log "[Ceph] Attached the virtual disk but no single new guest disk could be identified. Probing for reusable empty OSD devices..." -Console
+                }
+                else {
+                    Write-Log "[Ceph] Multiple new devices appeared in the guest ($($newDisks -join ', ')); probing for reusable empty OSD devices..." -Console
+                }
+
+                $reusableAfterAttach = @(Get-HyperVReusableOsdDevices -UserName $sshUserName -IpAddress $NodeIp |
+                    Where-Object { -not [string]::IsNullOrWhiteSpace($_) -and $_ -match '^/dev/' })
+                if ($reusableAfterAttach.Count -eq 1) {
+                    $Device = $reusableAfterAttach[0]
+                    Write-Log "[Ceph] Resolved OSD target device after attach as '$Device'." -Console
+                }
+                elseif ($reusableAfterAttach.Count -gt 1) {
+                    $Device = ($reusableAfterAttach | Sort-Object | Select-Object -First 1)
+                    Write-Log "[Ceph] Multiple reusable empty OSD devices detected after attach ($($reusableAfterAttach -join ', ')); selecting '$Device'." -Console
+                }
+                else {
+                    Write-Log "[Ceph] Could not resolve a reusable empty OSD device after attach; falling back to guest auto-detection in prepare-osd-disk-hyperv.sh." -Console
+                    $Device = ''
+                }
             }
         }
     }
@@ -260,23 +409,40 @@ else {
 
 if (-not (Test-Path $diskScript)) {
     Write-Log "[Ceph] ERROR: OSD disk preparation script not found: '$diskScript'" -Console -Error
+    if ($nodeType -eq 'HyperV' -and -not [string]::IsNullOrWhiteSpace($createdVhdxPath)) {
+        Remove-CreatedOsdVhdx -VmName $vmName -VhdxPath $createdVhdxPath
+    }
     exit 1
 }
 
-Write-Log "[Ceph] Preparing raw OSD disk on '$NodeIp' ($nodeType)$(if ($Device) { " target '$Device'" })..." -Console
-$diskOutput = Invoke-RemoteScript -LocalScriptPath $diskScript -UserName $sshUserName -IpAddress $NodeIp -Arguments $scriptArgs -CleanupAfterExecution -Retries 2
+try {
+    Write-Log "[Ceph] Preparing raw OSD disk on '$NodeIp' ($nodeType)$(if ($Device) { " target '$Device'" })..." -Console
+    $diskOutput = Invoke-RemoteScript -LocalScriptPath $diskScript -UserName $sshUserName -IpAddress $NodeIp -Arguments $scriptArgs -CleanupAfterExecution -Retries 2
 
-$diskOutputText = ($diskOutput | Out-String)
-$readyLine = $diskOutputText -split "`r?`n" | Where-Object { $_.Trim().StartsWith('K2S_CEPH_OSD_DISK_READY=') } | Select-Object -Last 1
-$diskLine = $diskOutputText -split "`r?`n" | Where-Object { $_.Trim().StartsWith('K2S_CEPH_OSD_DISK=') } | Select-Object -Last 1
+    $diskOutputText = ($diskOutput | Out-String)
+    $readyLine = $diskOutputText -split "`r?`n" | Where-Object { $_.Trim().StartsWith('K2S_CEPH_OSD_DISK_READY=') } | Select-Object -Last 1
+    $diskLine = $diskOutputText -split "`r?`n" | Where-Object { $_.Trim().StartsWith('K2S_CEPH_OSD_DISK=') } | Select-Object -Last 1
 
-if ([string]::IsNullOrWhiteSpace($readyLine)) {
-    Write-Log "[Ceph] ERROR: OSD disk preparation did not complete successfully on node '$NodeIp'." -Console -Error
+    if ([string]::IsNullOrWhiteSpace($readyLine)) {
+        throw "OSD disk preparation did not complete successfully on node '$NodeIp'."
+    }
+
+    $preparedDisk = if (-not [string]::IsNullOrWhiteSpace($diskLine)) { $diskLine.Trim().Substring('K2S_CEPH_OSD_DISK='.Length).Trim() } else { $Device }
+}
+catch {
+    Write-Log "[Ceph] ERROR: $($_.Exception.Message)" -Console -Error
+    # Roll back the virtual disk we created this run so it does not become an orphaned attachment.
+    if ($nodeType -eq 'HyperV' -and -not [string]::IsNullOrWhiteSpace($createdVhdxPath)) {
+        Remove-CreatedOsdVhdx -VmName $vmName -VhdxPath $createdVhdxPath
+    }
     exit 1
 }
 
-$preparedDisk = if (-not [string]::IsNullOrWhiteSpace($diskLine)) { $diskLine.Trim().Substring('K2S_CEPH_OSD_DISK='.Length).Trim() } else { $Device }
 Write-Log "[Ceph] Raw OSD disk '$preparedDisk' is ready on node '$NodeIp' - cephadm/ceph-volume can now consume it as an OSD." -Console
 Write-Output "K2S_CEPH_OSD_DISK=$preparedDisk"
 Write-Output "K2S_CEPH_OSD_NODE_IP=$NodeIp"
+# Output the VHDX path if one was created (Hyper-V nodes only) so the calling script can track it for cleanup validation
+if (-not [string]::IsNullOrWhiteSpace($createdVhdxPath)) {
+    Write-Output "K2S_CEPH_OSD_VHDX_PATH=$createdVhdxPath"
+}
 exit 0

@@ -327,93 +327,64 @@ Write-Log '[Ceph] New Ceph cluster created successfully; continuing with CSI ins
 # $Config. Load them so the CSI installation connects to the real cluster.
 Read-CephConnectionConfig -Config $Config
 
-# Apply Ceph CSI operator manifests (CRDs first, then RBAC/operator resources)
+# Apply Ceph CSI operator manifests (CRDs first, then RBAC/operator resources).
+# The entire CSI installation is wrapped in a try/catch so any failure is reported and
+# exits non-zero. Orphaned OSD virtual disks from a failed run are cleaned up at the start
+# of the next enable by the OSD driver (a fresh cluster has zero OSDs, so pre-existing
+# ceph-osd-*.vhdx disks are detached and deleted before provisioning).
 $cephManifestsDir = "$PSScriptRoot\manifests"
 $cephCrdsManifest = "$cephManifestsDir\crds\ceph-crd.yaml"
 $cephOperatorManifest = "$cephManifestsDir\operator.yaml"
-
+$cephOperatorNamespace = ''
 try {
   $cephOperatorNamespace = Get-CephOperatorNamespace -OperatorManifestPath $cephOperatorManifest
   Write-Log "[Ceph] Using operator namespace '$cephOperatorNamespace' from manifest" -Console
-}
-catch {
-  Write-Log "[Ceph] ERROR: $($_.Exception.Message)" -Console -Error
-  if ($EncodeStructuredOutput -eq $true) {
-    Send-ToCli -MessageType $MessageType -Message @{Error = (New-CephStructuredError -Message $_.Exception.Message) }
-  }
-  exit 1
-}
 
-Write-Log "[Ceph] Applying Ceph CSI CRDs" -Console
-& kubectl apply --server-side -f "$cephCrdsManifest" 2>&1 | Write-Log
-if ($LASTEXITCODE -ne 0) {
-  Write-Log "[Ceph] ERROR: Failed to apply Ceph CRDs" -Console -Error
-  if ($EncodeStructuredOutput -eq $true) {
-    Send-ToCli -MessageType $MessageType -Message @{Error = (New-CephStructuredError -Message "Failed to apply Ceph CRDs") }
-  }
-  exit 1
-}
+  Write-Log "[Ceph] Applying Ceph CSI CRDs" -Console
+  & kubectl apply --server-side -f "$cephCrdsManifest" 2>&1 | Write-Log
+  if ($LASTEXITCODE -ne 0) { throw 'Failed to apply Ceph CRDs' }
 
-Write-Log "[Ceph] Waiting for Ceph CRDs to be established" -Console
-& kubectl wait --for=condition=Established crd/cephconnections.csi.ceph.io crd/clientprofiles.csi.ceph.io crd/clientprofilemappings.csi.ceph.io --timeout=120s 2>&1 | Write-Log
-if ($LASTEXITCODE -ne 0) {
-  Write-Log "[Ceph] ERROR: Ceph CRDs were not established in time" -Console -Error
-  if ($EncodeStructuredOutput -eq $true) {
-    Send-ToCli -MessageType $MessageType -Message @{Error = (New-CephStructuredError -Message "Ceph CRDs were not established in time") }
-  }
-  exit 1
-}
+  Write-Log "[Ceph] Waiting for Ceph CRDs to be established" -Console
+  & kubectl wait --for=condition=Established crd/cephconnections.csi.ceph.io crd/clientprofiles.csi.ceph.io crd/clientprofilemappings.csi.ceph.io --timeout=120s 2>&1 | Write-Log
+  if ($LASTEXITCODE -ne 0) { throw 'Ceph CRDs were not established in time' }
 
-Clear-KubectlDiscoveryCache
+  Clear-KubectlDiscoveryCache
 
-# Wait for operator namespace to be fully gone if it is still terminating from a previous disable
-$nsStatus = kubectl get namespace $cephOperatorNamespace --ignore-not-found -o jsonpath='{.status.phase}' 2>$null
-if ($nsStatus -eq 'Terminating') {
-  Write-Log "[Ceph] Namespace '$cephOperatorNamespace' is still terminating from a previous run. Waiting for it to be gone..." -Console
-  $nsWaitSecs = 120
-  $nsElapsed = 0
-  while ($nsElapsed -lt $nsWaitSecs) {
-    Start-Sleep -Seconds 3
-    $nsElapsed += 3
-    $nsCheck = kubectl get namespace $cephOperatorNamespace --ignore-not-found -o jsonpath='{.metadata.name}' 2>$null
-    if ([string]::IsNullOrWhiteSpace($nsCheck)) {
-      Write-Log "[Ceph] Namespace '$cephOperatorNamespace' is gone after ${nsElapsed}s" -Console
-      break
+  # Wait for operator namespace to be fully gone if it is still terminating from a previous disable
+  $nsStatus = kubectl get namespace $cephOperatorNamespace --ignore-not-found -o jsonpath='{.status.phase}' 2>$null
+  if ($nsStatus -eq 'Terminating') {
+    Write-Log "[Ceph] Namespace '$cephOperatorNamespace' is still terminating from a previous run. Waiting for it to be gone..." -Console
+    $nsWaitSecs = 120
+    $nsElapsed = 0
+    while ($nsElapsed -lt $nsWaitSecs) {
+      Start-Sleep -Seconds 3
+      $nsElapsed += 3
+      $nsCheck = kubectl get namespace $cephOperatorNamespace --ignore-not-found -o jsonpath='{.metadata.name}' 2>$null
+      if ([string]::IsNullOrWhiteSpace($nsCheck)) {
+        Write-Log "[Ceph] Namespace '$cephOperatorNamespace' is gone after ${nsElapsed}s" -Console
+        break
+      }
+    }
+    if ($nsElapsed -ge $nsWaitSecs) {
+      throw "Namespace '$cephOperatorNamespace' is still terminating; cannot re-enable until it is fully gone"
     }
   }
-  if ($nsElapsed -ge $nsWaitSecs) {
-    Write-Log "[Ceph] ERROR: Namespace '$cephOperatorNamespace' did not finish terminating within ${nsWaitSecs}s. Run 'kubectl get namespace $cephOperatorNamespace' to check status." -Console -Error
-    if ($EncodeStructuredOutput -eq $true) {
-      Send-ToCli -MessageType $MessageType -Message @{Error = (New-CephStructuredError -Message "Namespace '$cephOperatorNamespace' is still terminating; cannot re-enable until it is fully gone") }
-    }
-    exit 1
-  }
-}
 
-# Create a runtime kustomization workspace and inject values from addon config
-$kustomizationWorkDir = Join-Path ([System.IO.Path]::GetTempPath()) ("k2s-ceph-kustomize-" + [guid]::NewGuid().ToString())
-New-Item -Path $kustomizationWorkDir -ItemType Directory -ErrorAction Stop | Out-Null
-Copy-Item -Path (Join-Path $cephManifestsDir '*') -Destination $kustomizationWorkDir -Recurse -Force
+  # Create a runtime kustomization workspace and inject values from addon config
+  $kustomizationWorkDir = Join-Path ([System.IO.Path]::GetTempPath()) ("k2s-ceph-kustomize-" + [guid]::NewGuid().ToString())
+  New-Item -Path $kustomizationWorkDir -ItemType Directory -ErrorAction Stop | Out-Null
+  Copy-Item -Path (Join-Path $cephManifestsDir '*') -Destination $kustomizationWorkDir -Recurse -Force
 
-$monitorList = @()
-foreach ($monitor in ($MonitorEndpoints -split ',')) {
+  $monitorList = @()
+  foreach ($monitor in ($MonitorEndpoints -split ',')) {
     $trimmed = $monitor.Trim()
-    if (-not [string]::IsNullOrWhiteSpace($trimmed)) {
-        $monitorList += $trimmed
-    }
-}
+    if (-not [string]::IsNullOrWhiteSpace($trimmed)) { $monitorList += $trimmed }
+  }
+  if ($monitorList.Count -eq 0) { throw 'No valid monitor endpoints resolved for CephConnection manifest' }
 
-if ($monitorList.Count -eq 0) {
-    Write-Log "[Ceph] ERROR: No valid monitor endpoints resolved for CephConnection manifest" -Console -Error
-    if ($EncodeStructuredOutput -eq $true) {
-        Send-ToCli -MessageType $MessageType -Message @{Error = (New-CephStructuredError -Message "No valid monitor endpoints resolved for CephConnection manifest") }
-    }
-    exit 1
-}
+  $monitorYaml = (($monitorList | ForEach-Object { "    - " + (Convert-ToYamlSingleQuoted -Value $_) }) -join "`r`n")
 
-$monitorYaml = (($monitorList | ForEach-Object { "    - " + (Convert-ToYamlSingleQuoted -Value $_) }) -join "`r`n")
-
-$cephConnectionYaml = @"
+  $cephConnectionYaml = @"
 apiVersion: csi.ceph.io/v1
 kind: CephConnection
 metadata:
@@ -423,27 +394,22 @@ spec:
   monitors:
 $monitorYaml
 "@
-Set-Content -Path (Join-Path $kustomizationWorkDir 'ceph-connection.yaml') -Value $cephConnectionYaml -Encoding UTF8
+  Set-Content -Path (Join-Path $kustomizationWorkDir 'ceph-connection.yaml') -Value $cephConnectionYaml -Encoding UTF8
 
-Write-Log "[Ceph] Applying Ceph CSI RBAC and operator resources" -Console
-$kubectlOutput = & kubectl apply -k "$kustomizationWorkDir" 2>&1
-$kubectlOutput | ForEach-Object { Write-Log "[Ceph] kubectl: $_" }
-if ($LASTEXITCODE -ne 0) {
-  $errorDetail = ($kubectlOutput | Where-Object { $_ -match 'Error|error|failed|invalid' }) -join '; '
-  Write-Log "[Ceph] ERROR: Failed to apply Ceph CSI RBAC/operator resources: $errorDetail" -Console -Error
-  Write-Log "[Ceph] Kustomize workdir preserved for inspection: $kustomizationWorkDir" -Console
-  if ($EncodeStructuredOutput -eq $true) {
-    Send-ToCli -MessageType $MessageType -Message @{Error = (New-CephStructuredError -Message "Failed to apply Ceph CSI RBAC/operator resources") }
+  Write-Log "[Ceph] Applying Ceph CSI RBAC and operator resources" -Console
+  $kubectlOutput = & kubectl apply -k "$kustomizationWorkDir" 2>&1
+  $kubectlOutput | ForEach-Object { Write-Log "[Ceph] kubectl: $_" }
+  if ($LASTEXITCODE -ne 0) {
+    $errorDetail = ($kubectlOutput | Where-Object { $_ -match 'Error|error|failed|invalid' }) -join '; '
+    Write-Log "[Ceph] Kustomize workdir preserved for inspection: $kustomizationWorkDir" -Console
+    throw "Failed to apply Ceph CSI RBAC/operator resources: $errorDetail"
   }
-  exit 1
-}
 
-Remove-Item -Path $kustomizationWorkDir -Recurse -Force -ErrorAction SilentlyContinue
+  Remove-Item -Path $kustomizationWorkDir -Recurse -Force -ErrorAction SilentlyContinue
 
-# Create secrets with Ceph credentials
-Write-Log "[Ceph] Creating Ceph credentials secrets" -Console
-
-$cephfsSecret = @"
+  # Create secrets with Ceph credentials
+  Write-Log "[Ceph] Creating Ceph credentials secrets" -Console
+  $cephfsSecret = @"
 apiVersion: v1
 kind: Secret
 metadata:
@@ -456,23 +422,13 @@ stringData:
   userID: $cephUser
   userKey: $AdminKey
 "@
+  $cephfsSecret | kubectl apply -f - 2>&1 | ForEach-Object { Write-Log "[Ceph] kubectl: $_" }
+  if ($LASTEXITCODE -ne 0) { throw 'Failed to create Ceph credentials secrets' }
+  Write-Log "[Ceph] Secrets created successfully" -Console
 
-$cephfsSecret | kubectl apply -f - 2>&1 | ForEach-Object { Write-Log "[Ceph] kubectl: $_" }
-
-if ($LASTEXITCODE -ne 0) {
-    Write-Log "[Ceph] ERROR: Failed to create secrets" -Console -Error
-    if ($EncodeStructuredOutput -eq $true) {
-        Send-ToCli -MessageType $MessageType -Message @{Error = (New-CephStructuredError -Message "Failed to create secrets") }
-    }
-    exit 1
-}
-
-Write-Log "[Ceph] Secrets created successfully" -Console
-
-# Create StorageClasses
-Write-Log "[Ceph] Creating StorageClasses" -Console
-
-$cephfsSC = @"
+  # Create StorageClasses
+  Write-Log "[Ceph] Creating StorageClasses" -Console
+  $cephfsSC = @"
 apiVersion: storage.k8s.io/v1
 kind: StorageClass
 metadata:
@@ -492,22 +448,12 @@ parameters:
   csi.storage.k8s.io/node-stage-secret-name: ceph-secret
   csi.storage.k8s.io/node-stage-secret-namespace: $cephOperatorNamespace
 "@
+  $cephfsSC | kubectl apply -f - 2>&1 | ForEach-Object { Write-Log "[Ceph] kubectl: $_" }
+  if ($LASTEXITCODE -ne 0) { throw 'Failed to create StorageClasses' }
+  Write-Log "[Ceph] StorageClasses created successfully" -Console
 
-$cephfsSC | kubectl apply -f - 2>&1 | ForEach-Object { Write-Log "[Ceph] kubectl: $_" }
-
-if ($LASTEXITCODE -ne 0) {
-    Write-Log "[Ceph] ERROR: Failed to create StorageClasses" -Console -Error
-    if ($EncodeStructuredOutput -eq $true) {
-        Send-ToCli -MessageType $MessageType -Message @{Error = (New-CephStructuredError -Message "Failed to create StorageClasses") }
-    }
-    exit 1
-}
-
-Write-Log "[Ceph] StorageClasses created successfully" -Console
-
-# Wait for Ceph CSI workloads to become ready before reporting success.
-$allReady = $true
-try {
+  # Wait for Ceph CSI workloads to become ready before reporting success.
+  $allReady = $true
   Write-Log "[Ceph] Waiting for Ceph operator pod readiness" -Console
   $operatorReady = Wait-ForPodCondition -Condition Ready -Label 'control-plane=ceph-csi-op-controller-manager' -Namespace $cephOperatorNamespace -TimeoutSeconds 300
   $allReady = ($allReady -and $operatorReady)
@@ -538,25 +484,23 @@ try {
   else {
     Write-Log "[Ceph] Waiting for CephFS CSI controller deployment availability" -Console
     & kubectl wait deployment/$cephfsCtrlDeploymentName -n $cephOperatorNamespace --for=condition=Available --timeout=300s 2>&1 | Write-Log
-    $cephfsCtrlReady = ($LASTEXITCODE -eq 0)
-    $allReady = ($allReady -and $cephfsCtrlReady)
+    $allReady = ($allReady -and ($LASTEXITCODE -eq 0))
   }
 
   Write-Log "[Ceph] Waiting for CephFS CSI nodeplugin pod readiness" -Console
   $cephfsNodeReady = Wait-ForPodCondition -Condition Ready -Label 'app.kubernetes.io/component=cephfs-nodeplugin,app.kubernetes.io/part-of=k2s-ceph-csi' -Namespace $cephOperatorNamespace -TimeoutSeconds 300
-
   $allReady = ($allReady -and $cephfsNodeReady)
+
+  if (-not $allReady) {
+    throw 'Ceph CSI pods did not become Ready within the timeout. Check kubectl get pods -A and pod logs for details.'
+  }
 }
 catch {
-  $allReady = $false
-  Write-Log "[Ceph] ERROR: Pod readiness wait failed: $($_.Exception.Message)" -Console -Error
-}
+  $csiErrMsg = $_.Exception.Message
+  Write-Log "[Ceph] ERROR: $csiErrMsg" -Console -Error
 
-if (-not $allReady) {
-  $readyErrMsg = 'Ceph CSI pods did not become Ready within the timeout. Check kubectl get pods -A and pod logs for details.'
-  Write-Log "[Ceph] ERROR: $readyErrMsg" -Console -Error
   if ($EncodeStructuredOutput -eq $true) {
-    Send-ToCli -MessageType $MessageType -Message @{Error = (New-CephStructuredError -Message $readyErrMsg) }
+    Send-ToCli -MessageType $MessageType -Message @{Error = (New-CephStructuredError -Message $csiErrMsg) }
   }
   exit 1
 }
@@ -571,30 +515,6 @@ Add-AddonToSetupJson -Addon ([pscustomobject] @{Name = $addonName; Implementatio
 Copy-ScriptsToHooksDir -ScriptPaths @(Get-ChildItem -Path "$PSScriptRoot\hooks" -Filter '*.ps1' | ForEach-Object { $_.FullName })
 
 Write-Log "[Ceph] Addon enabled successfully" -Console
-
-$cephClusterFsid = "$($script:clusterId)".Trim()
-if (-not [string]::IsNullOrWhiteSpace($cephClusterFsid)) {
-  $cephConfigFilePath = "$PSScriptRoot\config\ceph-config.json"
-  try {
-    if (Test-Path $cephConfigFilePath) {
-      $cephConfigOnDisk = Get-Content -Path $cephConfigFilePath -Raw | ConvertFrom-Json
-    }
-    else {
-      $cephConfigOnDisk = [pscustomobject]@{}
-    }
-    if ($cephConfigOnDisk.PSObject.Properties.Name -contains 'cephClusterId') {
-      $cephConfigOnDisk.cephClusterId = $cephClusterFsid
-    }
-    else {
-      $cephConfigOnDisk | Add-Member -MemberType NoteProperty -Name 'cephClusterId' -Value $cephClusterFsid
-    }
-    $cephConfigOnDisk | ConvertTo-Json -Depth 10 | Set-Content -Path $cephConfigFilePath -Encoding UTF8
-    Write-Log "[Ceph] Recorded Ceph cluster id '$cephClusterFsid' in $cephConfigFilePath" -Console
-  }
-  catch {
-    Write-Log "[Ceph] WARNING: Could not persist Ceph cluster id to '$cephConfigFilePath': $($_.Exception.Message)" -Console
-  }
-}
 
 $dashboardUrl = if ($Config -and ($Config.PSObject.Properties.Name -contains 'dashboardUrl')) { "$($Config.dashboardUrl)" } else { '' }
 $dashboardUser = if ($Config -and ($Config.PSObject.Properties.Name -contains 'dashboardUser')) { "$($Config.dashboardUser)" } else { '' }
