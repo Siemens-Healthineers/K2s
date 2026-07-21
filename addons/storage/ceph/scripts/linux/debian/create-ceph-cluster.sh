@@ -3,14 +3,14 @@
 #
 # SPDX-License-Identifier: MIT
 #
-# create-ceph-cluster.sh  -  Debian (12/13) variant
+# create-ceph-cluster.sh  -  Debian 13 variant
 #
 # Bootstraps a new Ceph cluster on this node using cephadm and creates the
 # CephFS filesystem/pool used by the storage/ceph addon CSI installation.
 #
 # Invoked remotely by addons/storage/ceph/scripts/linux/debian/New-CephCluster.ps1
 # via Invoke-RemoteScript when ceph-config.json requests a new cluster
-# (clusterMode != 'existing', clusterDistribution = 'debian12' or 'debian13').
+# (clusterMode != 'existing', clusterDistribution = 'debian13').
 #
 # Arguments:
 #   $1 - Optional HTTP/HTTPS proxy URL

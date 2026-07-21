@@ -13,7 +13,7 @@ Hook to back-up storage ceph configuration for 'k2s system backup' and cluster u
 
 Ceph connects to an EXTERNAL Ceph cluster, so there is no addon-owned persistent data on the
 cluster. The only state required to re-enable the addon after a restore/upgrade is its connection
-configuration (monitor endpoints, credentials, pool/filesystem names) stored in ceph-config.json.
+configuration stored in ceph-config.json.
 This hook copies that file into the backup directory.
 #>
 param (

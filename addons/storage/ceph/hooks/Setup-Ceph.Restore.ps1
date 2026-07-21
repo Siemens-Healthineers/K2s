@@ -13,7 +13,7 @@ Hook to restore storage ceph configuration for 'k2s system restore' and cluster 
 
 During an upgrade the addon install folder is replaced and ceph-config.json is reset to the shipped
 defaults. This hook copies the previously backed-up ceph-config.json back into the addon config
-directory BEFORE the addon is re-enabled, so the effective monitor endpoints and credentials are
+directory BEFORE the addon is re-enabled, so the effective configurations are
 preserved. Without this, re-enabling the ceph addon would fail because the required connection
 settings would be missing.
 #>

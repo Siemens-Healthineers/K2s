@@ -205,36 +205,40 @@ function Invoke-CephOsdPreparation {
     }
 
     [uint32]$osdDiskSizeGB = 20
-    $configuredDiskSize = if ($null -ne $Config) { "$($Config.osdDiskSizeGB)".Trim() } else { '' }
+    $configuredDiskSize = if ($null -ne $Config -and -not [string]::IsNullOrWhiteSpace("$($Config.osdsize)".Trim())) {
+        "$($Config.osdsize)".Trim()
+    }
+    elseif ($null -ne $Config) {
+        "$($Config.osdDiskSizeGB)".Trim()
+    }
+    else {
+        ''
+    }
     if (-not [string]::IsNullOrWhiteSpace($configuredDiskSize)) {
         $parsedDiskSize = 0
         if ([uint32]::TryParse($configuredDiskSize, [ref]$parsedDiskSize) -and $parsedDiskSize -gt 0) {
             $osdDiskSizeGB = $parsedDiskSize
         }
         else {
-            Write-Log "[Ceph] WARNING: Invalid osdDiskSizeGB '$configuredDiskSize' in ceph-config.json. Falling back to ${osdDiskSizeGB} GiB." -Console
+            Write-Log "[Ceph] WARNING: Invalid osdsize/osdDiskSizeGB '$configuredDiskSize' in ceph-config.json. Falling back to ${osdDiskSizeGB} GiB." -Console
+        }
+    }
+
+    [uint32]$osdCount = 2
+    $configuredOsdCount = if ($null -ne $Config) { "$($Config.osdcount)".Trim() } else { '' }
+    if (-not [string]::IsNullOrWhiteSpace($configuredOsdCount)) {
+        $parsedOsdCount = 0
+        if ([uint32]::TryParse($configuredOsdCount, [ref]$parsedOsdCount) -and $parsedOsdCount -gt 0) {
+            $osdCount = $parsedOsdCount
+        }
+        else {
+            Write-Log "[Ceph] WARNING: Invalid osdcount '$configuredOsdCount' in ceph-config.json. Falling back to $osdCount." -Console
         }
     }
 
     $prepareDiskScript = Join-Path $PSScriptRoot 'osd\New-CephOsdDisk.ps1'
     if (-not (Test-Path $prepareDiskScript)) {
         Write-Log "[Ceph] ERROR: OSD disk preparation orchestrator not found: '$prepareDiskScript'" -Console -Error
-        exit 1
-    }
-
-    Write-Log "[Ceph] Preparing OSD disk on node '$osdNodeIp'$(if ($osdAccess.NodeName) { " ($($osdAccess.NodeName))" })..." -Console
-    $prepareDiskOutput = & $prepareDiskScript -NodeIp $osdNodeIp -UserName $osdAccess.UserName -DiskSizeGB $osdDiskSizeGB -Config $Config -ShowLogs:$ShowLogs
-    if ($LASTEXITCODE -ne 0) {
-        Write-Log "[Ceph] ERROR: OSD disk preparation failed on node '$osdNodeIp' (exit code $LASTEXITCODE)." -Console -Error
-        exit 1
-    }
-
-    $prepareDiskOutputText = ($prepareDiskOutput | Out-String)
-    $preparedDiskLine = $prepareDiskOutputText -split "`r?`n" | Where-Object { $_.Trim().StartsWith('K2S_CEPH_OSD_DISK=') } | Select-Object -Last 1
-    $preparedDisk = if (-not [string]::IsNullOrWhiteSpace($preparedDiskLine)) { $preparedDiskLine.Trim().Substring('K2S_CEPH_OSD_DISK='.Length).Trim() } else { '' }
-
-    if ([string]::IsNullOrWhiteSpace($preparedDisk)) {
-        Write-Log "[Ceph] ERROR: OSD disk preparation finished but no device path was returned." -Console -Error
         exit 1
     }
 
@@ -262,23 +266,43 @@ function Invoke-CephOsdPreparation {
     }
 
     $clusterFsid = if ($null -ne $Config) { "$($Config.clusterId)".Trim() } else { '' }
-    $addOsdScriptArgs = @($orchestratorHostName, $preparedDisk)
-    if (-not [string]::IsNullOrWhiteSpace($clusterFsid)) {
-        $addOsdScriptArgs += $clusterFsid
-    }
 
-    Write-Log "[Ceph] Adding labels (osd/mgr/mds) and creating OSD on '$($orchestratorHostName):$($preparedDisk)'..." -Console
-    $addOsdOutput = Invoke-RemoteScript -LocalScriptPath $addOsdScript `
-                        -UserName $BootstrapNodeUserName `
-                        -IpAddress $BootstrapNodeIp `
-                        -UserPwd '' `
-                        -Arguments $addOsdScriptArgs `
-                        -CleanupAfterExecution `
-                        -Retries 2
+    Write-Log "[Ceph] OSD configuration: count=$osdCount, size=${osdDiskSizeGB}GiB" -Console
+    for ($osdIndex = 1; $osdIndex -le $osdCount; $osdIndex++) {
+        Write-Log "[Ceph] Preparing OSD disk #$osdIndex of $osdCount on node '$osdNodeIp'$(if ($osdAccess.NodeName) { " ($($osdAccess.NodeName))" })..." -Console
+        $prepareDiskOutput = & $prepareDiskScript -NodeIp $osdNodeIp -UserName $osdAccess.UserName -DiskSizeGB $osdDiskSizeGB -CreateNewDisk:($osdIndex -gt 1) -Config $Config -ShowLogs:$ShowLogs
+        if ($LASTEXITCODE -ne 0) {
+            Write-Log "[Ceph] ERROR: OSD disk preparation failed on node '$osdNodeIp' for OSD #$osdIndex (exit code $LASTEXITCODE)." -Console -Error
+            exit 1
+        }
 
-    if (($addOsdOutput | Out-String) -match '\[CephOsdAdd\]\s+ERROR:') {
-        Write-Log "[Ceph] ERROR: Failed while labeling host / adding OSD. See previous CephOsdAdd logs." -Console -Error
-        exit 1
+        $prepareDiskOutputText = ($prepareDiskOutput | Out-String)
+        $preparedDiskLine = $prepareDiskOutputText -split "`r?`n" | Where-Object { $_.Trim().StartsWith('K2S_CEPH_OSD_DISK=') } | Select-Object -Last 1
+        $preparedDisk = if (-not [string]::IsNullOrWhiteSpace($preparedDiskLine)) { $preparedDiskLine.Trim().Substring('K2S_CEPH_OSD_DISK='.Length).Trim() } else { '' }
+
+        if ([string]::IsNullOrWhiteSpace($preparedDisk)) {
+            Write-Log "[Ceph] ERROR: OSD disk preparation for OSD #$osdIndex finished but no device path was returned." -Console -Error
+            exit 1
+        }
+
+        $addOsdScriptArgs = @($orchestratorHostName, $preparedDisk)
+        if (-not [string]::IsNullOrWhiteSpace($clusterFsid)) {
+            $addOsdScriptArgs += $clusterFsid
+        }
+
+        Write-Log "[Ceph] Adding labels (osd/mgr/mds) and creating OSD #$osdIndex on '$($orchestratorHostName):$($preparedDisk)'..." -Console
+        $addOsdOutput = Invoke-RemoteScript -LocalScriptPath $addOsdScript `
+                            -UserName $BootstrapNodeUserName `
+                            -IpAddress $BootstrapNodeIp `
+                            -UserPwd '' `
+                            -Arguments $addOsdScriptArgs `
+                            -CleanupAfterExecution `
+                            -Retries 2
+
+        if (($addOsdOutput | Out-String) -match '\[CephOsdAdd\]\s+ERROR:') {
+            Write-Log "[Ceph] ERROR: Failed while labeling host / adding OSD #$osdIndex. See previous CephOsdAdd logs." -Console -Error
+            exit 1
+        }
     }
 }
 
@@ -337,54 +361,14 @@ Function Set-CephDashboardDetailsFromBootstrapOutput {
 
 <#
 .SYNOPSIS
-Adds/refreshes a Windows hosts-file entry mapping a hostname to an IP address.
-
-.DESCRIPTION
-cephadm builds the dashboard URL from the Ceph node's own hostname, which is not
-resolvable from the K2s Windows host. This writes '<IpAddress> <HostName>' into
-C:\Windows\System32\drivers\etc\hosts (removing any stale mapping for the same
-hostname first) so the dashboard URL resolves. Idempotent.
-#>
-Function Add-CephWindowsHostEntry {
-    param (
-        [Parameter(Mandatory = $true)][string]$HostName,
-        [Parameter(Mandatory = $true)][string]$IpAddress
-    )
-
-    $hostFile = 'C:\Windows\System32\drivers\etc\hosts'
-    $entry = "$IpAddress $HostName"
-
-    try {
-        $content = @()
-        if (Test-Path $hostFile) { $content = @(Get-Content -Path $hostFile) }
-
-        # Drop any existing mapping for this hostname (e.g. a stale IP from a previous enable).
-        $pattern = '^\s*\S+\s+' + [regex]::Escape($HostName) + '\s*$'
-        $filtered = @($content | Where-Object { $_ -notmatch $pattern })
-
-        if (($content -join "`n") -eq (($filtered + $entry) -join "`n")) {
-            Write-Log "[Ceph] Hosts entry '$entry' already present" -Console
-            return
-        }
-
-        $filtered += $entry
-        Set-Content -Path $hostFile -Value $filtered -Encoding ascii -Force
-        Write-Log "[Ceph] Added hosts entry '$entry' to '$hostFile'" -Console
-    }
-    catch {
-        Write-Log "[Ceph] WARNING: Failed to update hosts file '$hostFile': $($_.Exception.Message)" -Console
-    }
-}
-
-<#
-.SYNOPSIS
 Makes the cephadm dashboard reachable from the K2s Windows host.
 
 .DESCRIPTION
-cephadm exposes the dashboard at https://<node-hostname>:8443/. From the K2s host
-that hostname does not resolve. This adds a hosts entry (hostname -> node IP) so the
-URL resolves in the browser. The hostname is written back into the shared config so
-Enable.ps1 persists it and Disable.ps1 can undo it.
+cephadm builds the dashboard URL from the node hostname (e.g. https://deb13cephadmintest1:8443/).
+From the K2s host that hostname does not resolve, and even with a hosts-file entry the dashboard can
+respond with HTTP 404 for the hostname. To make the dashboard open reliably, the URL is rewritten to
+use the node IP directly (https://<node-ip>:8443/) and written back into the shared config so
+Enable.ps1 surfaces the working URL to the user.
 #>
 Function Register-CephDashboardAccess {
     param (
@@ -394,14 +378,14 @@ Function Register-CephDashboardAccess {
 
     $dashboardUrl = "$($Config.dashboardUrl)".Trim()
     if ([string]::IsNullOrWhiteSpace($dashboardUrl)) {
-        Write-Log "[Ceph] No dashboard URL resolved; skipping host entry setup." -Console
+        Write-Log "[Ceph] No dashboard URL resolved; skipping dashboard access setup." -Console
         return
     }
 
     $uri = $null
     try { $uri = [uri]$dashboardUrl } catch { $uri = $null }
     if ($null -eq $uri) {
-        Write-Log "[Ceph] WARNING: Could not parse dashboard URL '$dashboardUrl'; skipping host entry setup." -Console
+        Write-Log "[Ceph] WARNING: Could not parse dashboard URL '$dashboardUrl'; skipping dashboard access setup." -Console
         return
     }
 
@@ -410,10 +394,15 @@ Function Register-CephDashboardAccess {
     $parsedIp = $null
     $isIpHost = [System.Net.IPAddress]::TryParse($dashboardHost, [ref]$parsedIp)
 
-    # Make the node hostname resolve to the node IP (skip when cephadm already used an IP).
+    # Rewrite the dashboard URL to use the node IP directly (skip when cephadm already used an IP).
+    # Accessing the dashboard by the node hostname can return HTTP 404 from the K2s host, whereas the
+    # node IP works reliably.
     if (-not $isIpHost) {
-        Add-CephWindowsHostEntry -HostName $dashboardHost -IpAddress $NodeIp
-        $Config | Add-Member -NotePropertyName 'dashboardHost' -NotePropertyValue $dashboardHost -Force
+        $builder = [System.UriBuilder]$uri
+        $builder.Host = $NodeIp
+        $ipDashboardUrl = $builder.Uri.AbsoluteUri
+        $Config | Add-Member -NotePropertyName 'dashboardUrl' -NotePropertyValue $ipDashboardUrl -Force
+        Write-Log "[Ceph] Rewrote dashboard URL to use node IP '$NodeIp' instead of hostname '$dashboardHost': '$ipDashboardUrl'" -Console
     }
 }
 
@@ -561,9 +550,8 @@ if (-not [string]::IsNullOrWhiteSpace($cephPubKeyLine)) {
     Write-Log "[Ceph]   $cephPubKeyValue" -Console
 }
 
-# Make the cephadm dashboard reachable and trusted from the K2s host: add a hosts entry so the
-# node hostname resolves to the node IP, and import the dashboard's self-signed certificate into
-# the Windows trusted root store (removing the browser 'Not secure' warning).
+# Make the cephadm dashboard reachable from the K2s host: cephadm builds the URL from the node
+# hostname, which can return HTTP 404 from the host, so rewrite it to use the node IP directly.
 if ($null -ne $Config) {
     Register-CephDashboardAccess -Config $Config -NodeIp $NodeIp
 }

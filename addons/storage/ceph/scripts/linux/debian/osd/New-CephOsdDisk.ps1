@@ -48,6 +48,8 @@ Param(
     [string] $Device = '',
     [parameter(Mandatory = $false, HelpMessage = 'Virtual disk size in GiB for Hyper-V nodes')]
     [uint32] $DiskSizeGB = 20,
+    [parameter(Mandatory = $false, HelpMessage = 'Force creation of a new Hyper-V virtual disk even when K2s OSD disks already exist')]
+    [switch] $CreateNewDisk = $false,
     [parameter(Mandatory = $false, HelpMessage = 'Parsed ceph-config.json object')]
     [pscustomobject] $Config,
     [parameter(Mandatory = $false, HelpMessage = 'Show all logs in terminal')]
@@ -185,12 +187,15 @@ if ($nodeType -eq 'HyperV') {
             -not [string]::IsNullOrWhiteSpace($_.Path) -and ((Split-Path $_.Path -Leaf) -like 'ceph-osd-*.vhdx')
         })
 
-        if ($existingK2sOsdDisks.Count -gt 0) {
+        if ($existingK2sOsdDisks.Count -gt 0 -and -not $CreateNewDisk) {
             $existingPaths = @($existingK2sOsdDisks | ForEach-Object { $_.Path }) -join ', '
             Write-Log "[Ceph] Reusing existing K2s OSD virtual disk attachment(s) on VM '$vmName': $existingPaths" -Console
             Write-Log "[Ceph] Skipping creation of a new virtual disk to avoid accumulating extra OSD volumes across retries." -Console
         }
         else {
+            if ($existingK2sOsdDisks.Count -gt 0 -and $CreateNewDisk) {
+                Write-Log "[Ceph] Existing K2s OSD disk(s) already attached on VM '$vmName'; creating an additional OSD disk as requested." -Console
+            }
             Write-Log "[Ceph] Creating and attaching a new ${DiskSizeGB} GiB virtual disk to VM '$vmName'..." -Console
 
             $disksBefore = Get-GuestWholeDiskNames -UserName $sshUserName -IpAddress $NodeIp

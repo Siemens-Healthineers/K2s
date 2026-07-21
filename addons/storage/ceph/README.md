@@ -6,14 +6,26 @@ SPDX-License-Identifier: MIT
 
 # Ceph CSI Storage (CephFS)
 
-Provides dynamic **CephFS (file) storage** for K2s by connecting to an existing external
-Ceph cluster through the upstream [`ceph-csi-operator`](https://github.com/ceph/ceph-csi-operator) — no Rook required.
+Provides dynamic **CephFS (file) storage** for K2s. On **enable**, the addon **always provisions a
+brand-new Ceph cluster** on a K2s node and wires it up through the upstream
+[`ceph-csi-operator`](https://github.com/ceph/ceph-csi-operator) — no Rook required. On **disable**,
+the addon can tear that cluster down again.
 
-Instead of applying the CSI driver workloads directly, this addon deploys the
-`ceph-csi-operator` and a small set of custom resources. The operator then reconciles
-those resources and creates/maintains the CephFS CSI controller and node plugins for you.
+The target node is chosen by the **`clusterHostNode`** value in
+[`config/ceph-config.json`](config/ceph-config.json): its IP address is resolved from the K2s
+cluster descriptor (`cluster.json`). When `clusterHostNode` is the K2s control plane node name
+(e.g. `kubemaster`), Ceph is installed on the kubemaster; otherwise it is installed on the named
+node.
+
+> **Only Debian 13 nodes are supported.** The addon validates the target node's OS over SSH on
+> enable and refuses to continue on any other distribution.
+
+After the cluster is provisioned, the addon deploys the `ceph-csi-operator` and a small set of
+custom resources. The operator then reconciles those resources and creates/maintains the CephFS CSI
+controller and node plugins for you.
 
 This implementation provides:
+- **A freshly provisioned single-node Ceph cluster** on the selected Debian 13 node
 - **ceph-csi-operator** that manages the CephFS CSI controller and node plugins
 - **Custom resources** (`Driver`, `CephConnection`, `ClientProfile`) that describe the driver and Ceph connection
 - **RBAC & permissions** (ServiceAccounts, ClusterRoles, ClusterRoleBindings)
@@ -25,17 +37,13 @@ This implementation provides:
 
 ## Prerequisites
 
-1. **Existing Ceph cluster** with:
-   - Monitor endpoints (e.g., `10.0.0.1:6789,10.0.0.2:6789`)
-   - Admin keyring or read-only key
-  - Existing CephFS data pool (e.g., `cephfs_data`)
-   - CephFS filesystem configured (if using CephFS)
-   - A CephFS **subvolume group named `csi`** (the addon provisions volumes into this group).
-     Create it once on the Ceph cluster (replace `cephfs` with your filesystem name):
+1. **A K2s node running Debian 13** to host the Ceph cluster:
+   - Its name must be listed in `cluster.json` (it is part of the K2s cluster).
+   - Use the K2s control plane node name (e.g. `kubemaster`) to install Ceph on the kubemaster,
+     or any other Debian 13 node name to install it there.
+   - The node must be reachable over SSH and expose a blank data disk for the Ceph OSD.
 
-     ```bash
-     sudo cephadm shell ceph fs subvolumegroup create cephfs csi
-     ```
+   > **Only Debian 13 is supported.** Debian 12 and other distributions are rejected.
 
 2. **K8s cluster** with:
    - API server reachable from K2s nodes
@@ -47,33 +55,20 @@ This implementation provides:
 
 ## Quick Start
 
-### 1. Prepare Ceph Details
+### 1. Choose the Ceph host node
 
-Gather the following from your Ceph cluster:
-- Monitor endpoints: `10.0.0.1:6789,10.0.0.2:6789,10.0.0.3:6789`
-- Admin keyring: `AQDa1Ipn...==` (base64-encoded)
-- CephFS filesystem name (e.g. `cephfs`)
-- CephFS data pool: `cephfs_data` (or custom name)
-- Cluster ID (Ceph FSID)
+Edit [`config/ceph-config.json`](config/ceph-config.json) and set `clusterHostNode` to the name
+of the Debian 13 K2s node that should host the new Ceph cluster (as listed in `cluster.json`). Use
+the K2s control plane node name (e.g. `kubemaster`) to install Ceph on the kubemaster, or any other
+Debian 13 node name to install it there:
 
-Run these commands on a Ceph node to obtain the values (adjust for your deployment tooling):
-
-```bash
-# Cluster ID (Ceph FSID)
-sudo cephadm shell ceph fsid
-
-# Ceph user & key (base64-encoded key used for --adminKey / cephKey)
-sudo cephadm shell ceph auth get client.admin
-
-# 0: [v2:172.x.1.102:3300/0,v1:172.x.1.x:6789/0] mon.cephadmin 
-# 3: [v2:172.x.1.103:3300/0,v1:172.x.1.x:6789/0] mon.cephhostnode1
-# use 172.19.1.x:6789,172.x.1.103:6789  for Monitor endpoints
- sudo cephadm shell -- ceph mon dump
-
-# name: cephfs  <-- use this for CephFS filesystem name
-# data pools: [cephfs_data]   <-- use this CephFS data pool
-sudo cephadm shell ceph fs ls
-
+```json
+{
+    "comment": "Ceph CSI Configuration - 'clusterHostNode' must be the name of a K2s node (as listed in cluster.json) running Debian 13.",
+    "cephfsPool": "cephfs.cephfs.data",
+    "cephfsFilesystem": "cephfs",
+    "clusterHostNode": "kubemaster"
+}
 ```
 
 ### 2. Enable Addon
@@ -81,6 +76,12 @@ sudo cephadm shell ceph fs ls
 ```console
 k2s addons enable storage ceph 
 ```
+
+On enable the addon:
+1. Reads `clusterHostNode` and resolves its IP address from `cluster.json`.
+2. Validates over SSH that the node runs **Debian 13** (aborts otherwise).
+3. Provisions a fresh single-node Ceph cluster on that node.
+4. Deploys the Ceph CSI operator and the `ceph-cephfs` StorageClass.
 
 ### 3. Verify Installation
 
@@ -364,12 +365,11 @@ Keeps all PersistentVolumes **without confirmation** (data preserved).
 
 ## Backup, Restore & Upgrade
 
-Because this addon connects to an **external Ceph cluster**, the user data lives on that cluster
-and is never owned or stored locally by K2s. The only state that must be preserved to re-enable the
-addon is its **connection configuration** (monitor endpoints, credentials, cluster ID, and
-pool/filesystem names). This configuration is persisted to `config/ceph-config.json` when the addon
-is enabled (including values supplied via CLI flags) and is what the backup/restore/upgrade flows
-capture.
+Because this addon provisions a Ceph cluster on a K2s node, the only state that must be preserved to
+re-enable the addon is its **configuration** (`clusterHostNode`, plus the `cephfsPool` /
+`cephfsFilesystem` names). This configuration is persisted to `config/ceph-config.json` when the
+addon is enabled and is what the backup/restore/upgrade flows capture. Re-enabling always
+provisions a fresh Ceph cluster on the configured Debian 13 node.
 
 ### Addon backup and restore
 
@@ -425,7 +425,7 @@ Pod requests PVC (storageClassName: ceph-cephfs)
     ↓
 CephFS CSI controller (ctrlplugin)
     ↓ (CreateVolume → uses ceph-secret + CephConnection monitors)
-External Ceph cluster creates a CephFS subvolume
+Provisioned Ceph cluster creates a CephFS subvolume
     ↓
 PersistentVolume created and bound
     ↓
@@ -440,30 +440,25 @@ File: `addons/storage/ceph/config/ceph-config.json`
 
 ```json
 {
-  "monitorEndpoints": "10.0.0.1:6789,10.0.0.2:6789,10.0.0.3:6789",
-  "cephUser": "admin",
-  "cephKey": "AQDa1Ipn...==",
-  "clusterId": "63d54e0a-7c22-11f1-8fbf-00155d130ff3",
-  "cephfsPool": "cephfs_data",
-  "cephfsFilesystem": "cephfs"
+  "comment": "Ceph CSI Configuration - 'clusterHostNode' must be the name of a K2s node (as listed in cluster.json) running Debian 13.",
+  "cephfsPool": "cephfs.cephfs.data",
+  "cephfsFilesystem": "cephfs",
+  "clusterHostNode": "kubemaster"
 }
 ```
 
 | Field | Required | Description |
 |-------|----------|-------------|
-| `monitorEndpoints` | Yes | Comma-separated Ceph monitor `host:port` list. Also settable via `--monitorEndpoints`. |
-| `cephKey` | Yes | Base64-encoded Ceph key for the user. Also settable via `--adminKey`. |
-| `cephUser` | No | Ceph client user (default `client.admin`). |
-| `clusterId` | No | Ceph cluster FSID (default `k2s-ceph`). |
-| `cephfsPool` | No | CephFS **data pool** name (default `cephfs_data`). Must be an actual data pool of the filesystem (see `ceph fs ls`), not the filesystem name. Also settable via `--cephfsPool`. |
+| `clusterHostNode` | Yes | Name of the K2s node (as listed in `cluster.json`) that hosts the new Ceph cluster. Must run **Debian 13**. Use the control plane node name (e.g. `kubemaster`) for the kubemaster, or another Debian 13 node name. |
+| `cephfsPool` | No | CephFS **data pool** name (default `cephfs.cephfs.data`). Refreshed with the value read back from the freshly provisioned cluster. |
 | `cephfsFilesystem` | No | CephFS filesystem name (default `cephfs`). |
+| `comment` | No | Free-text note; ignored by the addon. |
 
 When no config object is passed by the CLI, `enable` falls back to this file, so the
 `edit ceph-config.json` → `k2s addons enable storage ceph` workflow works out of the box.
 
 > The generated `ceph-cephfs` StorageClass uses `clusterID: storage`, which references the
-> `ClientProfile/storage` resource created by the addon. Do not confuse this with the Ceph
-> cluster FSID in `clusterId` above.
+> `ClientProfile/storage` resource created by the addon.
 
 ## Validation & Mutual Exclusion
 
@@ -486,15 +481,15 @@ If SMB is active and you try to enable Ceph:
 k2s addons disable storage smb -k
 
 # 2. Enable Ceph
-k2s addons enable storage ceph --monitorEndpoints "..." --adminKey "..."
+k2s addons enable storage ceph
 ```
 
 ### Validation Checks
 
 Enable command validates:
 1. ✅ No conflicting storage implementation (SMB) is active
-2. ✅ Monitor endpoints provided
-3. ✅ Admin keyring provided
+2. ✅ `clusterHostNode` is set and exists in `cluster.json`
+3. ✅ The target node runs **Debian 13** (checked over SSH)
 4. ✅ K8s cluster is available
 5. ✅ Namespaces can be created
 6. ✅ Secrets can be created
@@ -628,5 +623,5 @@ parameters:
 For issues:
 1. Check logs: `kubectl logs -n ceph-csi-operator-system ...`
 2. Verify Ceph cluster: `ceph status`
-3. Review configuration: `addons/storage/ceph/config/ceph-config.json`
+3. Review configuration: `addons/storage/ceph/config/ceph-config.json` (`clusterHostNode` must be a Debian 13 node in `cluster.json`)
 4. Check mutual exclusion: `k2s addons status storage smb`

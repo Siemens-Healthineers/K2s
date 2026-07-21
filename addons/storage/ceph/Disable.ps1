@@ -42,19 +42,324 @@ $validationModule = "$PSScriptRoot\..\storage-validation.module.psm1"
 Import-Module $infraModule, $clusterModule, $addonsModule, $validationModule
 Initialize-Logging -ShowLogs:$ShowLogs
 
-# Capture which data-handling flags were EXPLICITLY passed on the command line before the
-# interactive PVC data prompt below mutates $Force/$Keep. The on-node Ceph cluster deletion is a
-# separate decision from the PVC data handling, so it must not be inferred from the PVC prompt's
-# answer - only from an explicit -Force/-Keep on the invocation.
+<#
+.SYNOPSIS
+Removes the Ceph CSI Kubernetes resources (operator, driver, CRs, StorageClass, namespaces, CRDs).
+
+.DESCRIPTION
+Deletes the kustomized manifests, strips finalizers from the Ceph CSI custom resources so their
+namespaces can terminate, and removes the cluster-scoped StorageClass, CSIDriver and CRDs that are
+not part of any manifest.
+#>
+function Remove-CephCsiKubernetesResources {
+    param(
+        [Parameter(Mandatory = $true)][string]$ManifestsDir
+    )
+
+    (Invoke-Kubectl -Params 'delete', '-k', $ManifestsDir, '--ignore-not-found', '--wait=false').Output | Write-Log
+
+    $cephCrKinds = @(
+        'clientprofiles.csi.ceph.io',
+        'clientprofilemappings.csi.ceph.io',
+        'drivers.csi.ceph.io',
+        'cephconnections.csi.ceph.io',
+        'operatorconfigs.csi.ceph.io'
+    )
+    $finalizerPatchFile = Join-Path ([System.IO.Path]::GetTempPath()) ("k2s-ceph-finalizer-" + [guid]::NewGuid().ToString() + ".json")
+    Set-Content -Path $finalizerPatchFile -Value '{"metadata":{"finalizers":null}}' -Encoding ascii -NoNewline
+    try {
+        foreach ($crKind in $cephCrKinds) {
+            $getResult = Invoke-Kubectl -Params 'get', $crKind, '--all-namespaces', '--ignore-not-found', '-o', 'custom-columns=NS:.metadata.namespace,NAME:.metadata.name', '--no-headers'
+            if (-not $getResult.Success) {
+                # CRD for this kind no longer exists (already deleted) - nothing to clean up.
+                continue
+            }
+            $crLines = @($getResult.Output | ForEach-Object { "$_" } | Where-Object { $_ -match '\S' })
+            foreach ($entry in $crLines) {
+                $cols = ($entry.Trim() -split '\s+')
+                $crNamespace = $cols[0]
+                $crName = $cols[1]
+                if ([string]::IsNullOrWhiteSpace($crName)) {
+                    continue
+                }
+                Write-Log "[Ceph] Removing finalizers from $crKind $crNamespace/$crName"
+                (Invoke-Kubectl -Params 'patch', $crKind, $crName, '-n', $crNamespace, '--type', 'merge', '--patch-file', $finalizerPatchFile).Output | Write-Log
+            }
+        }
+    }
+    finally {
+        Remove-Item -Path $finalizerPatchFile -Force -ErrorAction SilentlyContinue
+    }
+
+    (Invoke-Kubectl -Params 'delete', 'storageclass', 'ceph-cephfs', '--ignore-not-found').Output | Write-Log
+
+    # Remove the CSIDriver object that the operator creates dynamically for the CephFS driver.
+    # It is cluster-scoped and not part of any manifest, so 'delete -k' does not remove it and it
+    # survives namespace deletion. Because the Driver CR finalizer is stripped above, the operator
+    # never gets to delete it either - so remove it explicitly to avoid leaving it orphaned.
+    (Invoke-Kubectl -Params 'delete', 'csidriver', 'cephfs.csi.ceph.com', '--ignore-not-found').Output | Write-Log
+
+    (Invoke-Kubectl -Params 'delete', 'namespace', 'ceph-csi-operator-system', '--ignore-not-found', '--wait=false').Output | Write-Log
+
+    (Invoke-Kubectl -Params 'delete', 'namespace', 'ceph-csi-cephfs', '--ignore-not-found', '--wait=false').Output | Write-Log
+
+    (Invoke-Kubectl -Params 'delete', '-f', (Join-Path $ManifestsDir 'crds'), '--ignore-not-found', '--wait=false').Output | Write-Log
+}
+
+<#
+.SYNOPSIS
+Resolves the name and IP of the node that hosts the provisioned Ceph cluster.
+
+.DESCRIPTION
+The target node is identified by 'clusterHostNode' in ceph-config.json. The K2s control plane node
+(e.g. 'kubemaster') is NOT stored in cluster.json, so its IP comes from the control-plane
+configuration; any other node is resolved from the K2s cluster descriptor (cluster.json). Returns an
+object with 'Name' and 'Ip' (empty 'Ip' when it cannot be resolved).
+#>
+function Get-CephClusterHostNode {
+    param(
+        [pscustomobject]$Config
+    )
+
+    $clusterHostNode = if ($Config -and ($Config.PSObject.Properties.Name -contains 'clusterHostNode')) { "$($Config.clusterHostNode)".Trim() } else { '' }
+    $clusterHostNodeIp = ''
+    if (-not [string]::IsNullOrWhiteSpace($clusterHostNode)) {
+        $controlPlaneNodeName = Get-ConfigControlPlaneNodeHostname
+        if ($clusterHostNode -eq $controlPlaneNodeName) {
+            $clusterHostNodeIp = "$(Get-ConfiguredIPControlPlane)".Trim()
+        }
+        else {
+            $targetNodeConfig = Get-NodeConfig -NodeName $clusterHostNode
+            if ($null -ne $targetNodeConfig) {
+                $clusterHostNodeIp = "$($targetNodeConfig.IpAddress)".Trim()
+            }
+            else {
+                Write-Log "[Ceph] WARNING: Node '$clusterHostNode' from ceph-config.json was not found in cluster.json; cannot resolve its IP for on-node Ceph cluster teardown." -Console
+            }
+        }
+    }
+
+    return [pscustomobject]@{ Name = $clusterHostNode; Ip = $clusterHostNodeIp }
+}
+
+<#
+.SYNOPSIS
+Clears the recorded Ceph cluster FSID ('cephClusterId') from ceph-config.json.
+
+.DESCRIPTION
+Called after the on-node cluster is torn down so a subsequent enable/disable does not reference a
+stale cluster id.
+#>
+function Clear-CephRecordedClusterId {
+    param(
+        [Parameter(Mandatory = $true)][string]$CephConfigFilePath
+    )
+
+    try {
+        if (Test-Path $CephConfigFilePath) {
+            $cephConfigOnDisk = Get-Content -Path $CephConfigFilePath -Raw | ConvertFrom-Json
+            if ($cephConfigOnDisk.PSObject.Properties.Name -contains 'cephClusterId') {
+                $cephConfigOnDisk.cephClusterId = ''
+                $cephConfigOnDisk | ConvertTo-Json -Depth 10 | Set-Content -Path $CephConfigFilePath -Encoding UTF8
+                Write-Log "[Ceph] Cleared recorded Ceph cluster id in $CephConfigFilePath" -Console
+            }
+        }
+    }
+    catch {
+        Write-Log "[Ceph] WARNING: Could not clear Ceph cluster id in '$CephConfigFilePath': $($_.Exception.Message)" -Console
+    }
+}
+
+<#
+.SYNOPSIS
+Tears down the Ceph cluster that the addon provisioned on the host node.
+
+.DESCRIPTION
+The addon ALWAYS provisions a new Ceph cluster on enable, so disabling must tear it down. Deleting
+that cluster is destructive and irreversible, so an explicit, dedicated confirmation is required
+(separate from the PVC data prompt). Explicit -Force deletes and -Keep preserves without prompting;
+otherwise the user is asked interactively. Only Debian 13 nodes are supported.
+#>
+function Remove-ProvisionedCephClusterOnNode {
+    param(
+        [Parameter(Mandatory = $true)][string]$ClusterHostNode,
+        [Parameter(Mandatory = $true)][string]$ClusterHostNodeIp,
+        [pscustomobject]$Config,
+        [bool]$ForceProvided,
+        [bool]$KeepProvided,
+        [Parameter(Mandatory = $true)][string]$RemoveClusterScript,
+        [Parameter(Mandatory = $true)][string]$CephConfigFilePath,
+        [switch]$ShowLogs
+    )
+
+    # Use the flags as ORIGINALLY passed on the command line, NOT the values set by the interactive
+    # PVC data prompt (which is a separate decision). When neither is set, always ask for a dedicated
+    # confirmation - Read-Host still works against the console even in -EncodeStructuredOutput mode.
+    $deleteCephCluster = $false
+    if ($ForceProvided) {
+        $deleteCephCluster = $true
+    }
+    elseif ($KeepProvided) {
+        $deleteCephCluster = $false
+    }
+    else {
+        Write-Log '' -Console
+        Write-Log "[Ceph] WARNING: The storage ceph addon provisioned a Ceph cluster on host node '$ClusterHostNode' ($ClusterHostNodeIp)." -Console
+        $answer = Read-Host "Do you want to DELETE the Ceph cluster on host node '$ClusterHostNode'? This destroys the cluster and ALL its data and cannot be undone. (y/N)"
+        if ($answer -eq 'y') {
+            $deleteCephCluster = $true
+            Write-Log "[Ceph] CEPH CLUSTER DELETION CONFIRMED for host node '$ClusterHostNodeIp'." -Console
+        }
+        else {
+            Write-Log "[Ceph] Ceph cluster on host node '$ClusterHostNodeIp' will be KEPT." -Console
+        }
+    }
+
+    if (-not $deleteCephCluster) {
+        Write-Log "[Ceph] Only the addon/CSI resources were removed. The Ceph cluster on host node '$ClusterHostNodeIp' was NOT deleted." -Console
+        return
+    }
+
+    if (-not (Test-Path $RemoveClusterScript)) {
+        Write-Log "[Ceph] WARNING: Teardown script not found at '$RemoveClusterScript'; skipping on-node Ceph cluster teardown." -Console
+        return
+    }
+
+    # Only Debian 13 nodes are supported, so the Debian teardown script is always used.
+    Write-Log "[Ceph] Tearing down provisioned Ceph cluster on node '$ClusterHostNode' ($ClusterHostNodeIp)" -Console
+    & $RemoveClusterScript -NodeIp $ClusterHostNodeIp -Config $Config -ShowLogs:$ShowLogs
+    if ($LASTEXITCODE -ne 0) {
+        Write-Log "[Ceph] WARNING: On-node Ceph cluster teardown reported a non-zero exit code ($LASTEXITCODE). Manual cleanup on '$ClusterHostNodeIp' may be required." -Console
+        return
+    }
+
+    Write-Log '[Ceph] On-node Ceph cluster teardown completed' -Console
+    Clear-CephRecordedClusterId -CephConfigFilePath $CephConfigFilePath
+}
+
+<#
+.SYNOPSIS
+Removes the Windows hosts-file entry that Enable.ps1 may have created for the Ceph dashboard.
+
+.DESCRIPTION
+Older enables mapped the dashboard hostname to the node IP in the Windows hosts file. This cleans up
+that entry (identified by 'dashboardHost' in the config) when present.
+#>
+function Remove-CephDashboardHostEntry {
+    param(
+        [pscustomobject]$Config
+    )
+
+    $clusterHostNode = if ($Config -and ($Config.PSObject.Properties.Name -contains 'clusterHostNode')) { "$($Config.clusterHostNode)".Trim() } else { '' }
+    $controlPlaneNodeName = Get-ConfigControlPlaneNodeHostname
+    if (-not [string]::IsNullOrWhiteSpace($clusterHostNode) -and $clusterHostNode -eq $controlPlaneNodeName) {
+        Write-Log "[Ceph] Skipping dashboard hosts-entry cleanup for control plane node '$clusterHostNode'." -Console
+        return
+    }
+
+    $dashboardHost = if ($Config -and ($Config.PSObject.Properties.Name -contains 'dashboardHost')) { "$($Config.dashboardHost)".Trim() } else { '' }
+    if ([string]::IsNullOrWhiteSpace($dashboardHost)) {
+        return
+    }
+
+    $hostFile = 'C:\Windows\System32\drivers\etc\hosts'
+    try {
+        if (Test-Path $hostFile) {
+            $pattern = '^\s*\S+\s+' + [regex]::Escape($dashboardHost) + '\s*$'
+            $content = @(Get-Content -Path $hostFile)
+            $filtered = @($content | Where-Object { $_ -notmatch $pattern })
+            if ($filtered.Count -ne $content.Count) {
+                # Use WriteAllLines instead of Set-Content: Set-Content throws
+                # 'Stream was not readable' when the resulting array is empty (e.g. the
+                # dashboard entry was the only line in the hosts file).
+                [System.IO.File]::WriteAllLines($hostFile, [string[]]$filtered, [System.Text.Encoding]::ASCII)
+                Write-Log "[Ceph] Removed hosts entry for '$dashboardHost' from '$hostFile'" -Console
+            }
+        }
+    }
+    catch {
+        Write-Log "[Ceph] WARNING: Failed to remove hosts entry for '$dashboardHost': $($_.Exception.Message)" -Console
+    }
+}
+
+<#
+.SYNOPSIS
+Removes the Ceph CSI container images that were pulled onto the K2s cluster node(s).
+
+.DESCRIPTION
+The k8s resource deletions only remove the pods; their cached images stay in containerd until
+explicitly removed. The exact image references are read from the storage addon manifest's ceph
+'additionalImages' list so this stays in sync with what the addon installs. Only that exact repo:tag
+list is removed (not a broad namespace) so images other addons might share are untouched. These
+images are re-imported from the offline package on the next enable.
+#>
+function Remove-CephCsiNodeImages {
+    param(
+        [Parameter(Mandatory = $true)][string]$StorageManifestPath
+    )
+
+    try {
+        if (-not (Test-Path $StorageManifestPath)) {
+            Write-Log "[Ceph] WARNING: Storage addon manifest not found at '$StorageManifestPath'; skipping node image cleanup." -Console
+            return
+        }
+
+        # Collect the ceph CSI image references (repo:tag) declared under additionalImages. The
+        # smb implementation declares an empty additionalImages list, so only the ceph entries
+        # (quay.io/ceph, quay.io/cephcsi, registry.k8s.io/sig-storage) match here.
+        $cephImageRefs = @(
+            Get-Content -Path $StorageManifestPath |
+            ForEach-Object { $_.Trim() } |
+            Where-Object { $_ -match '^-\s+(quay\.io/ceph/|quay\.io/cephcsi/|registry\.k8s\.io/sig-storage/)\S+:\S+$' } |
+            ForEach-Object { ($_ -replace '^-\s+', '').Trim() } |
+            Select-Object -Unique
+        )
+
+        if ($cephImageRefs.Count -eq 0) {
+            Write-Log '[Ceph] No Ceph CSI images found in storage addon manifest; skipping node image cleanup.'
+            return
+        }
+
+        Write-Log "[Ceph] Removing $($cephImageRefs.Count) Ceph CSI image(s) from the K2s cluster node(s)" -Console
+
+        # Enumerate the images actually present on the nodes so we can map each manifest reference to
+        # its ContainerImage (with ImageId/Node) for Remove-Image.
+        $nodeImages = @(Get-ContainerImagesInk2s -IncludeK8sImages $true)
+
+        foreach ($imageRef in $cephImageRefs) {
+            $matchingImages = @($nodeImages | Where-Object { "$($_.Repository):$($_.Tag)" -eq $imageRef })
+            if ($matchingImages.Count -eq 0) {
+                Write-Log "[Ceph] Image '$imageRef' not present on any node; nothing to remove."
+                continue
+            }
+
+            foreach ($img in $matchingImages) {
+                try {
+                    $removeResult = Remove-Image -ContainerImage $img -Force
+                    if ("$removeResult" -match '__K2S_IMAGE_DELETE_FAILED__') {
+                        Write-Log "[Ceph] WARNING: Failed to remove image '$imageRef' from node '$($img.Node)': $removeResult" -Console
+                    }
+                    else {
+                        Write-Log "[Ceph] Removed image '$imageRef' from node '$($img.Node)'" -Console
+                    }
+                }
+                catch {
+                    Write-Log "[Ceph] WARNING: Failed to remove image '$imageRef' from node '$($img.Node)': $($_.Exception.Message)" -Console
+                }
+            }
+        }
+    }
+    catch {
+        Write-Log "[Ceph] WARNING: Ceph CSI image cleanup on the cluster node(s) failed: $($_.Exception.Message)" -Console
+    }
+}
+
 $forceFlagProvided = $PSBoundParameters.ContainsKey('Force') -and $Force
 $keepFlagProvided = $PSBoundParameters.ContainsKey('Keep') -and $Keep
 
 Write-Log 'Checking cluster status' -Console
-# get addon name from folder path
 $addonName = Get-AddonNameFromFolderPath -BaseFolderPath $PSScriptRoot
 
-# When the CLI does not pass a -Config object, fall back to the addon config file so we know
-# whether the addon had provisioned a NEW Ceph cluster on a node that must be torn down as well.
 if ($null -eq $Config) {
     $cephConfigPath = "$PSScriptRoot\config\ceph-config.json"
     if (Test-Path $cephConfigPath) {
@@ -100,8 +405,6 @@ if ($Force -and $Keep) {
     exit 1
 }
 
-# When neither -Force nor -Keep is given, ask the user (same behavior as the SMB storage addon)
-# whether the data on the Ceph (CephFS) volumes should be deleted or preserved.
 if (-not $Force -and -not $Keep) {
     $answer = Read-Host 'Do you want to DELETE ALL DATA on the Ceph (CephFS) volumes? Otherwise, all data will be kept. (y/N)'
     if ($answer -eq 'y') {
@@ -116,232 +419,31 @@ if (-not $Force -and -not $Keep) {
 
 Write-Log 'Uninstalling storage ceph' -Console
 
-# When not keeping data, delete the PVCs bound to the ceph-cephfs StorageClass while the CSI
-# driver is still running, so the StorageClass reclaimPolicy=Delete frees the underlying CephFS
-# subvolumes. Doing this after the driver/operator is removed below would leave the subvolumes
-# orphaned on the external Ceph cluster.
 if (-not $Keep) {
     Write-Log '[Ceph] Deleting PersistentVolumeClaims bound to StorageClass ceph-cephfs' -Console
     Remove-PersistentVolumeClaimsForStorageClass -StorageClass 'ceph-cephfs' | Write-Log
 }
 
-$cephStorageYamlDir = "$PSScriptRoot\manifests"
-(Invoke-Kubectl -Params 'delete', '-k', $cephStorageYamlDir, '--ignore-not-found', '--wait=false').Output | Write-Log
+Remove-CephCsiKubernetesResources -ManifestsDir "$PSScriptRoot\manifests"
 
-# Remove finalizers from any remaining Ceph CSI custom resources. The operator normally
-# clears these finalizers, but since its namespace is deleted below, nobody would remove
-# them afterwards - leaving the CRs (and thus their CRDs) stuck in 'Terminating' forever.
-# The finalizer patch is written to a temp file and passed via --patch-file, and the CR
-# list is retrieved with custom-columns; both avoid inline JSON/jsonpath with embedded
-# double quotes, which PowerShell mangles when passing arguments to kubectl.exe.
-$cephCrKinds = @(
-    'clientprofiles.csi.ceph.io',
-    'clientprofilemappings.csi.ceph.io',
-    'drivers.csi.ceph.io',
-    'cephconnections.csi.ceph.io',
-    'operatorconfigs.csi.ceph.io'
-)
-$finalizerPatchFile = Join-Path ([System.IO.Path]::GetTempPath()) ("k2s-ceph-finalizer-" + [guid]::NewGuid().ToString() + ".json")
-Set-Content -Path $finalizerPatchFile -Value '{"metadata":{"finalizers":null}}' -Encoding ascii -NoNewline
-try {
-    foreach ($crKind in $cephCrKinds) {
-        $getResult = Invoke-Kubectl -Params 'get', $crKind, '--all-namespaces', '--ignore-not-found', '-o', 'custom-columns=NS:.metadata.namespace,NAME:.metadata.name', '--no-headers'
-        if (-not $getResult.Success) {
-            # CRD for this kind no longer exists (already deleted) - nothing to clean up.
-            continue
-        }
-        $crLines = @($getResult.Output | ForEach-Object { "$_" } | Where-Object { $_ -match '\S' })
-        foreach ($entry in $crLines) {
-            $cols = ($entry.Trim() -split '\s+')
-            $crNamespace = $cols[0]
-            $crName = $cols[1]
-            if ([string]::IsNullOrWhiteSpace($crName)) {
-                continue
-            }
-            Write-Log "[Ceph] Removing finalizers from $crKind $crNamespace/$crName"
-            (Invoke-Kubectl -Params 'patch', $crKind, $crName, '-n', $crNamespace, '--type', 'merge', '--patch-file', $finalizerPatchFile).Output | Write-Log
-        }
-    }
-}
-finally {
-    Remove-Item -Path $finalizerPatchFile -Force -ErrorAction SilentlyContinue
+$cephHostNode = Get-CephClusterHostNode -Config $Config
+if (-not [string]::IsNullOrWhiteSpace($cephHostNode.Ip)) {
+    Remove-ProvisionedCephClusterOnNode -ClusterHostNode $cephHostNode.Name `
+        -ClusterHostNodeIp $cephHostNode.Ip `
+        -Config $Config `
+        -ForceProvided $forceFlagProvided `
+        -KeepProvided $keepFlagProvided `
+        -RemoveClusterScript "$PSScriptRoot\scripts\linux\debian\Remove-CephCluster.ps1" `
+        -CephConfigFilePath "$PSScriptRoot\config\ceph-config.json" `
+        -ShowLogs:$ShowLogs
 }
 
-(Invoke-Kubectl -Params 'delete', 'storageclass', 'ceph-cephfs', '--ignore-not-found').Output | Write-Log
+# Remove the local dashboard-access artifact that an older Enable.ps1 may have created (Windows
+# hosts entry hostname -> node IP).
+Remove-CephDashboardHostEntry -Config $Config
 
-# Remove the CSIDriver object that the operator creates dynamically for the CephFS driver.
-# It is cluster-scoped and not part of any manifest, so 'delete -k' does not remove it and it
-# survives namespace deletion. Because the Driver CR finalizer is stripped above, the operator
-# never gets to delete it either - so remove it explicitly to avoid leaving it orphaned.
-(Invoke-Kubectl -Params 'delete', 'csidriver', 'cephfs.csi.ceph.com', '--ignore-not-found').Output | Write-Log
-
-(Invoke-Kubectl -Params 'delete', 'namespace', 'ceph-csi-operator-system', '--ignore-not-found', '--wait=false').Output | Write-Log
-
-(Invoke-Kubectl -Params 'delete', 'namespace', 'ceph-csi-cephfs', '--ignore-not-found', '--wait=false').Output | Write-Log
-
-$CrdsDirectory = "$PSScriptRoot\manifests\crds"
-(Invoke-Kubectl -Params 'delete', '-f', $CrdsDirectory, '--ignore-not-found', '--wait=false').Output | Write-Log
-
-# If the addon has cluster host details recorded (i.e. it knows about an on-node Ceph cluster),
-# deleting that cluster is destructive and irreversible, so we ask for an explicit, dedicated
-# confirmation (separate from the PVC data prompt above) before tearing it down. If the user
-# declines, only the addon/CSI resources are removed and the Ceph cluster on the host node is left
-# intact.
-$clusterHostNodeIp = if ($Config) { "$($Config.clusterHostNodeIp)".Trim() } else { '' }
-$clusterDistribution = if ($Config) { "$($Config.clusterDistribution)".Trim().ToLowerInvariant() } else { '' }
-
-if (-not [string]::IsNullOrWhiteSpace($clusterHostNodeIp)) {
-    # Decide whether to delete the on-node Ceph cluster.
-    # - Explicit flags win and keep the command non-interactive: -Force deletes, -Keep preserves.
-    #   These use the flags as ORIGINALLY passed on the command line, NOT the values set by the
-    #   interactive PVC data prompt above (which is a separate decision).
-    # - Otherwise always ask for a dedicated confirmation. This mirrors the PVC data prompt above,
-    #   which also prompts interactively even when the k2s CLI passes -EncodeStructuredOutput
-    #   (Read-Host still works against the console in that mode).
-    $deleteCephCluster = $false
-    if ($forceFlagProvided) {
-        $deleteCephCluster = $true
-    }
-    elseif ($keepFlagProvided) {
-        $deleteCephCluster = $false
-    }
-    else {
-        Write-Log '' -Console
-        Write-Log "[Ceph] WARNING: The storage ceph addon has a Ceph cluster recorded on host node '$clusterHostNodeIp'." -Console
-        Write-Log '[Ceph] WARNING: This Ceph cluster may already exist and be in use by other workloads.' -Console
-        $answer = Read-Host "Do you want to DELETE the Ceph cluster on host node '$clusterHostNodeIp'? This destroys the cluster and ALL its data and cannot be undone. (y/N)"
-        if ($answer -eq 'y') {
-            $deleteCephCluster = $true
-            Write-Log "[Ceph] CEPH CLUSTER DELETION CONFIRMED for host node '$clusterHostNodeIp'." -Console
-        }
-        else {
-            Write-Log "[Ceph] Ceph cluster on host node '$clusterHostNodeIp' will be KEPT." -Console
-        }
-    }
-
-    if ($deleteCephCluster) {
-        if ([string]::IsNullOrWhiteSpace($clusterDistribution)) {
-            Write-Log "[Ceph] WARNING: 'clusterDistribution' is missing; skipping on-node Ceph cluster teardown." -Console
-        }
-        else {
-            $removeClusterScript = $null
-            switch -Regex ($clusterDistribution) {
-                '^debian' { $removeClusterScript = "$PSScriptRoot\scripts\linux\debian\Remove-CephCluster.ps1" }
-                default {
-                    Write-Log "[Ceph] WARNING: Unsupported clusterDistribution '$clusterDistribution' for teardown; skipping on-node Ceph cluster teardown." -Console
-                }
-            }
-
-            if ($removeClusterScript -and (Test-Path $removeClusterScript)) {
-                Write-Log "[Ceph] Tearing down provisioned Ceph cluster on node '$clusterHostNodeIp' (distribution=$clusterDistribution)" -Console
-                & $removeClusterScript -NodeIp $clusterHostNodeIp -Config $Config -ShowLogs:$ShowLogs
-                if ($LASTEXITCODE -ne 0) {
-                    Write-Log "[Ceph] WARNING: On-node Ceph cluster teardown reported a non-zero exit code ($LASTEXITCODE). Manual cleanup on '$clusterHostNodeIp' may be required." -Console
-                }
-                else {
-                    Write-Log '[Ceph] On-node Ceph cluster teardown completed' -Console
-                }
-            }
-            elseif ($removeClusterScript) {
-                Write-Log "[Ceph] WARNING: Teardown script not found at '$removeClusterScript'; skipping on-node Ceph cluster teardown." -Console
-            }
-        }
-    }
-    else {
-        Write-Log "[Ceph] Only the addon/CSI resources were removed. The Ceph cluster on host node '$clusterHostNodeIp' was NOT deleted." -Console
-    }
-}
-
-# Remove the local dashboard-access artifact that Enable.ps1 created so the cephadm dashboard was
-# reachable from this host: the Windows hosts entry (hostname -> node IP).
-$dashboardHost = if ($Config -and ($Config.PSObject.Properties.Name -contains 'dashboardHost')) { "$($Config.dashboardHost)".Trim() } else { '' }
-
-if (-not [string]::IsNullOrWhiteSpace($dashboardHost)) {
-    $hostFile = 'C:\Windows\System32\drivers\etc\hosts'
-    try {
-        if (Test-Path $hostFile) {
-            $pattern = '^\s*\S+\s+' + [regex]::Escape($dashboardHost) + '\s*$'
-            $content = @(Get-Content -Path $hostFile)
-            $filtered = @($content | Where-Object { $_ -notmatch $pattern })
-            if ($filtered.Count -ne $content.Count) {
-                # Use WriteAllLines instead of Set-Content: Set-Content throws
-                # 'Stream was not readable' when the resulting array is empty (e.g. the
-                # dashboard entry was the only line in the hosts file).
-                [System.IO.File]::WriteAllLines($hostFile, [string[]]$filtered, [System.Text.Encoding]::ASCII)
-                Write-Log "[Ceph] Removed hosts entry for '$dashboardHost' from '$hostFile'" -Console
-            }
-        }
-    }
-    catch {
-        Write-Log "[Ceph] WARNING: Failed to remove hosts entry for '$dashboardHost': $($_.Exception.Message)" -Console
-    }
-}
-
-# Remove the Ceph CSI container images that were pulled onto the K2s cluster node(s) for the CSI
-# operator and CephFS driver pods. The k8s resources above only delete the pods; their cached
-# images stay in containerd until explicitly removed, so 'crictl images' keeps listing e.g.
-# registry.k8s.io/sig-storage/csi-node-driver-registrar after the addon is disabled.
-#
-# The exact image references are read from the storage addon manifest's ceph 'additionalImages'
-# list so this stays in sync with what the addon installs. Only that exact repo:tag list is
-# removed (not a broad namespace) so images that other addons might share are not touched by a
-# wildcard. These images are re-imported from the offline package on the next enable, so removing
-# them here does not break offline reproducibility.
-try {
-    $storageManifestPath = Join-Path -Path $PSScriptRoot -ChildPath '..\addon.manifest.yaml'
-    if (Test-Path $storageManifestPath) {
-        # Collect the ceph CSI image references (repo:tag) declared under additionalImages. The
-        # smb implementation declares an empty additionalImages list, so only the ceph entries
-        # (quay.io/ceph, quay.io/cephcsi, registry.k8s.io/sig-storage) match here.
-        $cephImageRefs = @(
-            Get-Content -Path $storageManifestPath |
-            ForEach-Object { $_.Trim() } |
-            Where-Object { $_ -match '^-\s+(quay\.io/ceph/|quay\.io/cephcsi/|registry\.k8s\.io/sig-storage/)\S+:\S+$' } |
-            ForEach-Object { ($_ -replace '^-\s+', '').Trim() } |
-            Select-Object -Unique
-        )
-
-        if ($cephImageRefs.Count -eq 0) {
-            Write-Log '[Ceph] No Ceph CSI images found in storage addon manifest; skipping node image cleanup.'
-        }
-        else {
-            Write-Log "[Ceph] Removing $($cephImageRefs.Count) Ceph CSI image(s) from the K2s cluster node(s)" -Console
-
-            # Enumerate the images actually present on the nodes so we can map each manifest
-            # reference to its ContainerImage (with ImageId/Node) for Remove-Image.
-            $nodeImages = @(Get-ContainerImagesInk2s -IncludeK8sImages $true)
-
-            foreach ($imageRef in $cephImageRefs) {
-                $matchingImages = @($nodeImages | Where-Object { "$($_.Repository):$($_.Tag)" -eq $imageRef })
-                if ($matchingImages.Count -eq 0) {
-                    Write-Log "[Ceph] Image '$imageRef' not present on any node; nothing to remove."
-                    continue
-                }
-
-                foreach ($img in $matchingImages) {
-                    try {
-                        $removeResult = Remove-Image -ContainerImage $img -Force
-                        if ("$removeResult" -match '__K2S_IMAGE_DELETE_FAILED__') {
-                            Write-Log "[Ceph] WARNING: Failed to remove image '$imageRef' from node '$($img.Node)': $removeResult" -Console
-                        }
-                        else {
-                            Write-Log "[Ceph] Removed image '$imageRef' from node '$($img.Node)'" -Console
-                        }
-                    }
-                    catch {
-                        Write-Log "[Ceph] WARNING: Failed to remove image '$imageRef' from node '$($img.Node)': $($_.Exception.Message)" -Console
-                    }
-                }
-            }
-        }
-    }
-    else {
-        Write-Log "[Ceph] WARNING: Storage addon manifest not found at '$storageManifestPath'; skipping node image cleanup." -Console
-    }
-}
-catch {
-    Write-Log "[Ceph] WARNING: Ceph CSI image cleanup on the cluster node(s) failed: $($_.Exception.Message)" -Console
-}
+# Remove the Ceph CSI container images that were pulled onto the K2s cluster node(s).
+Remove-CephCsiNodeImages -StorageManifestPath (Join-Path -Path $PSScriptRoot -ChildPath '..\addon.manifest.yaml')
 
 # Mark Ceph as disabled in registry
 Update-StorageImplementationRegistry -Implementation 'ceph' -Enabled $false

@@ -3,7 +3,7 @@
 #
 # SPDX-License-Identifier: MIT
 #
-# add-ceph-host-labels-and-osd.sh  -  Debian (12/13) variant
+# add-ceph-host-labels-and-osd.sh  -  Debian13 variant
 #
 # Labels a Ceph host with osd/mgr/mds and provisions an OSD on a target device.
 #
@@ -116,14 +116,146 @@ for label in "${LABELS[@]}"; do
 done
 
 log_info "Adding OSD for host '$HOST_NAME' on device '$DEVICE'"
-osd_output="$(run_ceph_cmd ceph orch daemon add osd "${HOST_NAME}:${DEVICE}" 2>&1)"
-osd_rc=$?
 
-if [ $osd_rc -ne 0 ]; then
-    log_error "Failed to add OSD on '${HOST_NAME}:${DEVICE}': $osd_output"
-    exit 1
+# Idempotency: if the target device is already consumed by a Ceph OSD (has a 'ceph--*' LVM child),
+# there is nothing to do. This makes re-enabling the addon safe instead of failing on 'device in use'.
+if lsblk -no NAME "$DEVICE" 2>/dev/null | grep -q 'ceph--'; then
+    log_info "Device '$DEVICE' already backs a Ceph OSD; skipping provisioning."
+    exit 0
 fi
 
-log_info "OSD add command accepted: $osd_output"
+# Resolve the cluster fsid (required by the direct-provisioning fallback below).
+if [ -z "$CLUSTER_FSID" ]; then
+    CLUSTER_FSID="$(run_ceph_cmd ceph fsid 2>/dev/null | tr -d '[:space:]')"
+fi
+
+# Current number of OSDs in the cluster (used to detect whether provisioning actually happened).
+LAST_OSD_COUNT=0
+osd_count() {
+    run_ceph_cmd ceph osd stat -f json 2>/dev/null | grep -oE '"num_osds":[0-9]+' | grep -oE '[0-9]+' | head -n1
+}
+
+# Wait up to $1 seconds for the OSD count to rise above baseline $2. Sets LAST_OSD_COUNT.
+wait_for_osd_increase() {
+    local timeout="$1" baseline="$2" now="" waited=0
+    while [ "$waited" -lt "$timeout" ]; do
+        sleep 5
+        waited=$((waited + 5))
+        now="$(osd_count)"; now="${now:-0}"
+        if [ "$now" -gt "$baseline" ]; then
+            LAST_OSD_COUNT="$now"
+            return 0
+        fi
+    done
+    LAST_OSD_COUNT="${now:-$baseline}"
+    return 1
+}
+
+# Directly provision an OSD on $DEVICE using 'cephadm ceph-volume' + 'cephadm deploy', bypassing the
+# orchestrator. Needed because some Ceph container images (observed with Tentacle/v20) accept
+# 'ceph orch daemon add osd' and register the OSD service spec but never invoke ceph-volume, so the
+# cluster ends up with zero OSDs. This must run on a node that hosts a MON (so the mon config and
+# bootstrap-osd keyring are locally available) - true for the K2s single-node Ceph layout where the
+# bootstrap node is also the OSD host.
+provision_osd_directly() {
+    if [ -z "$CLUSTER_FSID" ]; then
+        log_error "Cannot provision OSD directly: cluster fsid is unknown."
+        return 1
+    fi
+
+    local mon_config
+    mon_config="$(sudo bash -c "ls /var/lib/ceph/$CLUSTER_FSID/mon.*/config 2>/dev/null | head -n1")"
+    if [ -z "$mon_config" ]; then
+        log_error "Cannot provision OSD directly: no local MON config under /var/lib/ceph/$CLUSTER_FSID (this node is not a MON host)."
+        return 1
+    fi
+
+    # Use the exact Ceph image the cluster is already running so 'cephadm deploy'/'ceph-volume' do
+    # not reach for a tag that is absent on an air-gapped node.
+    local ceph_image image_arg=()
+    ceph_image="$(sudo podman ps --filter name=ceph- --format '{{.Image}}' 2>/dev/null | grep -E 'ceph/ceph' | head -n1)"
+    if [ -n "$ceph_image" ]; then
+        image_arg=(--image "$ceph_image")
+        log_info "Using running Ceph image for provisioning: $ceph_image"
+    fi
+
+    local keyring="/tmp/k2s-ceph-bootstrap-osd.$$.keyring"
+    if ! run_ceph_cmd ceph auth get client.bootstrap-osd 2>/dev/null | sudo tee "$keyring" >/dev/null; then
+        log_error "Failed to export the bootstrap-osd keyring."
+        sudo rm -f "$keyring"
+        return 1
+    fi
+
+    log_info "Provisioning OSD directly on '$DEVICE' via ceph-volume (mon config: $mon_config)"
+    if ! sudo "$CEPHADM_BIN" "${image_arg[@]}" ceph-volume --config "$mon_config" --keyring "$keyring" -- lvm prepare --data "$DEVICE" >/dev/null 2>&1; then
+        log_error "ceph-volume lvm prepare failed for '$DEVICE'."
+        sudo rm -f "$keyring"
+        return 1
+    fi
+
+    # Read back the freshly prepared OSD id + fsid for exactly this device.
+    local lvm_txt osd_id osd_fsid
+    lvm_txt="$(sudo "$CEPHADM_BIN" "${image_arg[@]}" ceph-volume --config "$mon_config" --keyring "$keyring" -- lvm list "$DEVICE" 2>/dev/null)"
+    sudo rm -f "$keyring"
+    osd_id="$(echo "$lvm_txt" | grep -E '^[[:space:]]*osd id' | awk '{print $NF}' | head -n1)"
+    osd_fsid="$(echo "$lvm_txt" | grep -E '^[[:space:]]*osd fsid' | awk '{print $NF}' | head -n1)"
+    if [ -z "$osd_id" ] || [ -z "$osd_fsid" ]; then
+        log_error "Could not determine the prepared OSD id/fsid for '$DEVICE'."
+        return 1
+    fi
+    log_info "Prepared osd.$osd_id (osd fsid $osd_fsid) on '$DEVICE'"
+
+    # Deploy the OSD daemon. The first start fails on these images because cephadm does not write the
+    # daemon 'config' file that unit.run bind-mounts as /etc/ceph/ceph.conf; seed it from the mon
+    # config and (re)start the unit.
+    log_info "Deploying OSD daemon osd.$osd_id"
+    sudo "$CEPHADM_BIN" "${image_arg[@]}" deploy --name "osd.$osd_id" --fsid "$CLUSTER_FSID" --osd-fsid "$osd_fsid" >/dev/null 2>&1 || true
+
+    local osd_dir="/var/lib/ceph/$CLUSTER_FSID/osd.$osd_id"
+    if [ ! -f "$osd_dir/config" ]; then
+        if ! sudo cp "$mon_config" "$osd_dir/config"; then
+            log_error "Failed to seed OSD daemon config at $osd_dir/config."
+            return 1
+        fi
+        sudo chown 167:167 "$osd_dir/config"
+        sudo chmod 0600 "$osd_dir/config"
+        log_info "Seeded OSD daemon config at $osd_dir/config"
+    fi
+
+    sudo systemctl reset-failed "ceph-$CLUSTER_FSID@osd.$osd_id" 2>/dev/null || true
+    if ! sudo systemctl restart "ceph-$CLUSTER_FSID@osd.$osd_id"; then
+        log_error "Failed to (re)start OSD daemon unit ceph-$CLUSTER_FSID@osd.$osd_id."
+        return 1
+    fi
+    log_info "OSD daemon ceph-$CLUSTER_FSID@osd.$osd_id started"
+    return 0
+}
+
+OSD_COUNT_BEFORE="$(osd_count)"
+OSD_COUNT_BEFORE="${OSD_COUNT_BEFORE:-0}"
+
+# Preferred path: let the orchestrator provision the OSD.
+log_info "Requesting OSD via orchestrator: ceph orch daemon add osd ${HOST_NAME}:${DEVICE}"
+run_ceph_cmd ceph orch daemon add osd "${HOST_NAME}:${DEVICE}" >/dev/null 2>&1 || true
+
+log_info "Waiting for the orchestrator to provision the OSD (up to 90s)..."
+if wait_for_osd_increase 90 "$OSD_COUNT_BEFORE"; then
+    log_info "OSD provisioned by orchestrator (osd count: $OSD_COUNT_BEFORE -> $LAST_OSD_COUNT)"
+else
+    log_info "Orchestrator did not provision an OSD (still $OSD_COUNT_BEFORE); falling back to direct ceph-volume provisioning."
+    # Drop the registered-but-inert OSD service spec so it does not linger.
+    run_ceph_cmd ceph orch rm osd.default --force >/dev/null 2>&1 || true
+    if ! provision_osd_directly; then
+        log_error "Failed to provision OSD on '${HOST_NAME}:${DEVICE}'."
+        log_error "Inspect with: sudo $CEPHADM_BIN shell -- ceph orch device ls '$HOST_NAME'; ceph -W cephadm"
+        exit 1
+    fi
+    if ! wait_for_osd_increase 90 "$OSD_COUNT_BEFORE"; then
+        log_error "OSD daemon did not come up after direct provisioning on '${HOST_NAME}:${DEVICE}'."
+        exit 1
+    fi
+    log_info "OSD provisioned directly (osd count: $OSD_COUNT_BEFORE -> $LAST_OSD_COUNT)"
+fi
+
 log_info "Done. Check progress with: sudo $CEPHADM_BIN shell -- ceph -s and ceph orch ps --daemon_type osd"
 exit 0

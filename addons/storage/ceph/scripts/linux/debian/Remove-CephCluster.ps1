@@ -77,20 +77,36 @@ Function Remove-CephClusterOnNode {
 }
 
 $clusterHostNode = if ($Config) { "$($Config.clusterHostNode)".Trim() } else { '' }
-$nodeConfig = $null
-if (-not [string]::IsNullOrWhiteSpace($clusterHostNode)) {
-    $nodeConfig = Get-NodeConfig -NodeName $clusterHostNode
+$controlPlaneNodeName = Get-ConfigControlPlaneNodeHostname
+if (-not [string]::IsNullOrWhiteSpace($clusterHostNode) -and $clusterHostNode -eq $controlPlaneNodeName) {
+    # The K2s control plane node (e.g. 'kubemaster') is NOT stored in cluster.json, so its SSH user
+    # comes from the control-plane configuration rather than from Get-NodeConfig.
+    $nodeUserName = "$(Get-DefaultUserNameControlPlane)".Trim()
+    if ([string]::IsNullOrWhiteSpace($nodeUserName)) { $nodeUserName = 'remote' }
+    Write-Log "[Ceph] Resolved control plane node connection: UserName='$nodeUserName', IpAddress='$NodeIp'" -Console
+}
+else {
+    $nodeConfig = $null
+    if (-not [string]::IsNullOrWhiteSpace($clusterHostNode)) {
+        $nodeConfig = Get-NodeConfig -NodeName $clusterHostNode
+    }
+
+    if ($null -eq $nodeConfig) {
+        Write-Log "[Ceph] WARNING: Node '$clusterHostNode' not found in cluster.json; falling back to NodeIp='$NodeIp' and userName='remote'" -Console
+        $nodeUserName = 'remote'
+    } else {
+        $nodeUserName = $nodeConfig.Username
+        Write-Log "[Ceph] Resolved node connection from cluster.json: UserName='$nodeUserName', IpAddress='$($nodeConfig.IpAddress)'" -Console
+    }
 }
 
-if ($null -eq $nodeConfig) {
-    Write-Log "[Ceph] WARNING: Node '$clusterHostNode' not found in cluster.json; falling back to NodeIp='$NodeIp' and userName='remote'" -Console
-    $nodeUserName = 'remote'
-} else {
-    $nodeUserName = $nodeConfig.Username
-    Write-Log "[Ceph] Resolved node connection from cluster.json: UserName='$nodeUserName', IpAddress='$($nodeConfig.IpAddress)'" -Console
-}
-
-$fsid = if ($Config) { "$($Config.clusterId)".Trim() } else { '' }
+# Prefer the FSID recorded at enable time ('cephClusterId'); a single node can host multiple Ceph
+# clusters, so this targets exactly the one this addon provisioned. Fall back to 'clusterId' for
+# backward compatibility.
+$fsid = if ($Config) {
+    $recordedFsid = "$($Config.cephClusterId)".Trim()
+    if (-not [string]::IsNullOrWhiteSpace($recordedFsid)) { $recordedFsid } else { "$($Config.clusterId)".Trim() }
+} else { '' }
 
 Remove-CephClusterOnNode -UserName $nodeUserName `
                          -UserPwd '' `

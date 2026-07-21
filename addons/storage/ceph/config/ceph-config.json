@@ -1,15 +1,8 @@
 ﻿{
-    "comment":  "Ceph CSI Configuration - Update values with your Ceph cluster details",
-    "monitorEndpoints":  "172.19.1.110:6789",
-    "cephUser":  "admin",
-    "cephKey":  "AQDUD15qT9jWHRAA9pYYtmnYXeHOH4S0NJXNYg==",
-    "clusterId":  "c5664782-8433-11f1-8378-00155d130f2b",
     "cephfsPool":  "cephfs.cephfs.data",
     "cephfsFilesystem":  "cephfs",
-    "clusterMode":  "new",
-    "clusterHostNode":  "deb12cephinstallationusingscript",
-    "clusterHostNodeIp":  "172.19.1.110",
-    "clusterDistribution":  "debian12",
-    "dashboardUrl":  "https://deb12cephinstallationusingscript:8443/",
-    "dashboardHost":  "deb12cephinstallationusingscript"
+    "clusterHostNode":  "kubemaster",
+    "cephClusterId":  "",
+    "osdcount":  2,
+    "osdsize":  20
 }
