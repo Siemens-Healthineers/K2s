@@ -77,7 +77,7 @@ spec:
           deb: []
           curl: []
           additionalImages:
-            - quay.io/ceph/ceph:v20.2.2
+            - quay.io/ceph/ceph:v20
             - quay.io/cephcsi/ceph-csi-operator:v1.0.4
             - quay.io/cephcsi/cephcsi:v3.17.0
             - registry.k8s.io/sig-storage/csi-node-driver-registrar:v2.17.0

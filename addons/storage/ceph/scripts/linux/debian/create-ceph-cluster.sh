@@ -60,25 +60,15 @@ if ! command -v podman >/dev/null 2>&1; then
 fi
 log_info "Using container engine: $(command -v podman)"
 
-# Derive the Ceph version from the image tag (e.g. quay.io/ceph/ceph:v20.2.2 -> 20.2.2)
-CEPH_VERSION="${CEPH_IMAGE_INPUT##*:}"   # strip repo/name, keep tag -> v20.2.2
-CEPH_VERSION="${CEPH_VERSION#v}"          # strip leading 'v' -> 20.2.2
-if [ -z "$CEPH_VERSION" ]; then
-    log_error "Could not determine Ceph version from image '$CEPH_IMAGE_INPUT'"
-    exit 1
-fi
-log_info "Detected Ceph version from image tag: $CEPH_VERSION"
-
-# Download the matching cephadm bootstrap binary (proxy used for download.ceph.com access)
-curl -x "$PROXY" --remote-name --location "https://download.ceph.com/rpm-$CEPH_VERSION/el9/noarch/cephadm"
-
-# Make the downloaded cephadm binary executable
-sudo chmod +x  cephadm
-
 # Use the Ceph image from the storage addon manifest for bootstrapping
 CEPH_IMAGE="$CEPH_IMAGE_INPUT"
 log_info "Using Ceph image from storage addon manifest: $CEPH_IMAGE"
 
+# Pull the Ceph image FIRST so the exact release/version can be read from it. The image tag may be a
+# rolling tag (e.g. 'v20') that does NOT map to a 'download.ceph.com/rpm-<version>' path, so the
+# authoritative version must come from the image itself, not from the tag. Deriving it from the tag
+# turned 'v20' into an invalid 'rpm-20' URL whose 404 HTML page was saved as 'cephadm' and then
+# failed to run ("Syntax error: redirection unexpected").
 if [ -n "$PROXY" ]; then
     log_info "Pulling Ceph image via proxy for quay.io access: $CEPH_IMAGE"
     if ! sudo env HTTP_PROXY="$PROXY" HTTPS_PROXY="$PROXY" podman pull "$CEPH_IMAGE"; then
@@ -93,17 +83,51 @@ else
     fi
 fi
 
+# Read the authoritative Ceph version string from the pulled image, e.g.
+#   "ceph version 20.2.2 (<hash>) tentacle (stable)"
+# and derive BOTH the numeric version (20.2.2) used for the download.ceph.com 'rpm-<version>' path
+# and the release codename (tentacle) used by 'cephadm add-repo --release'. Reading these from the
+# image (not the tag) keeps bootstrap working with rolling tags such as 'v20'.
+CEPH_VERSION_STRING="$(sudo podman run --rm --entrypoint ceph "$CEPH_IMAGE" --version 2>/dev/null)"
+CEPH_VERSION="$(echo "$CEPH_VERSION_STRING" | sed -E 's/^ceph version ([0-9.]+) .*/\1/')"
+CEPH_RELEASE="$(echo "$CEPH_VERSION_STRING" | sed -E 's/^.*\) ([[:alpha:]]+) \(stable\).*/\1/')"
 
-# $CEPH_IMAGE already holds e.g. quay.io/ceph/ceph:v20.2.2
-# Determine the Ceph release codename (e.g. 'nautilus', 'octopus', 'pacific', 'quincy') from the image
-CEPH_RELEASE="$(sudo podman run --rm --entrypoint ceph "$CEPH_IMAGE_INPUT" --version 2>/dev/null \
-    | sed -E 's/^.*\) ([[:alpha:]]+) \(stable\).*/\1/')"
-
-if [ -z "$CEPH_RELEASE" ]; then
-    log_error "Could not determine Ceph release codename from image '$CEPH_IMAGE_INPUT'"
+if [ -z "$CEPH_VERSION" ] || [ "$CEPH_VERSION" = "$CEPH_VERSION_STRING" ]; then
+    log_error "Could not determine Ceph version from image '$CEPH_IMAGE' (got: '$CEPH_VERSION_STRING')"
     exit 1
 fi
-log_info "Detected Ceph release codename: $CEPH_RELEASE"
+if [ -z "$CEPH_RELEASE" ] || [ "$CEPH_RELEASE" = "$CEPH_VERSION_STRING" ]; then
+    log_error "Could not determine Ceph release codename from image '$CEPH_IMAGE' (got: '$CEPH_VERSION_STRING')"
+    exit 1
+fi
+log_info "Detected Ceph version '$CEPH_VERSION' (release codename '$CEPH_RELEASE') from image"
+
+# Download the matching cephadm bootstrap binary. Validate that the download is the cephadm Python
+# script and not an HTTP error page (a 404 saved as 'cephadm' fails with "redirection unexpected").
+# Try the numeric version path first, then fall back to the release-codename path.
+download_cephadm() {
+    local url="$1"
+    rm -f cephadm
+    curl -x "$PROXY" --fail --silent --show-error --remote-name --location "$url" || return 1
+    if ! head -n1 cephadm 2>/dev/null | grep -qE '^#!.*python'; then
+        log_error "Downloaded file from '$url' is not the cephadm script (likely an HTTP error page)."
+        rm -f cephadm
+        return 1
+    fi
+    return 0
+}
+
+if download_cephadm "https://download.ceph.com/rpm-$CEPH_VERSION/el9/noarch/cephadm"; then
+    log_info "Downloaded cephadm bootstrap binary for version '$CEPH_VERSION'"
+elif download_cephadm "https://download.ceph.com/rpm-$CEPH_RELEASE/el9/noarch/cephadm"; then
+    log_info "Downloaded cephadm bootstrap binary for release '$CEPH_RELEASE'"
+else
+    log_error "Failed to download a valid cephadm bootstrap binary from download.ceph.com (tried version '$CEPH_VERSION' and release '$CEPH_RELEASE')."
+    exit 1
+fi
+
+# Make the downloaded cephadm binary executable
+sudo chmod +x cephadm
 
 # Install gnupg for apt-key management (required for adding the Ceph repository)
 sudo apt-get install -y gnupg
