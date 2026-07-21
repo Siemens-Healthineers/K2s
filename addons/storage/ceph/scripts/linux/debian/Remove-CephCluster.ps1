@@ -18,7 +18,7 @@ create-ceph-cluster.sh installed (cephadm binary, Ceph apt repo/packages, contai
 IP address of the node that hosts the Ceph cluster (ceph-config.json 'clusterHostNodeIp').
 
 .PARAMETER Config
-The parsed ceph-config.json object (provides 'clusterId'/FSID and 'clusterHostNode').
+The parsed ceph-config.json object (provides 'clusterHostNode').
 
 .PARAMETER ShowLogs
 If log output shall be streamed also to CLI output.
@@ -45,8 +45,9 @@ Write-Log "[Ceph] Removing Ceph cluster from node '$NodeIp'" -Console
 Runs the Debian Ceph cluster teardown script on the target node.
 
 .DESCRIPTION
-Copies remove-ceph-cluster.sh to the target node and executes it remotely,
-passing the cluster FSID so cephadm can remove exactly that cluster.
+Copies remove-ceph-cluster.sh to the target node and executes it remotely. The script removes
+every Ceph cluster found on the node along with the cephadm binary, apt repo/packages and
+container images that create-ceph-cluster.sh installed.
 #>
 Function Remove-CephClusterOnNode {
     param (
@@ -55,7 +56,6 @@ Function Remove-CephClusterOnNode {
         [string]$UserPwd = '',
         [ValidateScript({ Get-IsValidIPv4Address($_) })]
         [string]$IpAddress = $(throw 'Argument missing: IpAddress'),
-        [string]$Fsid = '',
         [string]$InstalledDistribution = 'debian'
     )
 
@@ -67,7 +67,6 @@ Function Remove-CephClusterOnNode {
                         -UserName $UserName `
                         -IpAddress $IpAddress `
                         -UserPwd $UserPwd `
-                        -Arguments @($Fsid) `
                         -CleanupAfterExecution `
                         -Retries 2
 
@@ -100,16 +99,7 @@ else {
     }
 }
 
-# Prefer the FSID recorded at enable time ('cephClusterId'); a single node can host multiple Ceph
-# clusters, so this targets exactly the one this addon provisioned. Fall back to 'clusterId' for
-# backward compatibility.
-$fsid = if ($Config) {
-    $recordedFsid = "$($Config.cephClusterId)".Trim()
-    if (-not [string]::IsNullOrWhiteSpace($recordedFsid)) { $recordedFsid } else { "$($Config.clusterId)".Trim() }
-} else { '' }
-
 Remove-CephClusterOnNode -UserName $nodeUserName `
                          -UserPwd '' `
                          -IpAddress $NodeIp `
-                         -Fsid $fsid `
                          -InstalledDistribution 'debian'
