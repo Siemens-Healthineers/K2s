@@ -414,12 +414,18 @@ cephadm prints a block like:
             Password: <password>
 plus a 'Cluster fsid: <fsid>' line. This parses those values and writes them
 into the shared ceph-config object so Enable.ps1 can surface them to the user.
+
+cephadm builds the dashboard URL from the node hostname (e.g. https://deb13cephadmintest1:8443/),
+which does not resolve from the K2s Windows host (and can return HTTP 404). When -NodeIp is given the
+URL is rewritten to use the node IP directly before it is stored and logged, so the dashboard URL is
+consistently the node IP regardless of whether the cluster runs on kubemaster or an additional node.
 #>
 Function Set-CephDashboardDetailsFromBootstrapOutput {
     param (
         [Parameter(Mandatory = $true)]
         $BootstrapOutput,
-        [pscustomobject]$Config
+        [pscustomobject]$Config,
+        [string]$NodeIp = ''
     )
 
     if ($null -eq $Config) { return }
@@ -438,6 +444,24 @@ Function Set-CephDashboardDetailsFromBootstrapOutput {
     $dashboardPassword = & $getMatch '(?m)^\s*Password:\s*(\S+)\s*$'
     $clusterFsid = & $getMatch '(?m)^\s*Cluster fsid:\s*(\S+)\s*$'
 
+    if (-not [string]::IsNullOrWhiteSpace($dashboardUrl) -and -not [string]::IsNullOrWhiteSpace($NodeIp)) {
+        $uri = $null
+        try { $uri = [uri]$dashboardUrl } catch { $uri = $null }
+        if ($null -eq $uri) {
+            Write-Log "[Ceph] WARNING: Could not parse dashboard URL '$dashboardUrl'; leaving it unchanged." -Console
+        }
+        else {
+            $parsedIp = $null
+            $isIpHost = [System.Net.IPAddress]::TryParse($uri.Host, [ref]$parsedIp)
+            if (-not $isIpHost) {
+                $builder = [System.UriBuilder]$uri
+                $builder.Host = $NodeIp
+                $ipDashboardUrl = $builder.Uri.AbsoluteUri
+                $dashboardUrl = $ipDashboardUrl
+            }
+        }
+    }
+
     if (-not [string]::IsNullOrWhiteSpace($dashboardUrl)) {
         $Config | Add-Member -NotePropertyName 'dashboardUrl' -NotePropertyValue $dashboardUrl -Force
     }
@@ -453,53 +477,6 @@ Function Set-CephDashboardDetailsFromBootstrapOutput {
 
     # Log presence but do NOT log the password.
     Write-Log "[Ceph] Ceph dashboard available at '$dashboardUrl' (user '$dashboardUser')" -Console
-}
-
-<#
-.SYNOPSIS
-Makes the cephadm dashboard reachable from the K2s Windows host.
-
-.DESCRIPTION
-cephadm builds the dashboard URL from the node hostname (e.g. https://deb13cephadmintest1:8443/).
-From the K2s host that hostname does not resolve, and even with a hosts-file entry the dashboard can
-respond with HTTP 404 for the hostname. To make the dashboard open reliably, the URL is rewritten to
-use the node IP directly (https://<node-ip>:8443/) and written back into the shared config so
-Enable.ps1 surfaces the working URL to the user.
-#>
-Function Register-CephDashboardAccess {
-    param (
-        [Parameter(Mandatory = $true)][pscustomobject]$Config,
-        [Parameter(Mandatory = $true)][string]$NodeIp
-    )
-
-    $dashboardUrl = "$($Config.dashboardUrl)".Trim()
-    if ([string]::IsNullOrWhiteSpace($dashboardUrl)) {
-        Write-Log "[Ceph] No dashboard URL resolved; skipping dashboard access setup." -Console
-        return
-    }
-
-    $uri = $null
-    try { $uri = [uri]$dashboardUrl } catch { $uri = $null }
-    if ($null -eq $uri) {
-        Write-Log "[Ceph] WARNING: Could not parse dashboard URL '$dashboardUrl'; skipping dashboard access setup." -Console
-        return
-    }
-
-    $dashboardHost = $uri.Host
-
-    $parsedIp = $null
-    $isIpHost = [System.Net.IPAddress]::TryParse($dashboardHost, [ref]$parsedIp)
-
-    # Rewrite the dashboard URL to use the node IP directly (skip when cephadm already used an IP).
-    # Accessing the dashboard by the node hostname can return HTTP 404 from the K2s host, whereas the
-    # node IP works reliably.
-    if (-not $isIpHost) {
-        $builder = [System.UriBuilder]$uri
-        $builder.Host = $NodeIp
-        $ipDashboardUrl = $builder.Uri.AbsoluteUri
-        $Config | Add-Member -NotePropertyName 'dashboardUrl' -NotePropertyValue $ipDashboardUrl -Force
-        Write-Log "[Ceph] Rewrote dashboard URL to use node IP '$NodeIp' instead of hostname '$dashboardHost': '$ipDashboardUrl'" -Console
-    }
 }
 
 <#
@@ -626,17 +603,11 @@ $bootstrapOutput = New-CephClusterOnNode -UserName $nodeUserName `
                       -Proxy $Proxy `
                       -InstalledDistribution 'debian'
 
-# Surface the cephadm dashboard connection details (URL / user / password) back into the
-# shared config object so Enable.ps1 can print them in the PowerShell console.
-Set-CephDashboardDetailsFromBootstrapOutput -BootstrapOutput $bootstrapOutput -Config $Config
-
-# Make the cephadm dashboard reachable from the K2s host BEFORE displaying it: cephadm builds the
-# URL from the node hostname (which can resolve to 'localhost'/HTTP 404 from the host), so rewrite
-# it to use the node IP directly. Doing this first ensures the URL shown to the user is the working
-# node-IP URL rather than the raw cephadm hostname/localhost URL.
-if ($null -ne $Config) {
-    Register-CephDashboardAccess -Config $Config -NodeIp $NodeIp
-}
+# Surface the cephadm dashboard connection details (URL / user / password) back into the shared config
+# object so Enable.ps1 can print them in the PowerShell console. The dashboard URL is rewritten to use
+# the node IP directly (instead of the cephadm hostname) so it is reachable from the K2s Windows host
+# regardless of whether the cluster runs on kubemaster or an additional node.
+Set-CephDashboardDetailsFromBootstrapOutput -BootstrapOutput $bootstrapOutput -Config $Config -NodeIp $NodeIp
 
 if ($null -ne $Config) {
     $dashboardUrl = if ($Config.PSObject.Properties.Name -contains 'dashboardUrl') { "$($Config.dashboardUrl)".Trim() } else { '' }

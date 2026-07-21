@@ -3,5 +3,5 @@
     "cephfsFilesystem":  "cephfs",
     "clusterHostNode":  "kubemaster",
     "osdcount":  2,
-    "osdsize":  20
+    "osdsize":  10
 }
