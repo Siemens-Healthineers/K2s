@@ -259,6 +259,96 @@ kubectl delete pvc ceph-test-pvc --ignore-not-found
 For the full test (including a second reader pod that verifies concurrent `ReadWriteMany` access),
 see the [addon README](https://github.com/Siemens-Healthineers/K2s/blob/main/addons/storage/ceph/README.md).
 
+## Add Another OSD Host
+
+The addon starts with a single-node Ceph cluster. To expand storage capacity, you can add another
+host and provision an OSD on that host using the shipped Ceph helper scripts.
+
+### Preconditions
+
+- New host is reachable over SSH.
+- **Bare-metal only:** pass a dedicated empty raw disk for OSD (for example `/dev/sdb`).
+- **Hyper-V:** OSD disks are created automatically by the addon as `ceph-osd-*.vhdx`.
+- You can run Ceph commands on the bootstrap/MGR node.
+
+### 1. Retrieve the cephadm public key
+
+Get it directly from the bootstrap/MGR node:
+
+```console
+sudo cat /etc/ceph/ceph.pub
+```
+
+Or use the key printed during addon enable logs:
+
+```text
+K2S_CEPH_PUB_KEY=<ssh-public-key>
+```
+
+### 2. Prepare the new host for OSD deployment
+
+On the new host, run:
+
+```console
+./prepare-ceph-osd-host.sh "<ceph-pub-key>"
+```
+
+If the host requires proxy access for package/image download:
+
+```console
+./prepare-ceph-osd-host.sh "<ceph-pub-key>" "http://<kubeswitch-ip>:8181"
+```
+
+Expected success marker:
+
+```text
+K2S_CEPH_OSD_HOST_READY=1
+```
+
+### 3. Add the host to Ceph inventory
+
+Add it in the Ceph UI (Dashboard -> Hosts -> Add Host), then verify:
+
+```console
+sudo cephadm shell -- ceph orch host ls
+```
+
+CLI alternative:
+
+```console
+sudo cephadm shell -- ceph orch host add <host-name> <host-ip>
+```
+
+### 4. Add host label and create OSD
+
+Run on the bootstrap/MGR node:
+
+```console
+# labels only
+./add-ceph-host-labels-and-osd.sh <host-name>
+
+# labels + create OSD on device
+./add-ceph-host-labels-and-osd.sh <host-name> /dev/sdb
+```
+
+Optional FSID parameter:
+
+```console
+FSID="$(sudo cephadm shell -- ceph fsid)"
+./add-ceph-host-labels-and-osd.sh <host-name> /dev/sdb "$FSID"
+```
+
+### 5. Verify the new OSD
+
+```console
+sudo cephadm shell -- ceph -s
+sudo cephadm shell -- ceph orch host ls
+sudo cephadm shell -- ceph orch ps --daemon_type osd
+```
+
+!!! warning
+  Use a whole, dedicated disk device for OSD creation (not a partition).
+
 ## Disabling the Addon
 
 Disabling **tears down the entire Ceph cluster** provisioned on the host node and removes the addon

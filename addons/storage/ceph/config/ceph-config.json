@@ -1,8 +1,9 @@
-﻿{
-    "cephfsPool":  "cephfs.cephfs.data",
-    "cephfsFilesystem":  "cephfs",
-    "clusterHostNode":  "kubemaster",
-    "osdcount":  2,
-    "osdsize":  10,
-    "osddevicebaremetal":  "/dev/sdb, /dev/sdc"
+{
+  "comment": "Ceph CSI e2e config - 'clusterHostNode' must be a Debian 13 K2s node listed in cluster.json.",
+  "cephfsPool": "cephfs.cephfs.data",
+  "cephfsFilesystem": "cephfs",
+  "clusterHostNode": "kubemaster",
+  "osdsize": 20,
+  "osdcount": 2,
+  "osddevicebaremetal": "/dev/sdb, /dev/sdc"
 }

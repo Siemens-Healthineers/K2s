@@ -256,18 +256,26 @@ fi
 # ---------------------------------------------------------------------------
 log_info "Creating CephFS filesystem '$CEPH_FS_NAME' and collecting connection details"
 
-if ! CLUSTER_DETAILS="$(timeout 300 sudo "$CEPHADM_BIN" shell --env K2S_FS_NAME="$CEPH_FS_NAME" -- bash -c '
+# Wait until cephadm shell can execute Ceph commands reliably. Right after bootstrap,
+# manager/orchestrator restarts can still be settling and a single shell invocation may
+# block long enough to hit the detail-collection timeout.
+for attempt in $(seq 1 18); do
+    if timeout 30 sudo "$CEPHADM_BIN" shell -- ceph -s >/dev/null 2>&1; then
+        break
+    fi
+
+    if [ "$attempt" -eq 18 ]; then
+        log_error "Ceph did not become ready for shell commands after bootstrap."
+        exit 1
+    fi
+
+    log_info "Ceph command interface not ready yet (attempt $attempt/18). Retrying in 10s..."
+    sleep 10
+done
+if ! CLUSTER_DETAILS="$(timeout 900 sudo "$CEPHADM_BIN" shell --env K2S_FS_NAME="$CEPH_FS_NAME" -- bash -c '
     # Create the CephFS volume (idempotent). This also deploys an MDS and
     # creates the "cephfs.<name>.meta" / "cephfs.<name>.data" pools.
     ceph fs volume create "$K2S_FS_NAME" >/dev/null 2>&1 || true
-
-    # Create the "csi" subvolume group (idempotent). The addon pins every CSI
-    # volume into a subvolume group named "csi" (ClientProfile/storage ->
-    # spec.cephFs.subVolumeGroup: csi). Newer ceph-csi releases do NOT create it
-    # on demand, so without this PVCs stay Pending with
-    # "subvolume group 'csi' does not exist". Creating it here makes the freshly
-    # provisioned cluster ready for dynamic provisioning out of the box.
-    ceph fs subvolumegroup create "$K2S_FS_NAME" csi >/dev/null 2>&1 || true
 
     FSID="$(ceph fsid 2>/dev/null)"
     ADMIN_KEY="$(ceph auth get-key client.admin 2>/dev/null)"

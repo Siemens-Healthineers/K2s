@@ -98,7 +98,7 @@ Function New-CephClusterOnNode {
                         -UserPwd $UserPwd `
                         -Arguments @($Proxy, $CephBootstrapImage, $CephFsFilesystem, $UserName) `
                         -CleanupAfterExecution `
-                        -Retries 2
+                        -Retries 0
 
     Write-Log '[Ceph] Finished new Ceph cluster bootstrap'
 
@@ -663,6 +663,27 @@ if (-not $connectionResolved) {
 }
 
 Invoke-CephOsdPreparation -BootstrapNodeIp $NodeIp -BootstrapNodeUserName $nodeUserName -CephPubKey $cephPubKeyValue -Proxy $Proxy -Config $Config -ShowLogs:$ShowLogs
+
+$cephFsForSubvolumeGroup = if (-not [string]::IsNullOrWhiteSpace($cephFsFilesystem)) { $cephFsFilesystem } else { 'cephfs' }
+
+Write-Log "[Ceph] Running one-time post-OSD subvolume-group command for CephFS: sudo cephadm shell ceph fs subvolumegroup create $cephFsForSubvolumeGroup csi" -Console
+$createSubvolumeGroupResult = Invoke-CmdOnVmViaSSHKey `
+                            -CmdToExecute "sudo cephadm shell ceph fs subvolumegroup create $cephFsForSubvolumeGroup csi" `
+                            -UserName $nodeUserName `
+                            -IpAddress $NodeIp `
+                            -NoLog `
+                            -IgnoreErrors `
+                            -Retries 2
+
+$createSubvolumeGroupOutput = if ($null -ne $createSubvolumeGroupResult) { ($createSubvolumeGroupResult.Output | Out-String).Trim() } else { '' }
+$createSubvolumeGroupExitCode = if ($null -ne $createSubvolumeGroupResult -and $null -ne $createSubvolumeGroupResult.ExitCode) { [int]$createSubvolumeGroupResult.ExitCode } else { 0 }
+if ($createSubvolumeGroupExitCode -ne 0 -and $createSubvolumeGroupOutput -notmatch '(?i)already exists|eexist') {
+    Write-Log "[Ceph] ERROR: Failed to run post-OSD command 'sudo cephadm shell ceph fs subvolumegroup create $cephFsForSubvolumeGroup csi' on node '$NodeIp'." -Console -Error
+    if (-not [string]::IsNullOrWhiteSpace($createSubvolumeGroupOutput)) {
+        Write-Log "[Ceph] Command output: $createSubvolumeGroupOutput" -Console -Error
+    }
+    exit 1
+}
 
 Write-Log "[Ceph] Ceph cluster connection details resolved successfully"
 exit 0

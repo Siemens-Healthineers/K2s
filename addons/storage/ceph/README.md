@@ -172,6 +172,7 @@ filesystem name):
 ```bash
 # List existing subvolume groups (the 'csi' group should be present)
 sudo cephadm shell ceph fs subvolumegroup ls cephfs
+sudo cephadm shell ceph fs subvolumegroup create cephfs csi
 ```
 
 ### 3. Create a PersistentVolumeClaim
@@ -266,6 +267,97 @@ confirming shared volume access.
 kubectl delete pod ceph-writer ceph-reader --ignore-not-found
 kubectl delete pvc ceph-test-pvc --ignore-not-found
 ```
+
+## Add Another OSD Host to the Ceph Cluster
+
+By default, this addon provisions a **single-node** Ceph cluster. If you want to expand capacity or
+reduce degraded single-OSD behavior, you can add another Debian host and create an OSD on that host.
+
+### Preconditions
+
+- The new host runs Debian and is reachable over SSH.
+- **Bare-metal only:** pass a **dedicated empty raw disk** for the OSD (for example `/dev/sdb`).
+- **Hyper-V:** OSD disks are created automatically by the addon as `ceph-osd-*.vhdx`.
+- The bootstrap/MGR Ceph node is reachable so you can run Ceph orchestration commands.
+
+### 1. Get the cephadm public key from the bootstrap/MGR node
+
+You can get the key either from addon logs or directly from the host:
+
+```bash
+# direct command on the Ceph bootstrap/MGR node
+sudo cat /etc/ceph/ceph.pub
+```
+
+During `k2s addons enable storage ceph`, the bootstrap script also prints a marker line:
+
+```text
+K2S_CEPH_PUB_KEY=<ssh-public-key>
+```
+
+### 2. Prepare the new OSD host machine
+
+Run `prepare-ceph-osd-host.sh` on the **new host** to install required packages and authorize the
+cluster key for root SSH (this is required by `cephadm`):
+
+```bash
+# on the new host
+./prepare-ceph-osd-host.sh "<paste-ceph-pub-key>"
+
+# optional: pass proxy when the host needs one for apt/curl access
+./prepare-ceph-osd-host.sh "<paste-ceph-pub-key>" "http://<kubeswitch-ip>:8181"
+```
+
+Expected success marker:
+
+```text
+K2S_CEPH_OSD_HOST_READY=1
+```
+
+### 3. Add/register the new host in Ceph inventory
+
+Add the host in the Ceph UI (Dashboard -> Hosts -> Add Host), then verify it appears in orchestration:
+
+```bash
+sudo cephadm shell -- ceph orch host ls
+```
+
+If you prefer CLI registration instead of UI:
+
+```bash
+sudo cephadm shell -- ceph orch host add <host-name> <host-ip>
+```
+
+### 4. Label the host and create the OSD
+
+Run `add-ceph-host-labels-and-osd.sh` on the bootstrap/MGR node.
+
+```bash
+# labels only (no OSD yet)
+./add-ceph-host-labels-and-osd.sh <host-name>
+
+# label + create OSD on a specific device
+./add-ceph-host-labels-and-osd.sh <host-name> /dev/sdb
+```
+
+Optional third parameter (`cluster-fsid`):
+
+```bash
+FSID="$(sudo cephadm shell -- ceph fsid)"
+./add-ceph-host-labels-and-osd.sh <host-name> /dev/sdb "$FSID"
+```
+
+### 5. Verify host and OSD state
+
+```bash
+sudo cephadm shell -- ceph -s
+sudo cephadm shell -- ceph orch host ls
+sudo cephadm shell -- ceph orch ps --daemon_type osd
+```
+
+!!! warning
+  `add-ceph-host-labels-and-osd.sh` requires a **whole disk device** (not a partition). Use a
+  dedicated empty device for OSD creation.
 
 ## Disabling
 
