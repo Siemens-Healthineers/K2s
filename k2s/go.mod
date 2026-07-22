@@ -12,11 +12,11 @@ require (
 	github.com/alecthomas/units v0.0.0-20240927000941-0f3dac36c52b
 	github.com/cloudflare/cfssl v1.6.5
 	github.com/containernetworking/cni v1.3.0
-	github.com/elazarl/goproxy v1.8.4
+	github.com/elazarl/goproxy v1.8.5
 	github.com/failsafe-go/failsafe-go v0.9.6
 	github.com/gentlemanautomaton/windevice v0.0.0-20250112023717-77498d8a77fe
 	github.com/gin-gonic/gin v1.12.0
-	github.com/go-logr/logr v1.4.3
+	github.com/go-logr/logr v1.4.4
 	github.com/google/uuid v1.6.0
 	github.com/hectane/go-acl v1.0.0
 	github.com/kdomanski/iso9660 v0.4.0
