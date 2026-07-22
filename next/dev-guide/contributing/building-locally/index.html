@@ -2151,6 +2151,17 @@ You're not viewing the latest release version.
   
 </li>
       
+        <li class="md-nav__item">
+  <a href="#building-natively-on-linux-no-powershell" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Building Natively on Linux (no PowerShell)
+      
+    </span>
+  </a>
+  
+</li>
+      
     </ul>
   
 </nav>
@@ -2737,6 +2748,17 @@ You're not viewing the latest release version.
   
 </li>
       
+        <li class="md-nav__item">
+  <a href="#building-natively-on-linux-no-powershell" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Building Natively on Linux (no PowerShell)
+      
+    </span>
+  </a>
+  
+</li>
+      
     </ul>
   
 </nav>
@@ -2763,7 +2785,7 @@ You're not viewing the latest release version.
 
 
 <!--
-SPDX-FileCopyrightText: © 2024 Siemens Healthineers AG
+SPDX-FileCopyrightText: © 2026 Siemens Healthineers AG
 SPDX-License-Identifier: MIT
 -->
 
@@ -2833,6 +2855,19 @@ If you have not installed <em>K2s</em> yet, then your <code>PATH</code> is not u
 <p class="admonition-title">Note</p>
 <p>On Linux, the <abbr title="Command-Line Interface">CLI</abbr> uses native Go APIs (kubeadm, kubectl, libvirt/KVM, <abbr title="Secure Shell">SSH</abbr>) instead of PowerShell. The platform-specific logic is encapsulated in the <a href="../../architecture/#provider-architecture">Provider Architecture</a>.</p>
 </div>
+<h2 id="building-natively-on-linux-no-powershell">Building Natively on Linux (no PowerShell)</h2>
+<p>On a Linux developer machine you can build the Linux executables without PowerShell using the <code>build.sh</code> script (or the <code>Makefile</code> wrapper) in the repository root. Both mirror the same Go build flags and version metadata as <a href="https://github.com/Siemens-Healthineers/K2s/blob/main/smallsetup/common/BuildGoExe.ps1" target="_blank" rel="noopener">BuildGoExe.ps1</a>.</p>
+<p>Prerequisite: install <a href="https://go.dev/dl/" target="_blank" rel="noopener"><em>Go</em></a> (see <code>k2s/go.mod</code> for the required version).</p>
+<div class="highlight"><span class="filename">Bash</span><pre><span></span><code><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a><span class="c1"># Build all Linux executables</span>
+<a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a>./build.sh
+<a id="__codelineno-10-3" name="__codelineno-10-3" href="#__codelineno-10-3"></a>
+<a id="__codelineno-10-4" name="__codelineno-10-4" href="#__codelineno-10-4"></a><span class="c1"># Or via the Makefile wrapper</span>
+<a id="__codelineno-10-5" name="__codelineno-10-5" href="#__codelineno-10-5"></a>make<span class="w"> </span>build
+<a id="__codelineno-10-6" name="__codelineno-10-6" href="#__codelineno-10-6"></a>
+<a id="__codelineno-10-7" name="__codelineno-10-7" href="#__codelineno-10-7"></a><span class="c1"># Remove the produced binaries</span>
+<a id="__codelineno-10-8" name="__codelineno-10-8" href="#__codelineno-10-8"></a>make<span class="w"> </span>clean
+</code></pre></div>
+<p>This builds all executables (<code>k2s</code>, <code>cloudinitisobuilder</code>, <code>httpproxy</code>, <code>yaml2json</code>) into <code>bin/</code>. To route Go module downloads through a proxy, pass <code>./build.sh --proxy http://proxy.example.com:8080</code>.</p>
 <!--
 SPDX-FileCopyrightText: © 2024 Siemens Healthineers AG
 SPDX-License-Identifier: MIT
