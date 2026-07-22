@@ -55,7 +55,7 @@ Deploying individual workloads (e.g., manually installing an ingress controller,
 | **registry** | Private image registry on `k2s.registry.local` |
 | **rollout** | GitOps deployment automation (ArgoCD or Flux CD) |
 | **security** | Secure communication inside the cluster |
-| **storage** | SMB-based StorageClass provisioning between K8s nodes |
+| **storage** | Persistent StorageClass provisioning (`smb` file shares between K8s nodes, or `ceph` CephFS storage) |
 | **viewer** | Clinical image viewer |
 
 !!! tip
@@ -176,7 +176,14 @@ k2s addons enable rollout fluxcd --ingress traefik
 
 ### storage
 
-Implementation: `smb` (SMB file sharing between K8s nodes).
+Two mutually exclusive implementations for persistent storage. Only one storage implementation can be enabled at a time.
+
+| Implementation | Access Modes | Description |
+|----------------|--------------|-------------|
+| `smb` | `ReadWriteMany` | SMB file sharing between K8s nodes |
+| `ceph` | `ReadWriteMany` | CephFS file storage via a freshly provisioned single-node Ceph cluster and `ceph-csi-operator` |
+
+**smb:**
 
 | Enable Flag | Short | Type | Default | Description |
 |-------------|-------|------|---------|-------------|
@@ -193,6 +200,22 @@ Implementation: `smb` (SMB file sharing between K8s nodes).
 ```console
 k2s addons enable storage smb --smbHostType linux
 k2s addons disable storage smb --keep
+```
+
+**ceph:**
+
+Provisions a brand-new single-node Ceph cluster on a **Debian 13** K2s node and wires up CephFS via the upstream `ceph-csi-operator`. The target node is chosen by the `clusterHostNode` value in the addon's `config/ceph-config.json`. Registers the `ceph-cephfs` StorageClass (provisioner `cephfs.csi.ceph.com`).
+
+| Disable Flag | Short | Type | Default | Description |
+|--------------|-------|------|---------|-------------|
+| `--force` | `-f` | boolean | `false` | Disable and **delete PVC/PV objects** without confirmation |
+
+!!! warning
+    Disabling **always tears down the entire Ceph cluster** and deletes the OSD virtual disks, so **all CephFS data is permanently lost** regardless of the flag. Without `-f` a single confirmation prompt is shown.
+
+```console
+k2s addons enable storage ceph
+k2s addons disable storage ceph -f
 ```
 
 ### dicom

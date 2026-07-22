@@ -26,9 +26,6 @@ const (
 	IncludeGpuFlagName  = "include-gpu"
 	IncludeGpuFlagUsage = "Include NVIDIA Container Toolkit packages for GPU support. When 'k2s node add' uses a package built with this flag, it automatically detects if the target node has an NVIDIA GPU and configures GPU support (installs container toolkit, configures CRI-O, labels the node)."
 
-	IncludeCephFlagName  = "include-ceph"
-	IncludeCephFlagUsage = "Include Ceph CSI container images (ceph-csi-operator, cephcsi, csi-node-driver-registrar) for the 'storage' addon's ceph implementation, so the CephFS CSI plugin can run offline on nodes added with this package."
-
 	DeltaPackageFlagName       = "delta-package"
 	PackageVersionFromFlagName = "package-version-from"
 	PackageVersionToFlagName   = "package-version-to"
@@ -39,7 +36,6 @@ func RegisterFlags(cmd *cobra.Command) {
 	cmd.Flags().Bool(NodePackageFlagName, false, NodePackageFlagUsage)
 	cmd.Flags().String(OSFlagName, "", OSFlagUsage)
 	cmd.Flags().Bool(IncludeGpuFlagName, false, IncludeGpuFlagUsage)
-	cmd.Flags().Bool(IncludeCephFlagName, false, IncludeCephFlagUsage)
 }
 
 // IsSet returns true when the --node-package flag is present and enabled.
@@ -136,11 +132,6 @@ func BuildCmd(flags *pflag.FlagSet, out bool, targetDir, zipName, proxy string) 
 	includeGpu, _ := flags.GetBool(IncludeGpuFlagName)
 	if includeGpu {
 		params = append(params, " -IncludeGpu")
-	}
-
-	includeCeph, _ := flags.GetBool(IncludeCephFlagName)
-	if includeCeph {
-		params = append(params, " -IncludeCeph")
 	}
 
 	scriptPath := utils.FormatScriptFilePath(

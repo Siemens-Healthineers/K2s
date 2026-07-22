@@ -261,6 +261,14 @@ if ! CLUSTER_DETAILS="$(timeout 300 sudo "$CEPHADM_BIN" shell --env K2S_FS_NAME=
     # creates the "cephfs.<name>.meta" / "cephfs.<name>.data" pools.
     ceph fs volume create "$K2S_FS_NAME" >/dev/null 2>&1 || true
 
+    # Create the "csi" subvolume group (idempotent). The addon pins every CSI
+    # volume into a subvolume group named "csi" (ClientProfile/storage ->
+    # spec.cephFs.subVolumeGroup: csi). Newer ceph-csi releases do NOT create it
+    # on demand, so without this PVCs stay Pending with
+    # "subvolume group 'csi' does not exist". Creating it here makes the freshly
+    # provisioned cluster ready for dynamic provisioning out of the box.
+    ceph fs subvolumegroup create "$K2S_FS_NAME" csi >/dev/null 2>&1 || true
+
     FSID="$(ceph fsid 2>/dev/null)"
     ADMIN_KEY="$(ceph auth get-key client.admin 2>/dev/null)"
 

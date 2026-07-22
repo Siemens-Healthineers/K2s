@@ -43,10 +43,6 @@
 .EXAMPLE
     # Download Debian 13 node packages (uses the cluster proxy by default)
     k2s system package --node-package --os debian13 --target-dir "C:\out" --name "debian13-node.zip"
-
-.EXAMPLE
-    # Download Debian 12 node packages including Ceph CSI images for the storage addon
-    k2s system package --node-package --os debian12 --include-ceph --target-dir "C:\out" --name "debian12-node.zip"
 #>
 
 param (
@@ -64,9 +60,6 @@ param (
 
     [Parameter(Mandatory = $false, HelpMessage = 'Include NVIDIA Container Toolkit packages for GPU support')]
     [switch] $IncludeGpu = $false,
-
-    [Parameter(Mandatory = $false, HelpMessage = 'Include Ceph CSI container images for the storage addon (ceph implementation)')]
-    [switch] $IncludeCeph = $false,
 
     [Parameter(Mandatory = $false, HelpMessage = 'Show all logs in terminal')]
     [switch] $ShowLogs = $false,
@@ -330,14 +323,7 @@ try {
             -Proxy     $Proxy
     }
 
-    # Pull Ceph CSI images if --include-ceph is specified
-    if ($IncludeCeph) {
-        Get-CephContainerImages `
-            -UserName  $sshUser `
-            -UserPwd   $sshPwd `
-            -IpAddress $guestIp `
-            -Proxy     $Proxy
-    }
+
 
     (Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute "mkdir -p $remoteImagesExportDir" -RemoteUser $remoteUser -RemoteUserPwd $sshPwd -IgnoreErrors).Output | Write-Log
 
@@ -367,10 +353,6 @@ try {
             }
             # Include GPU images when --include-gpu is specified
             if ($IncludeGpu -and $repoTag -like 'nvcr.io/*') {
-                $imageRefsToExport += $repoTag
-            }
-            # Include Ceph CSI images when --include-ceph is specified
-            if ($IncludeCeph -and ($repoTag -like 'quay.io/cephcsi/*' -or $repoTag -like 'registry.k8s.io/sig-storage/*' -or $repoTag -like 'k8s.gcr.io/sig-storage/*' -or $repoTag -like 'shsk2s.azurecr.io/sig-storage/*')) {
                 $imageRefsToExport += $repoTag
             }
         }
@@ -456,9 +438,6 @@ try {
     $gpuIncludedMsg = ''
     if ($IncludeGpu) {
         $gpuIncludedMsg = ' (with GPU support)'
-    }
-    if ($IncludeCeph) {
-        $gpuIncludedMsg += ' (with Ceph CSI images)'
     }
     
     Compress-Archive -Path $zipContents -DestinationPath $zipTarget -Force

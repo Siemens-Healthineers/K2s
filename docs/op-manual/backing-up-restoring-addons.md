@@ -139,6 +139,7 @@ The following table shows at a glance what each addon's backup contains.
 | **rollout fluxcd** | Config | All Flux CRs, referenced Secrets, webhook ingress | Secrets backed up (Flux requires them) |
 | **security** | Data | CA root Secret, Keycloak PostgreSQL dump, Kyverno policies, enhanced-security marker | `EnableForRestore.ps1` reconstructs original enable flags; drops/recreates Keycloak DB; re-applies Kyverno policies after framework is ready |
 | **storage smb** | Data | `SmbStorage.json`, addon config snapshot, SMB share file data | Disable/enable cycle with `-Keep`; works offline |
+| **storage ceph** | Config | Ceph connection configuration (`clusterHostNode`, `cephfsPool`, `cephfsFilesystem`) | No user data copied — a fresh Ceph cluster is provisioned on re-enable |
 | **viewer** | Config | ConfigMap, Service, ingress resources, Traefik middleware | Runs `Update.ps1` after restore |
 
 **Backup Types:**
@@ -252,6 +253,12 @@ During restore, the addon re-enable step ensures `bin\\flux.exe` is present on t
 **Backup:** Copies the `SmbStorage.json` configuration file, an addon config snapshot from `setup.json`, and the SMB share data from the Windows mount path. Works even when the cluster is not running (local data only).
 
 **Restore:** Restores the config snapshot, determines the SMB host type from addon configuration, performs a disable/enable cycle with the `-Keep` flag, then restores the share data.
+
+### storage ceph
+
+**Backup:** Snapshots the Ceph connection configuration (`clusterHostNode`, plus the `cephfsPool` / `cephfsFilesystem` names from `config/ceph-config.json`) into a zip archive. No user data is copied — it resides in the provisioned Ceph cluster.
+
+**Restore:** Re-applies the configuration snapshot and re-enables the addon, which provisions a fresh single-node Ceph cluster on the configured Debian 13 node. The same configuration is preserved automatically across `k2s system backup`/`restore`/`upgrade` via backup/restore hooks registered while the addon is enabled.
 
 ### viewer
 
