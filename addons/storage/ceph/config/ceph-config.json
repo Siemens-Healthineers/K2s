@@ -3,5 +3,6 @@
     "cephfsFilesystem":  "cephfs",
     "clusterHostNode":  "kubemaster",
     "osdcount":  2,
-    "osdsize":  10
+    "osdsize":  10,
+    "osddevicebaremetal":  "/dev/sdb, /dev/sdc"
 }

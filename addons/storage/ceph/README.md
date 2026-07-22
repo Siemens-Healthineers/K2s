@@ -392,7 +392,8 @@ File: `addons/storage/ceph/config/ceph-config.json`
   "cephfsFilesystem": "cephfs",
   "clusterHostNode": "kubemaster",
   "osdsize": 20,
-  "osdcount": 2
+  "osdcount": 2,
+  "osddevicebaremetal": "/dev/sdb, /dev/sdc"
 }
 ```
 
@@ -403,10 +404,12 @@ File: `addons/storage/ceph/config/ceph-config.json`
 | `cephfsFilesystem` | No | CephFS filesystem name (default `cephfs`). |
 | `osdsize` | No | Size in **GiB** of each OSD data disk created on a Hyper-V host (default `20`). Increase it to grow the available CephFS capacity. Alias: `osdDiskSizeGB`. Applies only to Hyper-V-created disks; bare-metal hosts use the provided physical disk. Invalid values fall back to the default. |
 | `osdcount` | No | Number of OSD data disks to create on the host (default `2`). Invalid values fall back to the default. |
+| `osddevicebaremetal` | No | Comma-separated list of target bare-metal OSD devices (for example `/dev/sdb, /dev/sdc`). Device 1 is used for OSD #1, device 2 for OSD #2, and so on. Required for bare-metal OSD provisioning when `osdcount` > 0; each listed device is wiped before OSD creation. |
 | `comment` | No | Free-text note; ignored by the addon. |
 
-Both `osdsize` and `osdcount` are **configurable** — edit them before enabling the addon to size the
-Ceph storage to your needs. For hardware/capacity planning guidance, see the upstream
+`osdsize`, `osdcount`, and `osddevicebaremetal` are **configurable** — edit them before enabling the
+addon to size Ceph storage to your needs and map bare-metal OSDs to specific drives. For
+hardware/capacity planning guidance, see the upstream
 [Ceph Hardware Recommendations](https://docs.ceph.com/en/latest/start/hardware-recommendations/).
 
 When no config object is passed by the CLI, `enable` falls back to this file, so the

@@ -81,9 +81,11 @@ The OSD disk size and count are **not fixed** — they can be adjusted to your n
 |-------|---------|-------------|
 | `osdsize` (alias `osdDiskSizeGB`) | `20` | Size in **GiB** of each OSD data disk created on a Hyper-V host. Set a larger value if you need more CephFS capacity. |
 | `osdcount` | `2` | Number of OSD data disks to create on the host. |
+| `osddevicebaremetal` | _empty_ | Comma-separated bare-metal target disks (for example `/dev/sdb, /dev/sdc`). The addon maps entry 1 to OSD #1, entry 2 to OSD #2, and so on. |
 
-Invalid or missing values fall back to the defaults. For bare-metal hosts, provide an appropriately
-sized empty physical disk instead — `osdsize` only applies to Hyper-V-created disks.
+Invalid or missing values fall back to the defaults. For bare-metal hosts, provide appropriately
+sized empty physical disks via `osddevicebaremetal` — `osdsize` only applies to Hyper-V-created
+disks.
 
 **Enforced before enable** (validation aborts otherwise):
 
@@ -120,11 +122,13 @@ sized empty physical disk instead — `osdsize` only applies to Hyper-V-created 
         "cephfsFilesystem": "cephfs",
         "clusterHostNode": "kubemaster",
         "osdsize": 20,
-        "osdcount": 2
+        "osdcount": 2,
+        "osddevicebaremetal": "/dev/sdb, /dev/sdc"
     }
     ```
 
     > `osdsize` (GiB) and `osdcount` are optional; if omitted the defaults (20 GiB, 2 disks) are used.
+    > On bare-metal OSD hosts, set `osddevicebaremetal` with one disk path per OSD.
 
 2. Enable the addon:
 

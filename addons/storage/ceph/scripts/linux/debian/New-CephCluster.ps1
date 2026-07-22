@@ -313,7 +313,19 @@ function Invoke-CephOsdPreparation {
 
     $clusterFsid = if ($null -ne $Config) { "$($Config.clusterId)".Trim() } else { '' }
 
-    Write-Log "[Ceph] OSD configuration: count=$osdCount, size=${osdDiskSizeGB}GiB" -Console
+    $configuredBareMetalDevices = if ($null -ne $Config -and -not [string]::IsNullOrWhiteSpace("$($Config.osddevicebaremetal)".Trim())) {
+        "$($Config.osddevicebaremetal)".Trim()
+    }
+    else {
+        ''
+    }
+
+    if (-not [string]::IsNullOrWhiteSpace($configuredBareMetalDevices)) {
+        Write-Log "[Ceph] OSD configuration: count=$osdCount, size=${osdDiskSizeGB}GiB, osddevicebaremetal='$configuredBareMetalDevices'" -Console
+    }
+    else {
+        Write-Log "[Ceph] OSD configuration: count=$osdCount, size=${osdDiskSizeGB}GiB" -Console
+    }
 
     # Add the host label once (osd) before creating OSDs, to avoid repeating label operations per disk.
     # Only pass hostname; cluster fsid is not needed for label-only operation.
@@ -340,7 +352,7 @@ function Invoke-CephOsdPreparation {
 
     for ($osdIndex = 1; $osdIndex -le $osdCount; $osdIndex++) {
         Write-Log "[Ceph] Preparing OSD disk #$osdIndex of $osdCount on node '$osdNodeIp'$(if ($osdAccess.NodeName) { " ($($osdAccess.NodeName))" })..." -Console
-        $prepareDiskOutput = & $prepareDiskScript -NodeIp $osdNodeIp -UserName $osdAccess.UserName -DiskSizeGB $osdDiskSizeGB -CreateNewDisk:($osdIndex -gt 1) -RemoveExistingOsdDisks:($osdIndex -eq 1) -Config $Config -ShowLogs:$ShowLogs
+        $prepareDiskOutput = & $prepareDiskScript -NodeIp $osdNodeIp -UserName $osdAccess.UserName -DiskSizeGB $osdDiskSizeGB -OsdIndex $osdIndex -CreateNewDisk:($osdIndex -gt 1) -RemoveExistingOsdDisks:($osdIndex -eq 1) -Config $Config -ShowLogs:$ShowLogs
         if ($LASTEXITCODE -ne 0) {
             Write-Log "[Ceph] ERROR: OSD disk preparation failed on node '$osdNodeIp' for OSD #$osdIndex (exit code $LASTEXITCODE)." -Console -Error
             Remove-CreatedOsdVhdxPaths -VhdxPaths $osdDiskPaths

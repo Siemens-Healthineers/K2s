@@ -33,6 +33,11 @@ For Hyper-V nodes it is optional: the freshly-attached virtual disk is discovere
 .PARAMETER DiskSizeGB
 Size (in GiB) of the virtual disk to create for a Hyper-V node. Ignored for bare-metal. Default 20.
 
+.PARAMETER OsdIndex
+1-based OSD index within the current provisioning run. Used on bare-metal nodes to map
+`osddevicebaremetal` entries to a specific OSD (for example the second configured device is used
+for OSD index 2).
+
 .PARAMETER Config
 The parsed ceph-config.json object (used to resolve the SSH user).
 
@@ -48,6 +53,8 @@ Param(
     [string] $Device = '',
     [parameter(Mandatory = $false, HelpMessage = 'Virtual disk size in GiB for Hyper-V nodes')]
     [uint32] $DiskSizeGB = 20,
+    [parameter(Mandatory = $false, HelpMessage = '1-based OSD index used for bare-metal device selection')]
+    [uint32] $OsdIndex = 1,
     [parameter(Mandatory = $false, HelpMessage = 'Force creation of a new Hyper-V virtual disk even when K2s OSD disks already exist')]
     [switch] $CreateNewDisk = $false,
     [parameter(Mandatory = $false, HelpMessage = 'Remove pre-existing K2s OSD virtual disks before provisioning (fresh cluster start)')]
@@ -252,6 +259,42 @@ function Resolve-HyperVVmNameByIp {
     return $null
 }
 
+function Get-BareMetalOsdDevicesFromConfig {
+    param(
+        [pscustomobject] $Config
+    )
+
+    $devices = @()
+    if ($null -eq $Config) { return $devices }
+
+    $rawValue = $null
+    if ($Config.PSObject.Properties.Name -contains 'osddevicebaremetal') {
+        $rawValue = $Config.osddevicebaremetal
+    }
+
+    if ($null -eq $rawValue) { return $devices }
+
+    # Accept both comma-separated strings and JSON arrays; normalize to non-empty trimmed entries.
+    if ($rawValue -is [System.Array]) {
+        foreach ($entry in $rawValue) {
+            $candidate = "$entry".Trim()
+            if (-not [string]::IsNullOrWhiteSpace($candidate)) {
+                $devices += $candidate
+            }
+        }
+    }
+    else {
+        foreach ($entry in ("$rawValue" -split ',')) {
+            $candidate = "$entry".Trim()
+            if (-not [string]::IsNullOrWhiteSpace($candidate)) {
+                $devices += $candidate
+            }
+        }
+    }
+
+    return $devices
+}
+
 # ---------------------------------------------------------------------------
 # Determine node type using the same signal K2s uses when adding a worker node:
 # prefer KubeSwitch ARP/MAC lookup to identify an existing Hyper-V VM.
@@ -401,7 +444,27 @@ else {
     $diskScript = Join-Path $PSScriptRoot 'baremetal\prepare-osd-disk-baremetal.sh'
 
     if ([string]::IsNullOrWhiteSpace($Device)) {
-        Write-Log "[Ceph] ERROR: A bare-metal OSD node requires an explicit target disk. Pass -Device (e.g. /dev/sdb)." -Console -Error
+        $configuredBareMetalDevices = @(Get-BareMetalOsdDevicesFromConfig -Config $Config)
+        if ($configuredBareMetalDevices.Count -gt 0) {
+            if ($OsdIndex -lt 1) {
+                Write-Log "[Ceph] ERROR: Invalid OSD index '$OsdIndex' for bare-metal device selection." -Console -Error
+                exit 1
+            }
+
+            $selectedDeviceIndex = [int]$OsdIndex - 1
+            if ($selectedDeviceIndex -lt $configuredBareMetalDevices.Count) {
+                $Device = $configuredBareMetalDevices[$selectedDeviceIndex]
+                Write-Log "[Ceph] Selected bare-metal OSD device '$Device' from osddevicebaremetal (OSD index $OsdIndex)." -Console
+            }
+            else {
+                Write-Log "[Ceph] ERROR: osddevicebaremetal provides only $($configuredBareMetalDevices.Count) device(s), but OSD index $OsdIndex was requested. Provide at least one device per OSD." -Console -Error
+                exit 1
+            }
+        }
+    }
+
+    if ([string]::IsNullOrWhiteSpace($Device)) {
+        Write-Log "[Ceph] ERROR: A bare-metal OSD node requires an explicit target disk. Pass -Device (e.g. /dev/sdb) or set 'osddevicebaremetal' in ceph-config.json." -Console -Error
         exit 1
     }
     $scriptArgs = @($Device)
