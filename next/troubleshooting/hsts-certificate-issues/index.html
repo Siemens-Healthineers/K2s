@@ -13,13 +13,11 @@ SPDX-License-Identifier: MIT
       
       
       
-        <link rel="canonical" href="https://Siemens-Healthineers.github.io/K2s/next/op-manual/running-apps-as-hostprocess/">
+        <link rel="canonical" href="https://Siemens-Healthineers.github.io/K2s/next/troubleshooting/hsts-certificate-issues/">
       
       
-        <link rel="prev" href="../networking-architecture/">
+        <link rel="prev" href="../known-issues/">
       
-      
-        <link rel="next" href="../integrating-native-processes/">
       
       
         
@@ -30,7 +28,7 @@ SPDX-License-Identifier: MIT
     
     
       
-        <title>Running Native Windows Apps (HostProcess & Compartments) - K2s - Kubernetes distribution for Windows & Linux workloads</title>
+        <title>HSTS & Certificate Issues - K2s - Kubernetes distribution for Windows & Linux workloads</title>
       
     
     
@@ -83,7 +81,7 @@ SPDX-License-Identifier: MIT
     <div data-md-component="skip">
       
         
-        <a href="#running-native-windows-applications-with-hostprocess-network-compartments" class="md-skip">
+        <a href="#hsts-certificate-issues-k2sclusterlocal" class="md-skip">
           Skip to content
         </a>
       
@@ -134,7 +132,7 @@ You're not viewing the latest release version.
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              Running Native Windows Apps (HostProcess & Compartments)
+              HSTS & Certificate Issues
             
           </span>
         </div>
@@ -307,13 +305,11 @@ You're not viewing the latest release version.
   
   
   
-    
-  
   
     
     
-      <li class="md-tabs__item md-tabs__item--active">
-        <a href="../os-support/" class="md-tabs__link">
+      <li class="md-tabs__item">
+        <a href="../../op-manual/os-support/" class="md-tabs__link">
           
   
   
@@ -385,11 +381,13 @@ You're not viewing the latest release version.
   
   
   
+    
+  
   
     
     
-      <li class="md-tabs__item">
-        <a href="../../troubleshooting/diagnostics/" class="md-tabs__link">
+      <li class="md-tabs__item md-tabs__item--active">
+        <a href="../diagnostics/" class="md-tabs__link">
           
   
   
@@ -910,10 +908,8 @@ You're not viewing the latest release version.
       
   
   
-    
   
   
-  
     
     
       
@@ -975,20 +971,17 @@ You're not viewing the latest release version.
     
     
       
-        
-        
-      
       
     
     
-    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--nested">
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" checked>
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" >
         
           
-          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="">
+          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="0">
             
   
   
@@ -1006,7 +999,7 @@ You're not viewing the latest release version.
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="true">
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="false">
           <label class="md-nav__title" for="__nav_4">
             <span class="md-nav__icon md-icon"></span>
             
@@ -1024,7 +1017,7 @@ You're not viewing the latest release version.
   
   
     <li class="md-nav__item">
-      <a href="../os-support/" class="md-nav__link">
+      <a href="../../op-manual/os-support/" class="md-nav__link">
         
   
   
@@ -1052,7 +1045,7 @@ You're not viewing the latest release version.
   
   
     <li class="md-nav__item">
-      <a href="../getting-k2s/" class="md-nav__link">
+      <a href="../../op-manual/getting-k2s/" class="md-nav__link">
         
   
   
@@ -1080,7 +1073,7 @@ You're not viewing the latest release version.
   
   
     <li class="md-nav__item">
-      <a href="../creating-offline-package/" class="md-nav__link">
+      <a href="../../op-manual/creating-offline-package/" class="md-nav__link">
         
   
   
@@ -1108,7 +1101,7 @@ You're not viewing the latest release version.
   
   
     <li class="md-nav__item">
-      <a href="../delta-packages/" class="md-nav__link">
+      <a href="../../op-manual/delta-packages/" class="md-nav__link">
         
   
   
@@ -1136,7 +1129,7 @@ You're not viewing the latest release version.
   
   
     <li class="md-nav__item">
-      <a href="../installing-k2s/" class="md-nav__link">
+      <a href="../../op-manual/installing-k2s/" class="md-nav__link">
         
   
   
@@ -1164,7 +1157,7 @@ You're not viewing the latest release version.
   
   
     <li class="md-nav__item">
-      <a href="../configuration-reference/" class="md-nav__link">
+      <a href="../../op-manual/configuration-reference/" class="md-nav__link">
         
   
   
@@ -1192,7 +1185,7 @@ You're not viewing the latest release version.
   
   
     <li class="md-nav__item">
-      <a href="../customizing-kubelet/" class="md-nav__link">
+      <a href="../../op-manual/customizing-kubelet/" class="md-nav__link">
         
   
   
@@ -1220,7 +1213,7 @@ You're not viewing the latest release version.
   
   
     <li class="md-nav__item">
-      <a href="../starting-k2s/" class="md-nav__link">
+      <a href="../../op-manual/starting-k2s/" class="md-nav__link">
         
   
   
@@ -1248,7 +1241,7 @@ You're not viewing the latest release version.
   
   
     <li class="md-nav__item">
-      <a href="../checking-k2s-status/" class="md-nav__link">
+      <a href="../../op-manual/checking-k2s-status/" class="md-nav__link">
         
   
   
@@ -1276,7 +1269,7 @@ You're not viewing the latest release version.
   
   
     <li class="md-nav__item">
-      <a href="../adding-k2s-users/" class="md-nav__link">
+      <a href="../../op-manual/adding-k2s-users/" class="md-nav__link">
         
   
   
@@ -1304,7 +1297,7 @@ You're not viewing the latest release version.
   
   
     <li class="md-nav__item">
-      <a href="../stopping-k2s/" class="md-nav__link">
+      <a href="../../op-manual/stopping-k2s/" class="md-nav__link">
         
   
   
@@ -1332,7 +1325,7 @@ You're not viewing the latest release version.
   
   
     <li class="md-nav__item">
-      <a href="../upgrading-k2s/" class="md-nav__link">
+      <a href="../../op-manual/upgrading-k2s/" class="md-nav__link">
         
   
   
@@ -1360,7 +1353,7 @@ You're not viewing the latest release version.
   
   
     <li class="md-nav__item">
-      <a href="../compacting-vhdx-storage/" class="md-nav__link">
+      <a href="../../op-manual/compacting-vhdx-storage/" class="md-nav__link">
         
   
   
@@ -1388,7 +1381,7 @@ You're not viewing the latest release version.
   
   
     <li class="md-nav__item">
-      <a href="../hook-system/" class="md-nav__link">
+      <a href="../../op-manual/hook-system/" class="md-nav__link">
         
   
   
@@ -1416,7 +1409,7 @@ You're not viewing the latest release version.
   
   
     <li class="md-nav__item">
-      <a href="../backing-up-restoring-system/" class="md-nav__link">
+      <a href="../../op-manual/backing-up-restoring-system/" class="md-nav__link">
         
   
   
@@ -1444,7 +1437,7 @@ You're not viewing the latest release version.
   
   
     <li class="md-nav__item">
-      <a href="../backing-up-restoring-addons/" class="md-nav__link">
+      <a href="../../op-manual/backing-up-restoring-addons/" class="md-nav__link">
         
   
   
@@ -1472,7 +1465,7 @@ You're not viewing the latest release version.
   
   
     <li class="md-nav__item">
-      <a href="../gitops-addon-delivery/" class="md-nav__link">
+      <a href="../../op-manual/gitops-addon-delivery/" class="md-nav__link">
         
   
   
@@ -1500,7 +1493,7 @@ You're not viewing the latest release version.
   
   
     <li class="md-nav__item">
-      <a href="../external-dns/" class="md-nav__link">
+      <a href="../../op-manual/external-dns/" class="md-nav__link">
         
   
   
@@ -1528,7 +1521,7 @@ You're not viewing the latest release version.
   
   
     <li class="md-nav__item">
-      <a href="../extending-k2s-cluster/" class="md-nav__link">
+      <a href="../../op-manual/extending-k2s-cluster/" class="md-nav__link">
         
   
   
@@ -1556,7 +1549,7 @@ You're not viewing the latest release version.
   
   
     <li class="md-nav__item">
-      <a href="../secure-host-access/" class="md-nav__link">
+      <a href="../../op-manual/secure-host-access/" class="md-nav__link">
         
   
   
@@ -1584,7 +1577,7 @@ You're not viewing the latest release version.
   
   
     <li class="md-nav__item">
-      <a href="../networking-architecture/" class="md-nav__link">
+      <a href="../../op-manual/networking-architecture/" class="md-nav__link">
         
   
   
@@ -1609,37 +1602,10 @@ You're not viewing the latest release version.
                 
   
   
-    
   
   
-  
-    <li class="md-nav__item md-nav__item--active">
-      
-      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
-      
-      
-        
-      
-      
-        <label class="md-nav__link md-nav__link--active" for="__toc">
-          
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Running Native Windows Apps (HostProcess & Compartments)
-  
-
-    
-  </span>
-  
-  
-
-          <span class="md-nav__icon md-icon"></span>
-        </label>
-      
-      <a href="./" class="md-nav__link md-nav__link--active">
+    <li class="md-nav__item">
+      <a href="../../op-manual/running-apps-as-hostprocess/" class="md-nav__link">
         
   
   
@@ -1655,231 +1621,6 @@ You're not viewing the latest release version.
   
 
       </a>
-      
-        
-
-<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
-  
-  
-  
-    
-  
-  
-    <label class="md-nav__title" for="__toc">
-      <span class="md-nav__icon md-icon"></span>
-      Table of contents
-    </label>
-    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
-      
-        <li class="md-nav__item">
-  <a href="#overview" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Overview
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#why-this-pattern" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Why This Pattern?
-      
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="Why This Pattern?">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#benefits" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Benefits
-      
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#high-level-flow" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        High-Level Flow
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#full-generic-example" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Full Generic Example
-      
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="Full Generic Example">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#parameter-breakdown" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Parameter Breakdown
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#adding-a-service" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Adding a Service
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#scaling-strategies" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Scaling Strategies
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#mesh-sidecar-considerations" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Mesh / Sidecar Considerations
-      
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#using-linkerd-with-hostprocess-compartments" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Using Linkerd with HostProcess Compartments
-      
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="Using Linkerd with HostProcess Compartments">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#injection-path" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Injection Path
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#traffic-identity" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Traffic &amp; Identity
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#observability" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Observability
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#recommended-sequence" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Recommended Sequence
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#best-practices" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Best Practices
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#security-notes" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Security Notes
-      
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#references" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        References
-      
-    </span>
-  </a>
-  
-</li>
-      
-    </ul>
-  
-</nav>
-      
     </li>
   
 
@@ -1892,7 +1633,7 @@ You're not viewing the latest release version.
   
   
     <li class="md-nav__item">
-      <a href="../integrating-native-processes/" class="md-nav__link">
+      <a href="../../op-manual/integrating-native-processes/" class="md-nav__link">
         
   
   
@@ -1920,7 +1661,7 @@ You're not viewing the latest release version.
   
   
     <li class="md-nav__item">
-      <a href="../uninstalling-k2s/" class="md-nav__link">
+      <a href="../../op-manual/uninstalling-k2s/" class="md-nav__link">
         
   
   
@@ -1948,7 +1689,7 @@ You're not viewing the latest release version.
   
   
     <li class="md-nav__item">
-      <a href="../log-folder/" class="md-nav__link">
+      <a href="../../op-manual/log-folder/" class="md-nav__link">
         
   
   
@@ -1976,7 +1717,7 @@ You're not viewing the latest release version.
   
   
     <li class="md-nav__item">
-      <a href="../signcatalog-k2s/" class="md-nav__link">
+      <a href="../../op-manual/signcatalog-k2s/" class="md-nav__link">
         
   
   
@@ -2004,7 +1745,7 @@ You're not viewing the latest release version.
   
   
     <li class="md-nav__item">
-      <a href="../code-signing/" class="md-nav__link">
+      <a href="../../op-manual/code-signing/" class="md-nav__link">
         
   
   
@@ -2679,8 +2420,10 @@ You're not viewing the latest release version.
       
   
   
+    
   
   
+  
     
     
       
@@ -2694,17 +2437,20 @@ You're not viewing the latest release version.
     
     
       
+        
+        
+      
       
     
     
-    <li class="md-nav__item md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7" checked>
         
           
-          <label class="md-nav__link" for="__nav_7" id="__nav_7_label" tabindex="0">
+          <label class="md-nav__link" for="__nav_7" id="__nav_7_label" tabindex="">
             
   
   
@@ -2722,7 +2468,7 @@ You're not viewing the latest release version.
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_7_label" aria-expanded="false">
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_7_label" aria-expanded="true">
           <label class="md-nav__title" for="__nav_7">
             <span class="md-nav__icon md-icon"></span>
             
@@ -2740,7 +2486,7 @@ You're not viewing the latest release version.
   
   
     <li class="md-nav__item">
-      <a href="../../troubleshooting/diagnostics/" class="md-nav__link">
+      <a href="../diagnostics/" class="md-nav__link">
         
   
   
@@ -2768,7 +2514,7 @@ You're not viewing the latest release version.
   
   
     <li class="md-nav__item">
-      <a href="../../troubleshooting/known-issues/" class="md-nav__link">
+      <a href="../known-issues/" class="md-nav__link">
         
   
   
@@ -2793,10 +2539,37 @@ You're not viewing the latest release version.
                 
   
   
+    
   
   
-    <li class="md-nav__item">
-      <a href="../../troubleshooting/hsts-certificate-issues/" class="md-nav__link">
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    HSTS & Certificate Issues
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
         
   
   
@@ -2812,6 +2585,126 @@ You're not viewing the latest release version.
   
 
       </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#how-tls-works-in-k2s" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        How TLS works in K2s
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#understanding-hsts-enforceability" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Understanding HSTS Enforceability
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Understanding HSTS Enforceability">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#why-this-affects-k2s" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Why this affects K2s
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#resolving-the-issue" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Resolving the Issue
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Resolving the Issue">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#step-1-delete-the-cached-hsts-policy" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Step 1: Delete the cached HSTS policy
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#step-2-flush-cached-dns-and-sockets" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Step 2: Flush cached DNS and sockets
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#step-3-restart-the-browser" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Step 3: Restart the browser
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#still-failing-verify-the-ca-in-windows" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Still failing? Verify the CA in Windows
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
     </li>
   
 
@@ -2851,10 +2744,10 @@ You're not viewing the latest release version.
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#overview" class="md-nav__link">
+  <a href="#how-tls-works-in-k2s" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Overview
+        How TLS works in K2s
       
     </span>
   </a>
@@ -2862,22 +2755,22 @@ You're not viewing the latest release version.
 </li>
       
         <li class="md-nav__item">
-  <a href="#why-this-pattern" class="md-nav__link">
+  <a href="#understanding-hsts-enforceability" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Why This Pattern?
+        Understanding HSTS Enforceability
       
     </span>
   </a>
   
-    <nav class="md-nav" aria-label="Why This Pattern?">
+    <nav class="md-nav" aria-label="Understanding HSTS Enforceability">
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#benefits" class="md-nav__link">
+  <a href="#why-this-affects-k2s" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Benefits
+        Why this affects K2s
       
     </span>
   </a>
@@ -2890,33 +2783,22 @@ You're not viewing the latest release version.
 </li>
       
         <li class="md-nav__item">
-  <a href="#high-level-flow" class="md-nav__link">
+  <a href="#resolving-the-issue" class="md-nav__link">
     <span class="md-ellipsis">
       
-        High-Level Flow
+        Resolving the Issue
       
     </span>
   </a>
   
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#full-generic-example" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Full Generic Example
-      
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="Full Generic Example">
+    <nav class="md-nav" aria-label="Resolving the Issue">
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#parameter-breakdown" class="md-nav__link">
+  <a href="#step-1-delete-the-cached-hsts-policy" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Parameter Breakdown
+        Step 1: Delete the cached HSTS policy
       
     </span>
   </a>
@@ -2924,10 +2806,10 @@ You're not viewing the latest release version.
 </li>
         
           <li class="md-nav__item">
-  <a href="#adding-a-service" class="md-nav__link">
+  <a href="#step-2-flush-cached-dns-and-sockets" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Adding a Service
+        Step 2: Flush cached DNS and sockets
       
     </span>
   </a>
@@ -2935,21 +2817,10 @@ You're not viewing the latest release version.
 </li>
         
           <li class="md-nav__item">
-  <a href="#scaling-strategies" class="md-nav__link">
+  <a href="#step-3-restart-the-browser" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Scaling Strategies
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#mesh-sidecar-considerations" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Mesh / Sidecar Considerations
+        Step 3: Restart the browser
       
     </span>
   </a>
@@ -2962,93 +2833,10 @@ You're not viewing the latest release version.
 </li>
       
         <li class="md-nav__item">
-  <a href="#using-linkerd-with-hostprocess-compartments" class="md-nav__link">
+  <a href="#still-failing-verify-the-ca-in-windows" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Using Linkerd with HostProcess Compartments
-      
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="Using Linkerd with HostProcess Compartments">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#injection-path" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Injection Path
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#traffic-identity" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Traffic &amp; Identity
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#observability" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Observability
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#recommended-sequence" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Recommended Sequence
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#best-practices" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Best Practices
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#security-notes" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Security Notes
-      
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#references" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        References
+        Still failing? Verify the CA in Windows
       
     </span>
   </a>
@@ -3072,7 +2860,7 @@ You're not viewing the latest release version.
 
 
   
-    <a href="https://github.com/Siemens-Healthineers/K2s/edit/main/docs/op-manual/running-apps-as-hostprocess.md" title="Edit this page" class="md-content__button md-icon" rel="edit">
+    <a href="https://github.com/Siemens-Healthineers/K2s/edit/main/docs/troubleshooting/hsts-certificate-issues.md" title="Edit this page" class="md-content__button md-icon" rel="edit">
       
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M10 20H6V4h7v5h5v3.1l2-2V8l-6-6H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h4zm10.2-7c.1 0 .3.1.4.2l1.3 1.3c.2.2.2.6 0 .8l-1 1-2.1-2.1 1-1c.1-.1.2-.2.4-.2m0 3.9L14.1 23H12v-2.1l6.1-6.1z"/></svg>
     </a>
@@ -3081,373 +2869,81 @@ You're not viewing the latest release version.
 
 
 <!--
-SPDX-FileCopyrightText: © 2025 Siemens Healthineers AG
+SPDX-FileCopyrightText: © 2026 Siemens Healthineers AG
 SPDX-License-Identifier: MIT
 -->
 
-<h1 id="running-native-windows-applications-with-hostprocess-network-compartments">Running Native Windows Applications with HostProcess + Network Compartments</h1>
-<h2 id="overview">Overview</h2>
-<p>Running existing (often legacy or closed‑source) native Windows applications in Kubernetes can be challenging when you need modern platform capabilities (service mesh, observability, scaling) but the binaries were never built for container awareness or multi‑instance coexistence. On Windows, <strong>network compartments</strong> provide a logical isolation boundary for network configuration (interfaces, routes, policies, <abbr title="Domain Name System">DNS</abbr>) similar in spirit to a network namespace on Linux, but they are not automatically created for HostProcess containers (which execute directly in the host context).
-Bringing these native Windows applications into Kubernetes as HostProcess containers and isolating them to run in a specific pod network compartment lets you reuse these platform capabilities (service mesh, observability, scaling) with minimal or no code change.</p>
-<div align="center">
-
-![Overview](assets/compartments.png)
+<h1 id="hsts-certificate-issues-k2sclusterlocal">HSTS &amp; Certificate Issues (<code>k2s.cluster.local</code>)</h1>
+<p>Browsers maintain internal security mechanisms to protect connections to web services. When accessing <em>K2s</em> web endpoints on <code>k2s.cluster.local</code> (e.g., the <code>dashboard</code>, <code>logging</code>, or <code>viewer</code> addons), you may encounter connection errors such as <strong>"Your connection is not private"</strong> (<code>NET::ERR_CERT_AUTHORITY_INVALID</code> or <code>NET::ERR_CERT_COMMON_NAME_INVALID</code>).</p>
+<p>This guide explains why this happens in <em>K2s</em> and how to resolve it — <strong>even after the <abbr title="Certificate Authority">CA</abbr> certificate has already been imported into the Windows certificate store</strong>.</p>
+<h2 id="how-tls-works-in-k2s">How TLS works in K2s</h2>
+<p>Before troubleshooting, it helps to know what <em>K2s</em> sets up automatically:</p>
+<ul>
+<li><code>k2s.cluster.local</code> resolves to the control-plane <abbr title="Internet Protocol">IP</abbr> <code>172.19.1.100</code> via the Windows hosts file (<code>C:\Windows\System32\drivers\etc\hosts</code>) and CoreDNS.</li>
+<li>When you enable an ingress addon (<code>nginx</code>, <code>traefik</code>, <code>nginx-gw</code>) or the <code>security</code> addon, <a href="https://cert-manager.io/" target="_blank" rel="noopener">cert-manager</a> issues a TLS certificate for <code>k2s.cluster.local</code> from the <code>k2s-ca-issuer</code>.</li>
+<li>The root <abbr title="Certificate Authority">CA</abbr> public certificate (<code>K2s Self-Signed CA</code>) is <strong>automatically imported into the Windows Trusted Root Certification Authorities</strong> store (<code>Cert:\LocalMachine\Root</code>).</li>
+<li>Every <em>K2s</em>-issued certificate already contains a <strong>Subject Alternative Name (SAN)</strong> entry for <code>k2s.cluster.local</code>.</li>
+</ul>
+<p>Because store placement and the SAN are handled automatically, they are <strong>not</strong> the usual cause of a persistent certificate error. The most common cause is a <strong>stale HSTS policy cached by the browser</strong>, which is described below. See <a href="../../user-guide/certificate-management/">Certificate Management</a> for the full certificate architecture.</p>
+<h2 id="understanding-hsts-enforceability">Understanding HSTS Enforceability</h2>
+<p><strong>HSTS (<abbr title="Hypertext Transfer Protocol">HTTP</abbr> Strict Transport Security)</strong> is an IETF web security standard (<a href="https://datatracker.ietf.org/doc/html/rfc6797" target="_blank" rel="noopener">RFC 6797</a>). When a service sends a <code>Strict-Transport-Security</code> <abbr title="Hypertext Transfer Protocol">HTTP</abbr> response header, browsers strictly force all subsequent connections to that domain over HTTPS.</p>
+<h3 id="why-this-affects-k2s">Why this affects K2s</h3>
+<ul>
+<li><strong>Unbypassable security warnings:</strong> Unlike standard self-signed certificate warnings, when HSTS is active for a domain, Chrome and Edge <strong>disable the ability to bypass</strong> the warning screen (the "Proceed to site (unsafe)" link is hidden or non-functional).</li>
+<li><strong>Persistent cache:</strong> Browsers cache HSTS policies locally based on the <code>max-age</code> directive.</li>
+<li><strong><abbr title="Certificate Authority">CA</abbr> re-issuing:</strong> <em>K2s</em> re-issues the <abbr title="Certificate Authority">CA</abbr> and TLS certificates when you re-enable an ingress addon or enable/disable the <code>security</code> addon. The browser still has the <strong>old</strong> HSTS/certificate state cached and rejects the new certificate — even though <em>K2s</em> has already imported the new <abbr title="Certificate Authority">CA</abbr> into the trusted root store.</li>
+</ul>
+<p>This is why the error can persist after a fresh certificate import: the fix is to clear the cached browser state, not to re-import the certificate.</p>
+<h2 id="resolving-the-issue">Resolving the Issue</h2>
+<h3 id="step-1-delete-the-cached-hsts-policy">Step 1: Delete the cached HSTS policy</h3>
+<p>Clear the policy from your browser's internal network settings:</p>
+<ol>
+<li>Open your browser and navigate to:<ul>
+<li><strong>Chrome:</strong> <code>chrome://net-internals/#hsts</code></li>
+<li><strong>Edge:</strong> <code>edge://net-internals/#hsts</code></li>
+</ul>
+</li>
+<li>In the <strong>Query HSTS/PKP domain</strong> section:<ul>
+<li>Input domain: <code>k2s.cluster.local</code></li>
+<li>Click <strong>Query</strong>. If <code>Found</code> is displayed, HSTS is currently enforced for this host.</li>
+</ul>
+</li>
+<li>In the <strong>Delete domain security policies</strong> section:<ul>
+<li>Input domain: <code>k2s.cluster.local</code> <em>(do not include <code>https://</code>, port numbers, or trailing slashes)</em></li>
+<li>Click <strong>Delete</strong>.</li>
+</ul>
+</li>
+</ol>
+<h3 id="step-2-flush-cached-dns-and-sockets">Step 2: Flush cached <abbr title="Domain Name System">DNS</abbr> and sockets</h3>
+<p>To ensure Windows and the browser use the updated certificate session:</p>
+<ol>
+<li>Flush the Windows <abbr title="Domain Name System">DNS</abbr> cache from PowerShell or Command Prompt:
+    <div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="go">ipconfig /flushdns</span>
+</code></pre></div></li>
+<li>Flush the browser's cached sockets so new connections re-negotiate TLS:<ul>
+<li><strong>Chrome:</strong> navigate to <code>chrome://net-internals/#sockets</code> and click <strong>Flush socket pools</strong>.</li>
+<li><strong>Edge:</strong> navigate to <code>edge://net-internals/#sockets</code> and click <strong>Flush socket pools</strong>.</li>
+</ul>
+</li>
+</ol>
+<h3 id="step-3-restart-the-browser">Step 3: Restart the browser</h3>
+<p>Fully close and reopen the browser, then access the endpoint again (e.g., <a href="https://k2s.cluster.local">https://k2s.cluster.local</a>).</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>If the ingress or web application serving <code>k2s.cluster.local</code> keeps sending the <code>Strict-Transport-Security</code> header, the browser will re-register HSTS on the next HTTPS connection. That is expected — you only need to reset HSTS again if the certificate itself was re-issued (e.g., after re-enabling an ingress addon or toggling the <code>security</code> addon).</p>
 </div>
-
-<p>This pattern enables you to:</p>
-<ul>
-<li>Place an unmodified native Windows process into an isolated network compartment</li>
-<li>Assign the process a stable per-instance <abbr title="Internet Protocol">IP</abbr> (via the anchor pod's compartment networking)</li>
-<li>Inject mesh sidecars / data-plane capabilities at the compartment boundary (via the anchor)</li>
-<li>Scale to multiple parallel instances—each with its own compartment/<abbr title="Internet Protocol">IP</abbr>—without port conflicts</li>
-<li>Gradually migrate or encapsulate legacy services without rewriting them for container semantics</li>
-</ul>
-<p>We achieve this by combining:</p>
+<h2 id="still-failing-verify-the-ca-in-windows">Still failing? Verify the <abbr title="Certificate Authority">CA</abbr> in Windows</h2>
+<p>If, after resetting HSTS, Chrome still shows <code>NET::ERR_CERT_AUTHORITY_INVALID</code>, confirm the current <em>K2s</em> <abbr title="Certificate Authority">CA</abbr> is present and trusted. <em>K2s</em> imports it automatically, but a manually replaced or re-issued <abbr title="Certificate Authority">CA</abbr> can leave a stale entry.</p>
 <ol>
-<li>An ordinary Windows (non-HostProcess) "anchor" pod that the kubelet / CNI associates with a compartment.</li>
-<li>A HostProcess container that runs a privileged launcher which switches into the anchor's compartment before starting the legacy (or new) executable.</li>
+<li>List the imported <em>K2s</em> <abbr title="Certificate Authority">CA</abbr> in the trusted root store:
+    <div class="highlight"><span class="filename">PowerShell</span><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="nb">Get-ChildItem</span> <span class="n">Cert</span><span class="p">:\</span><span class="n">LocalMachine</span><span class="p">\</span><span class="n">Root</span> <span class="p">|</span> <span class="nb">Where-Object</span> <span class="p">{</span> <span class="nv">$_</span><span class="p">.</span><span class="n">Subject</span> <span class="o">-like</span> <span class="s1">&#39;*K2s Self-Signed CA*&#39;</span> <span class="p">}</span>
+</code></pre></div></li>
+<li>If a stale/old <code>K2s Self-Signed CA</code> certificate exists alongside the current one, remove the outdated entry (match by thumbprint) and let <em>K2s</em> re-import the current <abbr title="Certificate Authority">CA</abbr> by re-enabling the ingress addon.</li>
 </ol>
-<p>This guide shows how to run an existing (possibly legacy / closed‑source) Windows application inside Kubernetes while giving it its <strong>own isolated network context</strong> (a Windows network compartment) and a stable <abbr title="Internet Protocol">IP</abbr> address, <em>without</em> modifying the binary. The isolation is achieved by pairing:</p>
-<ol>
-<li>An <strong>anchor pod</strong> (ordinary Windows container) which the Windows CNI stack places into a compartment and wires with an interface + <abbr title="Internet Protocol">IP</abbr>.</li>
-<li>A <strong>HostProcess container</strong> that launches the real application <em>after</em> switching its thread into the anchor's compartment using the helper launcher <code>cplauncher</code>.</li>
-</ol>
-<p>This pattern preserves compatibility (run any EXE), improves multi‑instance scalability (no port collisions), and enables advanced platform add‑ons (service mesh, traffic capture, zero‑downtime rotation) around software that cannot be easily containerized in the traditional sense.</p>
-<h2 id="why-this-pattern">Why This Pattern?</h2>
-<p>Windows HostProcess containers execute directly on the host and can start arbitrary processes with elevated permissions. However, binding those processes to a different compartment than the default host compartment requires explicit movement to a new compartment before listening sockets are opened. The pattern here externalizes the compartment selection logic to a launcher tool that:</p>
-<ul>
-<li>Discovers the target compartment by locating a labeled anchor pod.</li>
-<li>Extracts and validates required network context (e.g. <abbr title="Internet Protocol">IP</abbr> addresses, annotations, labels).</li>
-<li>Sets the thread's network compartment.</li>
-<li>Starts the desired executable while streaming logs.</li>
-<li>Exits with a meaningful status for observability.</li>
-</ul>
-<p>Tool is available under the K2s installation:
-<div class="highlight"><span class="filename">Text Only</span><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>K2S-INSTALLATION-FOLDER\bin\cni\cplauncher.exe
-</code></pre></div></p>
-<h3 id="benefits">Benefits</h3>
-<table>
-<thead>
-<tr>
-<th>Theme</th>
-<th>Value</th>
-<th>Detail</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>Service Mesh</td>
-<td>Sidecar / proxy enablement</td>
-<td>Anchor pod can host or trigger mesh injection; your legacy EXE traffic is transparently managed.</td>
-</tr>
-<tr>
-<td>Per‑Instance <abbr title="Internet Protocol">IP</abbr></td>
-<td>No port conflicts</td>
-<td>Each replica gets its own compartment + <abbr title="Internet Protocol">IP</abbr>; multiple instances can all listen on the same port (e.g. 8080).</td>
-</tr>
-<tr>
-<td>Gradual Modernization</td>
-<td>No code changes needed</td>
-<td>Keep shipping the old binary while layering on Kubernetes services, probes, policies.</td>
-</tr>
-<tr>
-<td>Traffic Governance</td>
-<td>Fine‑grained routing/shaping</td>
-<td>Compartment boundaries + HNS policies restrict blast radius of misconfiguration.</td>
-</tr>
-<tr>
-<td>Security &amp; Isolation</td>
-<td>Network surface reduction</td>
-<td>Only the intended interface/routes are visible to the process after compartment switch.</td>
-</tr>
-<tr>
-<td>Scaling &amp; Rollouts</td>
-<td>Safer blue/green</td>
-<td>Stand up a new anchor+HostProcess pair, cut over Service selector, retire old pair.</td>
-</tr>
-<tr>
-<td>Observability</td>
-<td>Consistent log path</td>
-<td>Launcher streams child stdout/stderr; you can attach log collectors at host or compartment scope.</td>
-</tr>
-<tr>
-<td>Multi‑Tenancy</td>
-<td>Logical segmentation</td>
-<td>Multiple teams share a node but remain partitioned at network compartment level.</td>
-</tr>
-<tr>
-<td>Compliance &amp; Audit</td>
-<td>Deterministic bootstrap log</td>
-<td>Launcher emits parameters (anchor label, namespace, target exe); auditable trail.</td>
-</tr>
-<tr>
-<td>Troubleshooting</td>
-<td>Predictable mapping</td>
-<td>Label -&gt; anchor -&gt; compartment -&gt; process chain simplifies root cause analysis.</td>
-</tr>
-</tbody>
-</table>
-<blockquote>
-<p>NOTE: While HostProcess containers run with elevated host privileges, the network compartment switch confines <em>network presence</em> of the launched process to the intended virtual environment derived from the anchor.</p>
-</blockquote>
-<h2 id="high-level-flow">High-Level Flow</h2>
-<ol>
-<li>Deploy (or already have) a namespace.</li>
-<li>Create anchor pod with distinct label (e.g. <code>app=my-anchor-1</code>).</li>
-<li>Deploy HostProcess object referencing that label via <code>cplauncher -label app=my-anchor-1 -namespace &lt;ns&gt; -- &lt;your.exe&gt; &lt;args&gt;</code>.</li>
-<li><code>cplauncher</code> resolves anchor pod -&gt; extracts compartment -&gt; switches thread -&gt; launches application.</li>
-<li>(Optional) Expose via a Service with selector <code>app=my-legacy-app</code>.</li>
-<li>Scale by repeating (anchor, HostProcess pair) or using a Deployment (1:1 pods) where each new replica references a unique anchor label (pattern generation or pre-created anchors).</li>
-<li>(Optional) Reuse a single anchor for multiple HostProcess instances (shared compartment/<abbr title="Internet Protocol">IP</abbr>) if safe—but prefer 1:1 mapping for isolation and distinct IPs.</li>
-</ol>
-<h2 id="full-generic-example">Full Generic Example</h2>
-<p>Below is a generalized manifest (anchor + HostProcess) based on <code>cplauncher.example.yaml</code>. Adjust label values, paths, and image versions to fit your environment.</p>
-<div class="highlight"><span class="filename">YAML</span><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="nn">---</span>
-<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="nt">apiVersion</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">v1</span>
-<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Pod</span>
-<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="nt">metadata</span><span class="p">:</span>
-<a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a><span class="w">  </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">myapp-compartment-anchor</span>
-<a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a><span class="w">  </span><span class="nt">namespace</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">apps</span>
-<a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a><span class="w">  </span><span class="nt">labels</span><span class="p">:</span>
-<a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a><span class="w">    </span><span class="nt">app</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">myapp-anchor-1</span><span class="w">    </span><span class="c1"># label used by cplauncher discovery</span>
-<a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a><span class="w">  </span><span class="nt">annotations</span><span class="p">:</span>
-<a id="__codelineno-1-10" name="__codelineno-1-10" href="#__codelineno-1-10"></a><span class="w">    </span><span class="nt">linkerd.io/inject</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">enabled</span><span class="w">   </span><span class="c1"># enables Linkerd proxy injection if mesh is installed and auto-inject is permitted</span>
-<a id="__codelineno-1-11" name="__codelineno-1-11" href="#__codelineno-1-11"></a><span class="nt">spec</span><span class="p">:</span>
-<a id="__codelineno-1-12" name="__codelineno-1-12" href="#__codelineno-1-12"></a><span class="w">  </span><span class="nt">nodeSelector</span><span class="p">:</span>
-<a id="__codelineno-1-13" name="__codelineno-1-13" href="#__codelineno-1-13"></a><span class="w">    </span><span class="nt">kubernetes.io/os</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">windows</span>
-<a id="__codelineno-1-14" name="__codelineno-1-14" href="#__codelineno-1-14"></a><span class="w">  </span><span class="nt">containers</span><span class="p">:</span>
-<a id="__codelineno-1-15" name="__codelineno-1-15" href="#__codelineno-1-15"></a><span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">pause</span>
-<a id="__codelineno-1-16" name="__codelineno-1-16" href="#__codelineno-1-16"></a><span class="w">      </span><span class="nt">image</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">shsk2s.azurecr.io/pause-win:v1.8.0</span>
-<a id="__codelineno-1-17" name="__codelineno-1-17" href="#__codelineno-1-17"></a><span class="w">      </span><span class="nt">imagePullPolicy</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">IfNotPresent</span>
-<a id="__codelineno-1-18" name="__codelineno-1-18" href="#__codelineno-1-18"></a><span class="w">  </span><span class="nt">restartPolicy</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Always</span>
-<a id="__codelineno-1-19" name="__codelineno-1-19" href="#__codelineno-1-19"></a><span class="nn">---</span>
-<a id="__codelineno-1-20" name="__codelineno-1-20" href="#__codelineno-1-20"></a><span class="nt">apiVersion</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">apps/v1</span>
-<a id="__codelineno-1-21" name="__codelineno-1-21" href="#__codelineno-1-21"></a><span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Deployment</span>
-<a id="__codelineno-1-22" name="__codelineno-1-22" href="#__codelineno-1-22"></a><span class="nt">metadata</span><span class="p">:</span>
-<a id="__codelineno-1-23" name="__codelineno-1-23" href="#__codelineno-1-23"></a><span class="w">  </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">myapp-hostprocess</span>
-<a id="__codelineno-1-24" name="__codelineno-1-24" href="#__codelineno-1-24"></a><span class="w">  </span><span class="nt">namespace</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">apps</span>
-<a id="__codelineno-1-25" name="__codelineno-1-25" href="#__codelineno-1-25"></a><span class="w">  </span><span class="nt">labels</span><span class="p">:</span>
-<a id="__codelineno-1-26" name="__codelineno-1-26" href="#__codelineno-1-26"></a><span class="w">    </span><span class="nt">app</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">myapp</span>
-<a id="__codelineno-1-27" name="__codelineno-1-27" href="#__codelineno-1-27"></a><span class="nt">spec</span><span class="p">:</span>
-<a id="__codelineno-1-28" name="__codelineno-1-28" href="#__codelineno-1-28"></a><span class="w">  </span><span class="nt">replicas</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">1</span>
-<a id="__codelineno-1-29" name="__codelineno-1-29" href="#__codelineno-1-29"></a><span class="w">  </span><span class="nt">selector</span><span class="p">:</span>
-<a id="__codelineno-1-30" name="__codelineno-1-30" href="#__codelineno-1-30"></a><span class="w">    </span><span class="nt">matchLabels</span><span class="p">:</span>
-<a id="__codelineno-1-31" name="__codelineno-1-31" href="#__codelineno-1-31"></a><span class="w">      </span><span class="nt">app</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">myapp</span>
-<a id="__codelineno-1-32" name="__codelineno-1-32" href="#__codelineno-1-32"></a><span class="w">  </span><span class="nt">template</span><span class="p">:</span>
-<a id="__codelineno-1-33" name="__codelineno-1-33" href="#__codelineno-1-33"></a><span class="w">    </span><span class="nt">metadata</span><span class="p">:</span>
-<a id="__codelineno-1-34" name="__codelineno-1-34" href="#__codelineno-1-34"></a><span class="w">      </span><span class="nt">labels</span><span class="p">:</span>
-<a id="__codelineno-1-35" name="__codelineno-1-35" href="#__codelineno-1-35"></a><span class="w">        </span><span class="nt">app</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">myapp</span>
-<a id="__codelineno-1-36" name="__codelineno-1-36" href="#__codelineno-1-36"></a><span class="w">    </span><span class="nt">spec</span><span class="p">:</span>
-<a id="__codelineno-1-37" name="__codelineno-1-37" href="#__codelineno-1-37"></a><span class="w">      </span><span class="nt">nodeSelector</span><span class="p">:</span>
-<a id="__codelineno-1-38" name="__codelineno-1-38" href="#__codelineno-1-38"></a><span class="w">        </span><span class="nt">kubernetes.io/os</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">windows</span>
-<a id="__codelineno-1-39" name="__codelineno-1-39" href="#__codelineno-1-39"></a><span class="w">      </span><span class="nt">securityContext</span><span class="p">:</span>
-<a id="__codelineno-1-40" name="__codelineno-1-40" href="#__codelineno-1-40"></a><span class="w">        </span><span class="nt">windowsOptions</span><span class="p">:</span>
-<a id="__codelineno-1-41" name="__codelineno-1-41" href="#__codelineno-1-41"></a><span class="w">          </span><span class="nt">hostProcess</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
-<a id="__codelineno-1-42" name="__codelineno-1-42" href="#__codelineno-1-42"></a><span class="w">          </span><span class="nt">runAsUserName</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;NT</span><span class="nv"> </span><span class="s">AUTHORITY\\SYSTEM&quot;</span>
-<a id="__codelineno-1-43" name="__codelineno-1-43" href="#__codelineno-1-43"></a><span class="w">      </span><span class="nt">hostNetwork</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
-<a id="__codelineno-1-44" name="__codelineno-1-44" href="#__codelineno-1-44"></a><span class="w">      </span><span class="nt">containers</span><span class="p">:</span>
-<a id="__codelineno-1-45" name="__codelineno-1-45" href="#__codelineno-1-45"></a><span class="w">        </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">cplauncher</span>
-<a id="__codelineno-1-46" name="__codelineno-1-46" href="#__codelineno-1-46"></a><span class="w">          </span><span class="nt">image</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">mcr.microsoft.com/oss/kubernetes/windows-host-process-containers-base-image:v1.0.0</span>
-<a id="__codelineno-1-47" name="__codelineno-1-47" href="#__codelineno-1-47"></a><span class="w">          </span><span class="nt">imagePullPolicy</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">IfNotPresent</span>
-<a id="__codelineno-1-48" name="__codelineno-1-48" href="#__codelineno-1-48"></a><span class="w">          </span><span class="nt">command</span><span class="p">:</span>
-<a id="__codelineno-1-49" name="__codelineno-1-49" href="#__codelineno-1-49"></a><span class="w">            </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="s">&quot;cmd.exe&quot;</span>
-<a id="__codelineno-1-50" name="__codelineno-1-50" href="#__codelineno-1-50"></a><span class="w">            </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="s">&quot;/c&quot;</span>
-<a id="__codelineno-1-51" name="__codelineno-1-51" href="#__codelineno-1-51"></a><span class="w">            </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="s">&quot;K2S-INSTALLATION-FOLDER\\bin\\cni\\cplauncher.exe&quot;</span><span class="w">  </span><span class="c1"># replace placeholder with actual path or env var</span>
-<a id="__codelineno-1-52" name="__codelineno-1-52" href="#__codelineno-1-52"></a><span class="w">            </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="s">&quot;-label&quot;</span><span class="l l-Scalar l-Scalar-Plain">; &quot;app=myapp-anchor-1&quot;</span>
-<a id="__codelineno-1-53" name="__codelineno-1-53" href="#__codelineno-1-53"></a><span class="w">            </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="s">&quot;-namespace&quot;</span><span class="l l-Scalar l-Scalar-Plain">; &quot;apps&quot;</span>
-<a id="__codelineno-1-54" name="__codelineno-1-54" href="#__codelineno-1-54"></a><span class="w">            </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="s">&quot;--&quot;</span>
-<a id="__codelineno-1-55" name="__codelineno-1-55" href="#__codelineno-1-55"></a><span class="w">            </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="s">&quot;C:\\apps\\legacy\\myapp.exe&quot;</span><span class="l l-Scalar l-Scalar-Plain">; &quot;--config&quot;; &quot;C:\\apps\\config\\prod.json&quot;</span>
-<a id="__codelineno-1-56" name="__codelineno-1-56" href="#__codelineno-1-56"></a><span class="w">          </span><span class="nt">volumeMounts</span><span class="p">:</span>
-<a id="__codelineno-1-57" name="__codelineno-1-57" href="#__codelineno-1-57"></a><span class="w">            </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">host-apps</span>
-<a id="__codelineno-1-58" name="__codelineno-1-58" href="#__codelineno-1-58"></a><span class="w">              </span><span class="nt">mountPath</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">C:/apps</span>
-<a id="__codelineno-1-59" name="__codelineno-1-59" href="#__codelineno-1-59"></a><span class="w">      </span><span class="nt">volumes</span><span class="p">:</span>
-<a id="__codelineno-1-60" name="__codelineno-1-60" href="#__codelineno-1-60"></a><span class="w">        </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">host-apps</span>
-<a id="__codelineno-1-61" name="__codelineno-1-61" href="#__codelineno-1-61"></a><span class="w">          </span><span class="nt">hostPath</span><span class="p">:</span>
-<a id="__codelineno-1-62" name="__codelineno-1-62" href="#__codelineno-1-62"></a><span class="w">            </span><span class="nt">path</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">C:/apps</span>
-<a id="__codelineno-1-63" name="__codelineno-1-63" href="#__codelineno-1-63"></a><span class="w">            </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Directory</span>
-</code></pre></div>
-<h3 id="parameter-breakdown">Parameter Breakdown</h3>
-<table>
-<thead>
-<tr>
-<th>Flag / Element</th>
-<th>Purpose</th>
-<th>Notes</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>-label app=myapp-anchor-1</code></td>
-<td>Selects anchor pod</td>
-<td>Must uniquely identify one running anchor.</td>
-</tr>
-<tr>
-<td><code>-namespace apps</code></td>
-<td>Scopes pod lookup</td>
-<td>Avoid cross-namespace ambiguity.</td>
-</tr>
-<tr>
-<td><code>--</code></td>
-<td>Separator</td>
-<td>Everything after is the target process + its args.</td>
-</tr>
-<tr>
-<td><code>myapp.exe --config ...</code></td>
-<td>Target workload</td>
-<td>Unmodified native binary.</td>
-</tr>
-<tr>
-<td>Host mount <code>C:/apps</code></td>
-<td>Binary + config injection</td>
-<td>Could be replaced with projected CSI / <abbr title="Server Message Block">SMB</abbr> if desired.</td>
-</tr>
-</tbody>
-</table>
-<h3 id="adding-a-service">Adding a Service</h3>
-<div class="highlight"><span class="filename">YAML</span><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="nt">apiVersion</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">v1</span>
-<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Service</span>
-<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="nt">metadata</span><span class="p">:</span>
-<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="w">  </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">myapp</span>
-<a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="w">  </span><span class="nt">namespace</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">apps</span>
-<a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a><span class="nt">spec</span><span class="p">:</span>
-<a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a><span class="w">  </span><span class="nt">selector</span><span class="p">:</span>
-<a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a><span class="w">    </span><span class="nt">app</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">myapp</span><span class="w">   </span><span class="c1"># target the HostProcess deployment label</span>
-<a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a><span class="w">  </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">ClusterIP</span>
-<a id="__codelineno-2-10" name="__codelineno-2-10" href="#__codelineno-2-10"></a><span class="w">  </span><span class="nt">ports</span><span class="p">:</span>
-<a id="__codelineno-2-11" name="__codelineno-2-11" href="#__codelineno-2-11"></a><span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">port</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">80</span>
-<a id="__codelineno-2-12" name="__codelineno-2-12" href="#__codelineno-2-12"></a><span class="w">      </span><span class="nt">targetPort</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">8080</span><span class="w">   </span><span class="c1"># assuming binary listens on 8080</span>
-<a id="__codelineno-2-13" name="__codelineno-2-13" href="#__codelineno-2-13"></a><span class="w">      </span><span class="nt">protocol</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">TCP</span>
-</code></pre></div>
-<h3 id="scaling-strategies">Scaling Strategies</h3>
-<table>
-<thead>
-<tr>
-<th>Approach</th>
-<th>Description</th>
-<th>Trade‑Off</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>One anchor per replica (static)</td>
-<td>Pre-create anchors (myapp-anchor-1..N) and pass different label per HostProcess pod</td>
-<td>Higher <abbr title="Yet Another Markup Language">YAML</abbr> management overhead</td>
-</tr>
-<tr>
-<td>Controller-generated labels</td>
-<td>Custom controller creates anchor + HP pair</td>
-<td>Requires controller development</td>
-</tr>
-<tr>
-<td>StatefulSet with deterministic labels</td>
-<td>Use ordinal to form anchor label (e.g. <code>myapp-anchor-$(ordinal)</code>)</td>
-<td>Needs deterministic anchor provisioning logic</td>
-</tr>
-</tbody>
-</table>
-<h3 id="mesh-sidecar-considerations">Mesh / Sidecar Considerations</h3>
-<p>If your service mesh supports Windows injection, target only the anchor pod for injection so traffic is compartment‑scoped before proxy handling. Ensure <code>cplauncher</code> waits until the anchor is Ready (consider a readiness annotation gate).</p>
-<h2 id="using-linkerd-with-hostprocess-compartments">Using Linkerd with HostProcess Compartments</h2>
-<p>Linkerd can provide mutual TLS, latency metrics, policy enforcement, and traffic shaping for legacy Windows workloads launched via HostProcess + compartment binding.</p>
-<h3 id="injection-path">Injection Path</h3>
-<ol>
-<li>Install Linkerd with Windows support features enabled (control plane on Linux nodes; data plane proxy supports Windows anchors).</li>
-<li>Annotate the anchor pod (or label the namespace) with <code>linkerd.io/inject: enabled</code>.</li>
-<li>The proxy sidecar is injected into the anchor pod only (HostProcess pods cannot host conventional sidecars).</li>
-<li><code>cplauncher</code> switches the HostProcess-launched application into the same compartment; traffic now traverses the proxy transparently.</li>
-</ol>
-<h3 id="traffic-identity">Traffic &amp; Identity</h3>
-<table>
-<thead>
-<tr>
-<th>Aspect</th>
-<th>Detail</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>mTLS Identity</td>
-<td>Derived from the anchor pod's ServiceAccount; all processes sharing the compartment inherit that trust domain.</td>
-</tr>
-<tr>
-<td>Multiple Processes</td>
-<td>If multiple HostProcess workloads share one anchor, they also share identity—use separate anchors for isolation.</td>
-</tr>
-<tr>
-<td>Policy Objects</td>
-<td>Use <code>Server</code> / <code>ServerAuthorization</code> (or <code>Policy</code> in newer Linkerd) referencing labels on the HostProcess Service.</td>
-</tr>
-<tr>
-<td>Outbound Control</td>
-<td>Leverage <code>linkerd viz edges</code> to confirm encrypted edges; restrict egress with NetworkPolicy + Linkerd policy.</td>
-</tr>
-</tbody>
-</table>
-<h3 id="observability">Observability</h3>
-<table>
-<thead>
-<tr>
-<th>Tool</th>
-<th>Usage</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>linkerd viz stat</code></td>
-<td>Verify success/latency for the Service selecting HostProcess pods.</td>
-</tr>
-<tr>
-<td><code>linkerd viz tap</code></td>
-<td>Inspect live requests; confirm compartment-switched process traffic is visible.</td>
-</tr>
-<tr>
-<td><code>linkerd viz edges</code></td>
-<td>Confirm mTLS (identity established) between consumers and the workload.</td>
-</tr>
-</tbody>
-</table>
-<h3 id="recommended-sequence">Recommended Sequence</h3>
-<div class="highlight"><span class="filename">Text Only</span><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>1. k2s addons enable security --type enhanced --omitHydra --omitKeycloak --omitOAuth2Proxy 
-<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>4. Deploy anchor (pause image) + wait for Ready
-<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a>5. Deploy HostProcess deployment with cplauncher referencing anchor label
-<a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a>6. kubectl port-forward or curl via a meshed client to validate traffic
-<a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a>7. linkerd viz stat deploy -n apps
-<a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a>8. linkerd viz tap deploy/myapp -n apps (optional)
-</code></pre></div>
-<h3 id="best-practices">Best Practices</h3>
-<table>
-<thead>
-<tr>
-<th>Practice</th>
-<th>Reason</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>One anchor per identity-sensitive workload</td>
-<td>Limits blast radius and clarifies metrics ownership.</td>
-</tr>
-<tr>
-<td>Health gating in launcher</td>
-<td>Prevents proxy receiving traffic before process is ready.</td>
-</tr>
-<tr>
-<td>Structured launcher logs</td>
-<td>Facilitates correlation with Linkerd tap output.</td>
-</tr>
-<tr>
-<td>Explicit port documentation</td>
-<td>Helps avoid conflicts and clarifies expected interception.</td>
-</tr>
-</tbody>
-</table>
-<h3 id="security-notes">Security Notes</h3>
-<p>Because HostProcess runs with elevated rights, restrict file system exposure (mount only what you need) and sign the launcher &amp; target binaries. Use per‑namespace <abbr title="Role-Based Access Control">RBAC</abbr> limiting list/get permissions strictly to Pods.</p>
-<h2 id="references">References</h2>
-<ul>
-<li>Kubernetes Windows HostProcess Containers: https://kubernetes.io/docs/concepts/windows/intro/#hostprocess-containers</li>
-<li>Windows Network Compartments (Microsoft Docs): https://learn.microsoft.com/windows/win32/api/netioapi/nf-netioapi-setcurrentthreadcompartmentid</li>
-</ul>
+<div class="admonition tip">
+<p class="admonition-title">Tip</p>
+<p>When you use an <strong>external Certificate Authority</strong> (the <code>--omitCertMgr</code> workflow), <em>K2s</em> does not manage the <abbr title="Certificate Authority">CA</abbr> import for you. Ensure your organization's root <abbr title="Certificate Authority">CA</abbr> is installed under <strong>Trusted Root Certification Authorities</strong> and that the certificate includes a <strong>SAN</strong> entry for <code>k2s.cluster.local</code>. See <a href="../../user-guide/certificate-management/#using-an-external-certificate-authority">Certificate Management → Using an External Certificate Authority</a>.</p>
+</div>
 <!--
 SPDX-FileCopyrightText: © 2024 Siemens Healthineers AG
 SPDX-License-Identifier: MIT
@@ -3487,7 +2983,7 @@ SPDX-License-Identifier: MIT
       <nav class="md-footer__inner md-grid" aria-label="Footer" >
         
           
-          <a href="../networking-architecture/" class="md-footer__link md-footer__link--prev" aria-label="Previous: Networking Architecture">
+          <a href="../known-issues/" class="md-footer__link md-footer__link--prev" aria-label="Previous: Known Issues">
             <div class="md-footer__button md-icon">
               
               <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
@@ -3497,27 +2993,11 @@ SPDX-License-Identifier: MIT
                 Previous
               </span>
               <div class="md-ellipsis">
-                Networking Architecture
+                Known Issues
               </div>
             </div>
           </a>
         
-        
-          
-          <a href="../integrating-native-processes/" class="md-footer__link md-footer__link--next" aria-label="Next: Integrating Native Host Processes">
-            <div class="md-footer__title">
-              <span class="md-footer__direction">
-                Next
-              </span>
-              <div class="md-ellipsis">
-                Integrating Native Host Processes
-              </div>
-            </div>
-            <div class="md-footer__button md-icon">
-              
-              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M4 11v2h12l-5.5 5.5 1.42 1.42L19.84 12l-7.92-7.92L10.5 5.5 16 11z"/></svg>
-            </div>
-          </a>
         
       </nav>
     
