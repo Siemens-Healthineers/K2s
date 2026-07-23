@@ -414,16 +414,13 @@ func expectOmitOpensearchResourcesRemoved(ctx context.Context) {
 }
 
 func expectOmitOpensearchStatusToBePrinted(ctx context.Context) {
-	Eventually(func() string {
-		return suite.K2sCli().MustExec(ctx, "addons", "status", "logging")
-	}).WithTimeout(statusCheckRetryTimeout).WithPolling(statusCheckRetryPolling).Should(SatisfyAll(
-		MatchRegexp("ADDON STATUS"),
-		MatchRegexp(`Addon .+logging.+ is .+enabled.+`),
-		MatchRegexp("Fluent-bit is working"),
-	))
-
 	Eventually(func(g Gomega) {
 		output := suite.K2sCli().MustExec(ctx, "addons", "status", "logging")
+		g.Expect(output).To(SatisfyAll(
+			MatchRegexp("ADDON STATUS"),
+			MatchRegexp(`Addon .+logging.+ is .+enabled.+`),
+			MatchRegexp("Fluent-bit is working"),
+		))
 		g.Expect(output).NotTo(ContainSubstring("Opensearch dashboards are working"))
 		g.Expect(output).NotTo(ContainSubstring("Opensearch is working"))
 	}).WithTimeout(statusCheckRetryTimeout).WithPolling(statusCheckRetryPolling).Should(Succeed())

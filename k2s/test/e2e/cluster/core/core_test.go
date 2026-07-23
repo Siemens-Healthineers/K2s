@@ -190,6 +190,13 @@ func waitForCoreWorkloadRollout(ctx context.Context) {
 
 	var pending []string
 	for {
+		select {
+		case <-ctx.Done():
+			collectCoreWorkloadRolloutDiagnostics()
+			Fail(fmt.Sprintf("context cancelled while waiting for rollout in namespace <%s>: %v", namespace, ctx.Err()))
+		default:
+		}
+
 		pending = pending[:0]
 
 		for _, deploymentName := range deploymentNames {
@@ -224,7 +231,7 @@ func waitForCoreWorkloadRollout(ctx context.Context) {
 		}
 
 		if time.Now().After(deadline) {
-			collectCoreWorkloadRolloutDiagnostics(ctx)
+			collectCoreWorkloadRolloutDiagnostics()
 			Fail(fmt.Sprintf("Deployments in namespace <%s> did not complete rollout within %s. Pending:\n%s",
 				namespace, timeout, strings.Join(pending, "\n")))
 		}
@@ -234,11 +241,14 @@ func waitForCoreWorkloadRollout(ctx context.Context) {
 	}
 }
 
-func collectCoreWorkloadRolloutDiagnostics(ctx context.Context) {
+func collectCoreWorkloadRolloutDiagnostics() {
 	GinkgoWriter.Println("Collecting core workload rollout diagnostics..")
-	runDiagnosticCommand(ctx, "get", "deployment", "-n", namespace, "-o", "wide")
-	runDiagnosticCommand(ctx, "get", "pods", "-n", namespace, "-o", "wide")
-	runDiagnosticCommand(ctx, "get", "events", "-n", namespace, "--sort-by=.lastTimestamp")
+	diagCtx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
+	defer cancel()
+
+	runDiagnosticCommand(diagCtx, "get", "deployment", "-n", namespace, "-o", "wide")
+	runDiagnosticCommand(diagCtx, "get", "pods", "-n", namespace, "-o", "wide")
+	runDiagnosticCommand(diagCtx, "get", "events", "-n", namespace, "--sort-by=.lastTimestamp")
 
 	deploymentNames := append([]string{}, linuxDeploymentNames...)
 	deploymentNames = append(deploymentNames, "curl")
@@ -247,8 +257,8 @@ func collectCoreWorkloadRolloutDiagnostics(ctx context.Context) {
 	}
 
 	for _, deploymentName := range deploymentNames {
-		runDiagnosticCommand(ctx, "describe", "deployment", deploymentName, "-n", namespace)
-		runDiagnosticCommand(ctx, "describe", "pods", "-l", "app="+deploymentName, "-n", namespace)
+		runDiagnosticCommand(diagCtx, "describe", "deployment", deploymentName, "-n", namespace)
+		runDiagnosticCommand(diagCtx, "describe", "pods", "-l", "app="+deploymentName, "-n", namespace)
 	}
 }
 
