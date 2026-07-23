@@ -115,10 +115,18 @@ function Invoke-KubectlWithKubeConfig {
     )
 
     $kubeBinPathTools = Get-KubeToolsPath
-    $ErrorActionPreference = 'Continue'
-    $output = &"$kubeBinPathTools\kubectl.exe" --kubeconfig="$KubeConfigPath" @Params 2>&1
-    $exitCode = $LASTEXITCODE
-    $ErrorActionPreference = 'Stop'
+    $savedErrorActionPreference = $ErrorActionPreference
+    $output = $null
+    $exitCode = 1
+
+    try {
+        $ErrorActionPreference = 'Continue'
+        $output = &"$kubeBinPathTools\kubectl.exe" --kubeconfig="$KubeConfigPath" @Params 2>&1
+        $exitCode = $LASTEXITCODE
+    }
+    finally {
+        $ErrorActionPreference = $savedErrorActionPreference
+    }
 
     return [pscustomobject]@{
         Success  = ($exitCode -eq 0)
@@ -135,29 +143,46 @@ function Get-WindowsWorkerNodeRoutes {
     )
 
     $windowsNodeRoutes = [System.Collections.ArrayList]@()
+    $ipv4CidrPattern = '^\d{1,3}(\.\d{1,3}){3}/\d{1,2}$'
     $nodeQueryResult = Invoke-KubectlWithKubeConfig -KubeConfigPath $KubeConfigPath -Params @('get', 'nodes', '-l', 'kubernetes.io/os=windows', '-o', 'json')
     if (-not $nodeQueryResult.Success) {
-        Write-Log "[$logUseCase] WARNING: Could not query Windows worker nodes: $($nodeQueryResult.Output)"
-        return $windowsNodeRoutes
+        $message = "[$logUseCase] WARNING: Could not query Windows worker nodes: $($nodeQueryResult.Output)"
+        Write-Log $message
+        return [pscustomobject]@{
+            Success = $false
+            Routes  = $windowsNodeRoutes
+            Error   = $message
+        }
     }
 
     try {
         $nodes = ($nodeQueryResult.Output | Out-String | ConvertFrom-Json).items
     }
     catch {
-        Write-Log "[$logUseCase] WARNING: Failed parsing Windows worker node list: $_"
-        return $windowsNodeRoutes
+        $message = "[$logUseCase] WARNING: Failed parsing Windows worker node list: $_"
+        Write-Log $message
+        return [pscustomobject]@{
+            Success = $false
+            Routes  = $windowsNodeRoutes
+            Error   = $message
+        }
     }
 
     foreach ($node in $nodes) {
         $internalIpEntry = $node.status.addresses | Where-Object { $_.type -eq 'InternalIP' } | Select-Object -First 1
         $internalIp = if ($internalIpEntry) { $internalIpEntry.address } else { '' }
 
-        $podCIDR = $node.spec.podCIDR
+        $podCIDR = ''
+        $primaryPodCIDR = [string]$node.spec.podCIDR
+        if ($primaryPodCIDR -match $ipv4CidrPattern) {
+            $podCIDR = $primaryPodCIDR
+        }
+
         if ([string]::IsNullOrWhiteSpace($podCIDR) -and $node.spec.podCIDRs) {
             foreach ($candidateCIDR in $node.spec.podCIDRs) {
-                if ($candidateCIDR -match '^\d{1,3}(\.\d{1,3}){3}/\d{1,2}$') {
-                    $podCIDR = $candidateCIDR
+                $candidateCIDRText = [string]$candidateCIDR
+                if ($candidateCIDRText -match $ipv4CidrPattern) {
+                    $podCIDR = $candidateCIDRText
                     break
                 }
             }
@@ -175,7 +200,11 @@ function Get-WindowsWorkerNodeRoutes {
             }) | Out-Null
     }
 
-    return $windowsNodeRoutes
+    return [pscustomobject]@{
+        Success = $true
+        Routes  = $windowsNodeRoutes
+        Error   = $null
+    }
 }
 
 function Wait-ForControlPlaneTransitReachability {
@@ -251,7 +280,21 @@ function Restart-FlannelDaemonSetWithWindowsRouteRepair {
     )
 
     for ($attempt = 1; $attempt -le $MaxAttempts; $attempt++) {
-        $windowsNodeRoutes = Get-WindowsWorkerNodeRoutes -KubeConfigPath $KubeConfigPath
+        $windowsNodeRouteResult = Get-WindowsWorkerNodeRoutes -KubeConfigPath $KubeConfigPath
+        if (-not $windowsNodeRouteResult.Success) {
+            Write-Log "[$logUseCase] WARNING: Skipping route validation on attempt $attempt/$MaxAttempts because Windows node query failed"
+            if ($attempt -lt $MaxAttempts) {
+                Start-Sleep -Seconds 5
+                continue
+            }
+
+            Write-Log "[$logUseCase] WARNING: Proceeding with a single flannel restart without Windows route validation"
+            $restartResult = Invoke-KubectlWithKubeConfig -KubeConfigPath $KubeConfigPath -Params @('rollout', 'restart', 'daemonset/kube-flannel-ds', '-n', 'kube-flannel')
+            $restartResult.Output | Write-Log
+            return
+        }
+
+        $windowsNodeRoutes = $windowsNodeRouteResult.Routes
 
         if ($windowsNodeRoutes.Count -eq 0) {
             Write-Log "[$logUseCase] No Windows worker nodes found, restarting flannel daemonset once"
