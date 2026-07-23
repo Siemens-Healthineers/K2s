@@ -324,11 +324,11 @@ func expectIngressAddonEnabled(ctx context.Context, implementation string) {
 
 func disableIngressAddonIfEnabled(ctx context.Context, implementation string) {
 	output, exitCode := suite.Cli(suite.K2sCli().Path()).Exec(ctx, "addons", "disable", "ingress", implementation, "-o")
-	if exitCode == cli.ExitCodeSuccess || strings.Contains(output, "already disabled") {
+	if exitCode == int(cli.ExitCodeSuccess) || strings.Contains(output, "already disabled") {
 		return
 	}
 
-	Expect(exitCode).To(Equal(cli.ExitCodeSuccess), fmt.Sprintf("unexpected failure disabling ingress %q:\n%s", implementation, output))
+	Expect(exitCode).To(Equal(int(cli.ExitCodeSuccess)), fmt.Sprintf("unexpected failure disabling ingress %q:\n%s", implementation, output))
 }
 
 func expectLoggingPodsReady(ctx context.Context) {
