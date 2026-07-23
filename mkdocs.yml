@@ -148,6 +148,7 @@ nav:
   - Troubleshooting:
       - Diagnostics: troubleshooting/diagnostics.md
       - Known Issues: troubleshooting/known-issues.md
+      - HSTS & Certificate Issues: troubleshooting/hsts-certificate-issues.md
 not_in_nav: |
   /includes/**/*.*
 extra:
