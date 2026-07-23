@@ -171,8 +171,8 @@ filesystem name):
 
 ```bash
 # List existing subvolume groups (the 'csi' group should be present)
-sudo cephadm shell ceph fs subvolumegroup ls cephfs
-sudo cephadm shell ceph fs subvolumegroup create cephfs csi
+sudo cephadm shell -- ceph fs subvolumegroup ls cephfs
+sudo cephadm shell -- ceph fs subvolumegroup create cephfs csi
 ```
 
 ### 3. Create a PersistentVolumeClaim
@@ -483,8 +483,12 @@ File: `addons/storage/ceph/config/ceph-config.json`
   "cephfsPool": "cephfs.cephfs.data",
   "cephfsFilesystem": "cephfs",
   "clusterHostNode": "kubemaster",
-  "osdsize": 20,
-  "osdcount": 2,
+  "osdsizeInGb": 20,
+  "osdcount": 3,
+  "osdCrushChooseleafType": 0,
+  "monCount": 1,
+  "mgrCount": 1,
+  "mdsCount": 1,
   "osddevicebaremetal": "/dev/sdb, /dev/sdc"
 }
 ```
@@ -494,12 +498,16 @@ File: `addons/storage/ceph/config/ceph-config.json`
 | `clusterHostNode` | Yes | Name of the K2s node (as listed in `cluster.json`) that hosts the new Ceph cluster. Must run **Debian 13**. Use the control plane node name (e.g. `kubemaster`) for the kubemaster, or another Debian 13 node name. |
 | `cephfsPool` | No | CephFS **data pool** name (default `cephfs.cephfs.data`). Refreshed with the value read back from the freshly provisioned cluster. |
 | `cephfsFilesystem` | No | CephFS filesystem name (default `cephfs`). |
-| `osdsize` | No | Size in **GiB** of each OSD data disk created on a Hyper-V host (default `20`). Increase it to grow the available CephFS capacity. Alias: `osdDiskSizeGB`. Applies only to Hyper-V-created disks; bare-metal hosts use the provided physical disk. Invalid values fall back to the default. |
-| `osdcount` | No | Number of OSD data disks to create on the host (default `2`). Invalid values fall back to the default. |
+| `osdsizeInGb` | No | Size in **GiB** of each OSD data disk created on a Hyper-V host (default `20`). Increase it to grow the available CephFS capacity. Aliases: `osdsize`, `osdDiskSizeGB`. Applies only to Hyper-V-created disks; bare-metal hosts use the provided physical disk. Invalid values fall back to the default. |
+| `osdcount` | No | Number of OSD data disks to create on the host (default `3` in the shipped template profile). Invalid values fall back to the script default. |
+| `osdCrushChooseleafType` | No | Optional Ceph `osd_crush_chooseleaf_type` override. Set `0` to choose individual OSDs as the failure domain on single-host labs; leave unset to keep the Ceph default. |
+| `monCount` | No | Optional desired monitor daemon count applied with `ceph orch apply mon --placement="count:N"`. Ceph HA guidance is commonly `5`; this addon uses `1` on single-host deployments. |
+| `mgrCount` | No | Optional desired manager daemon count applied with `ceph orch apply mgr --placement="count:N"`. Ceph HA guidance is commonly `5`; this addon uses `1` on single-host deployments. |
+| `mdsCount` | No | Optional desired CephFS MDS daemon count applied with `ceph orch apply mds <fs> --placement="count:N"`. Use `1` for a single-node cluster. |
 | `osddevicebaremetal` | No | Comma-separated list of target bare-metal OSD devices (for example `/dev/sdb, /dev/sdc`). Device 1 is used for OSD #1, device 2 for OSD #2, and so on. Required for bare-metal OSD provisioning when `osdcount` > 0; each listed device is wiped before OSD creation. |
 | `comment` | No | Free-text note; ignored by the addon. |
 
-`osdsize`, `osdcount`, and `osddevicebaremetal` are **configurable** — edit them before enabling the
+`osdsizeInGb`, `osdcount`, `osdCrushChooseleafType`, `monCount`, `mgrCount`, `mdsCount`, and `osddevicebaremetal` are **configurable** — edit them before enabling the
 addon to size Ceph storage to your needs and map bare-metal OSDs to specific drives. For
 hardware/capacity planning guidance, see the upstream
 [Ceph Hardware Recommendations](https://docs.ceph.com/en/latest/start/hardware-recommendations/).
@@ -509,6 +517,52 @@ When no config object is passed by the CLI, `enable` falls back to this file, so
 
 > The generated `ceph-cephfs` StorageClass uses `clusterID: storage`, which references the
 > `ClientProfile/storage` resource created by the addon.
+
+### Single-host profile vs multi-host Ceph guidance
+
+The shipped K2s Ceph profile is tuned for a **single host** lab footprint:
+
+- `osdcount: 3`
+- `osdCrushChooseleafType: 0`
+- `monCount: 1`
+- `mgrCount: 1`
+- `mdsCount: 1`
+
+`osdCrushChooseleafType: 0` means placement can choose **individual OSDs** as the leaf level,
+which is practical on one host when no host-level failure domain exists yet.
+
+For production-style resilience, Ceph is designed for **multiple hosts** with OSDs on each host.
+After adding a second and third host, switch back to host-level protection and increase daemon
+placement counts. In K2s config, set:
+
+- `osdCrushChooseleafType: 1`
+- `monCount`: increase from `1` toward your HA target (commonly `3` or `5`)
+- `mgrCount`: increase from `1` toward your HA target (commonly `2` or more; some teams choose `5`)
+- `mdsCount`: increase from `1` based on CephFS availability/performance needs
+
+Why this matters: with host-level protection and replicas spread across hosts, a full server loss
+still leaves data online from the remaining hosts.
+
+Once new hosts and OSDs are added, run the following in cephadm shell to restore higher redundancy:
+
+```bash
+sudo cephadm shell -- ceph config set osd osd_crush_chooseleaf_type 1
+sudo cephadm shell -- ceph orch apply mon --placement="count:5"
+sudo cephadm shell -- ceph orch apply mgr --placement="count:5"
+sudo cephadm shell -- ceph orch apply mds cephfs --placement="count:2"
+sudo cephadm shell -- ceph osd pool set .mgr crush_rule replicated_rule
+```
+
+The last command reverts the `.mgr` pool to the default host-level CRUSH rule after you move from
+single-host to multi-host topology.
+
+### Why MON, MGR, and MDS are required
+
+- **MON (monitor)**: maintains cluster maps/quorum and is required for cluster consensus.
+- **MGR (manager)**: provides orchestration, metrics, and management modules used by day-2 operations.
+- **MDS (metadata server)**: required for CephFS metadata operations (directory structure, inode state, locks).
+
+Without these services in a healthy state, CephFS CSI provisioning and mount operations will fail or stall.
 
 ## Validation & Mutual Exclusion
 

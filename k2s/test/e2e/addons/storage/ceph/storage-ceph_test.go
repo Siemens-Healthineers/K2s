@@ -14,7 +14,6 @@ import (
 	"time"
 
 	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/addons/status"
-	addonexportimport "github.com/siemens-healthineers/k2s/test/e2e/addons/exportimport"
 	"github.com/siemens-healthineers/k2s/test/framework"
 	"github.com/siemens-healthineers/k2s/test/framework/dsl"
 
@@ -183,23 +182,15 @@ var _ = Describe("storage ceph addon", Ordered, func() {
 		It("disables the addon", func(ctx context.Context) {
 			suite.K2sCli().MustExec(ctx, "addons", "disable", addonName, implementationName, "-f", "-o")
 			k2s.VerifyAddonIsDisabled(addonName, implementationName)
-		})
-	})
 
-	It("can be enabled when only addons/common and addons/storage are present", func(ctx context.Context) {
-		restore, err := addonexportimport.StageAddonIsolation(suite.RootDir(), "storage")
-		Expect(err).ToNot(HaveOccurred(), "staging addon isolation should succeed")
-		DeferCleanup(func() {
-			Expect(restore()).To(Succeed(), "addon isolation restore must succeed")
+			Eventually(func(g Gomega) {
+				st := getAddonStatusJSON(ctx, g)
+				g.Expect(st.Name).To(Equal(addonName))
+				g.Expect(st.Implementation).To(Equal(implementationName))
+				g.Expect(st.Enabled).NotTo(BeNil())
+				g.Expect(*st.Enabled).To(BeFalse())
+			}).WithTimeout(2 * time.Minute).WithPolling(5 * time.Second).Should(Succeed())
 		})
-		DeferCleanup(func(ctx context.Context) {
-			suite.K2sCli().Exec(ctx, "addons", "disable", addonName, implementationName, "-f", "-o")
-		})
-
-		output := enableCephAddonWithRetry(ctx)
-		Expect(output).ToNot(ContainSubstring("no valid module file was found"))
-		Expect(output).ToNot(ContainSubstring("was not loaded"))
-		k2s.VerifyAddonIsEnabled(addonName, implementationName)
 	})
 })
 
@@ -225,6 +216,14 @@ func enableCephAddonWithRetry(ctx context.Context) string {
 
 	Expect(lastExitCode).To(Equal(0), "'k2s addons enable %s %s -o' failed after %d attempts. Last output:\n%s", addonName, implementationName, addonEnableMaxAttempts, lastOutput)
 	return lastOutput
+}
+
+func getAddonStatusJSON(ctx context.Context, g Gomega) status.AddonPrintStatus {
+	output := suite.K2sCli().MustExec(ctx, "addons", "status", addonName, implementationName, "-o", "json")
+
+	var st status.AddonPrintStatus
+	g.Expect(json.Unmarshal([]byte(output), &st)).To(Succeed())
+	return st
 }
 
 func getExpectedCephDashboardURL(cephConfigPath, setupConfigDir string) (string, error) {

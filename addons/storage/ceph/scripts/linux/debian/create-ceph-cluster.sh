@@ -17,11 +17,19 @@
 #   $2 - Ceph image reference from storage addon additionalImages
 #   $3 - CephFS filesystem name to create (from ceph-config.json 'cephfsFilesystem')
 #   $4 - SSH user for cephadm host management (defaults to 'remote')
+#   $5 - Optional osd_crush_chooseleaf_type value
+#   $6 - Optional mon daemon count
+#   $7 - Optional mgr daemon count
+#   $8 - Optional mds daemon count for the CephFS filesystem
 
 PROXY="${1:-}"
 CEPH_IMAGE_INPUT="${2:-}"
 CEPH_FS_NAME="${3:-cephfs}"
 CEPH_SSH_USER="${4:-remote}"
+OSD_CRUSH_CHOOSELEAF_TYPE="${5:-}"
+MON_COUNT="${6:-}"
+MGR_COUNT="${7:-}"
+MDS_COUNT="${8:-}"
 
 log_info() {
     echo "[CephNew] $1"
@@ -191,6 +199,12 @@ fi
 
 log_info "Bootstrapping Ceph cluster with image '$CEPH_IMAGE' and MON_IP '$MON_IP'"
 log_info "Using cephadm SSH user '$CEPH_SSH_USER' for host management"
+if [ -n "$OSD_CRUSH_CHOOSELEAF_TYPE" ]; then
+    log_info "Requested osd_crush_chooseleaf_type=$OSD_CRUSH_CHOOSELEAF_TYPE"
+fi
+if [ -n "$MON_COUNT" ] || [ -n "$MGR_COUNT" ] || [ -n "$MDS_COUNT" ]; then
+    log_info "Requested daemon placement counts: mon='${MON_COUNT:-<ceph-default>}', mgr='${MGR_COUNT:-<ceph-default>}', mds='${MDS_COUNT:-<ceph-default>}'"
+fi
 
 # Fresh-install behavior: if cluster state already exists on this node (including leftovers from
 # an interrupted previous run), remove it automatically so we always bootstrap a clean, new cluster.
@@ -272,10 +286,39 @@ for attempt in $(seq 1 18); do
     log_info "Ceph command interface not ready yet (attempt $attempt/18). Retrying in 10s..."
     sleep 10
 done
-if ! CLUSTER_DETAILS="$(timeout 900 sudo "$CEPHADM_BIN" shell --env K2S_FS_NAME="$CEPH_FS_NAME" -- bash -c '
+
+if [ -n "$OSD_CRUSH_CHOOSELEAF_TYPE" ]; then
+    if ! sudo "$CEPHADM_BIN" shell -- ceph config set osd osd_crush_chooseleaf_type "$OSD_CRUSH_CHOOSELEAF_TYPE"; then
+        log_error "Failed to set osd_crush_chooseleaf_type to '$OSD_CRUSH_CHOOSELEAF_TYPE'"
+        exit 1
+    fi
+    log_info "Configured osd_crush_chooseleaf_type=$OSD_CRUSH_CHOOSELEAF_TYPE"
+fi
+
+if [ -n "$MON_COUNT" ]; then
+    if ! sudo "$CEPHADM_BIN" shell -- ceph orch apply mon --placement="count:${MON_COUNT}"; then
+        log_error "Failed to apply mon placement count '$MON_COUNT'"
+        exit 1
+    fi
+    log_info "Configured mon placement count=$MON_COUNT"
+fi
+
+if [ -n "$MGR_COUNT" ]; then
+    if ! sudo "$CEPHADM_BIN" shell -- ceph orch apply mgr --placement="count:${MGR_COUNT}"; then
+        log_error "Failed to apply mgr placement count '$MGR_COUNT'"
+        exit 1
+    fi
+    log_info "Configured mgr placement count=$MGR_COUNT"
+fi
+
+if ! CLUSTER_DETAILS="$(timeout 900 sudo "$CEPHADM_BIN" shell --env K2S_FS_NAME="$CEPH_FS_NAME" --env K2S_MDS_COUNT="$MDS_COUNT" -- bash -c '
     # Create the CephFS volume (idempotent). This also deploys an MDS and
     # creates the "cephfs.<name>.meta" / "cephfs.<name>.data" pools.
     ceph fs volume create "$K2S_FS_NAME" >/dev/null 2>&1 || true
+
+    if [ -n "$K2S_MDS_COUNT" ]; then
+        ceph orch apply mds "$K2S_FS_NAME" --placement="count:${K2S_MDS_COUNT}" >/dev/null
+    fi
 
     FSID="$(ceph fsid 2>/dev/null)"
     ADMIN_KEY="$(ceph auth get-key client.admin 2>/dev/null)"
@@ -322,6 +365,35 @@ if [ -z "$COLLECTED_FSID" ] || [ -z "$COLLECTED_KEY" ] || [ -z "$COLLECTED_MONS"
     log_error "Failed to read back the Ceph connection details from the cluster (fsid/key/mon endpoints missing)."
     log_error "The Ceph cluster may not be healthy yet. Check 'sudo cephadm shell -- ceph -s' on the node."
     exit 1
+fi
+
+# If OSD-level CRUSH placement was requested, create a named rule and explicitly apply it to
+# the CephFS pools. 'ceph config set osd osd_crush_chooseleaf_type' only affects future
+# auto-generated rules; pools created by 'ceph fs volume create' inherit the existing
+# 'replicated_rule' (chooseleaf type host) and must be updated explicitly.
+if [ "${OSD_CRUSH_CHOOSELEAF_TYPE:-}" = "0" ]; then
+    log_info "Creating OSD-level CRUSH rule 'k2s-osd-rule' for single-host placement..."
+    if ! sudo "$CEPHADM_BIN" shell -- ceph osd crush rule create-replicated k2s-osd-rule default osd; then
+        log_error "Failed to create OSD-level CRUSH rule 'k2s-osd-rule'"
+        exit 1
+    fi
+    if ! sudo "$CEPHADM_BIN" shell -- ceph osd pool set "cephfs.${CEPH_FS_NAME}.meta" crush_rule k2s-osd-rule; then
+        log_error "Failed to apply k2s-osd-rule to pool 'cephfs.${CEPH_FS_NAME}.meta'"
+        exit 1
+    fi
+    if ! sudo "$CEPHADM_BIN" shell -- ceph osd pool set "cephfs.${CEPH_FS_NAME}.data" crush_rule k2s-osd-rule; then
+        log_error "Failed to apply k2s-osd-rule to pool 'cephfs.${CEPH_FS_NAME}.data'"
+        exit 1
+    fi
+    # The built-in .mgr pool is created by cephadm during bootstrap with crush_rule 0
+    # (replicated_rule, host-level). On a single-host cluster only 1 OSD can be placed,
+    # causing a permanent PG_DEGRADED / PG_AVAILABILITY warning. Apply the same OSD-level
+    # rule so all 3 OSDs can serve the single .mgr PG.
+    if ! sudo "$CEPHADM_BIN" shell -- ceph osd pool set .mgr crush_rule k2s-osd-rule; then
+        log_error "Failed to apply k2s-osd-rule to pool '.mgr'"
+        exit 1
+    fi
+    log_info "Applied OSD-level CRUSH rule to CephFS pools (meta + data) and .mgr pool"
 fi
 
 log_info "Finished collecting Ceph cluster connection details"

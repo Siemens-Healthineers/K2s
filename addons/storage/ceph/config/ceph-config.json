@@ -3,7 +3,11 @@
   "cephfsPool": "cephfs.cephfs.data",
   "cephfsFilesystem": "cephfs",
   "clusterHostNode": "kubemaster",
-  "osdsize": 20,
-  "osdcount": 2,
+  "osdsizeInGb": "10",
+  "osdcount": 3,
+  "osdCrushChooseleafType": 0,
+  "monCount": 1,
+  "mgrCount": 1,
+  "mdsCount": 1,
   "osddevicebaremetal": "/dev/sdb, /dev/sdc"
 }

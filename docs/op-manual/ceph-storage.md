@@ -79,12 +79,16 @@ The OSD disk size and count are **not fixed** — they can be adjusted to your n
 
 | Field | Default | Description |
 |-------|---------|-------------|
-| `osdsize` (alias `osdDiskSizeGB`) | `20` | Size in **GiB** of each OSD data disk created on a Hyper-V host. Set a larger value if you need more CephFS capacity. |
-| `osdcount` | `2` | Number of OSD data disks to create on the host. |
+| `osdsizeInGb` (aliases `osdsize`, `osdDiskSizeGB`) | `20` | Size in **GiB** of each OSD data disk created on a Hyper-V host. Set a larger value if you need more CephFS capacity. |
+| `osdcount` | `3` | Number of OSD data disks to create on the host in the shipped single-host profile. |
+| `osdCrushChooseleafType` | `0` | Optional Ceph `osd_crush_chooseleaf_type` override. Set `0` on a single-host cluster when pools should place replicas across OSDs instead of hosts. |
+| `monCount` | `1` | Optional monitor placement count applied after bootstrap. Ceph HA guidance is commonly `5`, but this profile uses `1` on a single host. |
+| `mgrCount` | `1` | Optional manager placement count applied after bootstrap. Ceph HA guidance is commonly `5`, but this profile uses `1` on a single host. |
+| `mdsCount` | `1` | Optional CephFS metadata server placement count applied after the filesystem is created. |
 | `osddevicebaremetal` | _empty_ | Comma-separated bare-metal target disks (for example `/dev/sdb, /dev/sdc`). The addon maps entry 1 to OSD #1, entry 2 to OSD #2, and so on. |
 
 Invalid or missing values fall back to the defaults. For bare-metal hosts, provide appropriately
-sized empty physical disks via `osddevicebaremetal` — `osdsize` only applies to Hyper-V-created
+sized empty physical disks via `osddevicebaremetal` — `osdsizeInGb` only applies to Hyper-V-created
 disks.
 
 **Enforced before enable** (validation aborts otherwise):
@@ -96,8 +100,8 @@ disks.
 
 **Recommended (not strictly enforced):**
 
-- **Free disk space on the host** for the OSD VHDX files — at least `osdcount × osdsize` (default
-  2 × 20 GiB) plus headroom for growth, since the VHDX disks are dynamic but back all CephFS data.
+- **Free disk space on the host** for the OSD VHDX files — at least `osdcount × osdsizeInGb` (default
+  3 × 20 GiB) plus headroom for growth, since the VHDX disks are dynamic but back all CephFS data.
 - **Hardware sizing (CPU, memory, disks)** — for capacity planning of the Ceph host node, follow the
   official [Ceph Hardware Recommendations](https://docs.ceph.com/en/latest/start/hardware-recommendations/){target="_blank"}.
   A single-node Ceph cluster (MON + MGR + OSD + MDS daemons) needs several GiB of RAM to run
@@ -113,7 +117,7 @@ disks.
 
 1. Choose the Ceph host node. Edit `addons/storage/ceph/config/ceph-config.json` and set
    `clusterHostNode` to the name of the Debian 13 *K2s* node that should host the new Ceph cluster.
-   Optionally adjust `osdsize` / `osdcount` to size the CephFS capacity to your needs:
+  Optionally adjust `osdsizeInGb` / `osdcount` and the daemon-placement settings to size the CephFS capacity to your needs:
 
     ```json
     {
@@ -121,14 +125,45 @@ disks.
         "cephfsPool": "cephfs.cephfs.data",
         "cephfsFilesystem": "cephfs",
         "clusterHostNode": "kubemaster",
-        "osdsize": 20,
-        "osdcount": 2,
+        "osdsizeInGb": 20,
+        "osdcount": 3,
+        "osdCrushChooseleafType": 0,
+        "monCount": 1,
+        "mgrCount": 1,
+        "mdsCount": 1,
         "osddevicebaremetal": "/dev/sdb, /dev/sdc"
     }
     ```
 
-    > `osdsize` (GiB) and `osdcount` are optional; if omitted the defaults (20 GiB, 2 disks) are used.
+    > `osdsizeInGb` (GiB) and `osdcount` are optional; if omitted the script defaults are used.
+      > `osdCrushChooseleafType`, `monCount`, `mgrCount`, and `mdsCount` are optional overrides for single-node or custom lab placements.
     > On bare-metal OSD hosts, set `osddevicebaremetal` with one disk path per OSD.
+
+  ### Single-host profile and scaling guidance
+
+  K2s currently ships a single-host-oriented Ceph profile (`osdCrushChooseleafType: 0`, `monCount: 1`,
+  `mgrCount: 1`, `mdsCount: 1`) so the addon can run on a single Ceph host.
+
+  When you add second/third Ceph hosts with OSDs on each host, switch back to host-level failure
+  domain protection and raise service placements:
+
+  - Set `osdCrushChooseleafType` to `1` in `ceph-config.json`.
+  - Increase `monCount`, `mgrCount`, and `mdsCount` from `1` to match your HA design.
+
+  Why this is required:
+
+  - **MON** provides cluster quorum and authoritative maps.
+  - **MGR** provides management/orchestration modules and observability.
+  - **MDS** serves CephFS metadata and is critical for CephFS client I/O behavior.
+
+  After adding hosts/OSDs, run (inside cephadm shell) to restore stronger redundancy:
+
+  ```bash
+  ceph config set osd osd_crush_chooseleaf_type 1
+  ceph orch apply mon --placement="count:5"
+  ceph orch apply mgr --placement="count:5"
+  ceph orch apply mds cephfs --placement="count:2"
+  ```
 
 2. Enable the addon:
 

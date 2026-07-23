@@ -84,6 +84,10 @@ Function New-CephClusterOnNode {
         [string]$CephFsPool = $(throw 'Argument missing: CephFsPool'),
         [ValidateScript({ !([string]::IsNullOrWhiteSpace($_)) })]
         [string]$CephBootstrapImage = $(throw 'Argument missing: CephBootstrapImage'),
+        [string]$OsdCrushChooseleafType = '',
+        [string]$MonCount = '',
+        [string]$MgrCount = '',
+        [string]$MdsCount = '',
         [string]$Proxy = '',
         [string]$InstalledDistribution = 'debian'
     )
@@ -96,7 +100,7 @@ Function New-CephClusterOnNode {
                         -UserName $UserName `
                         -IpAddress $IpAddress `
                         -UserPwd $UserPwd `
-                        -Arguments @($Proxy, $CephBootstrapImage, $CephFsFilesystem, $UserName) `
+                        -Arguments @($Proxy, $CephBootstrapImage, $CephFsFilesystem, $UserName, $OsdCrushChooseleafType, $MonCount, $MgrCount, $MdsCount) `
                         -CleanupAfterExecution `
                         -Retries 0
 
@@ -251,7 +255,10 @@ function Invoke-CephOsdPreparation {
     }
 
     [uint32]$osdDiskSizeGB = 20
-    $configuredDiskSize = if ($null -ne $Config -and -not [string]::IsNullOrWhiteSpace("$($Config.osdsize)".Trim())) {
+    $configuredDiskSize = if ($null -ne $Config -and -not [string]::IsNullOrWhiteSpace("$($Config.osdsizeInGb)".Trim())) {
+        "$($Config.osdsizeInGb)".Trim()
+    }
+    elseif ($null -ne $Config -and -not [string]::IsNullOrWhiteSpace("$($Config.osdsize)".Trim())) {
         "$($Config.osdsize)".Trim()
     }
     elseif ($null -ne $Config) {
@@ -266,7 +273,7 @@ function Invoke-CephOsdPreparation {
             $osdDiskSizeGB = $parsedDiskSize
         }
         else {
-            Write-Log "[Ceph] WARNING: Invalid osdsize/osdDiskSizeGB '$configuredDiskSize' in ceph-config.json. Falling back to ${osdDiskSizeGB} GiB." -Console
+            Write-Log "[Ceph] WARNING: Invalid osdsizeInGb/osdsize/osdDiskSizeGB '$configuredDiskSize' in ceph-config.json. Falling back to ${osdDiskSizeGB} GiB." -Console
         }
     }
 
@@ -593,6 +600,43 @@ else {
 
 $cephFsFilesystem = if ($Config) { "$($Config.cephfsFilesystem)".Trim() } else { '' }
 $cephFsPool = if ($Config) { "$($Config.cephfsPool)".Trim() } else { '' }
+
+$configuredOsdCrushChooseleafType = if ($Config -and ($Config.PSObject.Properties.Name -contains 'osdCrushChooseleafType')) { "$($Config.osdCrushChooseleafType)".Trim() } else { '' }
+if (-not [string]::IsNullOrWhiteSpace($configuredOsdCrushChooseleafType)) {
+    $parsedOsdCrushChooseleafType = 0
+    if (-not ([int]::TryParse($configuredOsdCrushChooseleafType, [ref]$parsedOsdCrushChooseleafType) -and $parsedOsdCrushChooseleafType -ge 0)) {
+        Write-Log "[Ceph] WARNING: Invalid osdCrushChooseleafType '$configuredOsdCrushChooseleafType' in ceph-config.json. Ignoring it and using the Ceph default." -Console
+        $configuredOsdCrushChooseleafType = ''
+    }
+}
+
+$configuredMonCount = if ($Config -and ($Config.PSObject.Properties.Name -contains 'monCount')) { "$($Config.monCount)".Trim() } else { '' }
+if (-not [string]::IsNullOrWhiteSpace($configuredMonCount)) {
+    $parsedMonCount = 0
+    if (-not ([uint32]::TryParse($configuredMonCount, [ref]$parsedMonCount) -and $parsedMonCount -gt 0)) {
+        Write-Log "[Ceph] WARNING: Invalid monCount '$configuredMonCount' in ceph-config.json. Ignoring it and using the Ceph default." -Console
+        $configuredMonCount = ''
+    }
+}
+
+$configuredMgrCount = if ($Config -and ($Config.PSObject.Properties.Name -contains 'mgrCount')) { "$($Config.mgrCount)".Trim() } else { '' }
+if (-not [string]::IsNullOrWhiteSpace($configuredMgrCount)) {
+    $parsedMgrCount = 0
+    if (-not ([uint32]::TryParse($configuredMgrCount, [ref]$parsedMgrCount) -and $parsedMgrCount -gt 0)) {
+        Write-Log "[Ceph] WARNING: Invalid mgrCount '$configuredMgrCount' in ceph-config.json. Ignoring it and using the Ceph default." -Console
+        $configuredMgrCount = ''
+    }
+}
+
+$configuredMdsCount = if ($Config -and ($Config.PSObject.Properties.Name -contains 'mdsCount')) { "$($Config.mdsCount)".Trim() } else { '' }
+if (-not [string]::IsNullOrWhiteSpace($configuredMdsCount)) {
+    $parsedMdsCount = 0
+    if (-not ([uint32]::TryParse($configuredMdsCount, [ref]$parsedMdsCount) -and $parsedMdsCount -gt 0)) {
+        Write-Log "[Ceph] WARNING: Invalid mdsCount '$configuredMdsCount' in ceph-config.json. Ignoring it and using the Ceph default." -Console
+        $configuredMdsCount = ''
+    }
+}
+
 if ([string]::IsNullOrWhiteSpace($Proxy)) {
     $kubeSwitchIp = Get-ConfiguredKubeSwitchIP
     if ([string]::IsNullOrWhiteSpace($kubeSwitchIp)) {
@@ -612,6 +656,10 @@ $bootstrapOutput = New-CephClusterOnNode -UserName $nodeUserName `
                       -CephFsFilesystem $cephFsFilesystem `
                       -CephFsPool $cephFsPool `
                       -CephBootstrapImage $cephBootstrapImage `
+                      -OsdCrushChooseleafType $configuredOsdCrushChooseleafType `
+                      -MonCount $configuredMonCount `
+                      -MgrCount $configuredMgrCount `
+                      -MdsCount $configuredMdsCount `
                       -Proxy $Proxy `
                       -InstalledDistribution 'debian'
 
@@ -666,24 +714,39 @@ Invoke-CephOsdPreparation -BootstrapNodeIp $NodeIp -BootstrapNodeUserName $nodeU
 
 $cephFsForSubvolumeGroup = if (-not [string]::IsNullOrWhiteSpace($cephFsFilesystem)) { $cephFsFilesystem } else { 'cephfs' }
 
-Write-Log "[Ceph] Running one-time post-OSD subvolume-group command for CephFS: sudo cephadm shell ceph fs subvolumegroup create $cephFsForSubvolumeGroup csi" -Console
-$createSubvolumeGroupResult = Invoke-CmdOnVmViaSSHKey `
-                            -CmdToExecute "sudo cephadm shell ceph fs subvolumegroup create $cephFsForSubvolumeGroup csi" `
-                            -UserName $nodeUserName `
-                            -IpAddress $NodeIp `
-                            -NoLog `
-                            -IgnoreErrors `
-                            -Retries 2
-
-$createSubvolumeGroupOutput = if ($null -ne $createSubvolumeGroupResult) { ($createSubvolumeGroupResult.Output | Out-String).Trim() } else { '' }
-$createSubvolumeGroupExitCode = if ($null -ne $createSubvolumeGroupResult -and $null -ne $createSubvolumeGroupResult.ExitCode) { [int]$createSubvolumeGroupResult.ExitCode } else { 0 }
-if ($createSubvolumeGroupExitCode -ne 0 -and $createSubvolumeGroupOutput -notmatch '(?i)already exists|eexist') {
-    Write-Log "[Ceph] ERROR: Failed to run post-OSD command 'sudo cephadm shell ceph fs subvolumegroup create $cephFsForSubvolumeGroup csi' on node '$NodeIp'." -Console -Error
-    if (-not [string]::IsNullOrWhiteSpace($createSubvolumeGroupOutput)) {
-        Write-Log "[Ceph] Command output: $createSubvolumeGroupOutput" -Console -Error
+Write-Log "[Ceph] Creating CephFS subvolumegroup 'csi' in filesystem '$cephFsForSubvolumeGroup' (required by CSI driver)" -Console
+# Invoke-CmdOnVmViaSSHKey returns {Success, Output} - there is no ExitCode property.
+# -Retries is a no-op when -IgnoreErrors is set (retries only fire inside the catch block).
+# Use our own retry loop so a transiently-unavailable MDS (just deployed by cephadm) is handled.
+$subvolumeGroupCreated = $false
+$lastSubvolumeGroupOutput = ''
+$maxSubvolumeGroupAttempts = 5
+for ($svgAttempt = 1; $svgAttempt -le $maxSubvolumeGroupAttempts; $svgAttempt++) {
+    $createSubvolumeGroupResult = Invoke-CmdOnVmViaSSHKey `
+                                -CmdToExecute "sudo cephadm shell ceph fs subvolumegroup create $cephFsForSubvolumeGroup csi" `
+                                -UserName $nodeUserName `
+                                -IpAddress $NodeIp `
+                                -NoLog `
+                                -IgnoreErrors
+    $lastSubvolumeGroupOutput = if ($null -ne $createSubvolumeGroupResult) { ($createSubvolumeGroupResult.Output | Out-String).Trim() } else { '' }
+    if ($createSubvolumeGroupResult.Success -or $lastSubvolumeGroupOutput -imatch 'already exists|eexist') {
+        $subvolumeGroupCreated = $true
+        break
+    }
+    Write-Log "[Ceph] Subvolumegroup create attempt $svgAttempt/$maxSubvolumeGroupAttempts failed (MDS may not be ready yet), retrying in 10s..." -Console
+    if (-not [string]::IsNullOrWhiteSpace($lastSubvolumeGroupOutput)) {
+        Write-Log "[Ceph] Output: $lastSubvolumeGroupOutput"
+    }
+    Start-Sleep -Seconds 10
+}
+if (-not $subvolumeGroupCreated) {
+    Write-Log "[Ceph] ERROR: Failed to create subvolumegroup 'csi' in CephFS filesystem '$cephFsForSubvolumeGroup' after $maxSubvolumeGroupAttempts attempts on node '$NodeIp'." -Console -Error
+    if (-not [string]::IsNullOrWhiteSpace($lastSubvolumeGroupOutput)) {
+        Write-Log "[Ceph] Last command output: $lastSubvolumeGroupOutput" -Console -Error
     }
     exit 1
 }
+Write-Log "[Ceph] Subvolumegroup 'csi' created (or already exists) in CephFS filesystem '$cephFsForSubvolumeGroup'" -Console
 
 Write-Log "[Ceph] Ceph cluster connection details resolved successfully"
 exit 0
