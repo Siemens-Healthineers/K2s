@@ -129,17 +129,29 @@ download_cephadm() {
     return 0
 }
 
-if download_cephadm "https://download.ceph.com/rpm-$CEPH_VERSION/el9/noarch/cephadm"; then
+# Obtain the cephadm bootstrap binary. Prefer the binary staged offline into
+# ~/.storage/cephadm during 'k2s addons import' so air-gapped installs never depend on
+# download.ceph.com. Only fall back to downloading when no valid offline copy is present.
+OFFLINE_CEPHADM="$HOME/.storage/cephadm"
+if [ -f "$OFFLINE_CEPHADM" ] && is_valid_cephadm "$OFFLINE_CEPHADM"; then
+    log_info "Using offline cephadm bootstrap binary staged at $OFFLINE_CEPHADM"
+    cp "$OFFLINE_CEPHADM" ./cephadm
+elif download_cephadm "https://download.ceph.com/rpm-$CEPH_VERSION/el9/noarch/cephadm"; then
     log_info "Downloaded cephadm bootstrap binary for version '$CEPH_VERSION'"
 elif download_cephadm "https://download.ceph.com/rpm-$CEPH_RELEASE/el9/noarch/cephadm"; then
     log_info "Downloaded cephadm bootstrap binary for release '$CEPH_RELEASE'"
 else
-    log_error "Failed to download a valid cephadm bootstrap binary from download.ceph.com (tried version '$CEPH_VERSION' and release '$CEPH_RELEASE')."
+    log_error "Failed to obtain a valid cephadm bootstrap binary (offline copy at $OFFLINE_CEPHADM missing/invalid and download from download.ceph.com failed for version '$CEPH_VERSION' and release '$CEPH_RELEASE')."
     exit 1
 fi
 
 # Make the cephadm binary executable
 sudo chmod +x cephadm
+
+# Install cephadm onto PATH so bare 'cephadm' invocations resolve later in this script and
+# in New-CephCluster.ps1 ('sudo cephadm shell ...'), even when the online 'cephadm install'
+# step below cannot reach the Ceph package repositories (offline / air-gapped).
+sudo install -m 0755 ./cephadm /usr/local/bin/cephadm
 
 if ! dpkg -s gnupg >/dev/null 2>&1; then
     sudo apt-get install -y gnupg
@@ -149,20 +161,6 @@ sudo rm -f /etc/apt/trusted.gpg.d/ceph.asc
 CEPHADM_PROXY_ENV=()
 if [ -n "$PROXY" ]; then
     CEPHADM_PROXY_ENV=(http_proxy="$PROXY" https_proxy="$PROXY" HTTP_PROXY="$PROXY" HTTPS_PROXY="$PROXY")
-fi
-
-OFFLINE_CEPHADM="$HOME/.storage/cephadm"
-if [ -f "$OFFLINE_CEPHADM" ]; then
-    log_info "Found offline cephadm binary at $OFFLINE_CEPHADM, moving to /usr/local/bin with executable permissions"
-    if ! sudo mv "$OFFLINE_CEPHADM" /usr/local/bin/cephadm; then
-        log_error "Failed to move cephadm from $OFFLINE_CEPHADM to /usr/local/bin/cephadm"
-        exit 1
-    fi
-    if ! sudo chmod +x /usr/local/bin/cephadm; then
-        log_error "Failed to set executable permission on /usr/local/bin/cephadm"
-        exit 1
-    fi
-    log_info "Cephadm binary moved to /usr/local/bin and made executable"
 fi
 
 sudo env "${CEPHADM_PROXY_ENV[@]}" ./cephadm add-repo --release "$CEPH_RELEASE" || \
@@ -276,6 +274,19 @@ for attempt in $(seq 1 18); do
     log_info "Ceph command interface not ready yet (attempt $attempt/18). Retrying in 10s..."
     sleep 10
 done
+
+# Offline/air-gapped: stop the cephadm mgr module from resolving the container image to a
+# registry digest (its default, use_repo_digest=true). Digest resolution requires reaching the
+# image registry (e.g. quay.io); when it is unreachable, orchestrator-deployed daemons such as
+# the MDS never start (MDS_ALL_DOWN / MDS_UP_LESS_THAN_MAX) because podman tries to pull a
+# digest-pinned reference that is not loaded locally. Pinning to the tag of the image already
+# loaded during offline import lets MDS/OSD/MGR (re)deploy without any network access.
+if ! sudo "$CEPHADM_BIN" shell -- ceph config set mgr mgr/cephadm/use_repo_digest false; then
+    log_info "Failed to set mgr/cephadm/use_repo_digest=false (continuing; MDS deploy may require network)"
+fi
+if ! sudo "$CEPHADM_BIN" shell -- ceph config set global container_image "$CEPH_IMAGE"; then
+    log_info "Failed to pin global container_image to '$CEPH_IMAGE' (continuing)"
+fi
 
 if [ -n "$OSD_CRUSH_CHOOSELEAF_TYPE" ]; then
     if ! sudo "$CEPHADM_BIN" shell -- ceph config set osd osd_crush_chooseleaf_type "$OSD_CRUSH_CHOOSELEAF_TYPE"; then
