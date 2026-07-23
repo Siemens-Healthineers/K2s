@@ -32,11 +32,12 @@ const (
 	namespaceManifestPath = "workloads/ceph-share-test-namespace.yaml"
 	rwxManifestDir        = "workloads/rwx"
 
-	pvcName    = "ceph-share-test-pvc"
-	writerPod  = "ceph-share-writer"
-	readerPod  = "ceph-share-reader"
-	testFile   = "/mnt/data/hello.txt"
-	testMarker = "hello from k2s ceph e2e"
+	pvcName      = "ceph-share-test-pvc"
+	writerPod    = "ceph-share-writer"
+	readerPod    = "ceph-share-reader"
+	testFile     = "/mnt/data/hello.txt"
+	testMarker   = "hello from k2s ceph e2e"
+	cephDataPool = "cephfs.cephfs.data"
 
 	testClusterTimeout     = time.Minute * 20
 	addonEnableMaxAttempts = 2
@@ -52,7 +53,7 @@ var (
 
 func TestCephStorage(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "storage ceph Addon Acceptance Tests", Label("addon", "acceptance", "internet-required", "setup-required", "invasive", "storage", "ceph", "system-running"))
+	RunSpecs(t, "storage ceph Addon Acceptance Tests", Label("addon", "acceptance", "internet-required", "setup-required", "invasive", "storage-ceph", "ceph", "system-running"))
 }
 
 var _ = BeforeSuite(func(ctx context.Context) {
@@ -134,6 +135,69 @@ var _ = Describe("storage ceph addon", Ordered, func() {
 				ContainSubstring("ADDON STATUS"),
 				ContainSubstring("enabled"),
 			))
+		})
+
+		It("maps a data object to 3 distinct acting OSDs", func(ctx context.Context) {
+			// Placement test: verifies an object maps to three unique acting OSDs (replication fan-out),
+			// confirming the CRUSH rule and pool replica behavior are wired as expected.
+			clusterHostNode, err := getClusterHostNodeFromCephConfig(originalConfigPath)
+			Expect(err).ToNot(HaveOccurred())
+
+			cephHostIP, err := getDashboardTargetHost(clusterHostNode, suite.SetupInfo().Config.Host().K2sSetupConfigDir())
+			Expect(err).ToNot(HaveOccurred())
+
+			objectName := fmt.Sprintf("k2s-ceph-repl-e2e-%d", time.Now().UnixNano())
+
+			runSSHOnCephHost(ctx, cephHostIP, fmt.Sprintf("sudo cephadm shell -- rados -p %s put %s /etc/hosts", cephDataPool, objectName))
+			DeferCleanup(func(ctx context.Context) {
+				runSSHOnCephHost(ctx, cephHostIP, fmt.Sprintf("sudo cephadm shell -- rados -p %s rm %s || true", cephDataPool, objectName))
+			})
+
+			mapOutput := runSSHOnCephHost(ctx, cephHostIP, fmt.Sprintf("sudo cephadm shell -- ceph osd map %s %s --format json", cephDataPool, objectName))
+
+			var mapping cephOSDMapResult
+			jsonBlob, err := extractJSONBlob(mapOutput)
+			Expect(err).ToNot(HaveOccurred(), "failed to parse ceph osd map output: %s", mapOutput)
+			Expect(json.Unmarshal([]byte(jsonBlob), &mapping)).To(Succeed(), "failed to decode ceph osd map JSON: %s", jsonBlob)
+
+			Expect(len(mapping.Acting)).To(Equal(3), "expected 3 acting OSD replicas for object %q, got: %v", objectName, mapping.Acting)
+			Expect(countDistinctInts(mapping.Acting)).To(Equal(3), "expected acting OSD set to contain 3 distinct OSD IDs, got: %v", mapping.Acting)
+		})
+
+		It("keeps object readable when one acting OSD is out", func(ctx context.Context) {
+			// Runtime resiliency test: writes an object, marks one acting OSD out, then asserts
+			// the object stays readable from the same pool while Ceph serves from remaining replicas.
+			clusterHostNode, err := getClusterHostNodeFromCephConfig(originalConfigPath)
+			Expect(err).ToNot(HaveOccurred())
+
+			cephHostIP, err := getDashboardTargetHost(clusterHostNode, suite.SetupInfo().Config.Host().K2sSetupConfigDir())
+			Expect(err).ToNot(HaveOccurred())
+
+			objectName := fmt.Sprintf("k2s-ceph-runtime-proof-%d", time.Now().UnixNano())
+			outputFilePath := fmt.Sprintf("/tmp/%s.out", objectName)
+
+			runSSHOnCephHost(ctx, cephHostIP, fmt.Sprintf("sudo cephadm shell -- rados -p %s put %s /etc/hosts", cephDataPool, objectName))
+			DeferCleanup(func(ctx context.Context) {
+				runSSHOnCephHost(ctx, cephHostIP, fmt.Sprintf("sudo cephadm shell -- rados -p %s rm %s || true", cephDataPool, objectName))
+			})
+
+			mapOutput := runSSHOnCephHost(ctx, cephHostIP, fmt.Sprintf("sudo cephadm shell -- ceph osd map %s %s --format json", cephDataPool, objectName))
+			var mapping cephOSDMapResult
+			jsonBlob, err := extractJSONBlob(mapOutput)
+			Expect(err).ToNot(HaveOccurred(), "failed to parse ceph osd map output: %s", mapOutput)
+			Expect(json.Unmarshal([]byte(jsonBlob), &mapping)).To(Succeed(), "failed to decode ceph osd map JSON: %s", jsonBlob)
+			Expect(len(mapping.Acting)).To(BeNumerically(">=", 2), "expected at least 2 acting OSDs before failure test, got: %v", mapping.Acting)
+
+			osdToOut := mapping.Acting[0]
+			runSSHOnCephHost(ctx, cephHostIP, fmt.Sprintf("sudo cephadm shell -- ceph osd out %d", osdToOut))
+			DeferCleanup(func(ctx context.Context) {
+				runSSHOnCephHost(ctx, cephHostIP, fmt.Sprintf("sudo cephadm shell -- ceph osd in %d || true", osdToOut))
+			})
+
+			Eventually(func() string {
+				out := runSSHOnCephHost(ctx, cephHostIP, fmt.Sprintf("sudo cephadm shell -- bash -lc \"rados -p %s get %s %s && cat %s; rc=$?; rm -f %s; exit $rc\"", cephDataPool, objectName, outputFilePath, outputFilePath, outputFilePath))
+				return strings.TrimSpace(out)
+			}).WithTimeout(2*time.Minute).WithPolling(5*time.Second).Should(ContainSubstring("localhost"), "object should remain readable after taking one acting OSD out")
 		})
 
 		It("makes Ceph dashboard URL reachable", func(ctx context.Context) {
@@ -344,4 +408,46 @@ func readJSONAsMap(path string) (map[string]any, error) {
 	}
 
 	return decoded, nil
+}
+
+type cephOSDMapResult struct {
+	Acting []int `json:"acting"`
+	Up     []int `json:"up"`
+}
+
+func runSSHOnCephHost(ctx context.Context, hostIP, command string) string {
+	homeDir, err := bos.UserHomeDir()
+	Expect(err).ToNot(HaveOccurred())
+
+	keyPath := filepath.Join(homeDir, ".ssh", "k2s", "id_rsa")
+	_, err = bos.Stat(keyPath)
+	Expect(err).ToNot(HaveOccurred(), "expected SSH key for k2s test user at '%s'", keyPath)
+
+	remoteTarget := "remote@" + hostIP
+	return suite.Cli("ssh.exe").MustExec(ctx,
+		"-n",
+		"-o", "StrictHostKeyChecking=no",
+		"-i", keyPath,
+		remoteTarget,
+		command,
+	)
+}
+
+func extractJSONBlob(output string) (string, error) {
+	start := strings.Index(output, "{")
+	end := strings.LastIndex(output, "}")
+	if start < 0 || end < 0 || end < start {
+		return "", fmt.Errorf("no JSON object found in output")
+	}
+
+	return output[start : end+1], nil
+}
+
+func countDistinctInts(values []int) int {
+	seen := map[int]struct{}{}
+	for _, v := range values {
+		seen[v] = struct{}{}
+	}
+
+	return len(seen)
 }

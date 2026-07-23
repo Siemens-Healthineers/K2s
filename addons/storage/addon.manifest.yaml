@@ -70,7 +70,7 @@ spec:
               - cliFlagName: keep
                 scriptParameterName: Keep
     - name: ceph
-      description: Ceph CSI operator for CephFS (file) storage provisioning
+      description: Experimental - Ceph CSI operator for CephFS (file) storage provisioning
       offline_usage:
         linux:
           repos: []
@@ -96,7 +96,7 @@ spec:
           cli:
             examples:
               - cmd: k2s addons enable storage ceph
-                comment: Enables Ceph CSI CephFS storage provisioning using config in 'addons/storage/ceph/config'
+                comment: Enables experimental Ceph CSI CephFS storage provisioning using config in 'addons/storage/ceph/config'
           script:
             subPath: ceph/Enable.ps1
             parameterMappings:

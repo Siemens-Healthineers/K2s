@@ -35,7 +35,7 @@ var (
 
 func TestStorageCephExportImport(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "storage ceph Addon Export/Import Tests", Label("addon", "addon-ilities", "acceptance", "internet-required", "setup-required", "invasive", "storage-ceph", "export-import", "air-gapped", "system-running"))
+	RunSpecs(t, "storage ceph Addon Export/Import Tests", Label("addon", "addon-ilities", "acceptance", "internet-required", "setup-required", "invasive", "storage-ceph", "export-import-ceph", "air-gapped", "system-running"))
 }
 
 var _ = BeforeSuite(func(ctx context.Context) {

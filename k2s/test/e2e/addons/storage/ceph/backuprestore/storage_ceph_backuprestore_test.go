@@ -32,7 +32,7 @@ var (
 
 func TestStorageCephBackupRestore(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "storage ceph Addon Backup/Restore Acceptance Tests", Label("addon", "addon-ilities", "acceptance", "setup-required", "invasive", "storage", "ceph", "backup-restore", "system-running"))
+	RunSpecs(t, "storage ceph Addon Backup/Restore Acceptance Tests", Label("addon", "addon-ilities", "acceptance", "setup-required", "invasive", "storage-ceph", "ceph", "backup-restore-ceph", "system-running"))
 }
 
 var _ = BeforeSuite(func(ctx context.Context) {

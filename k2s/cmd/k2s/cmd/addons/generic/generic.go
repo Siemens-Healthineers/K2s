@@ -9,6 +9,7 @@ import (
 	"log/slog"
 	"path/filepath"
 	"sort"
+	"strings"
 
 	"github.com/pterm/pterm"
 	"github.com/samber/lo"
@@ -126,16 +127,22 @@ func newAddonCmd(addon addons.Addon, cmdName string) (*cobra.Command, error) {
 
 func addonCommandLongDescription(addon addons.Addon, cmdName string) string {
 	if addon.Metadata.Name == "storage" && cmdName == "enable" {
-		return "Runs 'enable' for 'storage' addon\n\nNote: only one storage implementation can be enabled at a time. Choose either 'smb' or 'ceph'.\n\nWhen to use:\n- smb: simple share-based storage between K8s nodes and host, suitable for basic/local scenarios\n- ceph: external CephFS-backed file storage for shared and scalable workloads"
+		return "Runs 'enable' for 'storage' addon\n\nNote: only one storage implementation can be enabled at a time. Choose either 'smb' or 'ceph'.\n\nWhen to use:\n- smb: simple share-based storage between K8s nodes and host, suitable for basic/local scenarios\n- ceph: experimental external CephFS-backed file storage for shared and scalable workloads"
 	}
 
 	return fmt.Sprintf("Runs '%s' for '%s' addon", cmdName, addon.Metadata.Name)
 }
 
 func newImplementationCmd(addon addons.Addon, cmdName string, implementation addons.Implementation) (*cobra.Command, error) {
+	implementationName := implementation.Name
+	if isExperimentalImplementation(addon, implementation) {
+		implementationName = implementationName + " (experimental)"
+	}
+
 	cmd := &cobra.Command{
 		Use:   implementation.Name,
-		Short: fmt.Sprintf("Runs '%s' for '%s' implementation of '%s' addon", cmdName, implementation.Name, addon.Metadata.Name),
+		Short: fmt.Sprintf("Runs '%s' for '%s' implementation of '%s' addon", cmdName, implementationName, addon.Metadata.Name),
+		Long:  implementationCommandLongDescription(addon, cmdName, implementation, implementationName),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCmd(cmd, addon, cmdName, implementation)
 		},
@@ -154,6 +161,22 @@ func newImplementationCmd(addon addons.Addon, cmdName string, implementation add
 	cmd.Flags().PrintDefaults()
 
 	return cmd, nil
+}
+
+func implementationCommandLongDescription(addon addons.Addon, cmdName string, implementation addons.Implementation, implementationDisplayName string) string {
+	if addon.Metadata.Name == "storage" && implementation.Name == "ceph" {
+		return fmt.Sprintf("Runs '%s' for '%s' implementation of '%s' addon\n\nNote: This implementation is experimental.", cmdName, implementationDisplayName, addon.Metadata.Name)
+	}
+
+	return fmt.Sprintf("Runs '%s' for '%s' implementation of '%s' addon", cmdName, implementationDisplayName, addon.Metadata.Name)
+}
+
+func isExperimentalImplementation(addon addons.Addon, implementation addons.Implementation) bool {
+	if addon.Metadata.Name == "storage" && implementation.Name == "ceph" {
+		return true
+	}
+
+	return strings.Contains(strings.ToLower(implementation.Description), "experimental")
 }
 
 func addFlags(flags []addons.CliFlag, cmd *cobra.Command) error {
