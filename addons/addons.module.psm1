@@ -1513,6 +1513,16 @@ function Resolve-AddonImportPath {
         [string]$AddonImplementation
     )
 
+	# Guard against artifacts whose addon-name annotation already carries the implementation
+	# as its final segment (e.g. name 'storage ceph' + implementation 'ceph'). Appending the
+	# implementation again would create a doubly-nested path such as addons/storage/ceph/ceph.
+	if (-not [string]::IsNullOrWhiteSpace($AddonImplementation)) {
+		$nameSegments = $AddonName -split '\s+' | Where-Object { $_ -ne '' }
+		if ($nameSegments.Count -gt 1 -and $nameSegments[-1] -eq $AddonImplementation) {
+			$AddonName = ($nameSegments[0..($nameSegments.Count - 2)] -join ' ')
+		}
+	}
+
 	if ([string]::IsNullOrWhiteSpace($AddonImplementation) -or $AddonImplementation -eq $AddonName) {
 		return @{
 			BaseAddonName      = $AddonName
