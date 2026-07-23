@@ -410,6 +410,60 @@ function Invoke-CephOsdPreparation {
         $provisionedOsdDevices += $preparedDisk
     }
 
+    $configuredChooseleafType = if ($null -ne $Config -and -not [string]::IsNullOrWhiteSpace("$($Config.osdCrushChooseleafType)".Trim())) {
+        "$($Config.osdCrushChooseleafType)".Trim()
+    }
+    else {
+        ''
+    }
+
+    # On single-host profiles (chooseleaf_type=0), the bootstrap script creates an OSD-level
+    # rule (k2s-osd-rule). Apply it to .mgr AFTER OSD creation, when .mgr is consistently present.
+    if ($configuredChooseleafType -eq '0') {
+        Write-Log "[Ceph] Applying OSD-level CRUSH rule to '.mgr' pool after OSD provisioning..." -Console
+
+        $mgrRuleApplied = $false
+        $maxMgrRuleAttempts = 12
+        for ($mgrAttempt = 1; $mgrAttempt -le $maxMgrRuleAttempts; $mgrAttempt++) {
+            $poolExistsResult = Invoke-CmdOnVmViaSSHKey `
+                                -CmdToExecute "sudo cephadm shell -- ceph osd pool ls | grep -qx '.mgr'" `
+                                -UserName $BootstrapNodeUserName `
+                                -IpAddress $BootstrapNodeIp `
+                                -NoLog `
+                                -IgnoreErrors
+
+            if (-not $poolExistsResult.Success) {
+                Write-Log "[Ceph] '.mgr' pool not available yet (attempt $mgrAttempt/$maxMgrRuleAttempts), retrying in 10s..." -Console
+                Start-Sleep -Seconds 10
+                continue
+            }
+
+            $setMgrRuleResult = Invoke-CmdOnVmViaSSHKey `
+                                -CmdToExecute "sudo cephadm shell -- ceph osd pool set .mgr crush_rule k2s-osd-rule" `
+                                -UserName $BootstrapNodeUserName `
+                                -IpAddress $BootstrapNodeIp `
+                                -NoLog `
+                                -IgnoreErrors
+
+            if ($setMgrRuleResult.Success) {
+                $mgrRuleApplied = $true
+                Write-Log "[Ceph] Applied k2s-osd-rule to '.mgr' pool" -Console
+                break
+            }
+
+            $setMgrRuleOutput = if ($null -ne $setMgrRuleResult) { ($setMgrRuleResult.Output | Out-String).Trim() } else { '' }
+            Write-Log "[Ceph] Failed to apply k2s-osd-rule to '.mgr' (attempt $mgrAttempt/$maxMgrRuleAttempts), retrying in 10s..." -Console
+            if (-not [string]::IsNullOrWhiteSpace($setMgrRuleOutput)) {
+                Write-Log "[Ceph] Output: $setMgrRuleOutput"
+            }
+            Start-Sleep -Seconds 10
+        }
+
+        if (-not $mgrRuleApplied) {
+            Write-Log "[Ceph] WARNING: Could not apply k2s-osd-rule to '.mgr' after OSD provisioning. If health warnings reference '.mgr', run: sudo cephadm shell -- ceph osd pool set .mgr crush_rule k2s-osd-rule" -Console
+        }
+    }
+
     # Store tracked OSD disk paths in config for cleanup validation by cluster ID
     if ($null -ne $Config -and $osdDiskPaths.Count -gt 0) {
         $Config | Add-Member -NotePropertyName 'osdDiskPaths' -NotePropertyValue ($osdDiskPaths | ConvertTo-Json -Compress) -Force

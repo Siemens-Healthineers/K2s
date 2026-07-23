@@ -385,15 +385,6 @@ if [ "${OSD_CRUSH_CHOOSELEAF_TYPE:-}" = "0" ]; then
         log_error "Failed to apply k2s-osd-rule to pool 'cephfs.${CEPH_FS_NAME}.data'"
         exit 1
     fi
-    # The built-in .mgr pool is created by cephadm during bootstrap with crush_rule 0
-    # (replicated_rule, host-level). On a single-host cluster only 1 OSD can be placed,
-    # causing a permanent PG_DEGRADED / PG_AVAILABILITY warning. Apply the same OSD-level
-    # rule so all 3 OSDs can serve the single .mgr PG.
-    if ! sudo "$CEPHADM_BIN" shell -- ceph osd pool set .mgr crush_rule k2s-osd-rule; then
-        log_error "Failed to apply k2s-osd-rule to pool '.mgr'"
-        exit 1
-    fi
-    log_info "Applied OSD-level CRUSH rule to CephFS pools (meta + data) and .mgr pool"
 fi
 
 log_info "Finished collecting Ceph cluster connection details"
