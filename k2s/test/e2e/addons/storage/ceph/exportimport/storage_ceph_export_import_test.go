@@ -70,6 +70,8 @@ var _ = AfterEach(func() {
 })
 
 var _ = Describe("storage ceph addon export and import", Ordered, func() {
+	// This suite validates artifact lifecycle only (export -> cleanup -> import) and
+	// does not require the storage/ceph addon to be enabled at any point.
 	Describe("export storage ceph addon", func() {
 		BeforeAll(func(ctx context.Context) {
 			exportimport.CleanupExportedFiles(exportPath, "")
@@ -91,6 +93,11 @@ var _ = Describe("storage ceph addon export and import", Ordered, func() {
 		It("exports all addon resources", func(ctx context.Context) {
 			exportimport.VerifyExportedImages(suite, exportPath, impl)
 			exportimport.VerifyExportedPackages(exportPath, impl)
+		})
+
+		It("index.json contains proper OCI structure", func(ctx context.Context) {
+			expectedDirName := exportimport.GetExpectedDirName("storage", "ceph")
+			exportimport.VerifyOciManifest(exportPath, expectedDirName)
 		})
 	})
 
@@ -124,12 +131,11 @@ var _ = Describe("storage ceph addon export and import", Ordered, func() {
 			exportimport.VerifyImportedDebPackages(ctx, suite, impl, controlPlaneIpAddress)
 		})
 
-		It("has images available after import", func(ctx context.Context) {
-			exportimport.VerifyImportedImages(ctx, suite, k2s, impl)
+		It("has linux curl packages available after import", func(ctx context.Context) {
+			exportimport.VerifyImportedLinuxCurlPackages(ctx, suite, impl, controlPlaneIpAddress)
 		})
 
-		It("has linux and windows curl packages available after import", func(ctx context.Context) {
-			exportimport.VerifyImportedLinuxCurlPackages(ctx, suite, impl, controlPlaneIpAddress)
+		It("has windows curl packages available after import", func(ctx context.Context) {
 			exportimport.VerifyImportedWindowsCurlPackages(suite, impl)
 		})
 
@@ -152,9 +158,87 @@ var _ = Describe("storage ceph addon export and import", Ordered, func() {
 			exportimport.VerifyImportedAddonFiles(cephImplDir, expectedFiles)
 		})
 
+		It("has no stray files at wrong addon paths after import", func(ctx context.Context) {
+			storageBaseDir := filepath.Join(suite.RootDir(), "addons", "storage")
+			unexpectedFiles := []string{
+				filepath.Join(storageBaseDir, "config", "ceph-config.json"),
+				filepath.Join(storageBaseDir, "config", "ceph-config.json.license"),
+			}
+			exportimport.VerifyNoStrayFiles(unexpectedFiles)
+		})
+
 		It("addon can be enabled while air-gapped", func(ctx context.Context) {
 			suite.K2sCli().MustExec(ctx, "addons", "enable", "storage", "ceph", "-o")
-			k2s.VerifyAddonIsEnabled("storage", "ceph")
+			suite.Cluster().ExpectDeploymentToBeAvailable("ceph-csi-operator-controller-manager", "ceph-csi-operator-system")
+		})
+
+		It("can be enabled when only addons/common and addons/storage are present", func(ctx context.Context) {
+			suite.K2sCli().MustExec(ctx, "addons", "disable", "storage", "ceph", "-o", "-f")
+
+			restore, err := exportimport.StageAddonIsolation(suite.RootDir(), "storage")
+			Expect(err).ToNot(HaveOccurred(), "staging addon isolation should succeed")
+			DeferCleanup(func() {
+				Expect(restore()).To(Succeed(), "addon isolation restore must succeed to avoid a partial workspace state")
+			})
+			DeferCleanup(func() {
+				_, _ = suite.K2sCli().Exec(context.Background(), "addons", "disable", "storage", "ceph", "-o", "-f")
+			})
+
+			output := suite.K2sCli().MustExec(ctx, "addons", "enable", "storage", "ceph", "-o")
+
+			suite.Cluster().ExpectDeploymentToBeAvailable("ceph-csi-operator-controller-manager", "ceph-csi-operator-system")
+
+			Expect(output).NotTo(ContainSubstring("no valid module file was found"), "enable output must not contain PowerShell module-not-found error")
+			Expect(output).NotTo(ContainSubstring("was not loaded"), "enable output must not contain PowerShell module-not-loaded error")
+		})
+	})
+
+	Describe("export and import with relative paths", func() {
+		var (
+			relExportDir    string
+			absRelExportDir string
+			relOciFile      string
+		)
+
+		BeforeAll(func(ctx context.Context) {
+			absRelExportDir = filepath.Join(suite.RootDir(), "tmp", "storage-ceph-relpath-test")
+			Expect(os.MkdirAll(absRelExportDir, 0o755)).To(Succeed())
+
+			var err error
+			relExportDir, err = filepath.Rel(suite.RootDir(), absRelExportDir)
+			Expect(err).ToNot(HaveOccurred())
+		})
+
+		AfterAll(func(ctx context.Context) {
+			exportimport.CleanupExportedFiles(absRelExportDir, relOciFile)
+		})
+
+		It("exports addon using a relative directory path", func(ctx context.Context) {
+			relOciFile = exportimport.ExportAddonRelativePath(ctx, suite, "storage", "ceph", suite.RootDir(), relExportDir)
+			info, err := os.Stat(relOciFile)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(info.Size()).To(BeNumerically(">", 0))
+		})
+
+		It("imports addon using a relative file path", func(ctx context.Context) {
+			Expect(relOciFile).NotTo(BeEmpty())
+			relFilePath, err := filepath.Rel(suite.RootDir(), relOciFile)
+			Expect(err).ToNot(HaveOccurred())
+			exportimport.ImportAddonRelativePath(ctx, suite, suite.RootDir(), relFilePath)
+			exportimport.VerifyImportedImages(ctx, suite, k2s, impl)
+		})
+
+		It("imports addon using a parent-relative file path", func(ctx context.Context) {
+			files, err := filepath.Glob(filepath.Join(absRelExportDir, "*.oci.tar"))
+			Expect(err).ToNot(HaveOccurred())
+			Expect(len(files)).To(BeNumerically(">=", 1))
+
+			subDir := filepath.Join(absRelExportDir, "subdir")
+			Expect(os.MkdirAll(subDir, 0o755)).To(Succeed())
+
+			parentRelPath := ".." + string(filepath.Separator) + filepath.Base(files[0])
+			exportimport.ImportAddonRelativePath(ctx, suite, subDir, parentRelPath)
+			exportimport.VerifyImportedImages(ctx, suite, k2s, impl)
 		})
 	})
 })
