@@ -125,6 +125,10 @@ function Start-NodePackageVmProvisioning {
 		[Parameter(Mandatory = $true)]
 		[string] $VmName,
 		[Parameter(Mandatory = $false)]
+		[string] $Hostname = '',
+		[Parameter(Mandatory = $false)]
+		[string] $GuestIp = '',
+		[Parameter(Mandatory = $false)]
 		[string] $Proxy = '',
 		[Parameter(Mandatory = $false)]
 		[switch] $ShowLogs
@@ -143,8 +147,16 @@ function Start-NodePackageVmProvisioning {
 	$hostIp = Get-ConfiguredKubeSwitchIP
 	$masterIp = Get-ConfiguredIPControlPlane
 	$reservedIps = @($hostIp, $masterIp)
-	$preferredHostOctets = Get-NodePackagePreferredHostOctets -DistributionKey $DistributionKey
-	$guestIp = Get-AvailableNodePackageGuestIp -ControlPlaneCIDR $controlPlaneCIDR -SwitchName $switchName -ReservedIpAddresses $reservedIps -PreferredHostOctets $preferredHostOctets -LogPrefix '[NodePkg]'
+	if ([string]::IsNullOrWhiteSpace($GuestIp)) {
+		$preferredHostOctets = Get-NodePackagePreferredHostOctets -DistributionKey $DistributionKey
+		$guestIp = Get-AvailableNodePackageGuestIp -ControlPlaneCIDR $controlPlaneCIDR -SwitchName $switchName -ReservedIpAddresses $reservedIps -PreferredHostOctets $preferredHostOctets -LogPrefix '[NodePkg]'
+	}
+	else {
+		$guestIp = $GuestIp.Trim()
+		if (-not (Test-NodePackageGuestIpAvailability -IpAddress $guestIp -SwitchName $switchName -ReservedIpAddresses $reservedIps -LogPrefix '[NodePkg]')) {
+			throw "[NodePkg] Requested guest IP '$guestIp' is not available."
+		}
+	}
 	$prefixLen = [int](($controlPlaneCIDR -split '/')[1])
 
 	$kubeSwitch = Get-VMSwitch -Name $switchName -ErrorAction SilentlyContinue
@@ -178,6 +190,7 @@ function Start-NodePackageVmProvisioning {
 
 	$vhdxName = "$VmName.vhdx"
 	$isoName = "$VmName.iso"
+	$effectiveHostname = if ([string]::IsNullOrWhiteSpace($Hostname)) { "k2s-nodepkg-$DistributionKey" } else { $Hostname }
 
 	$vmParams = @{
 		VmName               = $VmName
@@ -198,13 +211,14 @@ function Start-NodePackageVmProvisioning {
 		IsoFileCreatorToolPath = Join-Path $kubeBinPath 'cloudinitisobuilder.exe'
 		IsoFileName            = $isoName
 		SourcePath             = Join-Path $kubePath 'lib\modules\k2s\k2s.node.module\linuxnode\baseimage\cloud-init-templates'
-		Hostname               = "k2s-nodepkg-$DistributionKey"
+		Hostname               = $effectiveHostname
 		NetworkInterfaceName   = $netIntf
 		IPAddressVM            = $guestIp
 		IPAddressGateway       = $hostIp
 		UserName               = $sshUser
 		UserPwd                = $sshPwd
 	}
+	Write-Log "[NodePkg] Using guest hostname '$effectiveHostname' for VM '$VmName'." -Console
 	$dirParams = @{
 		DownloadsDirectory    = $downloadsDir
 		ProvisioningDirectory = $provisioningDir

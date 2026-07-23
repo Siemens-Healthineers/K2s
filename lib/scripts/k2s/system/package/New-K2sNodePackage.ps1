@@ -323,6 +323,8 @@ try {
             -Proxy     $Proxy
     }
 
+
+
     (Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute "mkdir -p $remoteImagesExportDir" -RemoteUser $remoteUser -RemoteUserPwd $sshPwd -IgnoreErrors).Output | Write-Log
 
     # Kubeadm is the source of truth for Kubernetes images, including pause.

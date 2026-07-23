@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: © 2024 Siemens Healthineers AG
+﻿# SPDX-FileCopyrightText: © 2024 Siemens Healthineers AG
 #
 # SPDX-License-Identifier: MIT
 
@@ -69,3 +69,84 @@ spec:
                 scriptParameterName: Force
               - cliFlagName: keep
                 scriptParameterName: Keep
+    - name: ceph
+      description: Experimental - Ceph CSI operator for CephFS (file) storage provisioning
+      offline_usage:
+        linux:
+          repos:
+            - CODENAME=$(. /etc/os-release; echo $VERSION_CODENAME); curl --retry 3 --retry-all-errors -fsSL https://download.docker.com/linux/debian/gpg -x __LOCAL_HTTP_PROXY__ | sudo gpg --dearmor --batch --yes -o /usr/share/keyrings/docker-archive-keyring.gpg && echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/docker-archive-keyring.gpg] https://download.docker.com/linux/debian $CODENAME stable" | sudo tee /etc/apt/sources.list.d/docker.list
+          deb:
+            - podman
+            - gnupg
+            - ca-certificates
+            - curl
+            - lsb-release
+            - lvm2
+            - docker-ce
+            - docker-ce-cli
+          curl:
+            # cephadm bootstrap binary (Ceph v20 / Tentacle). Downloaded during export and
+            # staged into the addon storage folder so cluster bootstrap works fully offline.
+            - url: https://download.ceph.com/rpm-tentacle/el9/noarch/cephadm
+              destination: cephadm
+          additionalImages:
+            - quay.io/ceph/ceph:v20
+            - quay.io/cephcsi/ceph-csi-operator:v1.0.4
+            - quay.io/cephcsi/cephcsi:v3.17.0
+            - registry.k8s.io/sig-storage/csi-node-driver-registrar:v2.17.0
+            - registry.k8s.io/sig-storage/csi-provisioner:v6.2.0
+            - registry.k8s.io/sig-storage/csi-attacher:v4.12.0
+            - registry.k8s.io/sig-storage/csi-resizer:v2.1.0
+            - registry.k8s.io/sig-storage/csi-snapshotter:v8.5.0
+            - registry.k8s.io/sig-storage/livenessprobe:v2.18.0
+          additionalImagesFiles:
+            - manifests/operator.yaml
+            - manifests/csi-rbac.yaml
+        windows:
+          curl: []
+      commands:
+        enable:
+          cli:
+            examples:
+              - cmd: k2s addons enable storage ceph
+                comment: Enables experimental Ceph CSI CephFS storage provisioning using config in 'addons/storage/ceph/config'
+          script:
+            subPath: ceph/Enable.ps1
+            parameterMappings:
+              - cliFlagName: monitorEndpoints
+                scriptParameterName: MonitorEndpoints
+              - cliFlagName: adminKey
+                scriptParameterName: AdminKey
+              - cliFlagName: cephfsPool
+                scriptParameterName: CephfsPool
+        disable:
+          cli:
+            flags:
+              - name: force
+                shorthand: f
+                default: false
+                description: Disable the addon and DELETE ALL PERSISTENTVOLUMES without user confirmation
+                exclusionGroup: data-retention
+              - name: keep
+                shorthand: k
+                default: false
+                description: Disable the addon and KEEP ALL PERSISTENTVOLUMES without user confirmation
+                exclusionGroup: data-retention
+            examples:
+              - cmd: k2s addons disable storage ceph
+                comment: Removes Ceph CSI provisioners and prompts for data retention/deletion
+              - cmd: k2s addons disable storage ceph -f
+                comment: Removes Ceph CSI provisioners and DELETES ALL DATA without prompting
+              - cmd: k2s addons disable storage ceph -k
+                comment: Removes Ceph CSI provisioners and KEEPS ALL DATA without prompting
+          script:
+            subPath: ceph/Disable.ps1
+            parameterMappings:
+              - cliFlagName: force
+                scriptParameterName: Force
+              - cliFlagName: keep
+                scriptParameterName: Keep
+        status:
+          script:
+            subPath: ceph/Get-Status.ps1
+

@@ -805,11 +805,23 @@ foreach ($addon in $addonsToImport) {
                     $windowsCurlPackages = $windowsPackages.curl
                     
                     # Import debian packages
+                    # When --node targets a Linux worker, copy the packages directly to that node
+                    # instead of kubemaster so enable can install them offline on the correct host.
                     $debianPkgDir = Join-Path $packagesExtractDir 'debianpackages'
                     if (Test-Path $debianPkgDir) {
-                        (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute "sudo rm -rf .$($addon.name)").Output | Write-Log
-                        (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute "mkdir -p .$($addon.name)").Output | Write-Log
-                        Copy-ToControlPlaneViaSSHKey -Source "$debianPkgDir\*" -Target ".$($addon.name)"
+                        if ($null -ne $targetNode -and $targetNode.Kind -eq 'LinuxWorker') {
+                            $nodeIp = $targetNode.IpAddress
+                            $nodeUser = $targetNode.Username
+                            Write-Log "Copying debian packages for addon $($addon.name) to node '$($targetNode.Name)' ($nodeIp)" -Console
+                            (Invoke-CmdOnVmViaSSHKey -CmdToExecute "sudo rm -rf .$($addon.name)" -UserName $nodeUser -IpAddress $nodeIp -NoLog -IgnoreErrors).Output | Write-Log
+                            (Invoke-CmdOnVmViaSSHKey -CmdToExecute "mkdir -p .$($addon.name)" -UserName $nodeUser -IpAddress $nodeIp -NoLog -IgnoreErrors).Output | Write-Log
+                            Copy-ToRemoteComputerViaSshKey -Source "$debianPkgDir\*" -Target ".$($addon.name)" -UserName $nodeUser -IpAddress $nodeIp
+                        }
+                        else {
+                            (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute "sudo rm -rf .$($addon.name)").Output | Write-Log
+                            (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute "mkdir -p .$($addon.name)").Output | Write-Log
+                            Copy-ToControlPlaneViaSSHKey -Source "$debianPkgDir\*" -Target ".$($addon.name)"
+                        }
                     }
                     
                     # Import Linux packages
@@ -819,10 +831,29 @@ foreach ($addon in $addonsToImport) {
                             $filename = ([uri]$package.url).Segments[-1]
                             $destination = $package.destination
                             $sourcePath = Join-Path $linuxPkgDir $filename
-                            if (Test-Path $sourcePath) {
+                            if (-not (Test-Path $sourcePath)) {
+                                continue
+                            }
+
+                            if ($destination -match '^/') {
+                                # Absolute destination: install the binary system-wide on the control plane.
                                 Copy-ToControlPlaneViaSSHKey -Source $sourcePath -Target '/tmp'
                                 (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute "sudo cp /tmp/${filename} ${destination}").Output | Write-Log
                                 (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute "sudo rm -rf /tmp/${filename}").Output | Write-Log
+                            }
+                            else {
+                                # Relative destination: stage the binary into the addon storage folder (~/.<addon>)
+                                # on the target node so enable/bootstrap can consume it fully offline.
+                                if ($null -ne $targetNode -and $targetNode.Kind -eq 'LinuxWorker') {
+                                    $nodeIp = $targetNode.IpAddress
+                                    $nodeUser = $targetNode.Username
+                                    (Invoke-CmdOnVmViaSSHKey -CmdToExecute "mkdir -p .$($addon.name)" -UserName $nodeUser -IpAddress $nodeIp -NoLog -IgnoreErrors).Output | Write-Log
+                                    Copy-ToRemoteComputerViaSshKey -Source $sourcePath -Target ".$($addon.name)/${destination}" -UserName $nodeUser -IpAddress $nodeIp
+                                }
+                                else {
+                                    (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute "mkdir -p .$($addon.name)").Output | Write-Log
+                                    Copy-ToControlPlaneViaSSHKey -Source $sourcePath -Target ".$($addon.name)/${destination}"
+                                }
                             }
                         }
                     }

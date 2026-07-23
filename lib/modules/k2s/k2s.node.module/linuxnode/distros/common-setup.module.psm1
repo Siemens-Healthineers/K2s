@@ -931,6 +931,8 @@ function Get-GpuContainerImages {
     Write-Log '[GpuImg] Finished pulling GPU container images'
 }
 
+
+
 function Get-ClusterIPWebhookImages {
     param (
         [ValidateScript({ !([string]::IsNullOrWhiteSpace($_)) })]
@@ -2329,12 +2331,25 @@ function Invoke-RemoteScript {
     $remoteUser = "$UserName@$IpAddress"
     $executeRemoteCommand = {
         param($Command)
+
+        $execution = $null
         if ([string]::IsNullOrWhiteSpace($UserPwd)) {
-            (Invoke-CmdOnVmViaSSHKey -CmdToExecute $Command -UserName $UserName -IpAddress $IpAddress -Retries $Retries).Output
+            $execution = Invoke-CmdOnVmViaSSHKey -CmdToExecute $Command -UserName $UserName -IpAddress $IpAddress -Retries $Retries
         }
         else {
-            (Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute $Command -RemoteUser "$remoteUser" -RemoteUserPwd "$UserPwd" -Retries $Retries).Output
+            $execution = Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute $Command -RemoteUser "$remoteUser" -RemoteUserPwd "$UserPwd" -Retries $Retries
         }
+
+        if (-not $execution.Success) {
+            $executionOutput = ($execution.Output | Out-String).Trim()
+            if ([string]::IsNullOrWhiteSpace($executionOutput)) {
+                throw "Remote command failed: $Command"
+            }
+
+            throw "Remote command failed: $Command`n$executionOutput"
+        }
+
+        return $execution.Output
     }
     
     # Strip Windows CRLF line endings (\r) before executing - scripts copied from Windows
