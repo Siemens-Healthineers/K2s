@@ -105,6 +105,192 @@ function Select-K2sIsRunning {
     }
 }
 
+function Invoke-KubectlWithKubeConfig {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$KubeConfigPath,
+        [Parameter(Mandatory = $true)]
+        [array]$Params
+    )
+
+    $kubeBinPathTools = Get-KubeToolsPath
+    $ErrorActionPreference = 'Continue'
+    $output = &"$kubeBinPathTools\kubectl.exe" --kubeconfig="$KubeConfigPath" @Params 2>&1
+    $exitCode = $LASTEXITCODE
+    $ErrorActionPreference = 'Stop'
+
+    return [pscustomobject]@{
+        Success  = ($exitCode -eq 0)
+        ExitCode = $exitCode
+        Output   = $output
+    }
+}
+
+function Get-WindowsWorkerNodeRoutes {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$KubeConfigPath
+    )
+
+    $windowsNodeRoutes = [System.Collections.ArrayList]@()
+    $nodeQueryResult = Invoke-KubectlWithKubeConfig -KubeConfigPath $KubeConfigPath -Params @('get', 'nodes', '-l', 'kubernetes.io/os=windows', '-o', 'json')
+    if (-not $nodeQueryResult.Success) {
+        Write-Log "[$logUseCase] WARNING: Could not query Windows worker nodes: $($nodeQueryResult.Output)"
+        return $windowsNodeRoutes
+    }
+
+    try {
+        $nodes = ($nodeQueryResult.Output | Out-String | ConvertFrom-Json).items
+    }
+    catch {
+        Write-Log "[$logUseCase] WARNING: Failed parsing Windows worker node list: $_"
+        return $windowsNodeRoutes
+    }
+
+    foreach ($node in $nodes) {
+        $internalIpEntry = $node.status.addresses | Where-Object { $_.type -eq 'InternalIP' } | Select-Object -First 1
+        $internalIp = if ($internalIpEntry) { $internalIpEntry.address } else { '' }
+
+        $podCIDR = $node.spec.podCIDR
+        if ([string]::IsNullOrWhiteSpace($podCIDR) -and $node.spec.podCIDRs) {
+            foreach ($candidateCIDR in $node.spec.podCIDRs) {
+                if ($candidateCIDR -match '^\d{1,3}(\.\d{1,3}){3}/\d{1,2}$') {
+                    $podCIDR = $candidateCIDR
+                    break
+                }
+            }
+        }
+
+        if ([string]::IsNullOrWhiteSpace($internalIp) -or [string]::IsNullOrWhiteSpace($podCIDR)) {
+            Write-Log "[$logUseCase] Skipping Windows node '$($node.metadata.name)' due to missing InternalIP or PodCIDR"
+            continue
+        }
+
+        $windowsNodeRoutes.Add([pscustomobject]@{
+                NodeName   = $node.metadata.name
+                InternalIP = $internalIp
+                PodCIDR    = $podCIDR
+            }) | Out-Null
+    }
+
+    return $windowsNodeRoutes
+}
+
+function Wait-ForControlPlaneTransitReachability {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory = $true)]
+        [object[]]$WindowsNodeRoutes,
+        [int]$TimeoutSeconds = 120,
+        [int]$DelaySeconds = 5
+    )
+
+    if ($null -eq $WindowsNodeRoutes -or $WindowsNodeRoutes.Count -eq 0) {
+        return $true
+    }
+
+    $targetIps = @($WindowsNodeRoutes | Select-Object -ExpandProperty InternalIP -Unique)
+    if ($targetIps.Count -eq 0) {
+        return $true
+    }
+
+    $endTime = [DateTime]::UtcNow.AddSeconds($TimeoutSeconds)
+    while ([DateTime]::UtcNow -lt $endTime) {
+        $unreachableIps = [System.Collections.ArrayList]@()
+        foreach ($targetIp in $targetIps) {
+            $pingCommand = "ping -c 1 -W 2 $targetIp >/dev/null 2>&1"
+            $pingResult = Invoke-CmdOnControlPlaneViaSSHKey -CmdToExecute $pingCommand -IgnoreErrors -NoLog
+            if (-not $pingResult.Success) {
+                $unreachableIps.Add($targetIp) | Out-Null
+            }
+        }
+
+        if ($unreachableIps.Count -eq 0) {
+            Write-Log "[$logUseCase] Control-plane transit path to Windows node(s) is reachable"
+            return $true
+        }
+
+        $remainingSeconds = [int][Math]::Max(0, ($endTime - [DateTime]::UtcNow).TotalSeconds)
+        Write-Log "[$logUseCase] Waiting for control-plane transit path to Windows node(s): $($unreachableIps -join ', ') (${remainingSeconds}s remaining)"
+        Start-Sleep -Seconds $DelaySeconds
+    }
+
+    Write-Log "[$logUseCase] WARNING: Timed out waiting for control-plane transit reachability to Windows node(s)"
+    return $false
+}
+
+function Get-MissingWindowsPodRoutesOnControlPlane {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory = $true)]
+        [object[]]$WindowsNodeRoutes
+    )
+
+    $missingRoutes = [System.Collections.ArrayList]@()
+    foreach ($nodeRoute in $WindowsNodeRoutes) {
+        $routeResult = Invoke-CmdOnControlPlaneViaSSHKey -CmdToExecute "ip -4 route show $($nodeRoute.PodCIDR)" -IgnoreErrors -NoLog
+        $routeOutput = ($routeResult.Output | Out-String).Trim()
+        $expectedGatewayPattern = "(^|\s)via\s+$([regex]::Escape($nodeRoute.InternalIP))(\s|$)"
+
+        if ([string]::IsNullOrWhiteSpace($routeOutput) -or $routeOutput -notmatch $expectedGatewayPattern) {
+            $missingRoutes.Add($nodeRoute) | Out-Null
+        }
+    }
+
+    return $missingRoutes
+}
+
+function Restart-FlannelDaemonSetWithWindowsRouteRepair {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$KubeConfigPath,
+        [int]$MaxAttempts = 3
+    )
+
+    for ($attempt = 1; $attempt -le $MaxAttempts; $attempt++) {
+        $windowsNodeRoutes = Get-WindowsWorkerNodeRoutes -KubeConfigPath $KubeConfigPath
+
+        if ($windowsNodeRoutes.Count -eq 0) {
+            Write-Log "[$logUseCase] No Windows worker nodes found, restarting flannel daemonset once"
+            $restartResult = Invoke-KubectlWithKubeConfig -KubeConfigPath $KubeConfigPath -Params @('rollout', 'restart', 'daemonset/kube-flannel-ds', '-n', 'kube-flannel')
+            $restartResult.Output | Write-Log
+            return
+        }
+
+        Write-Log "[$logUseCase] Restarting flannel daemonset with Windows route validation (attempt $attempt/$MaxAttempts)"
+        Wait-ForControlPlaneTransitReachability -WindowsNodeRoutes $windowsNodeRoutes -TimeoutSeconds 120 -DelaySeconds 5 | Out-Null
+
+        $restartResult = Invoke-KubectlWithKubeConfig -KubeConfigPath $KubeConfigPath -Params @('rollout', 'restart', 'daemonset/kube-flannel-ds', '-n', 'kube-flannel')
+        $restartResult.Output | Write-Log
+
+        $statusResult = Invoke-KubectlWithKubeConfig -KubeConfigPath $KubeConfigPath -Params @('rollout', 'status', 'daemonset/kube-flannel-ds', '-n', 'kube-flannel', '--timeout=120s')
+        if ($statusResult.Success) {
+            $statusResult.Output | Write-Log
+        }
+        else {
+            Write-Log "[$logUseCase] WARNING: Flannel daemonset rollout status check failed: $($statusResult.Output)"
+        }
+
+        $missingRoutes = Get-MissingWindowsPodRoutesOnControlPlane -WindowsNodeRoutes $windowsNodeRoutes
+        if ($missingRoutes.Count -eq 0) {
+            Write-Log "[$logUseCase] Flannel host-gw routes to Windows pod CIDR(s) are present"
+            return
+        }
+
+        $missingRouteDescriptions = $missingRoutes | ForEach-Object { "$($_.PodCIDR) via $($_.InternalIP) ($($_.NodeName))" }
+        Write-Log "[$logUseCase] WARNING: Missing flannel route(s) after restart: $($missingRouteDescriptions -join '; ')"
+
+        if ($attempt -lt $MaxAttempts) {
+            Start-Sleep -Seconds 5
+        }
+    }
+
+    Write-Log "[$logUseCase] WARNING: Could not repair flannel host-gw route(s) to Windows nodes after retries"
+}
+
 # Ensures flanneld, kubelet, and kubeproxy are running and refreshes Linux-side
 # DaemonSets. Called both after L2 bridge recreation (unclean reboot with cbr0
 # removed) and when cbr0 survived a reboot but services aren't running.
@@ -148,9 +334,9 @@ function Start-K8sNetworkingServices {
         }
         if ($apiReady) {
             Write-Log "[$logUseCase] Restarting Linux-side system DaemonSets to refresh service account tokens..."
-            &"$kubeBinPathTools\kubectl.exe" --kubeconfig="$kubeConfigPath" rollout restart daemonset/kube-proxy -n kube-system 2>&1 | Write-Log
-            &"$kubeBinPathTools\kubectl.exe" --kubeconfig="$kubeConfigPath" rollout restart daemonset/kube-flannel-ds -n kube-flannel 2>&1 | Write-Log
-            &"$kubeBinPathTools\kubectl.exe" --kubeconfig="$kubeConfigPath" rollout restart deployment/coredns -n kube-system 2>&1 | Write-Log
+            (Invoke-KubectlWithKubeConfig -KubeConfigPath $kubeConfigPath -Params @('rollout', 'restart', 'daemonset/kube-proxy', '-n', 'kube-system')).Output | Write-Log
+            Restart-FlannelDaemonSetWithWindowsRouteRepair -KubeConfigPath $kubeConfigPath -MaxAttempts 3
+            (Invoke-KubectlWithKubeConfig -KubeConfigPath $kubeConfigPath -Params @('rollout', 'restart', 'deployment/coredns', '-n', 'kube-system')).Output | Write-Log
             Write-Log "[$logUseCase] Linux-side system DaemonSet restart completed"
         } else {
             Write-Log "[$logUseCase] WARNING: API server not ready after 15 attempts, skipping DaemonSet restart"
