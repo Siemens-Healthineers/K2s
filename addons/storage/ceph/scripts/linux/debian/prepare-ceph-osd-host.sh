@@ -137,48 +137,72 @@ if ! sudo apt-get update; then
     exit 1
 fi
 
-wait_for_apt_lock || exit 1
-if ! sudo apt-get install -y ca-certificates curl gnupg lsb-release; then
-    log_error "Failed to install prerequisite packages (ca-certificates, curl, gnupg, lsb-release)."
-    exit 1
-fi
-
-# Add the Docker apt repository + GPG key (idempotent).
-sudo install -m 0755 -d /usr/share/keyrings
-if ! curl -fsSL "${CURL_PROXY_ARGS[@]}" https://download.docker.com/linux/debian/gpg | sudo gpg --dearmor --yes -o /usr/share/keyrings/docker-archive-keyring.gpg; then
-    log_error "Failed to download and import the Docker GPG key from download.docker.com."
-    if [ -z "$PROXY" ]; then
-        log_error "This node could not reach download.docker.com directly. Re-run this script passing the K2s proxy URL as an argument, e.g.:"
-        log_error "  ./prepare-ceph-osd-host.sh <ceph-pub-key> http://<kubeswitch-ip>:8181"
+# Install prerequisite packages, skipping any that are already present (e.g. installed via dpkg
+# during offline artifact import). Only the missing ones are handed to apt-get.
+PREREQ_PKGS="ca-certificates curl gnupg lsb-release"
+MISSING_PREREQ=""
+for pkg in $PREREQ_PKGS; do
+    dpkg -s "$pkg" >/dev/null 2>&1 || MISSING_PREREQ="$MISSING_PREREQ $pkg"
+done
+if [ -n "$MISSING_PREREQ" ]; then
+    wait_for_apt_lock || exit 1
+    # shellcheck disable=SC2086
+    if ! sudo apt-get install -y $MISSING_PREREQ; then
+        log_error "Failed to install prerequisite packages ($MISSING_PREREQ)."
+        exit 1
     fi
-    exit 1
-fi
-sudo chmod a+r /usr/share/keyrings/docker-archive-keyring.gpg
-
-echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/docker-archive-keyring.gpg] https://download.docker.com/linux/debian $(lsb_release -cs) stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
-log_info "Configured Docker apt repository:"
-sudo cat /etc/apt/sources.list.d/docker.list | sed 's/^/[CephOsd]   /'
-
-wait_for_apt_lock || exit 1
-if ! sudo apt-get update; then
-    log_error "'apt-get update' failed after adding the Docker repository."
-    exit 1
+else
+    log_info "Prerequisite packages (ca-certificates, curl, gnupg, lsb-release) already installed; skipping"
 fi
 
-wait_for_apt_lock || exit 1
-if ! sudo apt-get install -y docker-ce docker-ce-cli containerd.io; then
-    log_error "Failed to install docker-ce / docker-ce-cli / containerd.io (required by cephadm)."
-    exit 1
+# Add the Docker apt repository + GPG key (idempotent). Skip the whole repository setup and
+# install when Docker is already present (e.g. installed via dpkg during offline artifact import).
+# containerd.io is NOT installed explicitly here: every K2s node already ships containerd, so it
+# is expected to be present already (apt still pulls it as a docker-ce dependency if it is not).
+if command -v docker >/dev/null 2>&1; then
+    log_info "Docker (docker-ce) already installed; skipping Docker repository setup and install"
+else
+    sudo install -m 0755 -d /usr/share/keyrings
+    if ! curl -fsSL "${CURL_PROXY_ARGS[@]}" https://download.docker.com/linux/debian/gpg | sudo gpg --dearmor --yes -o /usr/share/keyrings/docker-archive-keyring.gpg; then
+        log_error "Failed to download and import the Docker GPG key from download.docker.com."
+        if [ -z "$PROXY" ]; then
+            log_error "This node could not reach download.docker.com directly. Re-run this script passing the K2s proxy URL as an argument, e.g.:"
+            log_error "  ./prepare-ceph-osd-host.sh <ceph-pub-key> http://<kubeswitch-ip>:8181"
+        fi
+        exit 1
+    fi
+    sudo chmod a+r /usr/share/keyrings/docker-archive-keyring.gpg
+
+    echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/docker-archive-keyring.gpg] https://download.docker.com/linux/debian $(lsb_release -cs) stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
+    log_info "Configured Docker apt repository:"
+    sudo cat /etc/apt/sources.list.d/docker.list | sed 's/^/[CephOsd]   /'
+
+    wait_for_apt_lock || exit 1
+    if ! sudo apt-get update; then
+        log_error "'apt-get update' failed after adding the Docker repository."
+        exit 1
+    fi
+
+    wait_for_apt_lock || exit 1
+    if ! sudo apt-get install -y docker-ce docker-ce-cli; then
+        log_error "Failed to install docker-ce / docker-ce-cli (required by cephadm)."
+        exit 1
+    fi
 fi
 log_info "Installed container runtime: $(command -v docker) / $(command -v containerd)"
 
 # lvm2 provides the LVM tooling cephadm uses to create the OSD's logical volume on the drive.
-wait_for_apt_lock || exit 1
-if ! sudo apt-get install -y lvm2; then
-    log_error "Failed to install lvm2 (required by cephadm to create the OSD on a raw drive)."
-    exit 1
+# Skip when already present (e.g. installed via dpkg during offline artifact import).
+if dpkg -s lvm2 >/dev/null 2>&1; then
+    log_info "lvm2 already installed; skipping"
+else
+    wait_for_apt_lock || exit 1
+    if ! sudo apt-get install -y lvm2; then
+        log_error "Failed to install lvm2 (required by cephadm to create the OSD on a raw drive)."
+        exit 1
+    fi
+    log_info "Installed lvm2"
 fi
-log_info "Installed lvm2"
 
 # 1) Ensure root's .ssh directory exists with correct permissions.
 sudo mkdir -p /root/.ssh

@@ -58,8 +58,17 @@ if [ -n "$PROXY" ]; then
     printf 'Acquire::http::Proxy "%s";\nAcquire::https::Proxy "%s";\n' "$PROXY" "$PROXY" | sudo tee /etc/apt/apt.conf.d/95k2s-proxy > /dev/null
 fi
 
-# Ensure a container engine (podman) is available. cephadm requires podman (or docker)
-# to pull and run the Ceph daemon containers; on a freshly provisioned node it may be missing.
+OFFLINE_PKG_DIR="$HOME/.storage"
+if [ -d "$OFFLINE_PKG_DIR" ]; then
+    offline_debs="$(find "$OFFLINE_PKG_DIR" -type f -name '*.deb' 2>/dev/null)"
+    if [ -n "$offline_debs" ]; then
+        log_info "Installing offline debian packages from $OFFLINE_PKG_DIR"
+        # shellcheck disable=SC2086
+        sudo dpkg -i $offline_debs 2>/dev/null || true
+        sudo DEBIAN_FRONTEND=noninteractive apt-get -f install -y --no-download 2>/dev/null || true
+    fi
+fi
+
 if ! command -v podman >/dev/null 2>&1; then
     log_info "podman not found, installing it via apt-get"
     sudo apt-get update
@@ -74,12 +83,9 @@ log_info "Using container engine: $(command -v podman)"
 CEPH_IMAGE="$CEPH_IMAGE_INPUT"
 log_info "Using Ceph image from storage addon manifest: $CEPH_IMAGE"
 
-# Pull the Ceph image FIRST so the exact release/version can be read from it. The image tag may be a
-# rolling tag (e.g. 'v20') that does NOT map to a 'download.ceph.com/rpm-<version>' path, so the
-# authoritative version must come from the image itself, not from the tag. Deriving it from the tag
-# turned 'v20' into an invalid 'rpm-20' URL whose 404 HTML page was saved as 'cephadm' and then
-# failed to run ("Syntax error: redirection unexpected").
-if [ -n "$PROXY" ]; then
+if sudo podman image exists "$CEPH_IMAGE" 2>/dev/null; then
+    log_info "Ceph image '$CEPH_IMAGE' already present locally (e.g. loaded during offline artifact import); skipping pull"
+elif [ -n "$PROXY" ]; then
     log_info "Pulling Ceph image via proxy for quay.io access: $CEPH_IMAGE"
     if ! sudo env HTTP_PROXY="$PROXY" HTTPS_PROXY="$PROXY" podman pull "$CEPH_IMAGE"; then
         log_error "Failed to pull Ceph image '$CEPH_IMAGE' with proxy"
@@ -93,11 +99,6 @@ else
     fi
 fi
 
-# Read the authoritative Ceph version string from the pulled image, e.g.
-#   "ceph version 20.2.2 (<hash>) tentacle (stable)"
-# and derive BOTH the numeric version (20.2.2) used for the download.ceph.com 'rpm-<version>' path
-# and the release codename (tentacle) used by 'cephadm add-repo --release'. Reading these from the
-# image (not the tag) keeps bootstrap working with rolling tags such as 'v20'.
 CEPH_VERSION_STRING="$(sudo podman run --rm --entrypoint ceph "$CEPH_IMAGE" --version 2>/dev/null)"
 CEPH_VERSION="$(echo "$CEPH_VERSION_STRING" | sed -E 's/^ceph version ([0-9.]+) .*/\1/')"
 CEPH_RELEASE="$(echo "$CEPH_VERSION_STRING" | sed -E 's/^.*\) ([[:alpha:]]+) \(stable\).*/\1/')"
@@ -112,14 +113,15 @@ if [ -z "$CEPH_RELEASE" ] || [ "$CEPH_RELEASE" = "$CEPH_VERSION_STRING" ]; then
 fi
 log_info "Detected Ceph version '$CEPH_VERSION' (release codename '$CEPH_RELEASE') from image"
 
-# Download the matching cephadm bootstrap binary. Validate that the download is the cephadm Python
-# script and not an HTTP error page (a 404 saved as 'cephadm' fails with "redirection unexpected").
-# Try the numeric version path first, then fall back to the release-codename path.
+is_valid_cephadm() {
+    head -n1 "$1" 2>/dev/null | grep -qE '^#!.*python'
+}
+
 download_cephadm() {
     local url="$1"
     rm -f cephadm
     curl -x "$PROXY" --fail --silent --show-error --remote-name --location "$url" || return 1
-    if ! head -n1 cephadm 2>/dev/null | grep -qE '^#!.*python'; then
+    if ! is_valid_cephadm cephadm; then
         log_error "Downloaded file from '$url' is not the cephadm script (likely an HTTP error page)."
         rm -f cephadm
         return 1
@@ -136,32 +138,40 @@ else
     exit 1
 fi
 
-# Make the downloaded cephadm binary executable
+# Make the cephadm binary executable
 sudo chmod +x cephadm
 
-# Install gnupg for apt-key management (required for adding the Ceph repository)
-sudo apt-get install -y gnupg
+if ! dpkg -s gnupg >/dev/null 2>&1; then
+    sudo apt-get install -y gnupg
+fi
 sudo rm -f /etc/apt/trusted.gpg.d/ceph.asc
 
-# cephadm's add-repo/install use Python (urllib), which does NOT read the apt proxy config.
-# Pass the proxy via the standard http_proxy/https_proxy env vars so it can reach
-# download.ceph.com; on air-gapped nodes DNS resolution otherwise fails.
 CEPHADM_PROXY_ENV=()
 if [ -n "$PROXY" ]; then
     CEPHADM_PROXY_ENV=(http_proxy="$PROXY" https_proxy="$PROXY" HTTP_PROXY="$PROXY" HTTPS_PROXY="$PROXY")
 fi
 
-# Add the Ceph repository for the detected release and install cephadm.
-# These are best-effort: they provide the host-side 'ceph' CLI but are not required
-# for the bootstrap itself (which runs everything inside the pre-pulled container image).
+OFFLINE_CEPHADM="$HOME/.storage/cephadm"
+if [ -f "$OFFLINE_CEPHADM" ]; then
+    log_info "Found offline cephadm binary at $OFFLINE_CEPHADM, moving to /usr/local/bin with executable permissions"
+    if ! sudo mv "$OFFLINE_CEPHADM" /usr/local/bin/cephadm; then
+        log_error "Failed to move cephadm from $OFFLINE_CEPHADM to /usr/local/bin/cephadm"
+        exit 1
+    fi
+    if ! sudo chmod +x /usr/local/bin/cephadm; then
+        log_error "Failed to set executable permission on /usr/local/bin/cephadm"
+        exit 1
+    fi
+    log_info "Cephadm binary moved to /usr/local/bin and made executable"
+fi
+
 sudo env "${CEPHADM_PROXY_ENV[@]}" ./cephadm add-repo --release "$CEPH_RELEASE" || \
     log_info "add-repo failed (continuing; host-side ceph CLI may be unavailable)"
 
 sudo env "${CEPHADM_PROXY_ENV[@]}" ./cephadm install || \
-    log_info "cephadm install failed (continuing; using downloaded cephadm binary for bootstrap)"
+    log_info "cephadm install failed (continuing; using available cephadm binary for bootstrap)"
 
-# Prefer the freshly downloaded cephadm binary: its version matches the target Ceph image,
-# whereas a system-installed cephadm may be an older/mismatched release.
+
 CEPHADM_BIN=''
 if [ -x "$(pwd)/cephadm" ]; then
     CEPHADM_BIN="$(pwd)/cephadm"
@@ -179,7 +189,7 @@ if [ -z "$CEPHADM_BIN" ]; then
     done
 fi
 if [ -z "$CEPHADM_BIN" ]; then
-    log_error "cephadm was not found after installation (searched PATH and /usr/sbin, /usr/bin, /sbin)"
+    log_error "cephadm was not found after installation (searched offline storage, PATH, and /usr/sbin, /usr/bin, /sbin)"
     exit 1
 fi
 log_info "Using cephadm binary: $CEPHADM_BIN"
@@ -233,22 +243,14 @@ if [ -n "$EXISTING_FSIDS" ]; then
     log_info "Finished cleanup of existing Ceph cluster state"
 fi
 
-# --skip-pull: image is already present in podman's store (pulled above).
-# --allow-mismatched-release: the container image is the authoritative Ceph version;
-#   tolerate a version-string difference between the cephadm tool and the image release.
-# --skip-monitoring-stack: do NOT deploy the Prometheus/Grafana/Alertmanager/node-exporter
-#   monitoring stack. K2s only needs core Ceph + CephFS for CSI, so skipping it avoids pulling
-#   quay.io/ceph/grafana and quay.io/prometheus/* images and keeps the footprint minimal.
+
 if ! sudo "$CEPHADM_BIN" --image "$CEPH_IMAGE" bootstrap --mon-ip "$MON_IP" --ssh-user "$CEPH_SSH_USER" --skip-pull --allow-mismatched-release --skip-monitoring-stack; then
     log_error "cephadm bootstrap failed"
     exit 1
 fi
 log_info "Ceph cluster bootstrap completed on Debian"
 
-# After bootstrap, surface OSD guidance: cephadm consumes an empty/raw data drive on a host to
-# create an OSD. Emit the cephadm cluster public key so ADDITIONAL OSD hosts can authorize it for
-# '$CEPH_SSH_USER' SSH access (see prepare-ceph-osd-host.sh); on the bootstrap node cephadm already
-# has key access.
+
 log_info "A new (empty) volume drive will be consumed to create the Ceph OSD."
 log_info "Attach a raw/unused disk to an OSD host, then let cephadm provision the OSD on it."
 CEPH_PUB_KEY="$(sudo cat /etc/ceph/ceph.pub 2>/dev/null)"
@@ -258,21 +260,9 @@ if [ -n "$CEPH_PUB_KEY" ]; then
     echo "K2S_CEPH_PUB_KEY=${CEPH_PUB_KEY}"
 fi
 
-# ---------------------------------------------------------------------------
-# Create the CephFS filesystem and read back the ACTUAL cluster connection
-# values so the addon can persist them into ceph-config.json and connect the
-# CSI driver to the freshly provisioned cluster (instead of the placeholder
-# values shipped in the config template).
-#
-# All ceph commands run inside 'cephadm shell' so they work even when a
-# host-side ceph CLI was not installed. The resulting values are emitted as
-# K2S_CEPH_* marker lines that New-CephCluster.ps1 parses.
-# ---------------------------------------------------------------------------
+
 log_info "Creating CephFS filesystem '$CEPH_FS_NAME' and collecting connection details"
 
-# Wait until cephadm shell can execute Ceph commands reliably. Right after bootstrap,
-# manager/orchestrator restarts can still be settling and a single shell invocation may
-# block long enough to hit the detail-collection timeout.
 for attempt in $(seq 1 18); do
     if timeout 30 sudo "$CEPHADM_BIN" shell -- ceph -s >/dev/null 2>&1; then
         break
@@ -346,8 +336,6 @@ if ! CLUSTER_DETAILS="$(timeout 900 sudo "$CEPHADM_BIN" shell --env K2S_FS_NAME=
     exit 1
 fi
 
-# Re-emit the marker lines on stdout so the calling PowerShell can parse them.
-# (Do NOT log the admin key to the console; the PowerShell side masks it.)
 echo "$CLUSTER_DETAILS" | grep -E '^K2S_CEPH_' | while IFS= read -r line; do
     case "$line" in
         K2S_CEPH_ADMIN_KEY=*) log_info "Collected K2S_CEPH_ADMIN_KEY=<hidden>" ;;
@@ -356,8 +344,6 @@ echo "$CLUSTER_DETAILS" | grep -E '^K2S_CEPH_' | while IFS= read -r line; do
 done
 echo "$CLUSTER_DETAILS" | grep -E '^K2S_CEPH_'
 
-# Fail loudly if the essential connection values could not be read back. Otherwise the addon
-# would continue with the placeholder config values and the CSI driver would never connect.
 COLLECTED_FSID="$(echo "$CLUSTER_DETAILS" | sed -n 's/^K2S_CEPH_FSID=//p')"
 COLLECTED_KEY="$(echo "$CLUSTER_DETAILS" | sed -n 's/^K2S_CEPH_ADMIN_KEY=//p')"
 COLLECTED_MONS="$(echo "$CLUSTER_DETAILS" | sed -n 's/^K2S_CEPH_MON_ENDPOINTS=//p')"

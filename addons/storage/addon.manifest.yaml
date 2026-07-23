@@ -73,9 +73,22 @@ spec:
       description: Experimental - Ceph CSI operator for CephFS (file) storage provisioning
       offline_usage:
         linux:
-          repos: []
-          deb: []
-          curl: []
+          repos:
+            - CODENAME=$(. /etc/os-release; echo $VERSION_CODENAME); curl --retry 3 --retry-all-errors -fsSL https://download.docker.com/linux/debian/gpg -x __LOCAL_HTTP_PROXY__ | sudo gpg --dearmor --batch --yes -o /usr/share/keyrings/docker-archive-keyring.gpg && echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/docker-archive-keyring.gpg] https://download.docker.com/linux/debian $CODENAME stable" | sudo tee /etc/apt/sources.list.d/docker.list
+          deb:
+            - podman
+            - gnupg
+            - ca-certificates
+            - curl
+            - lsb-release
+            - lvm2
+            - docker-ce
+            - docker-ce-cli
+          curl:
+            # cephadm bootstrap binary (Ceph v20 / Tentacle). Downloaded during export and
+            # staged into the addon storage folder so cluster bootstrap works fully offline.
+            - url: https://download.ceph.com/rpm-tentacle/el9/noarch/cephadm
+              destination: cephadm
           additionalImages:
             - quay.io/ceph/ceph:v20
             - quay.io/cephcsi/ceph-csi-operator:v1.0.4
@@ -136,3 +149,4 @@ spec:
         status:
           script:
             subPath: ceph/Get-Status.ps1
+
