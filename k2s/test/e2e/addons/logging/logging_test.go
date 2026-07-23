@@ -29,6 +29,8 @@ const (
 	testClusterTimeout        = time.Minute * 20
 	statusCheckRetryTimeout   = 3 * time.Minute
 	statusCheckRetryPolling   = 10 * time.Second
+	ingressEnableRetryTimeout = 12 * time.Minute
+	ingressEnableRetryPolling = 20 * time.Second
 )
 
 var (
@@ -153,13 +155,14 @@ var _ = Describe("'logging' addon", Ordered, func() {
 				if portForwardingSession != nil {
 					portForwardingSession.Kill()
 				}
+				waitForNamespaceTermination(ctx, "cert-manager")
 
-				suite.K2sCli().MustExec(ctx, "addons", "enable", "ingress", "traefik", "-o")
+				expectIngressAddonEnabled(ctx, "traefik")
 				suite.Cluster().ExpectDeploymentToBeAvailable("traefik", "ingress-traefik")
 			})
 
 			AfterAll(func(ctx context.Context) {
-				suite.K2sCli().MustExec(ctx, "addons", "disable", "ingress", "traefik", "-o")
+				disableIngressAddonIfEnabled(ctx, "traefik")
 				suite.Cluster().ExpectDeploymentToBeRemoved(ctx, "app.kubernetes.io/name", "traefik", "ingress-traefik")
 			})
 
@@ -176,12 +179,12 @@ var _ = Describe("'logging' addon", Ordered, func() {
 			BeforeAll(func(ctx context.Context) {
 				waitForNamespaceTermination(ctx, "cert-manager")
 
-				suite.K2sCli().MustExec(ctx, "addons", "enable", "ingress", "nginx", "-o")
+				expectIngressAddonEnabled(ctx, "nginx")
 				suite.Cluster().ExpectDeploymentToBeAvailable("ingress-nginx-controller", "ingress-nginx")
 			})
 
 			AfterAll(func(ctx context.Context) {
-				suite.K2sCli().MustExec(ctx, "addons", "disable", "ingress", "nginx", "-o")
+				disableIngressAddonIfEnabled(ctx, "nginx")
 				suite.Cluster().ExpectDeploymentToBeRemoved(ctx, "app.kubernetes.io/name", "ingress-nginx", "ingress-nginx")
 			})
 
@@ -198,12 +201,12 @@ var _ = Describe("'logging' addon", Ordered, func() {
 			BeforeAll(func(ctx context.Context) {
 				waitForNamespaceTermination(ctx, "cert-manager")
 
-				suite.K2sCli().MustExec(ctx, "addons", "enable", "ingress", "nginx-gw", "-o")
+				expectIngressAddonEnabled(ctx, "nginx-gw")
 				suite.Cluster().ExpectDeploymentToBeAvailable("nginx-cluster-local-nginx-gw", "nginx-gw")
 			})
 
 			AfterAll(func(ctx context.Context) {
-				suite.K2sCli().MustExec(ctx, "addons", "disable", "ingress", "nginx-gw", "-o")
+				disableIngressAddonIfEnabled(ctx, "nginx-gw")
 				suite.Cluster().ExpectDeploymentToBeRemoved(ctx, "app", "nginx-gw-controller", "nginx-gw")
 			})
 
@@ -300,6 +303,32 @@ func forceCleanTerminatingNamespace(ctx context.Context, ns string) {
 				"--type=merge", "-p", `{"metadata":{"finalizers":null}}`)
 		}
 	}
+}
+
+func expectIngressAddonEnabled(ctx context.Context, implementation string) {
+	command := []string{"addons", "enable", "ingress", implementation, "-o"}
+	lastOutput := ""
+
+	Eventually(func(g Gomega) {
+		output, exitCode := suite.Cli(suite.K2sCli().Path()).Exec(ctx, command...)
+		lastOutput = output
+		if exitCode == int(cli.ExitCodeSuccess) || strings.Contains(output, "already enabled") {
+			return
+		}
+
+		g.Expect(exitCode).To(Equal(int(cli.ExitCodeSuccess)),
+			fmt.Sprintf("failed to enable ingress %q. Command output:\n%s", implementation, output))
+	}).WithTimeout(ingressEnableRetryTimeout).WithPolling(ingressEnableRetryPolling).Should(Succeed(),
+		fmt.Sprintf("failed to enable ingress %q within retry window. Last output:\n%s", implementation, lastOutput))
+}
+
+func disableIngressAddonIfEnabled(ctx context.Context, implementation string) {
+	output, exitCode := suite.Cli(suite.K2sCli().Path()).Exec(ctx, "addons", "disable", "ingress", implementation, "-o")
+	if exitCode == cli.ExitCodeSuccess || strings.Contains(output, "already disabled") {
+		return
+	}
+
+	Expect(exitCode).To(Equal(cli.ExitCodeSuccess), fmt.Sprintf("unexpected failure disabling ingress %q:\n%s", implementation, output))
 }
 
 func expectLoggingPodsReady(ctx context.Context) {
