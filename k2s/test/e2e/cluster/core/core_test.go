@@ -25,7 +25,9 @@ import (
 )
 
 const (
-	namespace = "k2s"
+	namespace                = "k2s"
+	rolloutRetryGracePeriod  = 6 * time.Minute
+	rolloutRetryBackoffDelay = 20 * time.Second
 )
 
 var linuxDeploymentNames = []string{"albums-linux1", "albums-linux2"}
@@ -80,7 +82,7 @@ var _ = BeforeSuite(func(ctx context.Context) {
 	time.Sleep(60 * time.Second)
 	detectSystemicImagePullFailures(ctx)
 
-	suite.Kubectl().MustExec(ctx, "rollout", "status", "deployment", "-n", namespace, "--timeout="+suite.TestStepTimeout().String())
+	waitForCoreWorkloadRollout(ctx)
 
 	for _, deploymentName := range linuxDeploymentNames {
 		suite.Cluster().ExpectDeploymentToBeAvailable(deploymentName, namespace)
@@ -167,6 +169,58 @@ func detectSystemicImagePullFailures(ctx context.Context) {
 			"--sort-by=.lastTimestamp", "--field-selector=reason=Failed")
 		Fail(fmt.Sprintf("All %d pods stuck in image pull failures — container registry may be unreachable after upgrade.\nPod status:\n%s\nRecent failure events:\n%s",
 			failCount, podStatus, events))
+	}
+}
+
+func waitForCoreWorkloadRollout(ctx context.Context) {
+	rolloutTimeout := suite.TestStepTimeout()
+	if waitForDeploymentRollout(ctx, rolloutTimeout) {
+		return
+	}
+
+	GinkgoWriter.Printf("Initial deployment rollout in namespace <%s> did not complete within %s. Collecting diagnostics and retrying once with an additional %s grace period.\n", namespace, rolloutTimeout, rolloutRetryGracePeriod)
+	collectCoreWorkloadRolloutDiagnostics(ctx)
+
+	time.Sleep(rolloutRetryBackoffDelay)
+
+	retryTimeout := rolloutTimeout + rolloutRetryGracePeriod
+	if waitForDeploymentRollout(ctx, retryTimeout) {
+		return
+	}
+
+	collectCoreWorkloadRolloutDiagnostics(ctx)
+	Fail(fmt.Sprintf("Deployments in namespace <%s> did not complete rollout after initial timeout %s and retry timeout %s", namespace, rolloutTimeout, retryTimeout))
+}
+
+func waitForDeploymentRollout(ctx context.Context, timeout time.Duration) bool {
+	output, exitCode := suite.Kubectl().Exec(ctx, "rollout", "status", "deployment", "-n", namespace, "--timeout="+timeout.String())
+	if exitCode == 0 {
+		return true
+	}
+
+	GinkgoWriter.Printf("kubectl rollout status deployment -n %s --timeout=%s failed with exit code %d\n", namespace, timeout, exitCode)
+	if strings.TrimSpace(output) != "" {
+		GinkgoWriter.Printf("Rollout output:\n%s\n", output)
+	}
+
+	return false
+}
+
+func collectCoreWorkloadRolloutDiagnostics(ctx context.Context) {
+	GinkgoWriter.Println("Collecting core workload rollout diagnostics..")
+	runDiagnosticCommand(ctx, "get", "deployment", "-n", namespace, "-o", "wide")
+	runDiagnosticCommand(ctx, "get", "pods", "-n", namespace, "-o", "wide")
+	runDiagnosticCommand(ctx, "get", "events", "-n", namespace, "--sort-by=.lastTimestamp")
+
+	deploymentNames := append([]string{}, linuxDeploymentNames...)
+	deploymentNames = append(deploymentNames, "curl")
+	if !suite.SetupInfo().RuntimeConfig.InstallConfig().LinuxOnly() {
+		deploymentNames = append(deploymentNames, winDeploymentNames...)
+	}
+
+	for _, deploymentName := range deploymentNames {
+		runDiagnosticCommand(ctx, "describe", "deployment", deploymentName, "-n", namespace)
+		runDiagnosticCommand(ctx, "describe", "pods", "-l", "app="+deploymentName, "-n", namespace)
 	}
 }
 

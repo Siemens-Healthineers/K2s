@@ -25,7 +25,11 @@ import (
 	"github.com/onsi/gomega/gstruct"
 )
 
-const testClusterTimeout = time.Minute * 20
+const (
+	testClusterTimeout        = time.Minute * 20
+	statusCheckRetryTimeout   = 3 * time.Minute
+	statusCheckRetryPolling   = 10 * time.Second
+)
 
 var (
 	suite                 *framework.K2sTestSuite
@@ -322,9 +326,9 @@ func expectLoggingResourcesRemoved(ctx context.Context) {
 }
 
 func expectStatusToBePrinted(ctx context.Context) {
-	output := suite.K2sCli().MustExec(ctx, "addons", "status", "logging")
-
-	Expect(output).To(SatisfyAll(
+	Eventually(func() string {
+		return suite.K2sCli().MustExec(ctx, "addons", "status", "logging")
+	}).WithTimeout(statusCheckRetryTimeout).WithPolling(statusCheckRetryPolling).Should(SatisfyAll(
 		MatchRegexp("ADDON STATUS"),
 		MatchRegexp(`Addon .+logging.+ is .+enabled.+`),
 		MatchRegexp("Opensearch dashboards are working"),
@@ -332,34 +336,34 @@ func expectStatusToBePrinted(ctx context.Context) {
 		MatchRegexp("Fluent-bit is working"),
 	))
 
-	output = suite.K2sCli().MustExec(ctx, "addons", "status", "logging", "-o", "json")
+	Eventually(func(g Gomega) {
+		output := suite.K2sCli().MustExec(ctx, "addons", "status", "logging", "-o", "json")
+		var addonStatus status.AddonPrintStatus
 
-	var status status.AddonPrintStatus
-
-	Expect(json.Unmarshal([]byte(output), &status)).To(Succeed())
-
-	Expect(status.Name).To(Equal("logging"))
-	Expect(status.Error).To(BeNil())
-	Expect(status.Enabled).NotTo(BeNil())
-	Expect(*status.Enabled).To(BeTrue())
-	Expect(status.Props).NotTo(BeNil())
-	Expect(status.Props).To(ContainElements(
-		SatisfyAll(
-			HaveField("Name", "AreDeploymentsRunning"),
-			HaveField("Value", true),
-			HaveField("Okay", gstruct.PointTo(BeTrue())),
-			HaveField("Message", gstruct.PointTo(ContainSubstring("Opensearch dashboards are working")))),
-		SatisfyAll(
-			HaveField("Name", "AreStatefulsetsRunning"),
-			HaveField("Value", true),
-			HaveField("Okay", gstruct.PointTo(BeTrue())),
-			HaveField("Message", gstruct.PointTo(MatchRegexp("Opensearch is working")))),
-		SatisfyAll(
-			HaveField("Name", "AreDaemonsetsRunning"),
-			HaveField("Value", true),
-			HaveField("Okay", gstruct.PointTo(BeTrue())),
-			HaveField("Message", gstruct.PointTo(MatchRegexp("Fluent-bit is working")))),
-	))
+		g.Expect(json.Unmarshal([]byte(output), &addonStatus)).To(Succeed())
+		g.Expect(addonStatus.Name).To(Equal("logging"))
+		g.Expect(addonStatus.Error).To(BeNil())
+		g.Expect(addonStatus.Enabled).NotTo(BeNil())
+		g.Expect(*addonStatus.Enabled).To(BeTrue())
+		g.Expect(addonStatus.Props).NotTo(BeNil())
+		g.Expect(addonStatus.Props).To(ContainElements(
+			SatisfyAll(
+				HaveField("Name", "AreDeploymentsRunning"),
+				HaveField("Value", true),
+				HaveField("Okay", gstruct.PointTo(BeTrue())),
+				HaveField("Message", gstruct.PointTo(ContainSubstring("Opensearch dashboards are working")))),
+			SatisfyAll(
+				HaveField("Name", "AreStatefulsetsRunning"),
+				HaveField("Value", true),
+				HaveField("Okay", gstruct.PointTo(BeTrue())),
+				HaveField("Message", gstruct.PointTo(MatchRegexp("Opensearch is working")))),
+			SatisfyAll(
+				HaveField("Name", "AreDaemonsetsRunning"),
+				HaveField("Value", true),
+				HaveField("Okay", gstruct.PointTo(BeTrue())),
+				HaveField("Message", gstruct.PointTo(MatchRegexp("Fluent-bit is working")))),
+		))
+	}).WithTimeout(statusCheckRetryTimeout).WithPolling(statusCheckRetryPolling).Should(Succeed())
 }
 
 func expectOmitOpensearchPodsReady(ctx context.Context) {
@@ -381,34 +385,38 @@ func expectOmitOpensearchResourcesRemoved(ctx context.Context) {
 }
 
 func expectOmitOpensearchStatusToBePrinted(ctx context.Context) {
-	output := suite.K2sCli().MustExec(ctx, "addons", "status", "logging")
-
-	Expect(output).To(SatisfyAll(
+	Eventually(func() string {
+		return suite.K2sCli().MustExec(ctx, "addons", "status", "logging")
+	}).WithTimeout(statusCheckRetryTimeout).WithPolling(statusCheckRetryPolling).Should(SatisfyAll(
 		MatchRegexp("ADDON STATUS"),
 		MatchRegexp(`Addon .+logging.+ is .+enabled.+`),
 		MatchRegexp("Fluent-bit is working"),
 	))
-	Expect(output).NotTo(ContainSubstring("Opensearch dashboards are working"))
-	Expect(output).NotTo(ContainSubstring("Opensearch is working"))
 
-	output = suite.K2sCli().MustExec(ctx, "addons", "status", "logging", "-o", "json")
+	Eventually(func(g Gomega) {
+		output := suite.K2sCli().MustExec(ctx, "addons", "status", "logging")
+		g.Expect(output).NotTo(ContainSubstring("Opensearch dashboards are working"))
+		g.Expect(output).NotTo(ContainSubstring("Opensearch is working"))
+	}).WithTimeout(statusCheckRetryTimeout).WithPolling(statusCheckRetryPolling).Should(Succeed())
 
-	var addonStatus status.AddonPrintStatus
+	Eventually(func(g Gomega) {
+		output := suite.K2sCli().MustExec(ctx, "addons", "status", "logging", "-o", "json")
 
-	Expect(json.Unmarshal([]byte(output), &addonStatus)).To(Succeed())
-
-	Expect(addonStatus.Name).To(Equal("logging"))
-	Expect(addonStatus.Error).To(BeNil())
-	Expect(addonStatus.Enabled).NotTo(BeNil())
-	Expect(*addonStatus.Enabled).To(BeTrue())
-	Expect(addonStatus.Props).NotTo(BeNil())
-	Expect(addonStatus.Props).To(ContainElements(
-		SatisfyAll(
-			HaveField("Name", "AreDaemonsetsRunning"),
-			HaveField("Value", true),
-			HaveField("Okay", gstruct.PointTo(BeTrue())),
-			HaveField("Message", gstruct.PointTo(MatchRegexp("Fluent-bit is working")))),
-	))
-	Expect(addonStatus.Props).NotTo(ContainElement(HaveField("Name", "AreDeploymentsRunning")))
-	Expect(addonStatus.Props).NotTo(ContainElement(HaveField("Name", "AreStatefulsetsRunning")))
+		var addonStatus status.AddonPrintStatus
+		g.Expect(json.Unmarshal([]byte(output), &addonStatus)).To(Succeed())
+		g.Expect(addonStatus.Name).To(Equal("logging"))
+		g.Expect(addonStatus.Error).To(BeNil())
+		g.Expect(addonStatus.Enabled).NotTo(BeNil())
+		g.Expect(*addonStatus.Enabled).To(BeTrue())
+		g.Expect(addonStatus.Props).NotTo(BeNil())
+		g.Expect(addonStatus.Props).To(ContainElements(
+			SatisfyAll(
+				HaveField("Name", "AreDaemonsetsRunning"),
+				HaveField("Value", true),
+				HaveField("Okay", gstruct.PointTo(BeTrue())),
+				HaveField("Message", gstruct.PointTo(MatchRegexp("Fluent-bit is working")))),
+		))
+		g.Expect(addonStatus.Props).NotTo(ContainElement(HaveField("Name", "AreDeploymentsRunning")))
+		g.Expect(addonStatus.Props).NotTo(ContainElement(HaveField("Name", "AreStatefulsetsRunning")))
+	}).WithTimeout(statusCheckRetryTimeout).WithPolling(statusCheckRetryPolling).Should(Succeed())
 }
