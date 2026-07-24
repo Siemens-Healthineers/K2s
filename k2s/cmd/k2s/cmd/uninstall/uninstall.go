@@ -53,8 +53,7 @@ func uninstallk8s(cmd *cobra.Command, args []string) error {
 			if runtime.GOOS != "linux" {
 				return common.CreateSystemNotInstalledCmdFailure()
 			}
-		}
-		if !errors.Is(err, cconfig.ErrSystemInCorruptedState) {
+		} else if !errors.Is(err, cconfig.ErrSystemInCorruptedState) {
 			return err
 		}
 	}
