@@ -31,11 +31,13 @@ refresh_apt_cache() {
     local attempt=1
 
     while [ $attempt -le $max_retries ]; do
+        log_info "Refreshing apt package cache (attempt $attempt/$max_retries)..."
         if sudo env DEBIAN_FRONTEND=noninteractive timeout 300s apt-get update \
             -qq --yes --allow-releaseinfo-change \
             -o Acquire::Retries=2 \
             -o Acquire::http::Timeout=30 \
             -o Acquire::https::Timeout=30; then
+            log_info "Apt package cache refresh completed"
             return 0
         fi
 
@@ -82,6 +84,9 @@ while sudo fuser /var/lib/dpkg/lock-frontend /var/lib/apt/lists/lock >/dev/null 
     fi
     sleep 5
     local_wait=$((local_wait + 5))
+    if [ $((local_wait % 30)) -eq 0 ]; then
+        log_info "Still waiting for apt/dpkg locks (${local_wait}s elapsed)..."
+    fi
 done
 log_info "apt/dpkg locks free"
 
@@ -123,6 +128,7 @@ download_packages() {
         if cd "$TARGET_PATH" && sudo apt-get download "$package_name" 2>"$download_error_file"; then
             downloaded_main_package=1
             rm -f "$download_error_file"
+            log_info "Downloaded main package: $package_name"
             break
         fi
 
@@ -155,6 +161,7 @@ download_packages() {
     fi
 
     if ls "$TARGET_PATH"/${deb_pattern} >/dev/null 2>&1; then
+        log_info "Resolving and downloading dependencies for: $package_name"
         cd "$TARGET_PATH" && sudo DEBIAN_FRONTEND=noninteractive \
             apt-get --reinstall install -y \
             --no-install-recommends --no-install-suggests \
@@ -164,6 +171,8 @@ download_packages() {
             | sort -u \
             | grep -v "^${pkg_base}$" \
             | xargs -r sudo apt-get download 2>/dev/null || true
+
+        log_info "Completed package set: $package_name"
 
         return 0
     fi
@@ -240,6 +249,7 @@ set_kubernetes_apt_repository() {
     sudo rm -f /etc/apt/sources.list.d/kubernetes.list /etc/apt/sources.list.d/cri-o.list
 
     log_info "Step 1: Update package list (required before installing anything)"
+    log_info "Updating apt package list before repository configuration"
     sudo env DEBIAN_FRONTEND=noninteractive timeout 300s apt-get update \
         -qq --yes --allow-releaseinfo-change \
         -o Acquire::Retries=2 \
@@ -305,6 +315,7 @@ set_kubernetes_apt_repository() {
 
     # ===== UPDATE APT PACKAGE LIST =====
     log_info "Step 4: Final update of package list with new repositories"
+    log_info "Refreshing apt package list with Kubernetes and CRI-O repositories"
     if ! sudo env DEBIAN_FRONTEND=noninteractive timeout 300s apt-get update \
         -qq --yes --allow-releaseinfo-change \
         -o Acquire::Retries=2 \

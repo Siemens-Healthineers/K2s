@@ -100,7 +100,10 @@ func (o *LinuxOrchestrator) provisionKubernetes(cfg InstallConfig) (string, erro
 	}
 
 	slog.Info("[Install] Downloading Kubernetes and CRI-O packages", "version", k8sVersion)
-	if err := runCommand("bash", downloadScript, stagingDir, k8sVersion, localProxyURL); err != nil {
+	if cfg.ShowLogs {
+		slog.Info("[Install] Package staging directory", "path", stagingDir)
+	}
+	if err := runCommandWithLogs(cfg.ShowLogs, "bash", downloadScript, stagingDir, k8sVersion, localProxyURL); err != nil {
 		return "", fmt.Errorf("download Kubernetes packages: %w", err)
 	}
 
@@ -110,7 +113,7 @@ func (o *LinuxOrchestrator) provisionKubernetes(cfg InstallConfig) (string, erro
 	}
 
 	slog.Info("[Install] Installing Kubernetes and CRI-O packages")
-	if err := runCommand("bash", installScript, stagingDir, localProxyURL, registryToken, "false", mergeNoProxy(cfg.NoProxy)); err != nil {
+	if err := runCommandWithLogs(cfg.ShowLogs, "bash", installScript, stagingDir, localProxyURL, registryToken, "false", mergeNoProxy(cfg.NoProxy)); err != nil {
 		return "", fmt.Errorf("install Kubernetes packages: %w", err)
 	}
 

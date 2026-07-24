@@ -238,7 +238,7 @@ func (o *LinuxOrchestrator) installControlPlane(cfg InstallConfig, k8sVersion st
 	initConfig := fmt.Sprintf(`apiVersion: kubeadm.k8s.io/v1beta4
 kind: InitConfiguration
 nodeRegistration:
-	criSocket: %s
+  criSocket: %s
 ---
 apiVersion: kubeadm.k8s.io/v1beta4
 kind: ClusterConfiguration
@@ -261,6 +261,9 @@ failCgroupV1: false
 	if err := os.WriteFile(configPath, []byte(initConfig), 0600); err != nil {
 		return fmt.Errorf("failed to write kubeadm init config: %w", err)
 	}
+	if cfg.ShowLogs {
+		slog.Info("[Install] Rendered kubeadm configuration", "path", configPath, "content", initConfig)
+	}
 
 	// Build kubeadm init arguments
 	args := []string{
@@ -268,7 +271,7 @@ failCgroupV1: false
 		"--config=" + configPath,
 	}
 
-	if err := runCommand("kubeadm", args...); err != nil {
+	if err := runCommandWithLogs(cfg.ShowLogs, "kubeadm", args...); err != nil {
 		return fmt.Errorf("kubeadm init failed: %w", err)
 	}
 
@@ -734,6 +737,23 @@ func runCommand(name string, args ...string) error {
 		return fmt.Errorf("%s failed: %w\nOutput: %s", name, err, string(output))
 	}
 	slog.Debug("Command succeeded", "cmd", name, "output", string(output))
+	return nil
+}
+
+// runCommandWithLogs streams command output when --output is requested while
+// retaining the command error context used by the normal execution path.
+func runCommandWithLogs(showLogs bool, name string, args ...string) error {
+	if !showLogs {
+		return runCommand(name, args...)
+	}
+
+	slog.Info("[Install] Running command", "cmd", name, "argumentCount", len(args))
+	cmd := exec.Command(name, args...)
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf("%s failed: %w", name, err)
+	}
 	return nil
 }
 
