@@ -43,6 +43,13 @@ type Cluster struct {
 
 const clusterReadinessTimeout = 10 * time.Minute
 
+const (
+	internetReachabilityCurlMaxTime       = "60"
+	internetReachabilityCurlRetryCount    = "5"
+	internetReachabilityCheckTimeout      = 3 * time.Minute
+	internetReachabilityCheckPollInterval = 10 * time.Second
+)
+
 type podExecParam struct {
 	Namespace string
 	Pod       string
@@ -954,11 +961,11 @@ func (c *Cluster) ExpectInternetToBeReachableFromPodOfDeployment(deploymentName 
 
 	Expect(err).ShouldNot(HaveOccurred())
 
-	command := []string{"curl", "-i", "-m", "30", "--retry", "3", "--insecure", "www.msftconnecttest.com/connecttest.txt"}
+	command := []string{"curl", "-i", "-m", internetReachabilityCurlMaxTime, "--retry", internetReachabilityCurlRetryCount, "--insecure", "www.msftconnecttest.com/connecttest.txt"}
 	if proxy != "" {
 		GinkgoWriter.Println("Using proxy for curl")
 
-		command = []string{"curl", "-i", "-m", "30", "--retry", "3", "--insecure", "-x", proxy, "www.msftconnecttest.com/connecttest.txt"}
+		command = []string{"curl", "-i", "-m", internetReachabilityCurlMaxTime, "--retry", internetReachabilityCurlRetryCount, "--insecure", "-x", proxy, "www.msftconnecttest.com/connecttest.txt"}
 	}
 
 	var stdout, stderr bytes.Buffer
@@ -976,7 +983,28 @@ func (c *Cluster) ExpectInternetToBeReachableFromPodOfDeployment(deploymentName 
 		Stderr:    &stderr,
 	}
 
-	expectCmdExecInPodToSucceed(param)
+	Eventually(func() error {
+		stdout.Reset()
+		stderr.Reset()
+
+		err := executeCommandInPod(param)
+		if err != nil {
+			GinkgoWriter.Println("Command <", param.Command, "> failed with error <", err, ">")
+			if stderr.Len() > 0 {
+				GinkgoWriter.Println("Command stderr:", stderr.String())
+			}
+			return err
+		}
+
+		httpStatus := strings.Split(stdout.String(), "\n")[0]
+		GinkgoWriter.Println("Command <", param.Command, "> executed with http status <", httpStatus, ">")
+
+		if !strings.Contains(httpStatus, "200") {
+			return fmt.Errorf("unexpected http status %q (stdout: %q, stderr: %q)", httpStatus, stdout.String(), stderr.String())
+		}
+
+		return nil
+	}, internetReachabilityCheckTimeout, internetReachabilityCheckPollInterval, ctx).Should(Succeed())
 }
 
 func (c *Cluster) waitOptions() []wait.Option {
