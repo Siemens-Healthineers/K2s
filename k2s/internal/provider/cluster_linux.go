@@ -16,6 +16,8 @@ import (
 	"github.com/siemens-healthineers/k2s/internal/setuporchestration"
 )
 
+const linuxAdminKubeconfig = "/etc/kubernetes/admin.conf"
+
 type linuxClusterProvider struct {
 	installDir string
 	configDir  string
@@ -121,7 +123,7 @@ func (p *linuxClusterProvider) Status(_ ClusterStatusConfig) (*ClusterStatus, er
 // ---------- kubectl helpers ----------
 
 func isAPIServerReachable() bool {
-	cmd := exec.Command("kubectl", "cluster-info", "--request-timeout=5s")
+	cmd := exec.Command("kubectl", linuxKubectlArgs("cluster-info", "--request-timeout=5s")...)
 	return cmd.Run() == nil
 }
 
@@ -159,7 +161,7 @@ type k8sNodeItem struct {
 }
 
 func gatherNodeStatus() ([]NodeStatus, error) {
-	output, err := exec.Command("kubectl", "get", "nodes", "-o", "json").Output()
+	output, err := exec.Command("kubectl", linuxKubectlArgs("get", "nodes", "-o", "json")...).Output()
 	if err != nil {
 		return nil, fmt.Errorf("kubectl get nodes: %w", err)
 	}
@@ -246,7 +248,7 @@ type k8sPodItem struct {
 }
 
 func gatherPodStatus() ([]PodStatus, error) {
-	output, err := exec.Command("kubectl", "get", "pods", "--all-namespaces", "-o", "json").Output()
+	output, err := exec.Command("kubectl", linuxKubectlArgs("get", "pods", "--all-namespaces", "-o", "json")...).Output()
 	if err != nil {
 		return nil, fmt.Errorf("kubectl get pods: %w", err)
 	}
@@ -299,7 +301,7 @@ type versionResult struct {
 func gatherVersionInfo() (*versionResult, error) {
 	info := &versionResult{}
 
-	if output, err := exec.Command("kubectl", "version", "--client", "-o", "json").Output(); err == nil {
+	if output, err := exec.Command("kubectl", linuxKubectlArgs("version", "--client", "-o", "json")...).Output(); err == nil {
 		var v struct {
 			ClientVersion struct {
 				GitVersion string `json:"gitVersion"`
@@ -310,7 +312,7 @@ func gatherVersionInfo() (*versionResult, error) {
 		}
 	}
 
-	if output, err := exec.Command("kubectl", "version", "-o", "json").Output(); err == nil {
+	if output, err := exec.Command("kubectl", linuxKubectlArgs("version", "-o", "json")...).Output(); err == nil {
 		var v struct {
 			ServerVersion struct {
 				GitVersion string `json:"gitVersion"`
@@ -322,6 +324,10 @@ func gatherVersionInfo() (*versionResult, error) {
 	}
 
 	return info, nil
+}
+
+func linuxKubectlArgs(args ...string) []string {
+	return append([]string{"--kubeconfig", linuxAdminKubeconfig}, args...)
 }
 
 func formatDuration(d time.Duration) string {
