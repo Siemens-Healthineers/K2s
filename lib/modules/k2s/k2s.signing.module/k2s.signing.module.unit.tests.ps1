@@ -21,8 +21,6 @@ BeforeAll {
             param([string]$Message, [switch]$Console, [switch]$IsError)
             $script:LastLogMessage = $Message
             $script:LastLogError = $IsError.IsPresent
-            # Output for debugging
-            Write-Host "LOG: $Message" -ForegroundColor $(if ($IsError) { "Red" } else { "Gray" })
         }
         
         # Make it globally available
@@ -34,7 +32,6 @@ BeforeAll {
         # But ensure we have a working function for the module
         function global:Write-Log {
             param([string]$Message, [switch]$Console, [switch]$IsError)
-            Write-Host "LOG: $Message" -ForegroundColor $(if ($IsError) { "Red" } else { "Gray" })
         }
     }
     
@@ -54,7 +51,6 @@ Describe "Get-SignableFiles" {
         
         Mock Get-ChildItem {
             $script:MockGetChildItemCalled++
-            Write-Host "Mock Get-ChildItem called with Filter: $Filter"
             
             if ($Filter -eq "*.ps1") {
                 return @(
@@ -77,7 +73,6 @@ Describe "Get-SignableFiles" {
         # Mock Test-Path to always return true for our test path
         Mock Test-Path {
             param($Path)
-            Write-Host "Test-Path called with: $Path"
             if ($Path -eq "C:\test") {
                 return $true
             }
@@ -187,6 +182,80 @@ Describe "Sign-K2sFiles" {
             return $true
         }
         { Set-K2sFileSignature -SourcePath "C:\test" -CertificatePath "C:\test\nonexistent.pfx" -Password $securePassword } | Should -Throw "Certificate file not found: C:\test\nonexistent.pfx"
+    }
+}
+
+Describe "Import-K2sPfxCertificate" {
+    BeforeEach {
+        $script:securePassword = ConvertTo-SecureString "testpassword" -AsPlainText -Force
+    }
+
+    It "should use Import-PfxCertificate when certificate provider is available" {
+        InModuleScope k2s.signing.module {
+            Mock Test-CertificateProviderAvailable { return $true }
+            Mock Import-PfxCertificate {
+                return [PSCustomObject]@{ Thumbprint = "ABC123" }
+            }
+            Mock New-Object {
+                throw "New-Object should not be called when Cert provider is available"
+            }
+
+            $result = Import-K2sPfxCertificate -CertificatePath "C:\test\signing.pfx" -Password $script:securePassword
+
+            $result.Thumbprint | Should -Be "ABC123"
+            Should -Invoke Import-PfxCertificate -Times 1 -Exactly
+            Should -Invoke New-Object -Times 0 -Exactly
+        }
+    }
+
+    It "should use .NET fallback when certificate provider is unavailable" {
+        InModuleScope k2s.signing.module {
+            $script:storeOpenCalled = $false
+            $script:storeAddCalled = $false
+            $script:storeCloseCalled = $false
+            $script:storeDisposeCalled = $false
+
+            Mock Test-CertificateProviderAvailable { return $false }
+            Mock Import-PfxCertificate {
+                throw "Import-PfxCertificate should not be called when Cert provider is unavailable"
+            }
+
+            Mock New-Object {
+                return [PSCustomObject]@{ Thumbprint = "FALLBACK123" }
+            } -ParameterFilter { $TypeName -eq 'System.Security.Cryptography.X509Certificates.X509Certificate2' }
+
+            Mock New-Object {
+                $store = New-Object PSObject
+                $store | Add-Member -MemberType ScriptMethod -Name Open -Value {
+                    param($flags)
+                    $script:storeOpenCalled = $true
+                }
+                $store | Add-Member -MemberType ScriptMethod -Name Add -Value {
+                    param($certificate)
+                    if ($certificate.Thumbprint -eq "FALLBACK123") {
+                        $script:storeAddCalled = $true
+                    }
+                }
+                $store | Add-Member -MemberType ScriptMethod -Name Close -Value {
+                    $script:storeCloseCalled = $true
+                }
+                $store | Add-Member -MemberType ScriptMethod -Name Dispose -Value {
+                    $script:storeDisposeCalled = $true
+                }
+                return $store
+            } -ParameterFilter { $TypeName -eq 'System.Security.Cryptography.X509Certificates.X509Store' }
+
+            $result = Import-K2sPfxCertificate -CertificatePath "C:\test\signing.pfx" -Password $script:securePassword
+
+            $result.Thumbprint | Should -Be "FALLBACK123"
+            Should -Invoke Import-PfxCertificate -Times 0 -Exactly
+            Should -Invoke New-Object -Times 1 -Exactly -ParameterFilter { $TypeName -eq 'System.Security.Cryptography.X509Certificates.X509Certificate2' }
+            Should -Invoke New-Object -Times 1 -Exactly -ParameterFilter { $TypeName -eq 'System.Security.Cryptography.X509Certificates.X509Store' }
+            $script:storeOpenCalled | Should -BeTrue
+            $script:storeAddCalled | Should -BeTrue
+            $script:storeCloseCalled | Should -BeTrue
+            $script:storeDisposeCalled | Should -BeTrue
+        }
     }
 }
 

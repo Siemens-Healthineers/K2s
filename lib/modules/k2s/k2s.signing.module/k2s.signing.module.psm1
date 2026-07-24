@@ -17,6 +17,56 @@ Administrator privileges are required to install certificates to the LocalMachin
 
 $ErrorActionPreference = 'Stop'
 
+function Test-CertificateProviderAvailable {
+    try {
+        $null = Get-PSDrive -Name 'Cert' -ErrorAction Stop
+        return $true
+    }
+    catch {
+        return $false
+    }
+}
+
+function Import-K2sPfxCertificate {
+    param(
+        [Parameter(Mandatory)]
+        [string]$CertificatePath,
+        [SecureString]$Password
+    )
+
+    # Evidence: addons/addons.module.psm1 uses Get-PSDrive Cert guarding before Cert: path usage.
+    if (Test-CertificateProviderAvailable) {
+        return Import-PfxCertificate -FilePath $CertificatePath -CertStoreLocation Cert:\LocalMachine\My -Password $Password
+    }
+
+    $keyStorageFlags = [System.Security.Cryptography.X509Certificates.X509KeyStorageFlags]::MachineKeySet -bor `
+        [System.Security.Cryptography.X509Certificates.X509KeyStorageFlags]::PersistKeySet
+
+    $certificate = New-Object System.Security.Cryptography.X509Certificates.X509Certificate2 -ArgumentList @(
+        $CertificatePath,
+        $Password,
+        $keyStorageFlags
+    )
+
+    $store = New-Object System.Security.Cryptography.X509Certificates.X509Store -ArgumentList @(
+        [System.Security.Cryptography.X509Certificates.StoreName]::My,
+        [System.Security.Cryptography.X509Certificates.StoreLocation]::LocalMachine
+    )
+
+    try {
+        $store.Open([System.Security.Cryptography.X509Certificates.OpenFlags]::ReadWrite)
+        $store.Add($certificate)
+    }
+    finally {
+        if ($null -ne $store) {
+            $store.Close()
+            $store.Dispose()
+        }
+    }
+
+    return $certificate
+}
+
 <#
 .SYNOPSIS
 Signs all K2s executables and PowerShell scripts in a directory
@@ -69,7 +119,7 @@ function Set-K2sFileSignature {
 
     try {
         Write-Log "Importing certificate to certificate store..." -Console
-        $cert = Import-PfxCertificate -FilePath $CertificatePath -CertStoreLocation Cert:\LocalMachine\My -Password $Password
+        $cert = Import-K2sPfxCertificate -CertificatePath $CertificatePath -Password $Password
         Write-Log "Certificate imported successfully. Thumbprint: $($cert.Thumbprint)" -Console        
     }
     catch {

@@ -157,6 +157,20 @@ if (!$kubectlCmd.Success) {
     exit 1
 }
 
+$kubectlCmd = (Invoke-Kubectl -Params 'rollout', 'status', 'statefulsets', '-n', 'monitoring', '--timeout=600s')
+Write-Log $kubectlCmd.Output
+if (!$kubectlCmd.Success) {
+    $errMsg = 'Kube Prometheus Stack could not be deployed!'
+    if ($EncodeStructuredOutput -eq $true) {
+        $err = New-Error -Code (Get-ErrCodeAddonEnableFailed) -Message $errMsg
+        Send-ToCli -MessageType $MessageType -Message @{Error = $err }
+        return
+    }
+
+    Write-Log $errMsg -Error
+    exit 1
+}
+
 $allPodsAreUp = (Wait-ForPodCondition -Condition Ready -Label 'app.kubernetes.io/name=alertmanager' -Namespace 'monitoring' -TimeoutSeconds 120)
 if ($allPodsAreUp -ne $true) {
     $errMsg = "Alertmanager could not be deployed!"
@@ -181,20 +195,6 @@ if ($allPodsAreUp -ne $true) {
 
     Write-Log $errMsg -Error
     exit 1  
-}
-
-$kubectlCmd = (Invoke-Kubectl -Params 'rollout', 'status', 'statefulsets', '-n', 'monitoring', '--timeout=600s')
-Write-Log $kubectlCmd.Output
-if (!$kubectlCmd.Success) {
-    $errMsg = 'Kube Prometheus Stack could not be deployed!'
-    if ($EncodeStructuredOutput -eq $true) {
-        $err = New-Error -Code (Get-ErrCodeAddonEnableFailed) -Message $errMsg
-        Send-ToCli -MessageType $MessageType -Message @{Error = $err }
-        return
-    }
-
-    Write-Log $errMsg -Error
-    exit 1
 }
 
 &"$PSScriptRoot\Update.ps1" -OmitGrafana:$OmitGrafana
