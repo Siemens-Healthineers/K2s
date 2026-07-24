@@ -11,9 +11,16 @@ K8S_DEB_PACKAGES_PATH="${1:?Argument missing: K8sDebPackagesPath}"
 PROXY="${2:-}"
 REGISTRY_TOKEN="${3:?Argument missing: RegistryToken}"
 IS_WSL="${4:-false}"
+NO_PROXY="${5:-localhost,127.0.0.1,::1,172.20.0.0/16,172.21.0.0/16,.cluster.local,.svc}"
 
 echo "[InstallK8s] Starting Kubernetes artifacts installation"
 echo "[InstallK8s] Packages path: $K8S_DEB_PACKAGES_PATH"
+
+if [ -n "$PROXY" ]; then
+    printf 'Acquire::http::Proxy "%s";\nAcquire::https::Proxy "%s";\n' "$PROXY" "$PROXY" \
+        | sudo tee /etc/apt/apt.conf.d/90k2s-install-proxy > /dev/null
+    trap 'sudo rm -f /etc/apt/apt.conf.d/90k2s-install-proxy' EXIT
+fi
 
 # ---------------------------------------------------------------------------
 # Validate packages directory
@@ -106,8 +113,9 @@ if [ -n "$PROXY" ]; then
         echo "Environment='HTTPS_PROXY=$PROXY'"
         echo "Environment='http_proxy=$PROXY'"
         echo "Environment='https_proxy=$PROXY'"
-        echo "Environment='no_proxy=localhost,127.0.0.1,::1,172.19.1.100,172.20.0.0/16,172.21.0.0/16,.cluster.local,.local'"
-    } | sudo tee -a /etc/systemd/system/crio.service.d/http-proxy.conf
+        echo "Environment='NO_PROXY=$NO_PROXY'"
+        echo "Environment='no_proxy=$NO_PROXY'"
+    } | sudo tee /etc/systemd/system/crio.service.d/http-proxy.conf > /dev/null
 fi
 
 # ---------------------------------------------------------------------------
