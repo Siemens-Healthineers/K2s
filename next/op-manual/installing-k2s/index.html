@@ -1279,6 +1279,17 @@ You're not viewing the latest release version.
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#experimental-linux-host" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        [Experimental] Linux Host
+      
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -2890,6 +2901,17 @@ You're not viewing the latest release version.
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#experimental-linux-host" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        [Experimental] Linux Host
+      
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -3190,6 +3212,28 @@ Start the installation passing this config:
 <p>To build and test containers without a <em><abbr title="Kubernetes">K8s</abbr></em> cluster, run:
 <div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-16-1" name="__codelineno-16-1" href="#__codelineno-16-1"></a><span class="go">&lt;repo&gt;\k2s.exe install buildonly</span>
 </code></pre></div></p>
+<h3 id="experimental-linux-host">[Experimental] Linux Host</h3>
+<p>The initial native Linux-host implementation supports <strong>Debian 13</strong> in
+Linux-only mode. The Kubernetes control plane runs directly on the host and
+uses <strong><abbr title="Container Runtime Interface">CRI</abbr>-O</strong> as its container runtime. Windows worker provisioning is not
+supported yet.</p>
+<p>Run the Linux binary with elevated privileges:</p>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-17-1" name="__codelineno-17-1" href="#__codelineno-17-1"></a><span class="go">sudo ./k2s.linux install --linux-only --proxy http://proxy.example:8080 --no-proxy localhost,127.0.0.1</span>
+</code></pre></div>
+<p>The installer downloads the version-pinned Kubernetes and <abbr title="Container Runtime Interface">CRI</abbr>-O Debian
+packages, then starts a local <code>httpproxy</code> service on <code>127.0.0.1:8181</code>. The
+service forwards external traffic through <code>--proxy</code> when supplied. The given
+<code>--no-proxy</code> values are merged with K2s internal addresses and applied only to
+K2s services; the installer does not change global proxy environment settings.</p>
+<p>The following options are intentionally unavailable on a native Linux host:</p>
+<ul>
+<li>Windows-worker installation (omit <code>--linux-only</code>)</li>
+<li><code>--master-cpus</code>, <code>--master-memory</code>, <code>--master-disk</code>, dynamic-memory options,
+  and <code>--wsl</code></li>
+<li><code>--force-online-installation</code>, offline artifact cleanup, and <code>--k8s-bins</code></li>
+</ul>
+<p>The administrator invoking <code>sudo</code> receives the generated kubeconfig at
+<code>~/.kube/config</code> after a successful installation.</p>
 <h2 id="wsl-2-vs-hyper-v"><abbr title="Windows Subsystem for Linux">WSL</abbr> 2 vs. Hyper-V</h2>
 <p>The Linux control-plane <abbr title="Virtual Machine">VM</abbr> can be hosted in either Hyper-V (default) or <abbr title="Windows Subsystem for Linux">WSL</abbr> 2. The table below summarises the trade-offs:</p>
 <table>
@@ -3256,18 +3300,18 @@ Start the installation passing this config:
 <h2 id="advanced-installation-options">Advanced Installation Options</h2>
 <h3 id="install-without-starting">Install Without Starting</h3>
 <p>To install the cluster without automatically starting it (useful for pre-provisioning):</p>
-<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-17-1" name="__codelineno-17-1" href="#__codelineno-17-1"></a><span class="go">&lt;repo&gt;\k2s.exe install --skip-start</span>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-18-1" name="__codelineno-18-1" href="#__codelineno-18-1"></a><span class="go">&lt;repo&gt;\k2s.exe install --skip-start</span>
 </code></pre></div>
 <p>Start the cluster later with <code>k2s start</code>.</p>
 <h3 id="using-locally-built-kubernetes-binaries">Using Locally-Built Kubernetes Binaries</h3>
 <p>For development or testing with custom Kubernetes builds:</p>
-<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-18-1" name="__codelineno-18-1" href="#__codelineno-18-1"></a><span class="go">&lt;repo&gt;\k2s.exe install --k8s-bins &quot;C:\path\to\k8s-binaries&quot;</span>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-19-1" name="__codelineno-19-1" href="#__codelineno-19-1"></a><span class="go">&lt;repo&gt;\k2s.exe install --k8s-bins &quot;C:\path\to\k8s-binaries&quot;</span>
 </code></pre></div>
 <p>The directory must contain the Kubernetes binaries (kubelet, kubeadm, kubectl, kube-proxy).</p>
 <h3 id="post-install-restarts">Post-Install Restarts</h3>
 <p>The <code>restartPostInstallCount</code> config option triggers automatic cluster restarts after installation. This can help stabilise the cluster on systems where the first start encounters transient issues:</p>
-<div class="highlight"><span class="filename">YAML</span><pre><span></span><code><a id="__codelineno-19-1" name="__codelineno-19-1" href="#__codelineno-19-1"></a><span class="nt">env</span><span class="p">:</span>
-<a id="__codelineno-19-2" name="__codelineno-19-2" href="#__codelineno-19-2"></a><span class="w">  </span><span class="nt">restartPostInstallCount</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">1</span>
+<div class="highlight"><span class="filename">YAML</span><pre><span></span><code><a id="__codelineno-20-1" name="__codelineno-20-1" href="#__codelineno-20-1"></a><span class="nt">env</span><span class="p">:</span>
+<a id="__codelineno-20-2" name="__codelineno-20-2" href="#__codelineno-20-2"></a><span class="w">  </span><span class="nt">restartPostInstallCount</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">1</span>
 </code></pre></div>
 <h3 id="configuration-reference">Configuration Reference</h3>
 <p>For the full list of configuration files and their settings (network CIDRs, registry mirrors, runtime state, and more), see the <a href="../configuration-reference/">Configuration Reference</a>.</p>
