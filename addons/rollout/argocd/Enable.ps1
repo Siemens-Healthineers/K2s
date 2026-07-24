@@ -132,7 +132,7 @@ if (-not $kubectlCmd.Success) {
 
 Write-Log 'Waiting for pods being ready...' -Console
 
-$kubectlCmd = (Invoke-Kubectl -Params 'rollout', 'status', 'deployments', '-n', $rolloutNamespace, '--timeout=300s')
+$kubectlCmd = (Invoke-Kubectl -Params 'rollout', 'status', 'deployments', '-n', $rolloutNamespace, '--timeout=600s')
 Write-Log $kubectlCmd.Output
 if (!$kubectlCmd.Success) {
     $errMsg = 'rollout addon could not be deployed successfully!'
@@ -146,7 +146,7 @@ if (!$kubectlCmd.Success) {
     exit 1
 }
 
-$kubectlCmd = (Invoke-Kubectl -Params 'rollout', 'status', 'statefulsets', '-n', $rolloutNamespace, '--timeout=300s')
+$kubectlCmd = (Invoke-Kubectl -Params 'rollout', 'status', 'statefulsets', '-n', $rolloutNamespace, '--timeout=600s')
 Write-Log $kubectlCmd.Output
 if (!$kubectlCmd.Success) {
     $errMsg = 'rollout addon (ArgoCD application controller) could not be deployed successfully'

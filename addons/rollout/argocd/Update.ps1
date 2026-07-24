@@ -29,8 +29,19 @@ if ($EnancedSecurityEnabled) {
 }
 (Invoke-Kubectl -Params 'rollout', 'restart', 'deployment', '-n', 'rollout').Output | Write-Log
 (Invoke-Kubectl -Params 'rollout', 'restart', 'statefulset', '-n', 'rollout').Output | Write-Log
-(Invoke-Kubectl -Params 'rollout', 'status', 'deployment', '-n', 'rollout', '--timeout', '60s').Output | Write-Log
-(Invoke-Kubectl -Params 'rollout', 'status', 'statefulset', '-n', 'rollout', '--timeout', '60s').Output | Write-Log
+$kubectlCmd = Invoke-Kubectl -Params 'rollout', 'status', 'deployment', '-n', 'rollout', '--timeout', '180s'
+$kubectlCmd.Output | Write-Log
+if (-not $kubectlCmd.Success) {
+    Write-Log '[Rollout] ArgoCD deployment rollout status check failed during update.' -Error
+    exit 1
+}
+
+$kubectlCmd = Invoke-Kubectl -Params 'rollout', 'status', 'statefulset', '-n', 'rollout', '--timeout', '180s'
+$kubectlCmd.Output | Write-Log
+if (-not $kubectlCmd.Success) {
+    Write-Log '[Rollout] ArgoCD statefulset rollout status check failed during update.' -Error
+    exit 1
+}
 
 if (Test-NginxGatewayAvailability) {
     Write-Log 'Creating ArgoCD CA certificate ConfigMap for nginx-gw BackendTLSPolicy' -Console
