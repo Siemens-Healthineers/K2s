@@ -32,6 +32,7 @@ func (p *linuxClusterProvider) Install(cfg ClusterInstallConfig) error {
 	orch := setuporchestration.NewOrchestrator(nil)
 	return orch.Install(setuporchestration.InstallConfig{
 		ShowLogs:                cfg.ShowLogs,
+		SkipStart:               cfg.SkipStart,
 		MasterVMProcessorCount:  cfg.MasterVMProcessorCount,
 		MasterVMMemory:          cfg.MasterVMMemory,
 		MasterDiskSize:          cfg.MasterDiskSize,
@@ -39,6 +40,7 @@ func (p *linuxClusterProvider) Install(cfg ClusterInstallConfig) error {
 		WSL:                     cfg.WSL,
 		ForceOnlineInstallation: cfg.ForceOnlineInstallation,
 		Proxy:                   cfg.Proxy,
+		NoProxy:                 cfg.NoProxy,
 		AdditionalHooksDir:      cfg.AdditionalHooksDir,
 		ConfigDir:               cfg.ConfigDir,
 		InstallDir:              cfg.InstallDir,
@@ -131,7 +133,7 @@ type k8sNodeItem struct {
 	Metadata struct {
 		Name              string            `json:"name"`
 		Labels            map[string]string `json:"labels"`
-		CreationTimestamp  string            `json:"creationTimestamp"`
+		CreationTimestamp string            `json:"creationTimestamp"`
 	} `json:"metadata"`
 	Status struct {
 		Conditions []struct {
@@ -228,7 +230,7 @@ type k8sPodItem struct {
 	Metadata struct {
 		Name              string `json:"name"`
 		Namespace         string `json:"namespace"`
-		CreationTimestamp  string `json:"creationTimestamp"`
+		CreationTimestamp string `json:"creationTimestamp"`
 	} `json:"metadata"`
 	Spec struct {
 		NodeName string `json:"nodeName"`
