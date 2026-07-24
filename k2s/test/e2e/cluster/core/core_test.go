@@ -25,7 +25,8 @@ import (
 )
 
 const (
-	namespace = "k2s"
+	namespace               = "k2s"
+	rolloutRetryGracePeriod = 6 * time.Minute
 )
 
 var linuxDeploymentNames = []string{"albums-linux1", "albums-linux2"}
@@ -80,7 +81,7 @@ var _ = BeforeSuite(func(ctx context.Context) {
 	time.Sleep(60 * time.Second)
 	detectSystemicImagePullFailures(ctx)
 
-	suite.Kubectl().MustExec(ctx, "rollout", "status", "deployment", "-n", namespace, "--timeout="+suite.TestStepTimeout().String())
+	waitForCoreWorkloadRollout(ctx)
 
 	for _, deploymentName := range linuxDeploymentNames {
 		suite.Cluster().ExpectDeploymentToBeAvailable(deploymentName, namespace)
@@ -167,6 +168,97 @@ func detectSystemicImagePullFailures(ctx context.Context) {
 			"--sort-by=.lastTimestamp", "--field-selector=reason=Failed")
 		Fail(fmt.Sprintf("All %d pods stuck in image pull failures — container registry may be unreachable after upgrade.\nPod status:\n%s\nRecent failure events:\n%s",
 			failCount, podStatus, events))
+	}
+}
+
+func waitForCoreWorkloadRollout(ctx context.Context) {
+	clientSet, err := kubernetes.NewForConfig(suite.Cluster().Client().Resources().GetConfig())
+	Expect(err).ToNot(HaveOccurred())
+
+	deploymentNames := append([]string{}, linuxDeploymentNames...)
+	deploymentNames = append(deploymentNames, "curl")
+	if !suite.SetupInfo().RuntimeConfig.InstallConfig().LinuxOnly() {
+		deploymentNames = append(deploymentNames, winDeploymentNames...)
+	}
+
+	timeout := suite.TestStepTimeout() + rolloutRetryGracePeriod
+	deadline := time.Now().Add(timeout)
+	pollInterval := suite.TestStepPollInterval()
+	if pollInterval < 5*time.Second {
+		pollInterval = 5 * time.Second
+	}
+
+	var pending []string
+	for {
+		select {
+		case <-ctx.Done():
+			collectCoreWorkloadRolloutDiagnostics()
+			Fail(fmt.Sprintf("context cancelled while waiting for rollout in namespace <%s>: %v", namespace, ctx.Err()))
+		default:
+		}
+
+		pending = pending[:0]
+
+		for _, deploymentName := range deploymentNames {
+			deployment, getErr := clientSet.AppsV1().Deployments(namespace).Get(ctx, deploymentName, metav1.GetOptions{})
+			if getErr != nil {
+				pending = append(pending, fmt.Sprintf("%s: get failed: %v", deploymentName, getErr))
+				continue
+			}
+
+			desiredReplicas := int32(1)
+			if deployment.Spec.Replicas != nil {
+				desiredReplicas = *deployment.Spec.Replicas
+			}
+
+			if deployment.Status.ObservedGeneration < deployment.Generation ||
+				deployment.Status.UpdatedReplicas < desiredReplicas ||
+				deployment.Status.ReadyReplicas < desiredReplicas ||
+				deployment.Status.AvailableReplicas < desiredReplicas {
+				pending = append(pending,
+					fmt.Sprintf("%s: observed=%d/%d updated=%d/%d ready=%d/%d available=%d/%d",
+						deploymentName,
+						deployment.Status.ObservedGeneration, deployment.Generation,
+						deployment.Status.UpdatedReplicas, desiredReplicas,
+						deployment.Status.ReadyReplicas, desiredReplicas,
+						deployment.Status.AvailableReplicas, desiredReplicas))
+			}
+		}
+
+		if len(pending) == 0 {
+			GinkgoWriter.Println("Core workload rollout completed for all deployments")
+			return
+		}
+
+		if time.Now().After(deadline) {
+			collectCoreWorkloadRolloutDiagnostics()
+			Fail(fmt.Sprintf("Deployments in namespace <%s> did not complete rollout within %s. Pending:\n%s",
+				namespace, timeout, strings.Join(pending, "\n")))
+		}
+
+		GinkgoWriter.Printf("Core workload rollout pending: %s\n", strings.Join(pending, "; "))
+		time.Sleep(pollInterval)
+	}
+}
+
+func collectCoreWorkloadRolloutDiagnostics() {
+	GinkgoWriter.Println("Collecting core workload rollout diagnostics..")
+	diagCtx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
+	defer cancel()
+
+	runDiagnosticCommand(diagCtx, "get", "deployment", "-n", namespace, "-o", "wide")
+	runDiagnosticCommand(diagCtx, "get", "pods", "-n", namespace, "-o", "wide")
+	runDiagnosticCommand(diagCtx, "get", "events", "-n", namespace, "--sort-by=.lastTimestamp")
+
+	deploymentNames := append([]string{}, linuxDeploymentNames...)
+	deploymentNames = append(deploymentNames, "curl")
+	if !suite.SetupInfo().RuntimeConfig.InstallConfig().LinuxOnly() {
+		deploymentNames = append(deploymentNames, winDeploymentNames...)
+	}
+
+	for _, deploymentName := range deploymentNames {
+		runDiagnosticCommand(diagCtx, "describe", "deployment", deploymentName, "-n", namespace)
+		runDiagnosticCommand(diagCtx, "describe", "pods", "-l", "app="+deploymentName, "-n", namespace)
 	}
 }
 
