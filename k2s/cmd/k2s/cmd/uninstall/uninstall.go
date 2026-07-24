@@ -5,6 +5,7 @@ package uninstall
 
 import (
 	"errors"
+	"runtime"
 	"strconv"
 
 	cconfig "github.com/siemens-healthineers/k2s/internal/contracts/config"
@@ -45,7 +46,13 @@ func uninstallk8s(cmd *cobra.Command, args []string) error {
 	runtimeConfig, err := config.ReadRuntimeConfig(context.Config().Host().K2sSetupConfigDir())
 	if err != nil {
 		if errors.Is(err, cconfig.ErrSystemNotInstalled) {
-			return common.CreateSystemNotInstalledCmdFailure()
+			// A Linux install persists runtime state only after kubeadm and the CNI
+			// complete. Permit cleanup of an interrupted native installation even
+			// when it failed before that final persistence step. Windows retains
+			// its existing runtime-config requirement.
+			if runtime.GOOS != "linux" {
+				return common.CreateSystemNotInstalledCmdFailure()
+			}
 		}
 		if !errors.Is(err, cconfig.ErrSystemInCorruptedState) {
 			return err
