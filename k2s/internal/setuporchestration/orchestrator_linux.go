@@ -369,7 +369,7 @@ func (o *LinuxOrchestrator) deployFlannel(cfg InstallConfig) error {
 	}
 	tmpFile.Close()
 
-	if err := runCommand("kubectl", "apply", "-f", tmpFile.Name()); err != nil {
+	if err := runCommandWithLogs(cfg.ShowLogs, "kubectl", "--kubeconfig", kubeconfigSrc, "apply", "-f", tmpFile.Name()); err != nil {
 		return fmt.Errorf("failed to apply flannel manifest: %w", err)
 	}
 
@@ -384,7 +384,7 @@ func (o *LinuxOrchestrator) waitForNodeReady(timeout time.Duration) error {
 
 	deadline := time.Now().Add(timeout)
 	for time.Now().Before(deadline) {
-		output, err := runCommandOutput("kubectl", "get", "nodes", "-o", "jsonpath={.items[0].status.conditions[?(@.type=='Ready')].status}")
+		output, err := runCommandOutput("kubectl", "--kubeconfig", kubeconfigSrc, "get", "nodes", "-o", "jsonpath={.items[0].status.conditions[?(@.type=='Ready')].status}")
 		if err == nil && strings.TrimSpace(output) == "True" {
 			slog.Info("[Install] Control plane node is Ready")
 			return nil
@@ -399,7 +399,7 @@ func (o *LinuxOrchestrator) waitForAPIServer(timeout time.Duration) error {
 
 	deadline := time.Now().Add(timeout)
 	for time.Now().Before(deadline) {
-		if err := runCommand("kubectl", "cluster-info"); err == nil {
+		if err := runCommand("kubectl", "--kubeconfig", kubeconfigSrc, "cluster-info"); err == nil {
 			return nil
 		}
 		time.Sleep(3 * time.Second)
