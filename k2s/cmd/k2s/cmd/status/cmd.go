@@ -6,6 +6,7 @@ package status
 import (
 	"errors"
 	"fmt"
+	"runtime"
 
 	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/common"
 
@@ -82,8 +83,10 @@ func printStatus(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	if err := context.EnsureK2sK8sContext(runtimeConfig.ClusterConfig().Name()); err != nil {
-		return err
+	if runtime.GOOS != "linux" {
+		if err := context.EnsureK2sK8sContext(runtimeConfig.ClusterConfig().Name()); err != nil {
+			return err
+		}
 	}
 
 	printer := determinePrinter(outputOption, runtimeConfig, terminalPrinter, context)
