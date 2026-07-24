@@ -82,7 +82,7 @@ Describe 'Remove-LinuxWorkerNode robustness' -Tag 'unit', 'ci', 'worker-node' {
                 function Invoke-Kubectl { param([Parameter(ValueFromRemainingArguments)]$Rest) }
                 function Remove-LinuxNode { param([Parameter(ValueFromRemainingArguments)]$Rest) }
                 function Remove-KubernetesArtifacts { param([Parameter(ValueFromRemainingArguments)]$Rest) }
-                function Remove-NodeConfig { param([Parameter(ValueFromRemainingArguments)]$Rest) }
+                function Remove-NodeConfig { param([string]$Name, [Parameter(ValueFromRemainingArguments)]$Rest) }
 
                 # Arrange: node present in kubectl.
                 Mock Write-Log {}
@@ -97,7 +97,7 @@ Describe 'Remove-LinuxWorkerNode robustness' -Tag 'unit', 'ci', 'worker-node' {
 
                 # Assert: normal path unchanged (AC4)
                 Should -Invoke Remove-LinuxNode -Times 1 -Exactly
-                Should -Invoke Remove-NodeConfig -Times 1 -Exactly
+                Should -Invoke Remove-NodeConfig -Times 1 -Exactly -ParameterFilter { $Name -eq 'scaleoutbox' }
             }
         }
     }

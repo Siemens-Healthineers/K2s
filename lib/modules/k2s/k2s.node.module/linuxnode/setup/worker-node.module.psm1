@@ -380,12 +380,18 @@ function Remove-LinuxWorkerNode {
             } else {
                 Write-Log "Node '$k8sFormattedNodeName' is not part of the cluster - skipping cluster removal" -Console
             }
+        }
+        catch {
+            Write-Log "Removing node '$NodeName' from the cluster failed ($_) - node config entry for '$NodeName' is preserved so 'k2s node remove' can be retried" -Console
+            throw
+        }
 
+        try {
             Remove-KubernetesArtifacts -UserName $UserName -IpAddress $IpAddress
             Write-Log "Removed node essentials from the remote machine" -Console
         }
         catch {
-            Write-Log "Cluster/remote cleanup for node '$NodeName' did not complete ($_) - continuing to remove node config" -Console
+            Write-Log "Remote artifact cleanup for node '$NodeName' did not complete ($_) - continuing to remove node config" -Console
         }
     }
 
