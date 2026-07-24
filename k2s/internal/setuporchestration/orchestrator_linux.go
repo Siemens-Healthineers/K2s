@@ -103,11 +103,13 @@ func (o *LinuxOrchestrator) Uninstall(cfg UninstallConfig) error {
 
 	// Reset kubeadm
 	if !cfg.SkipPurge {
+		_ = runCommand("systemctl", "stop", "kubelet")
 		if err := runCommand("kubeadm", "reset", "-f"); err != nil {
 			slog.Warn("[Uninstall] kubeadm reset failed (may already be clean)", "error", err)
 		}
 
 		o.cleanupCriOMirrorDropIns()
+		o.removeControlPlaneState()
 	}
 
 	// Clean up network interfaces created by flannel
@@ -133,6 +135,23 @@ func (o *LinuxOrchestrator) Uninstall(cfg UninstallConfig) error {
 
 	slog.Info("[Uninstall] K2s uninstallation complete")
 	return nil
+}
+
+// removeControlPlaneState removes files created by kubeadm and Flannel. It is
+// deliberately limited to K2s control-plane paths so uninstall can recover an
+// interrupted Linux installation without changing unrelated host state.
+func (o *LinuxOrchestrator) removeControlPlaneState() {
+	for _, path := range []string{
+		"/etc/kubernetes",
+		"/var/lib/etcd",
+		"/var/lib/kubelet",
+		"/etc/cni/net.d/10-flannel.conflist",
+		"/run/flannel",
+	} {
+		if err := os.RemoveAll(path); err != nil && !os.IsNotExist(err) {
+			slog.Warn("[Uninstall] Could not remove control-plane state", "path", path, "error", err)
+		}
+	}
 }
 
 func (o *LinuxOrchestrator) cleanupCriOMirrorDropIns() {
