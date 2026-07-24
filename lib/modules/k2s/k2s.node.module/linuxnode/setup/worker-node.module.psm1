@@ -253,86 +253,95 @@ function Add-LinuxWorkerNode {
     
     Add-NodeConfig @nodeParams
 
-    Write-Log "Installing node essentials" -Console
-
-    Write-Log "Prepare the computer $IpAddress for provisioning"
-
-    Set-UpComputerBeforeProvisioning -UserName $UserName -IpAddress $IpAddress -Proxy $Proxy -InstalledDistribution $installedDistributionOnRemoteComputer
-
-    # GPU detection: Check if NVIDIA GPU is present on the node (for both online and offline modes)
-    # This determines whether to copy/install GPU packages and images
-    $gpuDetected = $false
+    # Config entry is preserved on failure; see 'k2s node remove' (#2789).
     try {
-        $findNvidiaSmiCmd = 'for p in nvidia-smi /usr/lib/wsl/lib/nvidia-smi /usr/bin/nvidia-smi /usr/local/bin/nvidia-smi; do command -v "$p" >/dev/null 2>&1 && "$p" -L 2>/dev/null && exit 0; done; exit 1'
-        $nvidiaSmiCheck = Invoke-CmdOnVmViaSSHKey -CmdToExecute $findNvidiaSmiCmd -UserName $UserName -IpAddress $IpAddress -Timeout 10 -IgnoreErrors
-        if ($nvidiaSmiCheck.Success -and $nvidiaSmiCheck.Output -match 'GPU \d+:') {
-            $gpuInfo = $nvidiaSmiCheck.Output.Trim()
-            Write-Log "[GPU] NVIDIA GPU detected on node ${IpAddress}: $gpuInfo" -Console
-            $gpuDetected = $true
-        } else {
-            Write-Log "[GPU] No NVIDIA GPU detected on node $IpAddress - GPU packages will be skipped" -Console
-        }
-    } catch {
-        Write-Log "[GPU] GPU detection failed: $_ - GPU packages will be skipped" -Console
-    }
+        Write-Log "Installing node essentials" -Console
 
-    Install-LinuxPackagesAndAddContainerImagesIntoRemoteComputer -UserName $UserName -IpAddress $IpAddress -Proxy $Proxy -InstalledDistribution $installedDistributionOnRemoteComputer -NodePackagePath $NodePackagePath -SkipGpuPackages:(!$gpuDetected)
+        Write-Log "Prepare the computer $IpAddress for provisioning"
 
-    Repair-LinuxWorkerNodeRegistriesConfig -UserName $UserName -IpAddress $IpAddress
+        Set-UpComputerBeforeProvisioning -UserName $UserName -IpAddress $IpAddress -Proxy $Proxy -InstalledDistribution $installedDistributionOnRemoteComputer
 
-    # Cleanup Kubernetes-related routes before add/join flow
-    Clear-LinuxWorkerNodeRoutes -UserName $UserName -IpAddress $IpAddress
-
-    $doBeforeJoining = {
-        Write-Log "Configuring networking for adding the node" -Console
-        # add a route to the cluster network over the Windows host IP address
-        $controlPlaneCIDR = Get-ConfiguredControlPlaneCIDR
-        $controlPlaneRouteExists = -not [string]::IsNullOrWhiteSpace((Invoke-CmdOnVmViaSSHKey -CmdToExecute "ip route show $controlPlaneCIDR" -UserName $UserName -IpAddress $IpAddress -IgnoreErrors).Output)
-        if ($controlPlaneRouteExists) {
-            Write-Log "[Route] Route $controlPlaneCIDR already exists, skipping add."
-        } else {
-            (Invoke-CmdOnVmViaSSHKey -CmdToExecute "sudo ip route add $controlPlaneCIDR via $WindowsHostIpAddress" -UserName $UserName -IpAddress $IpAddress).Output | Write-Log
-        }
-
-        $podNetworkCIDR = Get-ConfiguredClusterCIDR
-        $podNetworkRouteExists = -not [string]::IsNullOrWhiteSpace((Invoke-CmdOnVmViaSSHKey -CmdToExecute "ip route show $podNetworkCIDR" -UserName $UserName -IpAddress $IpAddress -IgnoreErrors).Output)
-        if ($podNetworkRouteExists) {
-            Write-Log "[Route] Route $podNetworkCIDR already exists, skipping add."
-        } else {
-            (Invoke-CmdOnVmViaSSHKey -CmdToExecute "sudo ip route add $podNetworkCIDR via $WindowsHostIpAddress" -UserName $UserName -IpAddress $IpAddress).Output | Write-Log
-        }
-
-        $networkInterfaceName = (Get-NetIPAddress | Where-Object { $_.AddressFamily -eq "IPv4" -and ($_.IPAddress -match $WindowsHostIpAddress)} | Select-Object -ExpandProperty InterfaceAlias)
-        if ([string]::IsNullOrWhiteSpace($networkInterfaceName)) {
-            throw "Cannot find the network interface belonging to the IP address '$WindowsHostIpAddress'"
-        }
-
-        netsh int ipv4 set int $networkInterfaceName forwarding=enabled | Out-Null
-    }
-
-    Write-Log "Joining new node to the cluster" -Console
-    $k8sFormattedNodeName = $NodeName.ToLower()
-    Join-LinuxNode -NodeName $k8sFormattedNodeName.ToLower() -NodeUserName $UserName -NodeIpAddress $IpAddress -PreStepHook $doBeforeJoining
-
-    # For bare-metal (HOST) nodes, create persistent routes so they survive reboots
-    if ($NodeType -eq 'HOST') {
-        Add-PersistentLinuxWorkerNodeRoutes -UserName $UserName -IpAddress $IpAddress -WindowsHostIpAddress $WindowsHostIpAddress
-    }
-
-    # GPU support: initialize if GPU was detected earlier
-    if ($gpuDetected) {
+        # GPU detection: Check if NVIDIA GPU is present on the node (for both online and offline modes)
+        # This determines whether to copy/install GPU packages and images
+        $gpuDetected = $false
         try {
-            $offline = ![string]::IsNullOrWhiteSpace($NodePackagePath)
-            if ($offline) {
-                Write-Log "[GPU] Initializing GPU support (offline mode) for node $k8sFormattedNodeName" -Console
-                Initialize-GpuWorkerNode -UserName $UserName -IpAddress $IpAddress -NodeName $k8sFormattedNodeName -Proxy $Proxy -Offline -OsName $installedDistributionOnRemoteComputer
+            $findNvidiaSmiCmd = 'for p in nvidia-smi /usr/lib/wsl/lib/nvidia-smi /usr/bin/nvidia-smi /usr/local/bin/nvidia-smi; do command -v "$p" >/dev/null 2>&1 && "$p" -L 2>/dev/null && exit 0; done; exit 1'
+            $nvidiaSmiCheck = Invoke-CmdOnVmViaSSHKey -CmdToExecute $findNvidiaSmiCmd -UserName $UserName -IpAddress $IpAddress -Timeout 10 -IgnoreErrors
+            if ($nvidiaSmiCheck.Success -and $nvidiaSmiCheck.Output -match 'GPU \d+:') {
+                $gpuInfo = $nvidiaSmiCheck.Output.Trim()
+                Write-Log "[GPU] NVIDIA GPU detected on node ${IpAddress}: $gpuInfo" -Console
+                $gpuDetected = $true
             } else {
-                Write-Log "[GPU] Initializing GPU support (online mode) for node $k8sFormattedNodeName" -Console
-                Initialize-GpuWorkerNode -UserName $UserName -IpAddress $IpAddress -NodeName $k8sFormattedNodeName -Proxy $Proxy
+                Write-Log "[GPU] No NVIDIA GPU detected on node $IpAddress - GPU packages will be skipped" -Console
             }
         } catch {
-            Write-Log "[GPU] GPU initialization failed: $_ - node will be added without GPU support" -Console
+            Write-Log "[GPU] GPU detection failed: $_ - GPU packages will be skipped" -Console
         }
+
+        Install-LinuxPackagesAndAddContainerImagesIntoRemoteComputer -UserName $UserName -IpAddress $IpAddress -Proxy $Proxy -InstalledDistribution $installedDistributionOnRemoteComputer -NodePackagePath $NodePackagePath -SkipGpuPackages:(!$gpuDetected)
+
+        Repair-LinuxWorkerNodeRegistriesConfig -UserName $UserName -IpAddress $IpAddress
+
+        # Cleanup Kubernetes-related routes before add/join flow
+        Clear-LinuxWorkerNodeRoutes -UserName $UserName -IpAddress $IpAddress
+
+        $doBeforeJoining = {
+            Write-Log "Configuring networking for adding the node" -Console
+            # add a route to the cluster network over the Windows host IP address
+            $controlPlaneCIDR = Get-ConfiguredControlPlaneCIDR
+            $controlPlaneRouteExists = -not [string]::IsNullOrWhiteSpace((Invoke-CmdOnVmViaSSHKey -CmdToExecute "ip route show $controlPlaneCIDR" -UserName $UserName -IpAddress $IpAddress -IgnoreErrors).Output)
+            if ($controlPlaneRouteExists) {
+                Write-Log "[Route] Route $controlPlaneCIDR already exists, skipping add."
+            } else {
+                (Invoke-CmdOnVmViaSSHKey -CmdToExecute "sudo ip route add $controlPlaneCIDR via $WindowsHostIpAddress" -UserName $UserName -IpAddress $IpAddress).Output | Write-Log
+            }
+
+            $podNetworkCIDR = Get-ConfiguredClusterCIDR
+            $podNetworkRouteExists = -not [string]::IsNullOrWhiteSpace((Invoke-CmdOnVmViaSSHKey -CmdToExecute "ip route show $podNetworkCIDR" -UserName $UserName -IpAddress $IpAddress -IgnoreErrors).Output)
+            if ($podNetworkRouteExists) {
+                Write-Log "[Route] Route $podNetworkCIDR already exists, skipping add."
+            } else {
+                (Invoke-CmdOnVmViaSSHKey -CmdToExecute "sudo ip route add $podNetworkCIDR via $WindowsHostIpAddress" -UserName $UserName -IpAddress $IpAddress).Output | Write-Log
+            }
+
+            $networkInterfaceName = (Get-NetIPAddress | Where-Object { $_.AddressFamily -eq "IPv4" -and ($_.IPAddress -match $WindowsHostIpAddress)} | Select-Object -ExpandProperty InterfaceAlias)
+            if ([string]::IsNullOrWhiteSpace($networkInterfaceName)) {
+                throw "Cannot find the network interface belonging to the IP address '$WindowsHostIpAddress'"
+            }
+
+            netsh int ipv4 set int $networkInterfaceName forwarding=enabled | Out-Null
+        }
+
+        Write-Log "Joining new node to the cluster" -Console
+        $k8sFormattedNodeName = $NodeName.ToLower()
+        Join-LinuxNode -NodeName $k8sFormattedNodeName.ToLower() -NodeUserName $UserName -NodeIpAddress $IpAddress -PreStepHook $doBeforeJoining
+
+        # For bare-metal (HOST) nodes, create persistent routes so they survive reboots
+        if ($NodeType -eq 'HOST') {
+            Add-PersistentLinuxWorkerNodeRoutes -UserName $UserName -IpAddress $IpAddress -WindowsHostIpAddress $WindowsHostIpAddress
+        }
+
+        # GPU support: initialize if GPU was detected earlier
+        if ($gpuDetected) {
+            try {
+                $offline = ![string]::IsNullOrWhiteSpace($NodePackagePath)
+                if ($offline) {
+                    Write-Log "[GPU] Initializing GPU support (offline mode) for node $k8sFormattedNodeName" -Console
+                    Initialize-GpuWorkerNode -UserName $UserName -IpAddress $IpAddress -NodeName $k8sFormattedNodeName -Proxy $Proxy -Offline -OsName $installedDistributionOnRemoteComputer
+                } else {
+                    Write-Log "[GPU] Initializing GPU support (online mode) for node $k8sFormattedNodeName" -Console
+                    Initialize-GpuWorkerNode -UserName $UserName -IpAddress $IpAddress -NodeName $k8sFormattedNodeName -Proxy $Proxy
+                }
+            } catch {
+                Write-Log "[GPU] GPU initialization failed: $_ - node will be added without GPU support" -Console
+            }
+        }
+
+        Write-Log "Node '$NodeName' was added successfully to the cluster." -Console
+    }
+    catch {
+        Write-Log "Adding node '$NodeName' failed ($_) - node config entry for '$NodeName' is preserved in cluster.json for upgrade/restore; use 'k2s node remove' to clean it up" -Console
+        throw
     }
 }
 
@@ -341,13 +350,15 @@ function Remove-LinuxWorkerNode {
         [string] $NodeName = $(throw 'Argument missing: NodeName'),
         [string] $UserName = $(throw 'Argument missing: UserName'),
         [string] $IpAddress = $(throw 'Argument missing: IpAddress'),
-        [string] $AdditionalHooksDir = ''
+        [string] $AdditionalHooksDir = '',
+        [switch] $SkipRemoteCleanup
     )
     Write-Log "Removing K2s worker node '$NodeName'"
 
-    # Remove persistent routes service only for bare-metal (HOST) nodes
+    # Remove persistent routes service only for bare-metal (HOST) nodes.
+    # Skipped when the node/VM is unreachable (SkipRemoteCleanup).
     $nodeConfig = Get-NodeConfig -NodeName $NodeName
-    if ($null -ne $nodeConfig -and $nodeConfig.NodeType -eq 'HOST') {
+    if (-not $SkipRemoteCleanup -and $null -ne $nodeConfig -and $nodeConfig.NodeType -eq 'HOST') {
         Remove-PersistentLinuxWorkerNodeRoutes -UserName $UserName -IpAddress $IpAddress
     }
 
@@ -356,14 +367,27 @@ function Remove-LinuxWorkerNode {
     }
 
     $k8sFormattedNodeName = $NodeName.ToLower()
-    $clusterState = (Invoke-Kubectl -Params @('get', 'nodes', '-o', 'wide')).Output
-    if ($clusterState -match $k8sFormattedNodeName) {
-        Remove-LinuxNode -NodeName $k8sFormattedNodeName -NodeUserName $UserName -NodeIpAddress $IpAddress -PostStepHook $doAfterRemoving
-        Write-Log "Removed node from the cluster" -Console
+    # Best-effort: an orphaned/unreachable node must not block config removal (#2789).
+    if ($SkipRemoteCleanup) {
+        Write-Log "SkipRemoteCleanup set (node/VM unreachable) - performing cluster-side config cleanup only for '$NodeName'" -Console
     }
+    else {
+        try {
+            $clusterState = (Invoke-Kubectl -Params @('get', 'nodes', '-o', 'wide')).Output
+            if ($clusterState -match $k8sFormattedNodeName) {
+                Remove-LinuxNode -NodeName $k8sFormattedNodeName -NodeUserName $UserName -NodeIpAddress $IpAddress -PostStepHook $doAfterRemoving
+                Write-Log "Removed node from the cluster" -Console
+            } else {
+                Write-Log "Node '$k8sFormattedNodeName' is not part of the cluster - skipping cluster removal" -Console
+            }
 
-    Remove-KubernetesArtifacts -UserName $UserName -IpAddress $IpAddress
-    Write-Log "Removed node essentials from the remote machine" -Console
+            Remove-KubernetesArtifacts -UserName $UserName -IpAddress $IpAddress
+            Write-Log "Removed node essentials from the remote machine" -Console
+        }
+        catch {
+            Write-Log "Cluster/remote cleanup for node '$NodeName' did not complete ($_) - continuing to remove node config" -Console
+        }
+    }
 
     Remove-NodeConfig -Name $NodeName
 
