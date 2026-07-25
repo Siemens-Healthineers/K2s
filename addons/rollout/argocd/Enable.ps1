@@ -165,6 +165,17 @@ if ($Ingress -ne 'none') {
 }
 
 &"$PSScriptRoot\Update.ps1"
+if (-not $?) {
+    $errMsg = 'rollout addon update step failed after initial ArgoCD deployment.'
+    if ($EncodeStructuredOutput -eq $true) {
+        $err = New-Error -Code (Get-ErrCodeAddonEnableFailed) -Message $errMsg
+        Send-ToCli -MessageType $MessageType -Message @{Error = $err }
+        return
+    }
+
+    Write-Log $errMsg -Error
+    exit 1
+}
 
 Write-Log 'Installation of rollout addon finished.' -Console
 

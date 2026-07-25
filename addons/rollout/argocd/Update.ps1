@@ -9,6 +9,35 @@ $rolloutModule = "$PSScriptRoot\rollout.module.psm1"
 
 Import-Module $addonsModule, $rolloutModule
 
+function Invoke-RolloutStatusWithEscalation {
+    param(
+        [string] $Kind,
+        [string] $FailureMessage,
+        [string] $PrimaryTimeout = '180s',
+        [string] $ExtendedTimeout = '900s'
+    )
+
+    $kubectlCmd = Invoke-Kubectl -Params 'rollout', 'status', $Kind, '-n', 'rollout', '--timeout', $PrimaryTimeout
+    $kubectlCmd.Output | Write-Log
+    if ($kubectlCmd.Success) {
+        return
+    }
+
+    $isTimeoutRelated = ($kubectlCmd.Output -match 'timed out waiting for the condition') -or
+        ($kubectlCmd.Output -match 'old replicas are pending termination')
+    if ($isTimeoutRelated) {
+        Write-Log "[Rollout] $Kind rollout did not converge within $PrimaryTimeout. Retrying with extended timeout $ExtendedTimeout." -Console
+        $kubectlCmd = Invoke-Kubectl -Params 'rollout', 'status', $Kind, '-n', 'rollout', '--timeout', $ExtendedTimeout
+        $kubectlCmd.Output | Write-Log
+        if ($kubectlCmd.Success) {
+            return
+        }
+    }
+
+    Write-Log $FailureMessage -Error
+    exit 1
+}
+
 Update-IngressForAddon -Addon ([pscustomobject] @{Name = 'rollout'; Implementation = 'argocd' })
 
 $EnancedSecurityEnabled = Test-LinkerdServiceAvailability
@@ -29,19 +58,8 @@ if ($EnancedSecurityEnabled) {
 }
 (Invoke-Kubectl -Params 'rollout', 'restart', 'deployment', '-n', 'rollout').Output | Write-Log
 (Invoke-Kubectl -Params 'rollout', 'restart', 'statefulset', '-n', 'rollout').Output | Write-Log
-$kubectlCmd = Invoke-Kubectl -Params 'rollout', 'status', 'deployment', '-n', 'rollout', '--timeout', '180s'
-$kubectlCmd.Output | Write-Log
-if (-not $kubectlCmd.Success) {
-    Write-Log '[Rollout] ArgoCD deployment rollout status check failed during update.' -Error
-    exit 1
-}
-
-$kubectlCmd = Invoke-Kubectl -Params 'rollout', 'status', 'statefulset', '-n', 'rollout', '--timeout', '180s'
-$kubectlCmd.Output | Write-Log
-if (-not $kubectlCmd.Success) {
-    Write-Log '[Rollout] ArgoCD statefulset rollout status check failed during update.' -Error
-    exit 1
-}
+Invoke-RolloutStatusWithEscalation -Kind 'deployment' -FailureMessage '[Rollout] ArgoCD deployment rollout status check failed during update.'
+Invoke-RolloutStatusWithEscalation -Kind 'statefulset' -FailureMessage '[Rollout] ArgoCD statefulset rollout status check failed during update.'
 
 if (Test-NginxGatewayAvailability) {
     Write-Log 'Creating ArgoCD CA certificate ConfigMap for nginx-gw BackendTLSPolicy' -Console
