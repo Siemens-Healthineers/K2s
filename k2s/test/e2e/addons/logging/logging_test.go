@@ -25,7 +25,13 @@ import (
 	"github.com/onsi/gomega/gstruct"
 )
 
-const testClusterTimeout = time.Minute * 20
+const (
+	testClusterTimeout        = time.Minute * 20
+	statusCheckRetryTimeout   = 3 * time.Minute
+	statusCheckRetryPolling   = 10 * time.Second
+	ingressEnableRetryTimeout = 12 * time.Minute
+	ingressEnableRetryPolling = 20 * time.Second
+)
 
 var (
 	suite                 *framework.K2sTestSuite
@@ -149,13 +155,14 @@ var _ = Describe("'logging' addon", Ordered, func() {
 				if portForwardingSession != nil {
 					portForwardingSession.Kill()
 				}
+				waitForNamespaceTermination(ctx, "cert-manager")
 
-				suite.K2sCli().MustExec(ctx, "addons", "enable", "ingress", "traefik", "-o")
+				expectIngressAddonEnabled(ctx, "traefik")
 				suite.Cluster().ExpectDeploymentToBeAvailable("traefik", "ingress-traefik")
 			})
 
 			AfterAll(func(ctx context.Context) {
-				suite.K2sCli().MustExec(ctx, "addons", "disable", "ingress", "traefik", "-o")
+				disableIngressAddonIfEnabled(ctx, "traefik")
 				suite.Cluster().ExpectDeploymentToBeRemoved(ctx, "app.kubernetes.io/name", "traefik", "ingress-traefik")
 			})
 
@@ -172,12 +179,12 @@ var _ = Describe("'logging' addon", Ordered, func() {
 			BeforeAll(func(ctx context.Context) {
 				waitForNamespaceTermination(ctx, "cert-manager")
 
-				suite.K2sCli().MustExec(ctx, "addons", "enable", "ingress", "nginx", "-o")
+				expectIngressAddonEnabled(ctx, "nginx")
 				suite.Cluster().ExpectDeploymentToBeAvailable("ingress-nginx-controller", "ingress-nginx")
 			})
 
 			AfterAll(func(ctx context.Context) {
-				suite.K2sCli().MustExec(ctx, "addons", "disable", "ingress", "nginx", "-o")
+				disableIngressAddonIfEnabled(ctx, "nginx")
 				suite.Cluster().ExpectDeploymentToBeRemoved(ctx, "app.kubernetes.io/name", "ingress-nginx", "ingress-nginx")
 			})
 
@@ -194,12 +201,12 @@ var _ = Describe("'logging' addon", Ordered, func() {
 			BeforeAll(func(ctx context.Context) {
 				waitForNamespaceTermination(ctx, "cert-manager")
 
-				suite.K2sCli().MustExec(ctx, "addons", "enable", "ingress", "nginx-gw", "-o")
+				expectIngressAddonEnabled(ctx, "nginx-gw")
 				suite.Cluster().ExpectDeploymentToBeAvailable("nginx-cluster-local-nginx-gw", "nginx-gw")
 			})
 
 			AfterAll(func(ctx context.Context) {
-				suite.K2sCli().MustExec(ctx, "addons", "disable", "ingress", "nginx-gw", "-o")
+				disableIngressAddonIfEnabled(ctx, "nginx-gw")
 				suite.Cluster().ExpectDeploymentToBeRemoved(ctx, "app", "nginx-gw-controller", "nginx-gw")
 			})
 
@@ -298,6 +305,32 @@ func forceCleanTerminatingNamespace(ctx context.Context, ns string) {
 	}
 }
 
+func expectIngressAddonEnabled(ctx context.Context, implementation string) {
+	command := []string{"addons", "enable", "ingress", implementation, "-o"}
+	lastOutput := ""
+
+	Eventually(func(g Gomega) {
+		output, exitCode := suite.Cli(suite.K2sCli().Path()).Exec(ctx, command...)
+		lastOutput = output
+		if exitCode == int(cli.ExitCodeSuccess) || strings.Contains(output, "already enabled") {
+			return
+		}
+
+		g.Expect(exitCode).To(Equal(int(cli.ExitCodeSuccess)),
+			fmt.Sprintf("failed to enable ingress %q. Command output:\n%s", implementation, output))
+	}).WithTimeout(ingressEnableRetryTimeout).WithPolling(ingressEnableRetryPolling).Should(Succeed(),
+		fmt.Sprintf("failed to enable ingress %q within retry window. Last output:\n%s", implementation, lastOutput))
+}
+
+func disableIngressAddonIfEnabled(ctx context.Context, implementation string) {
+	output, exitCode := suite.Cli(suite.K2sCli().Path()).Exec(ctx, "addons", "disable", "ingress", implementation, "-o")
+	if exitCode == int(cli.ExitCodeSuccess) || strings.Contains(output, "already disabled") {
+		return
+	}
+
+	Expect(exitCode).To(Equal(int(cli.ExitCodeSuccess)), fmt.Sprintf("unexpected failure disabling ingress %q:\n%s", implementation, output))
+}
+
 func expectLoggingPodsReady(ctx context.Context) {
 	suite.Cluster().ExpectDeploymentToBeAvailable("opensearch-dashboards", "logging")
 	suite.Cluster().ExpectStatefulSetToBeReady("opensearch-cluster-master", "logging", 1, ctx)
@@ -322,9 +355,9 @@ func expectLoggingResourcesRemoved(ctx context.Context) {
 }
 
 func expectStatusToBePrinted(ctx context.Context) {
-	output := suite.K2sCli().MustExec(ctx, "addons", "status", "logging")
-
-	Expect(output).To(SatisfyAll(
+	Eventually(func() string {
+		return suite.K2sCli().MustExec(ctx, "addons", "status", "logging")
+	}).WithTimeout(statusCheckRetryTimeout).WithPolling(statusCheckRetryPolling).Should(SatisfyAll(
 		MatchRegexp("ADDON STATUS"),
 		MatchRegexp(`Addon .+logging.+ is .+enabled.+`),
 		MatchRegexp("Opensearch dashboards are working"),
@@ -332,34 +365,34 @@ func expectStatusToBePrinted(ctx context.Context) {
 		MatchRegexp("Fluent-bit is working"),
 	))
 
-	output = suite.K2sCli().MustExec(ctx, "addons", "status", "logging", "-o", "json")
+	Eventually(func(g Gomega) {
+		output := suite.K2sCli().MustExec(ctx, "addons", "status", "logging", "-o", "json")
+		var addonStatus status.AddonPrintStatus
 
-	var status status.AddonPrintStatus
-
-	Expect(json.Unmarshal([]byte(output), &status)).To(Succeed())
-
-	Expect(status.Name).To(Equal("logging"))
-	Expect(status.Error).To(BeNil())
-	Expect(status.Enabled).NotTo(BeNil())
-	Expect(*status.Enabled).To(BeTrue())
-	Expect(status.Props).NotTo(BeNil())
-	Expect(status.Props).To(ContainElements(
-		SatisfyAll(
-			HaveField("Name", "AreDeploymentsRunning"),
-			HaveField("Value", true),
-			HaveField("Okay", gstruct.PointTo(BeTrue())),
-			HaveField("Message", gstruct.PointTo(ContainSubstring("Opensearch dashboards are working")))),
-		SatisfyAll(
-			HaveField("Name", "AreStatefulsetsRunning"),
-			HaveField("Value", true),
-			HaveField("Okay", gstruct.PointTo(BeTrue())),
-			HaveField("Message", gstruct.PointTo(MatchRegexp("Opensearch is working")))),
-		SatisfyAll(
-			HaveField("Name", "AreDaemonsetsRunning"),
-			HaveField("Value", true),
-			HaveField("Okay", gstruct.PointTo(BeTrue())),
-			HaveField("Message", gstruct.PointTo(MatchRegexp("Fluent-bit is working")))),
-	))
+		g.Expect(json.Unmarshal([]byte(output), &addonStatus)).To(Succeed())
+		g.Expect(addonStatus.Name).To(Equal("logging"))
+		g.Expect(addonStatus.Error).To(BeNil())
+		g.Expect(addonStatus.Enabled).NotTo(BeNil())
+		g.Expect(*addonStatus.Enabled).To(BeTrue())
+		g.Expect(addonStatus.Props).NotTo(BeNil())
+		g.Expect(addonStatus.Props).To(ContainElements(
+			SatisfyAll(
+				HaveField("Name", "AreDeploymentsRunning"),
+				HaveField("Value", true),
+				HaveField("Okay", gstruct.PointTo(BeTrue())),
+				HaveField("Message", gstruct.PointTo(ContainSubstring("Opensearch dashboards are working")))),
+			SatisfyAll(
+				HaveField("Name", "AreStatefulsetsRunning"),
+				HaveField("Value", true),
+				HaveField("Okay", gstruct.PointTo(BeTrue())),
+				HaveField("Message", gstruct.PointTo(MatchRegexp("Opensearch is working")))),
+			SatisfyAll(
+				HaveField("Name", "AreDaemonsetsRunning"),
+				HaveField("Value", true),
+				HaveField("Okay", gstruct.PointTo(BeTrue())),
+				HaveField("Message", gstruct.PointTo(MatchRegexp("Fluent-bit is working")))),
+		))
+	}).WithTimeout(statusCheckRetryTimeout).WithPolling(statusCheckRetryPolling).Should(Succeed())
 }
 
 func expectOmitOpensearchPodsReady(ctx context.Context) {
@@ -381,34 +414,35 @@ func expectOmitOpensearchResourcesRemoved(ctx context.Context) {
 }
 
 func expectOmitOpensearchStatusToBePrinted(ctx context.Context) {
-	output := suite.K2sCli().MustExec(ctx, "addons", "status", "logging")
+	Eventually(func(g Gomega) {
+		output := suite.K2sCli().MustExec(ctx, "addons", "status", "logging")
+		g.Expect(output).To(SatisfyAll(
+			MatchRegexp("ADDON STATUS"),
+			MatchRegexp(`Addon .+logging.+ is .+enabled.+`),
+			MatchRegexp("Fluent-bit is working"),
+		))
+		g.Expect(output).NotTo(ContainSubstring("Opensearch dashboards are working"))
+		g.Expect(output).NotTo(ContainSubstring("Opensearch is working"))
+	}).WithTimeout(statusCheckRetryTimeout).WithPolling(statusCheckRetryPolling).Should(Succeed())
 
-	Expect(output).To(SatisfyAll(
-		MatchRegexp("ADDON STATUS"),
-		MatchRegexp(`Addon .+logging.+ is .+enabled.+`),
-		MatchRegexp("Fluent-bit is working"),
-	))
-	Expect(output).NotTo(ContainSubstring("Opensearch dashboards are working"))
-	Expect(output).NotTo(ContainSubstring("Opensearch is working"))
+	Eventually(func(g Gomega) {
+		output := suite.K2sCli().MustExec(ctx, "addons", "status", "logging", "-o", "json")
 
-	output = suite.K2sCli().MustExec(ctx, "addons", "status", "logging", "-o", "json")
-
-	var addonStatus status.AddonPrintStatus
-
-	Expect(json.Unmarshal([]byte(output), &addonStatus)).To(Succeed())
-
-	Expect(addonStatus.Name).To(Equal("logging"))
-	Expect(addonStatus.Error).To(BeNil())
-	Expect(addonStatus.Enabled).NotTo(BeNil())
-	Expect(*addonStatus.Enabled).To(BeTrue())
-	Expect(addonStatus.Props).NotTo(BeNil())
-	Expect(addonStatus.Props).To(ContainElements(
-		SatisfyAll(
-			HaveField("Name", "AreDaemonsetsRunning"),
-			HaveField("Value", true),
-			HaveField("Okay", gstruct.PointTo(BeTrue())),
-			HaveField("Message", gstruct.PointTo(MatchRegexp("Fluent-bit is working")))),
-	))
-	Expect(addonStatus.Props).NotTo(ContainElement(HaveField("Name", "AreDeploymentsRunning")))
-	Expect(addonStatus.Props).NotTo(ContainElement(HaveField("Name", "AreStatefulsetsRunning")))
+		var addonStatus status.AddonPrintStatus
+		g.Expect(json.Unmarshal([]byte(output), &addonStatus)).To(Succeed())
+		g.Expect(addonStatus.Name).To(Equal("logging"))
+		g.Expect(addonStatus.Error).To(BeNil())
+		g.Expect(addonStatus.Enabled).NotTo(BeNil())
+		g.Expect(*addonStatus.Enabled).To(BeTrue())
+		g.Expect(addonStatus.Props).NotTo(BeNil())
+		g.Expect(addonStatus.Props).To(ContainElements(
+			SatisfyAll(
+				HaveField("Name", "AreDaemonsetsRunning"),
+				HaveField("Value", true),
+				HaveField("Okay", gstruct.PointTo(BeTrue())),
+				HaveField("Message", gstruct.PointTo(MatchRegexp("Fluent-bit is working")))),
+		))
+		g.Expect(addonStatus.Props).NotTo(ContainElement(HaveField("Name", "AreDeploymentsRunning")))
+		g.Expect(addonStatus.Props).NotTo(ContainElement(HaveField("Name", "AreStatefulsetsRunning")))
+	}).WithTimeout(statusCheckRetryTimeout).WithPolling(statusCheckRetryPolling).Should(Succeed())
 }

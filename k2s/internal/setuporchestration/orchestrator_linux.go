@@ -43,32 +43,42 @@ func NewOrchestrator(_ interface{}) Orchestrator {
 func (o *LinuxOrchestrator) Install(cfg InstallConfig) error {
 	slog.Info("[Install] Installing K2s on Linux host", "linuxOnly", cfg.LinuxOnly)
 
-	// Step 1: Check prerequisites
-	if err := o.checkPrerequisites(cfg); err != nil {
+	if !cfg.LinuxOnly {
+		return fmt.Errorf("Linux host installation currently supports only --linux-only; Windows worker provisioning is not supported yet")
+	}
+
+	// Step 1: Validate the host before Kubernetes packages exist.
+	if err := o.checkHostPrerequisites(cfg); err != nil {
 		return fmt.Errorf("prerequisite check failed: %w", err)
 	}
 
-	// Step 2: Install control plane natively via kubeadm
-	if err := o.installControlPlane(cfg); err != nil {
+	// Step 2: Install the version-pinned Kubernetes and CRI-O package set.
+	k8sVersion, err := o.provisionKubernetes(cfg)
+	if err != nil {
+		return fmt.Errorf("package provisioning failed: %w", err)
+	}
+
+	// Step 3: Install control plane natively via kubeadm.
+	if err := o.installControlPlane(cfg, k8sVersion); err != nil {
 		return fmt.Errorf("failed to install control plane: %w", err)
 	}
 
-	// Step 3: Set up kubeconfig for current user
+	// Step 4: Set up kubeconfig for the user that invoked sudo.
 	if err := o.setupKubeconfig(); err != nil {
 		return fmt.Errorf("failed to setup kubeconfig: %w", err)
 	}
 
-	// Step 4: Deploy flannel CNI
+	// Step 5: Deploy flannel CNI.
 	if err := o.deployFlannel(cfg); err != nil {
 		return fmt.Errorf("failed to deploy flannel: %w", err)
 	}
 
-	// Step 5: Wait for control plane node to be Ready
+	// Step 6: Wait for control plane node to be Ready.
 	if err := o.waitForNodeReady(120 * time.Second); err != nil {
 		slog.Warn("[Install] Control plane node not ready yet (may take a moment)", "error", err)
 	}
 
-	// Step 6: Persist setup.json
+	// Step 7: Persist setup.json only after successful provisioning.
 	hostname, _ := os.Hostname()
 	clusterName := cfg.ClusterName
 	if clusterName == "" {
@@ -78,10 +88,9 @@ func (o *LinuxOrchestrator) Install(cfg InstallConfig) error {
 		return fmt.Errorf("failed to write runtime config: %w", err)
 	}
 
-	if !cfg.LinuxOnly {
-		// Step 7: Create and provision Windows worker VM (Phase 3 — future)
-		if err := o.provisionWindowsVM(cfg); err != nil {
-			return fmt.Errorf("failed to provision Windows VM: %w", err)
+	if cfg.SkipStart {
+		if err := o.Stop(StopConfig{}); err != nil {
+			return fmt.Errorf("stop cluster after --skip-start: %w", err)
 		}
 	}
 
@@ -92,36 +101,25 @@ func (o *LinuxOrchestrator) Install(cfg InstallConfig) error {
 func (o *LinuxOrchestrator) Uninstall(cfg UninstallConfig) error {
 	slog.Info("[Uninstall] Uninstalling K2s from Linux host")
 
-	// Stop and remove Windows VM if it exists
-	_ = runCommand("virsh", "destroy", winVMName)
-	_ = runCommand("virsh", "undefine", winVMName, "--remove-all-storage", "--nvram")
-
-	// Remove K2s libvirt network
-	if err := RemoveK2sNetwork(); err != nil {
-		slog.Warn("[Uninstall] Could not remove K2s network (may not exist)", "error", err)
-	}
-
 	// Reset kubeadm
 	if !cfg.SkipPurge {
+		_ = runCommand("systemctl", "stop", "kubelet")
 		if err := runCommand("kubeadm", "reset", "-f"); err != nil {
 			slog.Warn("[Uninstall] kubeadm reset failed (may already be clean)", "error", err)
 		}
 
 		o.cleanupCriOMirrorDropIns()
+		o.removeControlPlaneState()
 	}
 
 	// Clean up network interfaces created by flannel
 	_ = runCommand("ip", "link", "delete", "cni0")
 	_ = runCommand("ip", "link", "delete", "flannel.1")
 
-	// Clean up iptables rules left by kube-proxy / flannel
-	_ = runCommand("iptables", "-F")
-	_ = runCommand("iptables", "-t", "nat", "-F")
-	_ = runCommand("iptables", "-t", "mangle", "-F")
-	_ = runCommand("iptables", "-X")
+	removeHTTPProxy()
 
 	// Remove kubeconfig
-	if u, err := user.Current(); err == nil {
+	if u, err := invokingUser(); err == nil {
 		kubeconfigPath := filepath.Join(u.HomeDir, ".kube", "config")
 		if err := os.Remove(kubeconfigPath); err != nil && !os.IsNotExist(err) {
 			slog.Warn("[Uninstall] Could not remove kubeconfig", "path", kubeconfigPath, "error", err)
@@ -137,6 +135,23 @@ func (o *LinuxOrchestrator) Uninstall(cfg UninstallConfig) error {
 
 	slog.Info("[Uninstall] K2s uninstallation complete")
 	return nil
+}
+
+// removeControlPlaneState removes files created by kubeadm and Flannel. It is
+// deliberately limited to K2s control-plane paths so uninstall can recover an
+// interrupted Linux installation without changing unrelated host state.
+func (o *LinuxOrchestrator) removeControlPlaneState() {
+	for _, path := range []string{
+		"/etc/kubernetes",
+		"/var/lib/etcd",
+		"/var/lib/kubelet",
+		"/etc/cni/net.d/10-flannel.conflist",
+		"/run/flannel",
+	} {
+		if err := os.RemoveAll(path); err != nil && !os.IsNotExist(err) {
+			slog.Warn("[Uninstall] Could not remove control-plane state", "path", path, "error", err)
+		}
+	}
 }
 
 func (o *LinuxOrchestrator) cleanupCriOMirrorDropIns() {
@@ -190,24 +205,16 @@ func (o *LinuxOrchestrator) cleanupCriOMirrorDropIns() {
 func (o *LinuxOrchestrator) Start(cfg StartConfig) error {
 	slog.Info("[Start] Starting K2s cluster on Linux host")
 
-	// Start kubelet — control plane static pods come up automatically
-	if err := runCommand("systemctl", "start", "kubelet"); err != nil {
-		return fmt.Errorf("failed to start kubelet: %w", err)
+	if err := runCommand("systemctl", "start", proxyService); err != nil {
+		return fmt.Errorf("failed to start local HTTP proxy: %w", err)
+	}
+	if err := runCommand("systemctl", "start", crioServiceName); err != nil {
+		return fmt.Errorf("failed to start CRI-O: %w", err)
 	}
 
-	// Start Windows VM if it exists
-	vmManager := NewVMManager()
-	if exists, _ := vmManager.VMExists(winVMName); exists {
-		if err := vmManager.StartVM(winVMName); err != nil {
-			slog.Warn("[Start] Could not start Windows VM", "error", err)
-		} else {
-			// Re-establish host routes for the Windows pod subnet
-			if err := SetupRoutes(); err != nil {
-				slog.Warn("[Start] Could not set up routes for Windows worker", "error", err)
-			}
-		}
-	} else {
-		slog.Info("[Start] No Windows worker VM found (linux-only mode)")
+	// Start kubelet — control plane static pods come up automatically.
+	if err := runCommand("systemctl", "start", "kubelet"); err != nil {
+		return fmt.Errorf("failed to start kubelet: %w", err)
 	}
 
 	// Wait for API server to be reachable
@@ -222,89 +229,39 @@ func (o *LinuxOrchestrator) Start(cfg StartConfig) error {
 func (o *LinuxOrchestrator) Stop(cfg StopConfig) error {
 	slog.Info("[Stop] Stopping K2s cluster on Linux host")
 
-	// Gracefully shutdown Windows VM
-	vmManager := NewVMManager()
-	if exists, _ := vmManager.VMExists(winVMName); exists {
-		if err := vmManager.StopVM(winVMName); err != nil {
-			slog.Warn("[Stop] Could not stop Windows VM", "error", err)
-		}
-	} else {
-		slog.Info("[Stop] No Windows worker VM found (linux-only mode)")
-	}
-
 	// Stop kubelet
 	if err := runCommand("systemctl", "stop", "kubelet"); err != nil {
 		return fmt.Errorf("failed to stop kubelet: %w", err)
+	}
+	if err := runCommand("systemctl", "stop", crioServiceName); err != nil {
+		slog.Warn("[Stop] Could not stop CRI-O", "error", err)
+	}
+	if err := runCommand("systemctl", "stop", proxyService); err != nil {
+		slog.Warn("[Stop] Could not stop local HTTP proxy", "error", err)
 	}
 
 	slog.Info("[Stop] K2s cluster stopped")
 	return nil
 }
 
-// ---------- prerequisite checks ----------
-
-func (o *LinuxOrchestrator) checkPrerequisites(cfg InstallConfig) error {
-	slog.Info("[Install] Checking prerequisites")
-
-	// Check required binaries
-	requiredBins := []string{"kubeadm", "kubelet", "kubectl", "containerd"}
-	if !cfg.LinuxOnly {
-		requiredBins = append(requiredBins, "virsh", "qemu-img")
-	}
-	for _, bin := range requiredBins {
-		if _, err := exec.LookPath(bin); err != nil {
-			return fmt.Errorf("required binary '%s' not found in PATH: %w", bin, err)
-		}
-	}
-
-	// Check kernel modules
-	modules := []string{"br_netfilter", "overlay"}
-	for _, mod := range modules {
-		if err := runCommand("modprobe", mod); err != nil {
-			return fmt.Errorf("required kernel module '%s' could not be loaded: %w", mod, err)
-		}
-	}
-
-	// Ensure sysctl settings for bridged traffic
-	sysctls := map[string]string{
-		"net.bridge.bridge-nf-call-iptables":  "1",
-		"net.bridge.bridge-nf-call-ip6tables": "1",
-		"net.ipv4.ip_forward":                 "1",
-	}
-	for key, val := range sysctls {
-		if err := runCommand("sysctl", "-w", key+"="+val); err != nil {
-			slog.Warn("[Install] Could not set sysctl", "key", key, "error", err)
-		}
-	}
-
-	// Check containerd is installed and can start
-	if err := runCommand("systemctl", "is-enabled", "containerd"); err != nil {
-		slog.Warn("[Install] containerd service not enabled, attempting to enable", "error", err)
-		if err := runCommand("systemctl", "enable", "containerd"); err != nil {
-			return fmt.Errorf("containerd service could not be enabled: %w", err)
-		}
-	}
-
-	slog.Info("[Install] Prerequisites check passed")
-	return nil
-}
-
 // ---------- control plane installation ----------
 
-func (o *LinuxOrchestrator) installControlPlane(cfg InstallConfig) error {
+func (o *LinuxOrchestrator) installControlPlane(cfg InstallConfig, k8sVersion string) error {
 	slog.Info("[Install] Installing Kubernetes control plane via kubeadm")
 
-	// Ensure containerd is running
-	if err := runCommand("systemctl", "start", "containerd"); err != nil {
-		return fmt.Errorf("failed to start containerd: %w", err)
+	if err := runCommand("systemctl", "start", crioServiceName); err != nil {
+		return fmt.Errorf("failed to start CRI-O: %w", err)
 	}
 
 	// Generate kubeadm init config with KubeletConfiguration
 	initConfig := fmt.Sprintf(`apiVersion: kubeadm.k8s.io/v1beta4
 kind: InitConfiguration
+nodeRegistration:
+  criSocket: %s
 ---
 apiVersion: kubeadm.k8s.io/v1beta4
 kind: ClusterConfiguration
+kubernetesVersion: %s
 networking:
   podSubnet: %s
   serviceSubnet: %s
@@ -312,7 +269,7 @@ networking:
 apiVersion: kubelet.config.k8s.io/v1beta1
 kind: KubeletConfiguration
 failCgroupV1: false
-`, podNetworkCIDR, servicesCIDR)
+`, crioSocket, k8sVersion, podNetworkCIDR, servicesCIDR)
 
 	configDir := "/tmp/kubeadm-init"
 	configPath := filepath.Join(configDir, "kubeadm-init.yaml")
@@ -323,6 +280,9 @@ failCgroupV1: false
 	if err := os.WriteFile(configPath, []byte(initConfig), 0600); err != nil {
 		return fmt.Errorf("failed to write kubeadm init config: %w", err)
 	}
+	if cfg.ShowLogs {
+		slog.Info("[Install] Rendered kubeadm configuration", "path", configPath, "content", initConfig)
+	}
 
 	// Build kubeadm init arguments
 	args := []string{
@@ -330,11 +290,7 @@ failCgroupV1: false
 		"--config=" + configPath,
 	}
 
-	if cfg.Proxy != "" {
-		slog.Info("[Install] Proxy configured", "proxy", cfg.Proxy)
-	}
-
-	if err := runCommand("kubeadm", args...); err != nil {
+	if err := runCommandWithLogs(cfg.ShowLogs, "kubeadm", args...); err != nil {
 		return fmt.Errorf("kubeadm init failed: %w", err)
 	}
 
@@ -355,7 +311,7 @@ failCgroupV1: false
 func (o *LinuxOrchestrator) setupKubeconfig() error {
 	slog.Info("[Install] Setting up kubeconfig")
 
-	u, err := user.Current()
+	u, err := invokingUser()
 	if err != nil {
 		return fmt.Errorf("failed to determine current user: %w", err)
 	}
@@ -375,9 +331,30 @@ func (o *LinuxOrchestrator) setupKubeconfig() error {
 	if err := os.WriteFile(destPath, input, 0600); err != nil {
 		return fmt.Errorf("failed to write kubeconfig to %s: %w", destPath, err)
 	}
+	uid, err := lookupUserID(u.Uid)
+	if err != nil {
+		return err
+	}
+	gid, err := lookupUserID(u.Gid)
+	if err != nil {
+		return err
+	}
+	if err := os.Chown(kubeDir, uid, gid); err != nil {
+		return fmt.Errorf("set kubeconfig directory ownership: %w", err)
+	}
+	if err := os.Chown(destPath, uid, gid); err != nil {
+		return fmt.Errorf("set kubeconfig ownership: %w", err)
+	}
 
 	slog.Info("[Install] Kubeconfig written", "path", destPath)
 	return nil
+}
+
+func invokingUser() (*user.User, error) {
+	if sudoUser := os.Getenv("SUDO_USER"); sudoUser != "" && sudoUser != "root" {
+		return user.Lookup(sudoUser)
+	}
+	return user.Current()
 }
 
 // ---------- flannel deployment ----------
@@ -411,7 +388,7 @@ func (o *LinuxOrchestrator) deployFlannel(cfg InstallConfig) error {
 	}
 	tmpFile.Close()
 
-	if err := runCommand("kubectl", "apply", "-f", tmpFile.Name()); err != nil {
+	if err := runCommandWithLogs(cfg.ShowLogs, "kubectl", "--kubeconfig", kubeconfigSrc, "apply", "-f", tmpFile.Name()); err != nil {
 		return fmt.Errorf("failed to apply flannel manifest: %w", err)
 	}
 
@@ -426,7 +403,7 @@ func (o *LinuxOrchestrator) waitForNodeReady(timeout time.Duration) error {
 
 	deadline := time.Now().Add(timeout)
 	for time.Now().Before(deadline) {
-		output, err := runCommandOutput("kubectl", "get", "nodes", "-o", "jsonpath={.items[0].status.conditions[?(@.type=='Ready')].status}")
+		output, err := runCommandOutput("kubectl", "--kubeconfig", kubeconfigSrc, "get", "nodes", "-o", "jsonpath={.items[0].status.conditions[?(@.type=='Ready')].status}")
 		if err == nil && strings.TrimSpace(output) == "True" {
 			slog.Info("[Install] Control plane node is Ready")
 			return nil
@@ -441,7 +418,7 @@ func (o *LinuxOrchestrator) waitForAPIServer(timeout time.Duration) error {
 
 	deadline := time.Now().Add(timeout)
 	for time.Now().Before(deadline) {
-		if err := runCommand("kubectl", "cluster-info"); err == nil {
+		if err := runCommand("kubectl", "--kubeconfig", kubeconfigSrc, "cluster-info"); err == nil {
 			return nil
 		}
 		time.Sleep(3 * time.Second)
@@ -614,9 +591,9 @@ func transferWorkerArtifacts(installDir, vmIP string) error {
 // installWindowsServices installs NSSM-managed services on the Windows VM.
 func installWindowsServices(vmIP string) error {
 	services := []struct {
-		name    string
-		binary  string
-		args    string
+		name   string
+		binary string
+		args   string
 	}{
 		{"containerd", `C:\k2s\bin\containerd.exe`, `--config "C:\k2s\cfg\config.toml"`},
 		{"flanneld", `C:\k2s\bin\flannel.exe`, `--kubeconfig-file "C:\k2s\config" --iface=Ethernet --ip-masq --kube-subnet-mgr`},
@@ -779,6 +756,23 @@ func runCommand(name string, args ...string) error {
 		return fmt.Errorf("%s failed: %w\nOutput: %s", name, err, string(output))
 	}
 	slog.Debug("Command succeeded", "cmd", name, "output", string(output))
+	return nil
+}
+
+// runCommandWithLogs streams command output when --output is requested while
+// retaining the command error context used by the normal execution path.
+func runCommandWithLogs(showLogs bool, name string, args ...string) error {
+	if !showLogs {
+		return runCommand(name, args...)
+	}
+
+	slog.Info("[Install] Running command", "cmd", name, "argumentCount", len(args))
+	cmd := exec.Command(name, args...)
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf("%s failed: %w", name, err)
+	}
 	return nil
 }
 

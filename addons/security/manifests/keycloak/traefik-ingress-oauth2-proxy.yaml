@@ -12,10 +12,6 @@ metadata:
     # traefik.ingress.kubernetes.io/router.middlewares: "security-auth-headers@kubernetescrd"
 spec:
   ingressClassName: traefik
-  tls:
-    - hosts:
-        - k2s.cluster.local
-      secretName: k2s-cluster-local-tls
   rules:
     - host: k2s.cluster.local
       http:

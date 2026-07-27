@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText:  © 2025 Siemens Healthineers AG
+// SPDX-FileCopyrightText:  © 2026 Siemens Healthineers AG
 // SPDX-License-Identifier:   MIT
 
 package certificate
@@ -24,7 +24,7 @@ k2s system certificate renew -f
 
 	renewCmd = &cobra.Command{
 		Use:   "renew",
-		Short: "Renews Kubernetes certificates",
+		Short: "Renews Kubernetes certificates (control-plane node only)",
 		Long: `
 Determines if Kubernetes certificates have expired and renews them.
 With the --force option, the certificate renewal is performed irrespective of their expiration status.

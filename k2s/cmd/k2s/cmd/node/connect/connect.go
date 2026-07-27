@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText:  © 2024 Siemens Healthineers AG
+// SPDX-FileCopyrightText:  © 2026 Siemens Healthineers AG
 // SPDX-License-Identifier:   MIT
 
 package connect
@@ -24,6 +24,8 @@ const (
 	timeoutFlag     = "timeout"
 	portFlag        = "port"
 	longDescription = `Connects to a remote node.
+
+By default this targets the control-plane node; pass --ip-addr to connect to a specific node (e.g. a worker node).
 
 This command uses the pre-installed Windows OpenSSH client to connect to a remote node.
 
