@@ -9,5 +9,6 @@
   "monCount": 1,
   "mgrCount": 1,
   "mdsCount": 1,
-  "osddevicebaremetal": "/dev/sdb, /dev/sdc"
+  "osddevicebaremetal": "/dev/sdb, /dev/sdc",
+  "osdhost": "host1,host2,host3"
 }
