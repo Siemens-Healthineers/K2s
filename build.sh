@@ -86,24 +86,29 @@ echo "VERSION: $VERSION"
 BUILD_DATE="$(date -u +'%Y-%m-%dT%H:%M:%SZ')"
 echo "BUILD_DATE: $BUILD_DATE"
 
-# GIT COMMIT
-GIT_COMMIT="$(git rev-parse HEAD)"
-echo "GIT_COMMIT: $GIT_COMMIT"
+# GIT COMMIT, TREE STATE, AND TAG
+# Falls back to "unknown" (instead of aborting the build under `set -e`)
+# when the script runs outside a git working tree, e.g. from files copied
+# without .git.
+if git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+    GIT_COMMIT="$(git rev-parse HEAD)"
 
-# GIT TREE STATE AND TAG
-GIT_TAG=""
-GIT_TREE_STATE="clean"
-if [[ -n "$(git status --porcelain)" ]]; then
-    GIT_TREE_STATE="dirty"
-else
-    # Clean tree: check for an exact tag to declare an official release.
-    if GIT_TAG="$(git describe --exact-match --tags HEAD 2>/dev/null)"; then
-        echo "GIT_TAG: $GIT_TAG"
+    GIT_TAG=""
+    GIT_TREE_STATE="clean"
+
+    if [[ -n "$(git status --porcelain)" ]]; then
+        GIT_TREE_STATE="dirty"
     else
-        GIT_TAG=""
-        echo "No tag found for the git commit"
+        GIT_TAG="$(git describe --exact-match --tags HEAD 2>/dev/null || true)"
     fi
+else
+    echo "No git repository found."
+
+    GIT_COMMIT="unknown"
+    GIT_TAG=""
+    GIT_TREE_STATE="unknown"
 fi
+echo "GIT_COMMIT: $GIT_COMMIT"
 echo "GIT_TREE_STATE: $GIT_TREE_STATE"
 
 VERSION_PKG="github.com/siemens-healthineers/k2s/internal/version"
