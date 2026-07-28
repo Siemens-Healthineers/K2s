@@ -9,7 +9,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"log/slog"
+	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -327,7 +329,17 @@ func gatherVersionInfo() (*versionResult, error) {
 }
 
 func linuxKubectlArgs(args ...string) []string {
-	return append([]string{"--kubeconfig", linuxAdminKubeconfig}, args...)
+	return append([]string{"--kubeconfig", linuxKubeconfig()}, args...)
+}
+
+func linuxKubeconfig() string {
+	if homeDir, err := os.UserHomeDir(); err == nil {
+		userKubeconfig := filepath.Join(homeDir, ".kube", "config")
+		if _, err := os.Stat(userKubeconfig); err == nil {
+			return userKubeconfig
+		}
+	}
+	return linuxAdminKubeconfig
 }
 
 func formatDuration(d time.Duration) string {
