@@ -87,6 +87,9 @@ func (o *LinuxOrchestrator) Install(cfg InstallConfig) error {
 	if err := config.WriteRuntimeConfig(cfg.ConfigDir, "k2s", cfg.LinuxOnly, cfg.Version, clusterName, hostname, false); err != nil {
 		return fmt.Errorf("failed to write runtime config: %w", err)
 	}
+	if err := os.Chmod(filepath.Join(cfg.ConfigDir, "setup.json"), 0644); err != nil {
+		return fmt.Errorf("set runtime config permissions: %w", err)
+	}
 
 	if cfg.SkipStart {
 		if err := o.Stop(StopConfig{}); err != nil {

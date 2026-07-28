@@ -86,6 +86,15 @@ func (o *LinuxOrchestrator) provisionKubernetes(cfg InstallConfig) (string, erro
 		return "", err
 	}
 
+	// setup.json is read by regular users for commands such as `k2s status`.
+	// Keep the package cache private, but allow traversal of the state directory.
+	if err := os.MkdirAll(cfg.ConfigDir, 0755); err != nil {
+		return "", fmt.Errorf("create runtime config directory: %w", err)
+	}
+	if err := os.Chmod(cfg.ConfigDir, 0755); err != nil {
+		return "", fmt.Errorf("set runtime config directory permissions: %w", err)
+	}
+
 	stagingDir := filepath.Join(cfg.ConfigDir, "packages")
 	if err := os.MkdirAll(stagingDir, 0700); err != nil {
 		return "", fmt.Errorf("create package staging directory: %w", err)
