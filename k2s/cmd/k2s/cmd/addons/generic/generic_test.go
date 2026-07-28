@@ -151,6 +151,15 @@ var _ = Describe("generic pkg", func() {
 			Expect(err).ToNot(HaveOccurred())
 		})
 
+		It("accepts whitespace-only args", func() {
+			cmd := &cobra.Command{Use: "test"}
+			cmd.Flags().String("node", "", "")
+
+			err := validateAddonCommandArgs(cmd, []string{""})
+
+			Expect(err).ToNot(HaveOccurred())
+		})
+
 		It("returns generic unexpected args error", func() {
 			cmd := &cobra.Command{Use: "test"}
 
@@ -160,10 +169,21 @@ var _ = Describe("generic pkg", func() {
 			Expect(err.Error()).To(ContainSubstring("unexpected argument(s): extra"))
 		})
 
-		It("accepts extra args when --node is set", func() {
+		It("shows trailing-comma hint when --node was split by whitespace", func() {
 			cmd := &cobra.Command{Use: "test"}
 			cmd.Flags().String("node", "", "")
 			Expect(cmd.Flags().Set("node", "k2s-nodepkg-debian13,")).To(Succeed())
+
+			err := validateAddonCommandArgs(cmd, []string{"gpunode1"})
+
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("It looks like the --node value was split by whitespace"))
+		})
+
+		It("accepts extra args when --node is set without trailing comma", func() {
+			cmd := &cobra.Command{Use: "test"}
+			cmd.Flags().String("node", "", "")
+			Expect(cmd.Flags().Set("node", "k2s-nodepkg-debian13")).To(Succeed())
 
 			err := validateAddonCommandArgs(cmd, []string{"gpunode1"})
 
@@ -193,6 +213,17 @@ var _ = Describe("generic pkg", func() {
 
 			Expect(err).To(HaveOccurred())
 			Expect(err.Error()).To(ContainSubstring("unexpected argument(s): gpunode1"))
+		})
+
+		It("returns error when positional args look like flags", func() {
+			cmd := &cobra.Command{Use: "test"}
+			cmd.Flags().String("node", "", "")
+			Expect(cmd.Flags().Set("node", "k2s-nodepkg-debian13")).To(Succeed())
+
+			err := mergeExtraNodeArgs(cmd, []string{"--tiime-slices", "4"})
+
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("unexpected argument(s): --tiime-slices 4"))
 		})
 	})
 

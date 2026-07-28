@@ -318,20 +318,20 @@ func convertToPsParam(flag *pflag.Flag, cmdConfig addons.AddonCmd, add func(stri
 }
 
 func validateAddonCommandArgs(cmd *cobra.Command, args []string) error {
-	if len(args) == 0 {
+	normalizedArgs := normalizePositionalArgs(args)
+	if len(normalizedArgs) == 0 {
 		return nil
 	}
 
+	extra := strings.Join(normalizedArgs, " ")
 	nodeFlag := cmd.Flags().Lookup("node")
-	if nodeFlag != nil && strings.TrimSpace(nodeFlag.Value.String()) != "" {
-		return nil
-	}
-
-	extra := strings.Join(args, " ")
 	if nodeFlag != nil {
 		nodeVal := strings.TrimSpace(nodeFlag.Value.String())
 		if strings.HasSuffix(nodeVal, ",") {
 			return fmt.Errorf("unexpected argument(s): %s. It looks like the --node value was split by whitespace after a comma. Use '--node node1,node2' (no spaces) or quote the value, e.g. '--node \"node1, node2\"'", extra)
+		}
+		if nodeVal != "" {
+			return nil
 		}
 	}
 
@@ -339,23 +339,29 @@ func validateAddonCommandArgs(cmd *cobra.Command, args []string) error {
 }
 
 func mergeExtraNodeArgs(cmd *cobra.Command, args []string) error {
-	if len(args) == 0 {
+	normalizedArgs := normalizePositionalArgs(args)
+	if len(normalizedArgs) == 0 {
 		return nil
 	}
 
 	nodeFlag := cmd.Flags().Lookup("node")
 	if nodeFlag == nil {
-		return fmt.Errorf("unexpected argument(s): %s", strings.Join(args, " "))
+		return fmt.Errorf("unexpected argument(s): %s", strings.Join(normalizedArgs, " "))
 	}
 
 	base := strings.TrimSpace(nodeFlag.Value.String())
 	if base == "" {
-		return fmt.Errorf("unexpected argument(s): %s", strings.Join(args, " "))
+		return fmt.Errorf("unexpected argument(s): %s", strings.Join(normalizedArgs, " "))
 	}
 
 	parts := []string{}
 	parts = append(parts, strings.Trim(base, " ,"))
-	for _, arg := range args {
+	for _, arg := range normalizedArgs {
+		// Guard against typos like a misspelled flag (e.g. "--tiime-slices") being
+		// silently merged into the node list. Only bare node names are accepted here.
+		if strings.HasPrefix(strings.TrimSpace(arg), "-") {
+			return fmt.Errorf("unexpected argument(s): %s", strings.Join(normalizedArgs, " "))
+		}
 		trimmed := strings.Trim(arg, " ,")
 		if trimmed == "" {
 			continue
@@ -370,4 +376,17 @@ func mergeExtraNodeArgs(cmd *cobra.Command, args []string) error {
 
 	slog.Warn("Additional positional arguments were interpreted as extra --node values", "normalizedNode", merged)
 	return nil
+}
+
+func normalizePositionalArgs(args []string) []string {
+	normalized := make([]string, 0, len(args))
+	for _, arg := range args {
+		trimmed := strings.TrimSpace(arg)
+		if trimmed == "" {
+			continue
+		}
+		normalized = append(normalized, trimmed)
+	}
+
+	return normalized
 }
