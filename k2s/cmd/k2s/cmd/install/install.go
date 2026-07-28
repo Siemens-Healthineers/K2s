@@ -11,6 +11,7 @@ import (
 
 	"os"
 	"path/filepath"
+	"runtime"
 
 	config_contracts "github.com/siemens-healthineers/k2s/internal/contracts/config"
 	"github.com/siemens-healthineers/k2s/internal/core/config"
@@ -185,6 +186,9 @@ func checkForOldK2sExecutables(currentExe string, exeName string) ([]string, err
 
 func install(cmd *cobra.Command, args []string) error {
 	exeName := "k2s.exe"
+	if runtime.GOOS == "linux" {
+		exeName = "k2s"
+	}
 	currentExe, err := os.Executable()
 	if err != nil {
 		return fmt.Errorf("[Install] Error: unable to determine current executable path: %v", err)
@@ -211,6 +215,11 @@ func install(cmd *cobra.Command, args []string) error {
 	linuxOnly, err := cmd.Flags().GetBool(ic.LinuxOnlyFlagName)
 	if err != nil {
 		return err
+	}
+	if runtime.GOOS == "linux" {
+		if err := validateLinuxInstallOptions(cmd, linuxOnly); err != nil {
+			return err
+		}
 	}
 
 	cmdSession := cc.StartCmdSession(cmd.CommandPath())
@@ -307,5 +316,30 @@ func install(cmd *cobra.Command, args []string) error {
 	}
 
 	cmdSession.Finish()
+	return nil
+}
+
+func validateLinuxInstallOptions(cmd *cobra.Command, linuxOnly bool) error {
+	if !linuxOnly {
+		return errors.New("Linux host installation currently supports only 'k2s install --linux-only'; Windows worker provisioning is not supported yet")
+	}
+
+	unsupportedFlags := []string{
+		cc.ForceOnlineInstallFlagName,
+		cc.DeleteFilesFlagName,
+		ic.K8sBinFlagName,
+		ic.WslFlagName,
+		ic.ControlPlaneCPUsFlagName,
+		ic.ControlPlaneMemoryFlagName,
+		ic.ControlPlaneMemoryMinFlagName,
+		ic.ControlPlaneMemoryMaxFlagName,
+		ic.ControlPlaneDiskSizeFlagName,
+	}
+	for _, flagName := range unsupportedFlags {
+		if cmd.Flags().Changed(flagName) {
+			return fmt.Errorf("--%s is not supported for native Linux hosts", flagName)
+		}
+	}
+
 	return nil
 }

@@ -198,6 +198,35 @@ To build and test containers without a *K8s* cluster, run:
 <repo>\k2s.exe install buildonly
 ```
 
+### \[Experimental\] Linux Host
+
+The initial native Linux-host implementation supports **Debian 13** in
+Linux-only mode. The Kubernetes control plane runs directly on the host and
+uses **CRI-O** as its container runtime. Windows worker provisioning is not
+supported yet.
+
+Run the Linux binary with elevated privileges:
+
+```console
+sudo ./k2s.linux install --linux-only --proxy http://proxy.example:8080 --no-proxy localhost,127.0.0.1
+```
+
+The installer downloads the version-pinned Kubernetes and CRI-O Debian
+packages, then starts a local `httpproxy` service on `127.0.0.1:8181`. The
+service forwards external traffic through `--proxy` when supplied. The given
+`--no-proxy` values are merged with K2s internal addresses and applied only to
+K2s services; the installer does not change global proxy environment settings.
+
+The following options are intentionally unavailable on a native Linux host:
+
+- Windows-worker installation (omit `--linux-only`)
+- `--master-cpus`, `--master-memory`, `--master-disk`, dynamic-memory options,
+  and `--wsl`
+- `--force-online-installation`, offline artifact cleanup, and `--k8s-bins`
+
+The administrator invoking `sudo` receives the generated kubeconfig at
+`~/.kube/config` after a successful installation.
+
 ## WSL 2 vs. Hyper-V
 
 The Linux control-plane VM can be hosted in either Hyper-V (default) or WSL 2. The table below summarises the trade-offs:
