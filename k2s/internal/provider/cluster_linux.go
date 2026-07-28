@@ -16,6 +16,8 @@ import (
 	"github.com/siemens-healthineers/k2s/internal/setuporchestration"
 )
 
+const linuxAdminKubeconfig = "/etc/kubernetes/admin.conf"
+
 type linuxClusterProvider struct {
 	installDir string
 	configDir  string
@@ -32,6 +34,7 @@ func (p *linuxClusterProvider) Install(cfg ClusterInstallConfig) error {
 	orch := setuporchestration.NewOrchestrator(nil)
 	return orch.Install(setuporchestration.InstallConfig{
 		ShowLogs:                cfg.ShowLogs,
+		SkipStart:               cfg.SkipStart,
 		MasterVMProcessorCount:  cfg.MasterVMProcessorCount,
 		MasterVMMemory:          cfg.MasterVMMemory,
 		MasterDiskSize:          cfg.MasterDiskSize,
@@ -39,6 +42,7 @@ func (p *linuxClusterProvider) Install(cfg ClusterInstallConfig) error {
 		WSL:                     cfg.WSL,
 		ForceOnlineInstallation: cfg.ForceOnlineInstallation,
 		Proxy:                   cfg.Proxy,
+		NoProxy:                 cfg.NoProxy,
 		AdditionalHooksDir:      cfg.AdditionalHooksDir,
 		ConfigDir:               cfg.ConfigDir,
 		InstallDir:              cfg.InstallDir,
@@ -119,7 +123,7 @@ func (p *linuxClusterProvider) Status(_ ClusterStatusConfig) (*ClusterStatus, er
 // ---------- kubectl helpers ----------
 
 func isAPIServerReachable() bool {
-	cmd := exec.Command("kubectl", "cluster-info", "--request-timeout=5s")
+	cmd := exec.Command("kubectl", linuxKubectlArgs("cluster-info", "--request-timeout=5s")...)
 	return cmd.Run() == nil
 }
 
@@ -131,7 +135,7 @@ type k8sNodeItem struct {
 	Metadata struct {
 		Name              string            `json:"name"`
 		Labels            map[string]string `json:"labels"`
-		CreationTimestamp  string            `json:"creationTimestamp"`
+		CreationTimestamp string            `json:"creationTimestamp"`
 	} `json:"metadata"`
 	Status struct {
 		Conditions []struct {
@@ -157,7 +161,7 @@ type k8sNodeItem struct {
 }
 
 func gatherNodeStatus() ([]NodeStatus, error) {
-	output, err := exec.Command("kubectl", "get", "nodes", "-o", "json").Output()
+	output, err := exec.Command("kubectl", linuxKubectlArgs("get", "nodes", "-o", "json")...).Output()
 	if err != nil {
 		return nil, fmt.Errorf("kubectl get nodes: %w", err)
 	}
@@ -228,7 +232,7 @@ type k8sPodItem struct {
 	Metadata struct {
 		Name              string `json:"name"`
 		Namespace         string `json:"namespace"`
-		CreationTimestamp  string `json:"creationTimestamp"`
+		CreationTimestamp string `json:"creationTimestamp"`
 	} `json:"metadata"`
 	Spec struct {
 		NodeName string `json:"nodeName"`
@@ -244,7 +248,7 @@ type k8sPodItem struct {
 }
 
 func gatherPodStatus() ([]PodStatus, error) {
-	output, err := exec.Command("kubectl", "get", "pods", "--all-namespaces", "-o", "json").Output()
+	output, err := exec.Command("kubectl", linuxKubectlArgs("get", "pods", "--all-namespaces", "-o", "json")...).Output()
 	if err != nil {
 		return nil, fmt.Errorf("kubectl get pods: %w", err)
 	}
@@ -297,7 +301,7 @@ type versionResult struct {
 func gatherVersionInfo() (*versionResult, error) {
 	info := &versionResult{}
 
-	if output, err := exec.Command("kubectl", "version", "--client", "-o", "json").Output(); err == nil {
+	if output, err := exec.Command("kubectl", linuxKubectlArgs("version", "--client", "-o", "json")...).Output(); err == nil {
 		var v struct {
 			ClientVersion struct {
 				GitVersion string `json:"gitVersion"`
@@ -308,7 +312,7 @@ func gatherVersionInfo() (*versionResult, error) {
 		}
 	}
 
-	if output, err := exec.Command("kubectl", "version", "-o", "json").Output(); err == nil {
+	if output, err := exec.Command("kubectl", linuxKubectlArgs("version", "-o", "json")...).Output(); err == nil {
 		var v struct {
 			ServerVersion struct {
 				GitVersion string `json:"gitVersion"`
@@ -320,6 +324,10 @@ func gatherVersionInfo() (*versionResult, error) {
 	}
 
 	return info, nil
+}
+
+func linuxKubectlArgs(args ...string) []string {
+	return append([]string{"--kubeconfig", linuxAdminKubeconfig}, args...)
 }
 
 func formatDuration(d time.Duration) string {

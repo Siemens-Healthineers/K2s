@@ -69,20 +69,22 @@ type ServiceManager interface {
 
 // InstallConfig holds parameters for cluster installation.
 type InstallConfig struct {
-	ShowLogs                 bool
-	MasterVMProcessorCount   string
-	MasterVMMemory           string
-	MasterDiskSize           string
-	LinuxOnly                bool
-	WSL                      bool
-	ForceOnlineInstallation  bool
-	Proxy                    string
-	AdditionalHooksDir       string
-	ConfigDir                string // K2s setup config dir (e.g. /var/lib/k2s or C:\ProgramData\K2s)
-	InstallDir               string // K2s install dir (directory of the k2s binary)
-	Version                  string // K2s version string
-	ClusterName              string // Kubernetes cluster name
-	ControlPlaneHostname     string // hostname of the control plane node
+	ShowLogs                bool
+	SkipStart               bool
+	MasterVMProcessorCount  string
+	MasterVMMemory          string
+	MasterDiskSize          string
+	LinuxOnly               bool
+	WSL                     bool
+	ForceOnlineInstallation bool
+	Proxy                   string
+	NoProxy                 []string
+	AdditionalHooksDir      string
+	ConfigDir               string // K2s setup config dir (e.g. /var/lib/k2s or C:\ProgramData\K2s)
+	InstallDir              string // K2s install dir (directory of the k2s binary)
+	Version                 string // K2s version string
+	ClusterName             string // Kubernetes cluster name
+	ControlPlaneHostname    string // hostname of the control plane node
 }
 
 // UninstallConfig holds parameters for cluster uninstallation.
@@ -96,9 +98,9 @@ type UninstallConfig struct {
 
 // StartConfig holds parameters for cluster start.
 type StartConfig struct {
-	ShowLogs             bool
-	AdditionalHooksDir   string
-	UseCachedK2sVSwitch  bool
+	ShowLogs            bool
+	AdditionalHooksDir  string
+	UseCachedK2sVSwitch bool
 }
 
 // StopConfig holds parameters for cluster stop.
@@ -109,13 +111,13 @@ type StopConfig struct {
 
 // VMConfig holds parameters for virtual machine creation.
 type VMConfig struct {
-	Name            string
-	ImagePath       string
-	CPUCount        int
-	MemoryMB        int
-	DiskSizeGB      int
-	NetworkBridge   string
-	DynamicMemory   bool
+	Name          string
+	ImagePath     string
+	CPUCount      int
+	MemoryMB      int
+	DiskSizeGB    int
+	NetworkBridge string
+	DynamicMemory bool
 }
 
 // ServiceConfig holds parameters for service installation.
