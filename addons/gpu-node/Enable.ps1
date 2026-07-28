@@ -8,7 +8,7 @@
 .SYNOPSIS
 Enables GPU support for KubeMaster or selected Linux worker nodes.
 
-<DESCRIPTION>
+.DESCRIPTION
 The "gpu-node" addon enables GPU scheduling by deploying the NVIDIA device plugin.
 Without --node, it configures KubeMaster for GPU access.
 With --node, it targets only the specified cluster node(s).

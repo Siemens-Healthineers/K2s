@@ -44,8 +44,8 @@ spec:
                 comment: Enable gpu-node in k2s (exclusive GPU access per pod)
               - cmd: k2s addons enable gpu-node --time-slices 4
                 comment: Enable gpu-node with 4-way GPU time-slicing (up to 4 pods share the GPU simultaneously)
-              - cmd: k2s addons enable gpu-node --node my-gpu-worker, my-other-gpu-worker , kubemaster
-                comment: Enable gpu-node only for the specified cluster node.
+              - cmd: k2s addons enable gpu-node --node "my-gpu-worker, my-other-gpu-worker, kubemaster"
+                comment: Enable gpu-node only for the specified cluster nodes.
           script:
             subPath: Enable.ps1
             parameterMappings:
