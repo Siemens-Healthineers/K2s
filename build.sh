@@ -21,14 +21,13 @@ usage() {
 Usage: ./build.sh [--proxy URL]
 
 Builds the Linux-targeted K2s Go executables natively (no PowerShell):
-  k2s                 -> bin/
+    k2s                 -> k2s.linux
   cloudinitisobuilder -> bin/
   httpproxy           -> bin/
   yaml2json           -> bin/
 
-Note: on Linux the CLI binary is named 'k2s', which would collide with the
-'k2s/' source directory at the repository root, so all executables are placed
-in bin/ (the helper binaries already match the Windows layout there).
+The CLI is named k2s.linux to avoid colliding with the k2s/ source directory.
+Helper executables are placed in bin/.
 
 Options:
   --proxy URL   Set HTTP_PROXY/HTTPS_PROXY for Go module downloads.
@@ -87,24 +86,29 @@ echo "VERSION: $VERSION"
 BUILD_DATE="$(date -u +'%Y-%m-%dT%H:%M:%SZ')"
 echo "BUILD_DATE: $BUILD_DATE"
 
-# GIT COMMIT
-GIT_COMMIT="$(git rev-parse HEAD)"
-echo "GIT_COMMIT: $GIT_COMMIT"
+# GIT COMMIT, TREE STATE, AND TAG
+# Falls back to "unknown" (instead of aborting the build under `set -e`)
+# when the script runs outside a git working tree, e.g. from files copied
+# without .git.
+if git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+    GIT_COMMIT="$(git rev-parse HEAD)"
 
-# GIT TREE STATE AND TAG
-GIT_TAG=""
-GIT_TREE_STATE="clean"
-if [[ -n "$(git status --porcelain)" ]]; then
-    GIT_TREE_STATE="dirty"
-else
-    # Clean tree: check for an exact tag to declare an official release.
-    if GIT_TAG="$(git describe --exact-match --tags HEAD 2>/dev/null)"; then
-        echo "GIT_TAG: $GIT_TAG"
+    GIT_TAG=""
+    GIT_TREE_STATE="clean"
+
+    if [[ -n "$(git status --porcelain)" ]]; then
+        GIT_TREE_STATE="dirty"
     else
-        GIT_TAG=""
-        echo "No tag found for the git commit"
+        GIT_TAG="$(git describe --exact-match --tags HEAD 2>/dev/null || true)"
     fi
+else
+    echo "No git repository found."
+
+    GIT_COMMIT="unknown"
+    GIT_TAG=""
+    GIT_TREE_STATE="unknown"
 fi
+echo "GIT_COMMIT: $GIT_COMMIT"
 echo "GIT_TREE_STATE: $GIT_TREE_STATE"
 
 VERSION_PKG="github.com/siemens-healthineers/k2s/internal/version"
@@ -122,7 +126,7 @@ mkdir -p "$BIN_DIR"
 # Mirrors BuildGoExe.ps1's mapping minus the Windows-only apps.
 #   app|output_path
 BUILD_TARGETS=(
-    "k2s|$BIN_DIR/k2s"
+    "k2s|$REPO_ROOT/k2s.linux"
     "cloudinitisobuilder|$BIN_DIR/cloudinitisobuilder"
     "httpproxy|$BIN_DIR/httpproxy"
     "yaml2json|$BIN_DIR/yaml2json"

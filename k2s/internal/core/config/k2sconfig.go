@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"net"
 	"path/filepath"
+	"runtime"
 
 	cconfig "github.com/siemens-healthineers/k2s/internal/contracts/config"
 	"github.com/siemens-healthineers/k2s/internal/definitions"
@@ -69,7 +70,13 @@ func ReadK2sConfig(k2sInstallDir string) (*cconfig.K2sConfig, error) {
 
 	kubeConfig := cconfig.NewKubeConfig(kubeConfigDir, configJson.ConfigDir.Kube, filepath.Join(kubeConfigDir, definitions.KubeconfigName))
 	sshConfig := cconfig.NewSshConfig(sshDir, configJson.ConfigDir.Ssh, filepath.Join(sshDir, definitions.SSHSubDirName, definitions.SSHPrivateKeyName))
-	hostConfig := cconfig.NewHostConfig(kubeConfig, sshConfig, configJson.ConfigDir.K2s, k2sInstallDir, configJson.ConfigDir.Logs)
+	k2sConfigDir := configJson.ConfigDir.K2s
+	logsDir := configJson.ConfigDir.Logs
+	if runtime.GOOS == "linux" {
+		k2sConfigDir = "/var/lib/k2s"
+		logsDir = "/var/log/k2s"
+	}
+	hostConfig := cconfig.NewHostConfig(kubeConfig, sshConfig, k2sConfigDir, k2sInstallDir, logsDir)
 	controlPlaneConfig := cconfig.NewControlPlaneConfig(configJson.SmallSetup.ControlPlanIpAddress)
 
 	return cconfig.NewK2sConfig(hostConfig, controlPlaneConfig), nil

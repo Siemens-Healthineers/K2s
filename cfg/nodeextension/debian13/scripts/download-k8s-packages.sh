@@ -31,11 +31,13 @@ refresh_apt_cache() {
     local attempt=1
 
     while [ $attempt -le $max_retries ]; do
+        log_info "Refreshing apt package cache (attempt $attempt/$max_retries)..."
         if sudo env DEBIAN_FRONTEND=noninteractive timeout 300s apt-get update \
             -qq --yes --allow-releaseinfo-change \
             -o Acquire::Retries=2 \
             -o Acquire::http::Timeout=30 \
             -o Acquire::https::Timeout=30; then
+            log_info "Apt package cache refresh completed"
             return 0
         fi
 
@@ -82,6 +84,9 @@ while sudo fuser /var/lib/dpkg/lock-frontend /var/lib/apt/lists/lock >/dev/null 
     fi
     sleep 5
     local_wait=$((local_wait + 5))
+    if [ $((local_wait % 30)) -eq 0 ]; then
+        log_info "Still waiting for apt/dpkg locks (${local_wait}s elapsed)..."
+    fi
 done
 log_info "apt/dpkg locks free"
 
@@ -120,9 +125,10 @@ download_packages() {
         local download_error_file
         download_error_file=$(mktemp)
 
-        if cd "$TARGET_PATH" && sudo apt-get download --allow-unauthenticated "$package_name" 2>"$download_error_file"; then
+        if cd "$TARGET_PATH" && sudo apt-get download "$package_name" 2>"$download_error_file"; then
             downloaded_main_package=1
             rm -f "$download_error_file"
+            log_info "Downloaded main package: $package_name"
             break
         fi
 
@@ -155,6 +161,7 @@ download_packages() {
     fi
 
     if ls "$TARGET_PATH"/${deb_pattern} >/dev/null 2>&1; then
+        log_info "Resolving and downloading dependencies for: $package_name"
         cd "$TARGET_PATH" && sudo DEBIAN_FRONTEND=noninteractive \
             apt-get --reinstall install -y \
             --no-install-recommends --no-install-suggests \
@@ -163,7 +170,9 @@ download_packages() {
             | cut -d ' ' -f 2 \
             | sort -u \
             | grep -v "^${pkg_base}$" \
-            | xargs -r sudo apt-get download --allow-unauthenticated 2>/dev/null || true
+            | xargs -r sudo apt-get download 2>/dev/null || true
+
+        log_info "Completed package set: $package_name"
 
         return 0
     fi
@@ -216,7 +225,10 @@ download_required_kubernetes_package() {
 
 log_info "=== Downloading Base Tools ==="
 log_info "Refreshing apt package cache before base tools download"
-refresh_apt_cache || true
+if ! refresh_apt_cache; then
+    log_warning "Initial apt package cache refresh failed"
+    exit 1
+fi
 
 if ! download_packages 'gpg' || ! ls "$TARGET_PATH"/gpg*.deb >/dev/null 2>&1; then
     log_warning "gpg download failed; cannot continue"
@@ -237,6 +249,7 @@ set_kubernetes_apt_repository() {
     sudo rm -f /etc/apt/sources.list.d/kubernetes.list /etc/apt/sources.list.d/cri-o.list
 
     log_info "Step 1: Update package list (required before installing anything)"
+    log_info "Updating apt package list before repository configuration"
     sudo env DEBIAN_FRONTEND=noninteractive timeout 300s apt-get update \
         -qq --yes --allow-releaseinfo-change \
         -o Acquire::Retries=2 \
@@ -245,10 +258,16 @@ set_kubernetes_apt_repository() {
     
     log_info "Step 2: Install required tools (gpg and curl)"
     # Install GPG with retry and repair logic
-    install_with_retry "gpg" "$MAX_RETRIES"
+    if ! install_with_retry "gpg" "$MAX_RETRIES"; then
+        log_warning "gpg installation failed"
+        exit 1
+    fi
     
     # Install curl with retry and repair logic
-    install_with_retry "curl" "$MAX_RETRIES"
+    if ! install_with_retry "curl" "$MAX_RETRIES"; then
+        log_warning "curl installation failed"
+        exit 1
+    fi
     
     log_info "Step 3: Download and configure Kubernetes and CRI-O repositories"
 
@@ -263,14 +282,15 @@ set_kubernetes_apt_repository() {
     # Clean up old keyring file
     sudo rm -f "$KUBERNETES_APT_KEYRING"
     
-    # Download and convert Kubernetes GPG key in one pipeline (soft failure - continues if 403)
+    # Download and convert the Kubernetes GPG key. Do not install from an
+    # unauthenticated repository if the key cannot be verified.
     log_info "Downloading and converting Kubernetes GPG key"
     if sudo curl -fsSL $PROXY_FLAG "https://pkgs.k8s.io/core:/stable:/$K8S_VERSION_REPO/deb/Release.key" | sudo gpg --dearmor -o "$KUBERNETES_APT_KEYRING" 2>/dev/null; then
         echo "deb [signed-by=$KUBERNETES_APT_KEYRING] https://pkgs.k8s.io/core:/stable:/$K8S_VERSION_REPO/deb/ /" | sudo tee /etc/apt/sources.list.d/kubernetes.list > /dev/null
         log_info "✓ Kubernetes repository configured successfully"
     else
-        log_warning "Kubernetes key download/conversion failed (likely 403/404) - configuring repo as trusted (no GPG verification)"
-        echo "deb [trusted=yes] https://pkgs.k8s.io/core:/stable:/$K8S_VERSION_REPO/deb/ /" | sudo tee /etc/apt/sources.list.d/kubernetes.list > /dev/null
+        log_warning "Kubernetes key download or conversion failed"
+        exit 1
     fi
 
     # ===== CRI-O REPOSITORY SETUP =====
@@ -282,26 +302,28 @@ set_kubernetes_apt_repository() {
     # Clean up old keyring file
     sudo rm -f "$CRIO_APT_KEYRING"
     
-    # Download and convert CRI-O GPG key in one pipeline (soft failure - continues if 404/403)
+    # Download and convert the CRI-O GPG key. Do not fall back to a trusted
+    # repository because this script provisions the host runtime.
     log_info "Downloading and converting CRI-O GPG key from OpenSUSE"
     if sudo curl -fsSL $PROXY_FLAG "https://download.opensuse.org/repositories/isv:/cri-o:/stable:/$K8S_VERSION_REPO/deb/Release.key" | sudo gpg --dearmor -o "$CRIO_APT_KEYRING" 2>/dev/null; then
         echo "deb [signed-by=$CRIO_APT_KEYRING] https://download.opensuse.org/repositories/isv:/cri-o:/stable:/$K8S_VERSION_REPO/deb/ /" | sudo tee /etc/apt/sources.list.d/cri-o.list > /dev/null
         log_info "✓ CRI-O repository configured successfully"
     else
-        log_warning "CRI-O key download/conversion failed (likely 404/403) - configuring repo as trusted (no GPG verification)"
-        echo "deb [trusted=yes] https://download.opensuse.org/repositories/isv:/cri-o:/stable:/$K8S_VERSION_REPO/deb/ /" | sudo tee /etc/apt/sources.list.d/cri-o.list > /dev/null
+        log_warning "CRI-O key download or conversion failed"
+        exit 1
     fi
 
     # ===== UPDATE APT PACKAGE LIST =====
     log_info "Step 4: Final update of package list with new repositories"
-    # Allow unsigned/unauthenticated repos in case GPG key downloads failed
-    sudo env DEBIAN_FRONTEND=noninteractive timeout 300s apt-get update \
-        -o Acquire::AllowInsecureRepositories=true \
-        -o Acquire::AllowUnauthenticated=true \
+    log_info "Refreshing apt package list with Kubernetes and CRI-O repositories"
+    if ! sudo env DEBIAN_FRONTEND=noninteractive timeout 300s apt-get update \
         -qq --yes --allow-releaseinfo-change \
         -o Acquire::Retries=2 \
         -o Acquire::http::Timeout=30 \
-        -o Acquire::https::Timeout=30 2>&1 | grep -v "^Reading" | grep -v "^Building" | grep -v "WARNING" || true
+        -o Acquire::https::Timeout=30; then
+        log_warning "Final apt package cache refresh failed"
+        exit 1
+    fi
 
 }
 
