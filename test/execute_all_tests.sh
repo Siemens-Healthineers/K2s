@@ -109,7 +109,10 @@ if [[ "$offline_mode" == true ]]; then
   label_terms+=("!internet-required")
 fi
 if [[ ${#label_terms[@]} -gt 0 ]]; then
-  label_filter="$(IFS=' || '; echo "${label_terms[*]}")"
+  label_filter="${label_terms[0]}"
+  for tag in "${label_terms[@]:1}"; do
+    label_filter+=" || $tag"
+  done
 else
   label_filter="acceptance"
 fi
