@@ -90,7 +90,9 @@ if ! command -v go >/dev/null 2>&1; then
 fi
 
 export KUBECONFIG="${KUBECONFIG:-/etc/kubernetes/admin.conf}"
-export SYSTEM_TEST_PROXY="$proxy"
+if [[ -n "$proxy" ]]; then
+  export SYSTEM_TEST_PROXY="$proxy"
+fi
 if [[ "$offline_mode" == true ]]; then
   export SYSTEM_OFFLINE_MODE=true
 fi
@@ -105,9 +107,6 @@ if [[ -n "$tags" ]]; then
     [[ -n "$tag" ]] && label_terms+=("$tag")
   done
 fi
-if [[ "$offline_mode" == true ]]; then
-  label_terms+=("!internet-required")
-fi
 if [[ ${#label_terms[@]} -gt 0 ]]; then
   label_filter="${label_terms[0]}"
   for tag in "${label_terms[@]:1}"; do
@@ -115,6 +114,9 @@ if [[ ${#label_terms[@]} -gt 0 ]]; then
   done
 else
   label_filter="acceptance"
+fi
+if [[ "$offline_mode" == true ]]; then
+  label_filter="($label_filter) && !internet-required"
 fi
 if [[ -n "$exclude_tags" ]]; then
   IFS=',' read -ra excluded <<< "$exclude_tags"
