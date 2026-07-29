@@ -26,7 +26,7 @@ PS> .\ResetWinContainerStorage.ps1 -Containerd D:\containerd -Docker D:\docker -
 
 Param(
     [parameter(Mandatory = $false, HelpMessage = 'Containerd directory')]
-    [string]$Containerd = 'C:\containerd1',
+    [string]$Containerd = '',
     [parameter(Mandatory = $false, HelpMessage = 'Docker directory')]
     [string]$Docker = 'C:\docker1',
     [parameter(Mandatory = $false, HelpMessage = 'Number of retries to be performed for deleting each directory')]
@@ -44,8 +44,9 @@ Param(
 )
 $infraModule = "$PSScriptRoot\..\..\..\modules\k2s\k2s.infra.module\k2s.infra.module.psm1"
 $clusterModule = "$PSScriptRoot\..\..\..\modules\k2s\k2s.cluster.module\k2s.cluster.module.psm1"
+$nodeModule = "$PSScriptRoot\..\..\..\modules\k2s\k2s.node.module\k2s.node.module.psm1"
 
-Import-Module $infraModule, $clusterModule
+Import-Module $infraModule, $clusterModule, $nodeModule
 
 Initialize-Logging -ShowLogs:$ShowLogs
 
@@ -96,7 +97,15 @@ function Invoke-GracefulCleanup {
     }
 
     Write-Log "Take ownership now on items in dir: $Directory" -Console
-    takeown /a /r /d Y /F $Directory 2>&1 | Write-Log -Console
+    # 'takeown /r' recurses into reparse points inside the containerd storage (e.g. snapshot
+    # mount points) whose targets may no longer resolve, emitting a benign
+    # 'ERROR: File or Directory not found.' line. The top-level directory is guaranteed to exist
+    # (checked by the caller before cleanup), so this specific message is a false positive and is
+    # filtered from the log. All other output - including genuine errors - is still logged, and the
+    # takeown invocation (ownership semantics) is unchanged.
+    takeown /a /r /d Y /F $Directory 2>&1 |
+        Where-Object { $_ -notmatch 'ERROR:\s*File or Directory not found\.' } |
+        Write-Log -Console
 
     Write-Log 'Add ownership also for Administrators' -Console
     icacls $Directory /grant Administrators:F /t /C 2>&1 | Write-Log -Console
@@ -196,6 +205,24 @@ if (!$Force) {
         }
         Write-Log $msg -Console
         exit 0
+    }
+}
+
+if ([string]::IsNullOrWhiteSpace($Containerd)) {
+    try {
+        $storageDrive = Get-StorageLocalDrive          # e.g. 'D:'
+        $storageFolder = Get-StorageLocalFolderName    # e.g. '\Somaris\appdata' (or '\')
+        # %BEST-DRIVE% = <drive><folder>; containerd root/state live under <drive><folder>\containerd (see config.toml.template).
+        $Containerd = Join-Path "$storageDrive$storageFolder" 'containerd'
+        # NOTE: the underlying value is kept as-is (Windows collapses repeated separators when
+        # accessing the path). Only the displayed log is normalized to a human-readable form,
+        # collapsing any doubled backslashes (introduced by Get-StorageLocalFolderName) for display.
+        $displayPath = $Containerd -replace '\\{2,}', '\'
+        Write-Log "[ResetWinStorage] Using configured containerd storage path: $displayPath" -Console
+    }
+    catch {
+        $Containerd = 'C:\containerd'
+        Write-Log "[ResetWinStorage] Could not determine configured containerd path, falling back to '$Containerd'. $_" -Console
     }
 }
 

@@ -83,7 +83,10 @@ const (
 )
 
 var (
-	defaultContainerdDir = determineDefaultDir("containerd")
+	// defaultContainerdDir is intentionally empty: an empty value signals
+	// ResetWinContainerStorage.ps1 to resolve the containerd storage path
+	// configured for this installation (fallback: C:\containerd).
+	defaultContainerdDir = ""
 	defaultDockerDir     = determineDefaultDir("docker")
 
 	resetWinStorageCmd = &cobra.Command{
@@ -163,8 +166,7 @@ func buildResetPsCmd(cmd *cobra.Command) (psCmd string, params []string, err err
 	}
 
 	if containerdDir == "" {
-		slog.Info("Containerd directory set as empty, will use default dir", "default-dir", defaultContainerdDir)
-		containerdDir = defaultContainerdDir
+		slog.Info("No containerd directory provided; PowerShell will resolve the configured storage path")
 	}
 
 	dockerDir, err := cmd.Flags().GetString(dockerDirFlag)
