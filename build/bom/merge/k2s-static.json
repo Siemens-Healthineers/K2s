@@ -30,7 +30,7 @@
     {
       "group": "https://github.com/AdguardTeam/dnsproxy",
       "name": "dnsproxy",
-      "version": "v0.83.0",
+      "version": "v0.83.1",
       "description": "",
       "scope": "required",
       "licenses": [
@@ -47,7 +47,7 @@
           "value": "k2s:core:pkg:executables"
         }
       ],
-      "purl": "pkg:github/AdguardTeam/dnsproxy@v0.83.0",
+      "purl": "pkg:github/AdguardTeam/dnsproxy@v0.83.1",
       "type": "application"
     },
     {
@@ -214,7 +214,7 @@
     {
       "group": "https://www.chiark.greenend.org.uk/~sgtatham/putty/releases/0.83.html",
       "name": "plink",
-      "version": "v0.83.0",
+      "version": "v0.83.1",
       "description": "",
       "scope": "required",
       "licenses": [
@@ -231,13 +231,13 @@
           "value": "k2s:core:pkg:executables"
         }
       ],
-      "purl": "pkg:generic/plink@v0.83.0",
+      "purl": "pkg:generic/plink@v0.83.1",
       "type": "application"
     },
     {
       "group": "https://www.chiark.greenend.org.uk/~sgtatham/putty/releases/0.83.html",
       "name": "pscp",
-      "version": "v0.83.0",
+      "version": "v0.83.1",
       "description": "",
       "scope": "required",
       "licenses": [
@@ -254,7 +254,7 @@
           "value": "k2s:core:pkg:executables"
         }
       ],
-      "purl": "pkg:generic/pscp@v0.83.0",
+      "purl": "pkg:generic/pscp@v0.83.1",
       "type": "application"
     },
     {
