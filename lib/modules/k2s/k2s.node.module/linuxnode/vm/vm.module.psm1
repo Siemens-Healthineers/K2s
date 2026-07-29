@@ -401,6 +401,29 @@ function Invoke-CmdOnVmViaSSHKey(
     [Parameter(Mandatory = $false)]
     [uint16]$ExecutionTimeoutSeconds = 0) {
 
+    function Get-OutputPreviewForError {
+        param(
+            [Parameter(Mandatory = $false)]
+            $CommandOutput
+        )
+
+        if ($null -eq $CommandOutput) {
+            return ''
+        }
+
+        $outputText = @($CommandOutput) -join "`n"
+        if ([string]::IsNullOrWhiteSpace($outputText)) {
+            return ''
+        }
+
+        $maxLength = 4000
+        if ($outputText.Length -gt $maxLength) {
+            return "`n--- remote output (truncated) ---`n$($outputText.Substring(0, $maxLength))"
+        }
+
+        return "`n--- remote output ---`n$outputText"
+    }
+
     if (!$NoLog) {
         Write-Log "cmd: $CmdToExecute, retries: $Retries, timeout: $Timeout sec, execution timeout: $ExecutionTimeoutSeconds sec, ignore err: $IgnoreErrors, nested: $Nested, ip address: $IpAddress"
     }
@@ -412,7 +435,8 @@ function Invoke-CmdOnVmViaSSHKey(
             $success = ($LASTEXITCODE -eq 0)
 
             if (!$success -and !$IgnoreErrors) {
-                throw "Error occurred while executing command '$CmdToExecute' in control plane (exit code: '$LASTEXITCODE')"
+                $outputPreview = Get-OutputPreviewForError -CommandOutput $output
+                throw "Error occurred while executing command '$CmdToExecute' in control plane (exit code: '$LASTEXITCODE')$outputPreview"
             }
             $Stoploop = $true
         }

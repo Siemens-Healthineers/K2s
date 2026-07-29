@@ -341,13 +341,14 @@ function Remove-LinuxWorkerNode {
         [string] $NodeName = $(throw 'Argument missing: NodeName'),
         [string] $UserName = $(throw 'Argument missing: UserName'),
         [string] $IpAddress = $(throw 'Argument missing: IpAddress'),
-        [string] $AdditionalHooksDir = ''
+        [string] $AdditionalHooksDir = '',
+        [switch] $SkipRemoteCleanup = $false
     )
     Write-Log "Removing K2s worker node '$NodeName'"
 
     # Remove persistent routes service only for bare-metal (HOST) nodes
     $nodeConfig = Get-NodeConfig -NodeName $NodeName
-    if ($null -ne $nodeConfig -and $nodeConfig.NodeType -eq 'HOST') {
+    if (-not $SkipRemoteCleanup -and $null -ne $nodeConfig -and $nodeConfig.NodeType -eq 'HOST') {
         Remove-PersistentLinuxWorkerNodeRoutes -UserName $UserName -IpAddress $IpAddress
     }
 
@@ -358,12 +359,20 @@ function Remove-LinuxWorkerNode {
     $k8sFormattedNodeName = $NodeName.ToLower()
     $clusterState = (Invoke-Kubectl -Params @('get', 'nodes', '-o', 'wide')).Output
     if ($clusterState -match $k8sFormattedNodeName) {
-        Remove-LinuxNode -NodeName $k8sFormattedNodeName -NodeUserName $UserName -NodeIpAddress $IpAddress -PostStepHook $doAfterRemoving
+        if ($SkipRemoteCleanup) {
+            Write-Log "Node '$NodeName' is unreachable; performing cluster-side removal only." -Console
+            (Invoke-Kubectl -Params @('drain', "$k8sFormattedNodeName", '--ignore-daemonsets', '--delete-emptydir-data', '--force', '--grace-period=0', '--timeout=60s')).Output | ForEach-Object { "$_" } | Write-Log
+            (Invoke-Kubectl -Params @('delete', 'node', "$k8sFormattedNodeName", '--ignore-not-found')).Output | ForEach-Object { "$_" } | Write-Log
+        } else {
+            Remove-LinuxNode -NodeName $k8sFormattedNodeName -NodeUserName $UserName -NodeIpAddress $IpAddress -PostStepHook $doAfterRemoving
+        }
         Write-Log "Removed node from the cluster" -Console
     }
 
-    Remove-KubernetesArtifacts -UserName $UserName -IpAddress $IpAddress
-    Write-Log "Removed node essentials from the remote machine" -Console
+    if (-not $SkipRemoteCleanup) {
+        Remove-KubernetesArtifacts -UserName $UserName -IpAddress $IpAddress
+        Write-Log "Removed node essentials from the remote machine" -Console
+    }
 
     Remove-NodeConfig -Name $NodeName
 

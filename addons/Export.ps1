@@ -225,7 +225,7 @@ try {
                  Copy-Item -Path $readmePath -Destination $scriptsStaging -Force
              }
 
-             @('*.ps1', '*.psm1') | ForEach-Object {
+             @('*.ps1', '*.psm1', '*.sh') | ForEach-Object {
                  Get-ChildItem -Path $dirPath -Filter $_ -File -Recurse -ErrorAction SilentlyContinue | ForEach-Object {
                      $relativePath = $_.FullName.Substring($dirPath.Length + 1)
                      $targetPath = Join-Path $scriptsStaging $relativePath

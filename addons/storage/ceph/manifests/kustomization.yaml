@@ -1,0 +1,13 @@
+# SPDX-FileCopyrightText: © 2026 Siemens Healthineers AG
+#
+# SPDX-License-Identifier: MIT
+
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - csi-rbac.yaml
+  - operator.yaml
+  - cephfs-driver.yaml
+  - ceph-connection.yaml
+  - client-profile.yaml
