@@ -132,7 +132,7 @@ suites=(./test/e2e/cluster/core)
 
 ginkgo_args=(--label-filter "$label_filter" --output-dir "$test_result_path" --json-report "linux-acceptance-report.json")
 if [[ "$verbose" == true ]]; then
-  ginkgo_args+=(--verbose)
+  ginkgo_args+=(-v)
 fi
 
 ginkgo_args+=("${suites[@]}")
