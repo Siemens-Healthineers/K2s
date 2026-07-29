@@ -333,6 +333,9 @@ func linuxKubectlArgs(args ...string) []string {
 }
 
 func linuxKubeconfig() string {
+	if _, err := os.Stat(linuxAdminKubeconfig); err == nil {
+		return linuxAdminKubeconfig
+	}
 	if homeDir, err := os.UserHomeDir(); err == nil {
 		userKubeconfig := filepath.Join(homeDir, ".kube", "config")
 		if _, err := os.Stat(userKubeconfig); err == nil {
