@@ -275,7 +275,7 @@ function Get-RegisteredHeadlampPlugins {
         },
         [pscustomobject]@{
             Name     = 'prometheus-plugin'
-            Image    = 'shsk2s.azurecr.io/headlamp-plugin-prometheus:0.9.0'
+            Image    = 'shsk2s.azurecr.io/headlamp-plugin-prometheus:0.9.1'
             Detector = { Test-PrometheusCapabilityAvailable }
         },
         [pscustomobject]@{
