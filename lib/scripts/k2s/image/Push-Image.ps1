@@ -147,44 +147,6 @@ function Get-LinuxPushFallbackDestination {
     return "docker://$registryHostIp`:30500/$imagePath"
 }
 
-function Get-RegistryHostIp {
-    $controlPlaneIp = Get-ConfiguredIPControlPlane
-
-    $registryNodeName = ''
-    try {
-        $kubeToolsPath = Get-KubeToolsPath
-        $kubectlExe = "$kubeToolsPath\kubectl.exe"
-        if (Test-Path $kubectlExe) {
-            $registryNodeName = (& $kubectlExe -n registry get pod -l app=registry -o jsonpath='{.items[0].spec.nodeName}' 2>$null) | Out-String
-            $registryNodeName = $registryNodeName.Trim()
-        }
-    }
-    catch {
-        Write-Log "[Push] Unable to detect registry pod node, using control-plane IP fallback" 
-    }
-
-    if ([string]::IsNullOrWhiteSpace($registryNodeName)) {
-        return $controlPlaneIp
-    }
-
-    $setupFilePath = Get-SetupConfigFilePath
-    $controlPlaneHostname = Get-ConfigValue -Path $setupFilePath -Key 'ControlPlaneNodeHostname'
-    if ([string]::IsNullOrWhiteSpace($controlPlaneHostname)) {
-        $controlPlaneHostname = 'kubemaster'
-    }
-
-    if ($registryNodeName.ToLower() -eq $controlPlaneHostname.ToLower()) {
-        return $controlPlaneIp
-    }
-
-    $registryNodeConfig = Get-NodeConfig -NodeName $registryNodeName
-    if ($null -ne $registryNodeConfig -and -not [string]::IsNullOrWhiteSpace($registryNodeConfig.IpAddress)) {
-        return $registryNodeConfig.IpAddress
-    }
-
-    return $controlPlaneIp
-}
-
 function Ensure-LinuxRegistryHostResolution {
     param(
         [Parameter(Mandatory = $true)]
@@ -225,9 +187,11 @@ function Invoke-PushOnNode {
         }
 
         $linuxPushCmd = Get-LinuxPushCommand -Image $Image
+        $proxyCmd = Get-LinuxTransparentProxyPrefix -LogPrefix 'Push' -NodeName $NodeInfo.Name -Reference $Image
+        $pushCmdWithProxy = if ([string]::IsNullOrWhiteSpace($proxyCmd)) { $linuxPushCmd } else { $linuxPushCmd -replace '^sudo ', "sudo ${proxyCmd}" }
 
         if ($NodeInfo.Kind -eq 'ControlPlane') {
-            $result = Invoke-CmdOnControlPlaneViaSSHKey $linuxPushCmd -Retries 5 -Timeout 600 -IgnoreErrors
+            $result = Invoke-CmdOnControlPlaneViaSSHKey $pushCmdWithProxy -Retries 5 -Timeout 600 -IgnoreErrors
             if (-not $result.Success) {
                 $resultOutput = ($result.Output | Out-String)
                 $fallbackDestination = Get-LinuxPushFallbackDestination -Image $Image
@@ -245,14 +209,15 @@ function Invoke-PushOnNode {
         }
 
         if ($NodeInfo.Kind -eq 'LinuxWorker') {
-            $result = Invoke-CmdOnVmViaSSHKey -CmdToExecute $linuxPushCmd -IpAddress $NodeInfo.IpAddress -UserName $NodeInfo.Username -NoLog -IgnoreErrors -Timeout 600
+            $result = Invoke-CmdOnVmViaSSHKey -CmdToExecute $pushCmdWithProxy -IpAddress $NodeInfo.IpAddress -UserName $NodeInfo.Username -NoLog -IgnoreErrors -Timeout 600
             if (-not $result.Success) {
                 $resultOutput = ($result.Output | Out-String)
                 $fallbackDestination = Get-LinuxPushFallbackDestination -Image $Image
                 if (-not [string]::IsNullOrWhiteSpace($fallbackDestination) -and $resultOutput -match 'lookup k2s\.registry\.local|Temporary failure in name resolution|invalid status code from registry 404|x509|connection refused|dial tcp .*:80: connect: connection refused') {
                     Write-Log "[Push] Retrying Linux push from '$($NodeInfo.Name)' via control-plane NodePort destination '$fallbackDestination'" -Console
                     $fallbackCmd = "sudo buildah push --tls-verify=false $Image $fallbackDestination 2>&1"
-                    $result = Invoke-CmdOnVmViaSSHKey -CmdToExecute $fallbackCmd -IpAddress $NodeInfo.IpAddress -UserName $NodeInfo.Username -NoLog -IgnoreErrors -Timeout 600
+                    $fallbackCmdWithProxy = $fallbackCmd -replace '^sudo ', "sudo ${proxyCmd}"
+                    $result = Invoke-CmdOnVmViaSSHKey -CmdToExecute $fallbackCmdWithProxy -IpAddress $NodeInfo.IpAddress -UserName $NodeInfo.Username -NoLog -IgnoreErrors -Timeout 600
                 }
             }
 

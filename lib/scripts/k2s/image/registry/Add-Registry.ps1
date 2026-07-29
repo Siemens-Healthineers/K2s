@@ -128,7 +128,9 @@ function Set-RegistryOnLinuxTarget {
 
             (Invoke-CmdOnVmViaSSHKey -CmdToExecute 'sudo mkdir -p /root/.config/containers' -IpAddress $NodeInfo.IpAddress -UserName $NodeInfo.Username -NoLog).Output | Write-Log
 
-            $loginResult = (Invoke-CmdOnVmViaSSHKey -CmdToExecute "sudo buildah login --authfile /root/.config/containers/auth.json -u '$escapedUser' -p '$escapedPwd' '$escapedRegistry' 2>&1" -IpAddress $NodeInfo.IpAddress -UserName $NodeInfo.Username -NoLog -IgnoreErrors)
+            $proxyCmd = Get-LinuxTransparentProxyPrefix -LogPrefix 'Registry' -NodeName $NodeInfo.Name -Reference $Registry
+
+            $loginResult = (Invoke-CmdOnVmViaSSHKey -CmdToExecute "sudo ${proxyCmd}buildah login --authfile /root/.config/containers/auth.json -u '$escapedUser' -p '$escapedPwd' '$escapedRegistry' 2>&1" -IpAddress $NodeInfo.IpAddress -UserName $NodeInfo.Username -NoLog -IgnoreErrors)
             $loginResult.Output | Write-Log
 
             if (-not $loginResult.Success) {
