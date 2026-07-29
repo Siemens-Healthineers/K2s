@@ -215,9 +215,9 @@ function Invoke-PushOnNode {
                 $fallbackDestination = Get-LinuxPushFallbackDestination -Image $Image
                 if (-not [string]::IsNullOrWhiteSpace($fallbackDestination) -and $resultOutput -match 'lookup k2s\.registry\.local|Temporary failure in name resolution|invalid status code from registry 404|x509|connection refused|dial tcp .*:80: connect: connection refused') {
                     Write-Log "[Push] Retrying Linux push from '$($NodeInfo.Name)' via control-plane NodePort destination '$fallbackDestination'" -Console
+                    # The fallback destination is an internal cluster NodePort IP; do NOT route it through the corporate proxy.
                     $fallbackCmd = "sudo buildah push --tls-verify=false $Image $fallbackDestination 2>&1"
-                    $fallbackCmdWithProxy = $fallbackCmd -replace '^sudo ', "sudo ${proxyCmd}"
-                    $result = Invoke-CmdOnVmViaSSHKey -CmdToExecute $fallbackCmdWithProxy -IpAddress $NodeInfo.IpAddress -UserName $NodeInfo.Username -NoLog -IgnoreErrors -Timeout 600
+                    $result = Invoke-CmdOnVmViaSSHKey -CmdToExecute $fallbackCmd -IpAddress $NodeInfo.IpAddress -UserName $NodeInfo.Username -NoLog -IgnoreErrors -Timeout 600
                 }
             }
 
