@@ -112,6 +112,7 @@ func (o *LinuxOrchestrator) Uninstall(cfg UninstallConfig) error {
 		}
 
 		o.cleanupCriOMirrorDropIns()
+		removeKubeletFileLogging()
 		o.removeControlPlaneState()
 	}
 
