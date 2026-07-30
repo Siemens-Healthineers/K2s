@@ -8,6 +8,7 @@ import (
 	"net"
 	"path/filepath"
 	"runtime"
+	"strconv"
 
 	cconfig "github.com/siemens-healthineers/k2s/internal/contracts/config"
 	"github.com/siemens-healthineers/k2s/internal/definitions"
@@ -40,8 +41,9 @@ type smallSetup struct {
 // KubeSwitchConfig contains the K2s host gateway address and network from the
 // central cfg/config.json configuration.
 type KubeSwitchConfig struct {
-	Address string
-	CIDR    string
+	Address     string
+	CIDR        string
+	AddressCIDR string
 }
 
 type configDir struct {
@@ -135,10 +137,12 @@ func ReadKubeSwitchConfig(k2sInstallDir string) (KubeSwitchConfig, error) {
 	if !network.Contains(address) {
 		return KubeSwitchConfig{}, fmt.Errorf("KubeSwitch address %q is not in configured CIDR %q", configJson.SmallSetup.KubeSwitchIPAddress, configJson.SmallSetup.MasterNetworkCIDR)
 	}
+	prefixLength, _ := network.Mask.Size()
 
 	return KubeSwitchConfig{
-		Address: configJson.SmallSetup.KubeSwitchIPAddress,
-		CIDR:    configJson.SmallSetup.MasterNetworkCIDR,
+		Address:     configJson.SmallSetup.KubeSwitchIPAddress,
+		CIDR:        configJson.SmallSetup.MasterNetworkCIDR,
+		AddressCIDR: configJson.SmallSetup.KubeSwitchIPAddress + "/" + strconv.Itoa(prefixLength),
 	}, nil
 }
 
