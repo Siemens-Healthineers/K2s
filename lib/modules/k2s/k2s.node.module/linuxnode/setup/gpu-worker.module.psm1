@@ -537,7 +537,7 @@ function Initialize-GpuWorkerNode {
     Write-Log '[GPU] ======================================' -Console
     Write-Log '[GPU] The node is now ready for GPU workloads.' -Console
     Write-Log '[GPU] To run GPU pods, ensure the gpu-node addon is enabled:' -Console
-    Write-Log '[GPU]   k2s addons enable gpu-node' -Console
+    Write-Log "[GPU]   k2s addons enable gpu-node --node $NodeName" -Console
     Write-Log '[GPU] ======================================' -Console
 }
 
