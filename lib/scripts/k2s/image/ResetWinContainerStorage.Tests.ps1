@@ -96,5 +96,77 @@ Describe 'ResetWinContainerStorage.ps1' -Tag 'unit', 'ci', 'image' {
             Should -Invoke Get-StorageLocalFolderName -Exactly 0
         }
     }
+
+    Context 'Stopping the container runtime as a safety net before deletion' {
+        BeforeEach {
+            # Make the containerd directory "exist" so the cleanup path runs, but neutralize the
+            # actual destructive operations so no filesystem changes occur during the test.
+            Mock -CommandName Test-Path { param($Path) return ($Path -eq 'D:\containerd') }
+            Mock -CommandName takeown { }
+            Mock -CommandName icacls { }
+            Mock -CommandName fsutil { }
+            Mock -CommandName Get-ChildItem { return @() }
+            Mock -CommandName Remove-Item { }
+            Mock -CommandName Get-KubeBinPath { return 'C:\k\bin' }
+            Mock -CommandName Get-Service { return [PSCustomObject]@{ Name = 'containerd'; Status = 'Running' } }
+            Mock -CommandName Stop-Service { }
+            Mock -CommandName Get-Process { return $null }
+            Mock -CommandName Stop-Process { }
+        }
+
+        It 'stops the containerd service before cleaning the containerd storage' {
+            Invoke-ResetWinContainerStorageScript -Containerd 'D:\containerd'
+
+            Should -Invoke Stop-Service -Exactly 1 -ParameterFilter { $Name -eq 'containerd' }
+        }
+
+        It 'does not stop the containerd service when there is nothing to clean' {
+            Mock -CommandName Test-Path { return $false }
+
+            Invoke-ResetWinContainerStorageScript -Containerd 'D:\containerd'
+
+            Should -Invoke Stop-Service -Exactly 0
+        }
+    }
+
+    Context 'Removing Windows snapshotter layers via the HCS DestroyLayer path' {
+        BeforeEach {
+            $script:snapshotsPath = 'D:\containerd\root\io.containerd.snapshotter.v1.windows\snapshots'
+            # containerd dir and the snapshots dir "exist"; zap.exe does NOT, so Invoke-ZapFolder
+            # takes its safe not-found branch and never launches a real executable during the test.
+            Mock -CommandName Test-Path { param($Path) return ($Path -eq 'D:\containerd' -or $Path -eq $script:snapshotsPath) }
+            Mock -CommandName Get-ChildItem {
+                param($Path)
+                if ($Path -eq $script:snapshotsPath) {
+                    return @(
+                        [PSCustomObject]@{ Name = '138'; FullName = "$script:snapshotsPath\138" },
+                        [PSCustomObject]@{ Name = '4'; FullName = "$script:snapshotsPath\4" }
+                    )
+                }
+                return @()
+            }
+            Mock -CommandName takeown { }
+            Mock -CommandName icacls { }
+            Mock -CommandName fsutil { }
+            Mock -CommandName Remove-Item { }
+            Mock -CommandName Get-KubeBinPath { return 'C:\k\bin' }
+            Mock -CommandName Get-Service { return $null }
+            Mock -CommandName Stop-Service { }
+            Mock -CommandName Get-Process { return $null }
+            Mock -CommandName Stop-Process { }
+        }
+
+        It 'enumerates the Windows snapshotter layers' {
+            Invoke-ResetWinContainerStorageScript -Containerd 'D:\containerd'
+
+            Should -Invoke Get-ChildItem -ParameterFilter { $Path -eq $snapshotsPath }
+        }
+
+        It 'attempts to destroy every snapshot layer individually' {
+            Invoke-ResetWinContainerStorageScript -Containerd 'D:\containerd'
+
+            Should -Invoke Write-Log -Exactly 2 -ParameterFilter { $Message -like '*Destroying container layer*' }
+        }
+    }
 }
 

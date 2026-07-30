@@ -23,7 +23,7 @@
             "172.21.0.0/16"
         ],
         "storageLocalDriveLetter": "D",
-        "storageLocalDriveFolder": "krishna",
+        "storageLocalDriveFolder": "kk",
         "defaultRegistry": "shsk2s.azurecr.io",
         "mirrorRegistries": [
             {
