@@ -22,12 +22,17 @@ import (
 )
 
 const (
-	crioServiceName = "crio"
-	crioSocket      = "unix:///var/run/crio/crio.sock"
-	localProxyURL   = "http://127.0.0.1:8181"
-	proxyService    = "k2s-httpproxy"
-	proxyNetworkSvc = "k2s-proxy-network"
-	proxyNetworkDev = "k2s-proxy0"
+	crioServiceName  = "crio"
+	crioSocket       = "unix:///var/run/crio/crio.sock"
+	localProxyURL    = "http://127.0.0.1:8181"
+	proxyService     = "k2s-httpproxy"
+	proxyNetworkSvc  = "k2s-proxy-network"
+	proxyNetworkDev  = "k2s-proxy0"
+	proxyLogDir      = "/var/log/httpproxy"
+	proxyLogFile     = "/var/log/httpproxy/httpproxy.log"
+	kubeletLogDir    = "/var/log/kubelet"
+	kubeletLogFile   = "/var/log/kubelet/kubelet.log"
+	kubeletLogDropIn = "/etc/systemd/system/kubelet.service.d/20-k2s-logging.conf"
 )
 
 var k8sVersionPattern = regexp.MustCompile(`(?m)return\s+['\"](v[0-9]+\.[0-9]+\.[0-9]+)['\"]`)
@@ -133,6 +138,9 @@ func (o *LinuxOrchestrator) provisionKubernetes(cfg InstallConfig) (string, erro
 	if err := o.checkProvisionedRuntime(k8sVersion); err != nil {
 		return "", err
 	}
+	if err := configureKubeletFileLogging(); err != nil {
+		return "", err
+	}
 
 	return k8sVersion, nil
 }
@@ -166,6 +174,7 @@ func (o *LinuxOrchestrator) installHTTPProxy(cfg InstallConfig) error {
 		return fmt.Errorf("Linux httpproxy binary is missing at %s: %w", proxyBinary, err)
 	}
 	networkDependencies := ""
+	proxyAllowedCIDRs := []string{"127.0.0.0/8", podNetworkCIDR, servicesCIDR}
 	if cfg.LinuxOnly {
 		proxyNetwork, err := config.ReadKubeSwitchConfig(cfg.InstallDir)
 		if err != nil {
@@ -175,13 +184,22 @@ func (o *LinuxOrchestrator) installHTTPProxy(cfg InstallConfig) error {
 			return err
 		}
 		networkDependencies = fmt.Sprintf("Requires=%s.service\nAfter=%s.service\n", proxyNetworkSvc, proxyNetworkSvc)
+		// Permit clients that use the configured KubeSwitch compatibility
+		// address, including local host diagnostics such as curl -x.
+		proxyAllowedCIDRs = append(proxyAllowedCIDRs, proxyNetwork.CIDR)
+	}
+	if err := ensureServiceLogFile(proxyLogDir, proxyLogFile); err != nil {
+		return fmt.Errorf("prepare local HTTP proxy log file: %w", err)
 	}
 
 	noProxy := mergeNoProxy(cfg.NoProxy)
 	// Listen on all host interfaces so pods can reach the proxy through the
 	// K2s-owned configured KubeSwitch compatibility gateway. Access remains
 	// restricted to loopback, pod, and service CIDRs; it is not open to peers.
-	args := []string{"--addr", ":8181", "--allowed-cidr", "127.0.0.0/8", "--allowed-cidr", podNetworkCIDR, "--allowed-cidr", servicesCIDR}
+	args := []string{"--addr", ":8181"}
+	for _, cidr := range proxyAllowedCIDRs {
+		args = append(args, "--allowed-cidr", cidr)
+	}
 	if cfg.Proxy != "" {
 		if _, err := url.ParseRequestURI(cfg.Proxy); err != nil {
 			return fmt.Errorf("invalid --proxy value %q: %w", cfg.Proxy, err)
@@ -201,12 +219,14 @@ Type=simple
 ExecStart=%s %s
 Environment="NO_PROXY=%s"
 Environment="no_proxy=%s"
+StandardOutput=append:%s
+StandardError=append:%s
 Restart=on-failure
 RestartSec=5
 
 [Install]
 WantedBy=multi-user.target
-`, networkDependencies, proxyBinary, strings.Join(args, " "), systemdValue(noProxy), systemdValue(noProxy))
+`, networkDependencies, proxyBinary, strings.Join(args, " "), systemdValue(noProxy), systemdValue(noProxy), proxyLogFile, proxyLogFile)
 	if err := os.WriteFile(unitPath, []byte(unit), 0644); err != nil {
 		return fmt.Errorf("write local HTTP proxy service: %w", err)
 	}
@@ -226,6 +246,44 @@ func removeHTTPProxy(removeCompatibilityNetwork bool) {
 		removeLinuxOnlyProxyNetwork()
 	}
 	_ = runCommand("systemctl", "daemon-reload")
+}
+
+func configureKubeletFileLogging() error {
+	if err := ensureServiceLogFile(kubeletLogDir, kubeletLogFile); err != nil {
+		return err
+	}
+	if err := os.MkdirAll(filepath.Dir(kubeletLogDropIn), 0755); err != nil {
+		return fmt.Errorf("create kubelet logging drop-in directory: %w", err)
+	}
+	dropIn := fmt.Sprintf(`[Service]
+StandardOutput=append:%s
+StandardError=append:%s
+`, kubeletLogFile, kubeletLogFile)
+	if err := os.WriteFile(kubeletLogDropIn, []byte(dropIn), 0644); err != nil {
+		return fmt.Errorf("write kubelet logging drop-in: %w", err)
+	}
+	if err := runCommand("systemctl", "daemon-reload"); err != nil {
+		return fmt.Errorf("reload systemd after kubelet logging setup: %w", err)
+	}
+	return nil
+}
+
+func removeKubeletFileLogging() {
+	if err := os.Remove(kubeletLogDropIn); err != nil && !os.IsNotExist(err) {
+		slog.Warn("[Uninstall] Could not remove K2s kubelet logging drop-in", "path", kubeletLogDropIn, "error", err)
+	}
+	_ = runCommand("systemctl", "daemon-reload")
+}
+
+func ensureServiceLogFile(logDir string, logFile string) error {
+	if err := os.MkdirAll(logDir, 0755); err != nil {
+		return fmt.Errorf("create log directory %s: %w", logDir, err)
+	}
+	file, err := os.OpenFile(logFile, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	if err != nil {
+		return fmt.Errorf("open log file %s: %w", logFile, err)
+	}
+	return file.Close()
 }
 
 // installLinuxOnlyProxyNetwork publishes the established Windows-host proxy
