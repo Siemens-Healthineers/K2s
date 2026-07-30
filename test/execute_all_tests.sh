@@ -89,7 +89,21 @@ if ! command -v go >/dev/null 2>&1; then
   exit 1
 fi
 
-export KUBECONFIG="${KUBECONFIG:-/etc/kubernetes/admin.conf}"
+if [[ -z "${KUBECONFIG:-}" ]]; then
+  # super-admin.conf is intentionally used for CI acceptance tests. It is
+  # created by kubeadm for privileged local administration and avoids relying
+  # on a potentially restricted admin.conf RBAC binding.
+  for kubeconfig in /etc/kubernetes/super-admin.conf /etc/kubernetes/admin.conf; do
+    if [[ -r "$kubeconfig" ]]; then
+      export KUBECONFIG="$kubeconfig"
+      break
+    fi
+  done
+fi
+if [[ -z "${KUBECONFIG:-}" || ! -r "$KUBECONFIG" ]]; then
+  echo "error: no readable kubeadm admin kubeconfig found" >&2
+  exit 1
+fi
 if [[ -n "$proxy" ]]; then
   export SYSTEM_TEST_PROXY="$proxy"
 fi

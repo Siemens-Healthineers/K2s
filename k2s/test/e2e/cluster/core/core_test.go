@@ -116,6 +116,11 @@ var _ = BeforeSuite(func(ctx context.Context) {
 })
 
 var _ = AfterSuite(func(ctx context.Context) {
+	if suite == nil {
+		GinkgoWriter.Println("Skipping core test cleanup because BeforeSuite did not complete")
+		return
+	}
+
 	if podWatcher != nil {
 		podWatcher.Stop()
 	}
