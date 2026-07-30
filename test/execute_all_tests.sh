@@ -104,6 +104,9 @@ if [[ -z "${KUBECONFIG:-}" || ! -r "$KUBECONFIG" ]]; then
   echo "error: no readable kubeadm admin kubeconfig found" >&2
   exit 1
 fi
+internal_no_proxy="localhost,127.0.0.1,::1,10.0.0.0/8,172.16.0.0/12,.svc,.cluster.local"
+export NO_PROXY="${NO_PROXY:+$NO_PROXY,}$internal_no_proxy"
+export no_proxy="${no_proxy:+$no_proxy,}$internal_no_proxy"
 if [[ -n "$proxy" ]]; then
   export SYSTEM_TEST_PROXY="$proxy"
 fi
