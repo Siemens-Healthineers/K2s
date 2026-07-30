@@ -6,10 +6,11 @@
 
 <#
 .SYNOPSIS
-Disables GPU support for KubeMaster node.
+Disables the gpu-node addon cluster-wide.
 
 .DESCRIPTION
-The "gpu-node" addon disables and removes GPU support from the KubeMaster node.
+The "gpu-node" addon disable action removes the NVIDIA device plugin workload from the cluster and performs control-plane GPU runtime cleanup.
+External worker node GPU labels and worker-side GPU configuration are preserved.
 #>
 
 Param(
