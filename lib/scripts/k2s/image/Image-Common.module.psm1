@@ -379,4 +379,97 @@ function Get-ImagesByNodeSelection {
     }
 }
 
-Export-ModuleMember -Function Initialize-ImageScriptContext, Resolve-ImageNode, Get-DefaultNodeInfoList, Get-ImagesOnNode, Resolve-NodeList, Get-ImagesByNodeSelection, Test-NodeReady
+<#
+.SYNOPSIS
+Get the IP address of the registry host node.
+
+.DESCRIPTION
+Determines which node is running the registry pod and returns its IP address.
+Falls back to control-plane IP if registry pod is not found or is running on control-plane.
+#>
+function Get-RegistryHostIp {
+    $controlPlaneIp = Get-ConfiguredIPControlPlane
+
+    $registryNodeName = ''
+    try {
+        $kubeToolsPath = Get-KubeToolsPath
+        $kubectlExe = "$kubeToolsPath\kubectl.exe"
+        if (Test-Path $kubectlExe) {
+            $registryNodeName = (& $kubectlExe -n registry get pod -l app=registry -o jsonpath='{.items[0].spec.nodeName}' 2>$null) | Out-String
+            $registryNodeName = $registryNodeName.Trim()
+        }
+    }
+    catch {
+        Write-Log "[Image] Unable to detect registry pod node, using control-plane IP fallback"
+    }
+
+    if ([string]::IsNullOrWhiteSpace($registryNodeName)) {
+        return $controlPlaneIp
+    }
+
+    $setupFilePath = Get-SetupConfigFilePath
+    $controlPlaneHostname = Get-ConfigValue -Path $setupFilePath -Key 'ControlPlaneNodeHostname'
+    if ([string]::IsNullOrWhiteSpace($controlPlaneHostname)) {
+        $controlPlaneHostname = 'kubemaster'
+    }
+
+    if ($registryNodeName.ToLower() -eq $controlPlaneHostname.ToLower()) {
+        return $controlPlaneIp
+    }
+
+    $registryNodeConfig = Get-NodeConfig -NodeName $registryNodeName
+    if ($null -ne $registryNodeConfig -and -not [string]::IsNullOrWhiteSpace($registryNodeConfig.IpAddress)) {
+        return $registryNodeConfig.IpAddress
+    }
+
+    return $controlPlaneIp
+}
+
+<#
+.SYNOPSIS
+Builds the shell environment prefix that routes buildah/network traffic through the K2s transparent proxy.
+
+.DESCRIPTION
+Returns a command prefix like "HTTP_PROXY=... HTTPS_PROXY=... NO_PROXY=... " that can be prepended to a
+'sudo <command>' invocation on a Linux node so external registry access works in isolated/corporate-proxy networks.
+
+- Returns an empty string (no proxy) when the reference targets the in-cluster registry (k2s.registry.local),
+  which must never be routed through the corporate/transparent proxy.
+- Returns an empty string and logs a warning when no cluster proxy is configured.
+
+.PARAMETER LogPrefix
+Log category tag, e.g. 'Pull', 'Push', 'Registry'.
+
+.PARAMETER NodeName
+Name of the node the command runs on (used for logging).
+
+.PARAMETER Reference
+Optional image or registry reference. When it targets k2s.registry.local, no proxy prefix is returned.
+#>
+function Get-LinuxTransparentProxyPrefix {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$LogPrefix,
+        [Parameter(Mandatory = $true)]
+        [string]$NodeName,
+        [Parameter(Mandatory = $false)]
+        [string]$Reference = ''
+    )
+
+    # The in-cluster registry (k2s.registry.local) is internal and must not be routed through the proxy.
+    if ($Reference -match '^k2s\.registry\.local(:\d+)?(/|$)') {
+        return ''
+    }
+
+    $kubeSwitchIp = Get-ConfiguredKubeSwitchIP
+    if ([string]::IsNullOrWhiteSpace($kubeSwitchIp)) {
+        Write-Log "[$LogPrefix] WARNING: No cluster proxy configured for '$NodeName' - operation may fail in isolated networks. Configure proxy with: k2s system proxy set --proxy <corporate-proxy>" -Console
+        return ''
+    }
+
+    $proxyAddr = "http://${kubeSwitchIp}:8181"
+    Write-Log "[$LogPrefix] Using K2s transparent proxy $proxyAddr for '$NodeName'" -Console
+    return "HTTP_PROXY=$proxyAddr HTTPS_PROXY=$proxyAddr NO_PROXY=k2s.registry.local,localhost,127.0.0.1 "
+}
+
+Export-ModuleMember -Function Initialize-ImageScriptContext, Resolve-ImageNode, Get-DefaultNodeInfoList, Get-ImagesOnNode, Resolve-NodeList, Get-ImagesByNodeSelection, Test-NodeReady, Get-RegistryHostIp, Get-LinuxTransparentProxyPrefix
