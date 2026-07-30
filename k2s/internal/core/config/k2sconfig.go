@@ -33,7 +33,15 @@ type configJson struct {
 
 type smallSetup struct {
 	ControlPlanIpAddress string `json:"masterIP"`
+	KubeSwitchIPAddress  string `json:"kubeSwitch"`
 	MasterNetworkCIDR    string `json:"masterNetworkCIDR"`
+}
+
+// KubeSwitchConfig contains the K2s host gateway address and network from the
+// central cfg/config.json configuration.
+type KubeSwitchConfig struct {
+	Address string
+	CIDR    string
 }
 
 type configDir struct {
@@ -100,14 +108,38 @@ func ReadSupportedWorkerOS(k2sInstallDir string) ([]string, error) {
 }
 
 func ReadKubeSwitchCIDR(k2sInstallDir string) (string, error) {
+	config, err := ReadKubeSwitchConfig(k2sInstallDir)
+	if err != nil {
+		return "", err
+	}
+	return config.CIDR, nil
+}
+
+// ReadKubeSwitchConfig loads and validates the configured KubeSwitch address
+// and its containing CIDR from cfg/config.json.
+func ReadKubeSwitchConfig(k2sInstallDir string) (KubeSwitchConfig, error) {
 	configFilePath := filepath.Join(k2sInstallDir, configFileRelDir, configFileName)
 
 	configJson, err := json.FromFile[configJson](configFilePath)
 	if err != nil {
-		return "", fmt.Errorf("error reading config file: %w", err)
+		return KubeSwitchConfig{}, fmt.Errorf("error reading config file: %w", err)
+	}
+	address := net.ParseIP(configJson.SmallSetup.KubeSwitchIPAddress)
+	if address == nil {
+		return KubeSwitchConfig{}, fmt.Errorf("invalid KubeSwitch address %q in config", configJson.SmallSetup.KubeSwitchIPAddress)
+	}
+	_, network, err := net.ParseCIDR(configJson.SmallSetup.MasterNetworkCIDR)
+	if err != nil {
+		return KubeSwitchConfig{}, fmt.Errorf("invalid KubeSwitch CIDR %q in config: %w", configJson.SmallSetup.MasterNetworkCIDR, err)
+	}
+	if !network.Contains(address) {
+		return KubeSwitchConfig{}, fmt.Errorf("KubeSwitch address %q is not in configured CIDR %q", configJson.SmallSetup.KubeSwitchIPAddress, configJson.SmallSetup.MasterNetworkCIDR)
 	}
 
-	return configJson.SmallSetup.MasterNetworkCIDR, nil
+	return KubeSwitchConfig{
+		Address: configJson.SmallSetup.KubeSwitchIPAddress,
+		CIDR:    configJson.SmallSetup.MasterNetworkCIDR,
+	}, nil
 }
 
 func DetectLocalVM(ipAddress, installDir string) (bool, error) {

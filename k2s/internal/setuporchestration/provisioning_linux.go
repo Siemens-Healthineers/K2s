@@ -17,6 +17,8 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+
+	"github.com/siemens-healthineers/k2s/internal/core/config"
 )
 
 const (
@@ -24,6 +26,8 @@ const (
 	crioSocket      = "unix:///var/run/crio/crio.sock"
 	localProxyURL   = "http://127.0.0.1:8181"
 	proxyService    = "k2s-httpproxy"
+	proxyNetworkSvc = "k2s-proxy-network"
+	proxyNetworkDev = "k2s-proxy0"
 )
 
 var k8sVersionPattern = regexp.MustCompile(`(?m)return\s+['\"](v[0-9]+\.[0-9]+\.[0-9]+)['\"]`)
@@ -161,9 +165,23 @@ func (o *LinuxOrchestrator) installHTTPProxy(cfg InstallConfig) error {
 	if _, err := os.Stat(proxyBinary); err != nil {
 		return fmt.Errorf("Linux httpproxy binary is missing at %s: %w", proxyBinary, err)
 	}
+	networkDependencies := ""
+	if cfg.LinuxOnly {
+		proxyNetwork, err := config.ReadKubeSwitchConfig(cfg.InstallDir)
+		if err != nil {
+			return fmt.Errorf("read KubeSwitch proxy configuration: %w", err)
+		}
+		if err := installLinuxOnlyProxyNetwork(proxyNetwork); err != nil {
+			return err
+		}
+		networkDependencies = fmt.Sprintf("Requires=%s.service\nAfter=%s.service\n", proxyNetworkSvc, proxyNetworkSvc)
+	}
 
 	noProxy := mergeNoProxy(cfg.NoProxy)
-	args := []string{"--addr", "127.0.0.1:8181", "--allowed-cidr", "127.0.0.0/8", "--allowed-cidr", podNetworkCIDR, "--allowed-cidr", servicesCIDR}
+	// Listen on all host interfaces so pods can reach the proxy through the
+	// K2s-owned configured KubeSwitch compatibility gateway. Access remains
+	// restricted to loopback, pod, and service CIDRs; it is not open to peers.
+	args := []string{"--addr", ":8181", "--allowed-cidr", "127.0.0.0/8", "--allowed-cidr", podNetworkCIDR, "--allowed-cidr", servicesCIDR}
 	if cfg.Proxy != "" {
 		if _, err := url.ParseRequestURI(cfg.Proxy); err != nil {
 			return fmt.Errorf("invalid --proxy value %q: %w", cfg.Proxy, err)
@@ -176,6 +194,7 @@ func (o *LinuxOrchestrator) installHTTPProxy(cfg InstallConfig) error {
 Description=K2s local HTTP proxy
 After=network-online.target
 Wants=network-online.target
+%s
 
 [Service]
 Type=simple
@@ -187,7 +206,7 @@ RestartSec=5
 
 [Install]
 WantedBy=multi-user.target
-`, proxyBinary, strings.Join(args, " "), systemdValue(noProxy), systemdValue(noProxy))
+`, networkDependencies, proxyBinary, strings.Join(args, " "), systemdValue(noProxy), systemdValue(noProxy))
 	if err := os.WriteFile(unitPath, []byte(unit), 0644); err != nil {
 		return fmt.Errorf("write local HTTP proxy service: %w", err)
 	}
@@ -200,10 +219,92 @@ WantedBy=multi-user.target
 	return nil
 }
 
-func removeHTTPProxy() {
+func removeHTTPProxy(removeCompatibilityNetwork bool) {
 	_ = runCommand("systemctl", "disable", "--now", proxyService)
 	_ = os.Remove(filepath.Join("/etc/systemd/system", proxyService+".service"))
+	if removeCompatibilityNetwork {
+		removeLinuxOnlyProxyNetwork()
+	}
 	_ = runCommand("systemctl", "daemon-reload")
+}
+
+// installLinuxOnlyProxyNetwork publishes the established Windows-host proxy
+// gateway address to pods on a native Linux-only host. The dedicated dummy
+// interface avoids changing Flannel-owned cni0 while preserving the common
+// workload-proxy endpoint from cfg/config.json across topologies.
+func installLinuxOnlyProxyNetwork(proxyNetwork config.KubeSwitchConfig) error {
+	exists, err := linuxProxyNetworkExists(proxyNetwork)
+	if err != nil {
+		return err
+	}
+	if !exists {
+		if err := ensureProxyNetworkIsAvailable(proxyNetwork); err != nil {
+			return err
+		}
+	}
+
+	unitPath := filepath.Join("/etc/systemd/system", proxyNetworkSvc+".service")
+	unit := fmt.Sprintf(`[Unit]
+Description=K2s Linux-only proxy compatibility network
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/bin/sh -ec '/usr/sbin/ip link show %s >/dev/null 2>&1 || /usr/sbin/ip link add %s type dummy; /usr/sbin/ip addr replace %s dev %s; /usr/sbin/ip link set %s up'
+ExecStop=/usr/sbin/ip link delete %s
+
+[Install]
+WantedBy=multi-user.target
+`, proxyNetworkDev, proxyNetworkDev, proxyNetwork.CIDR, proxyNetworkDev, proxyNetworkDev, proxyNetworkDev)
+	if err := os.WriteFile(unitPath, []byte(unit), 0644); err != nil {
+		return fmt.Errorf("write proxy compatibility network service: %w", err)
+	}
+	if err := runCommand("systemctl", "daemon-reload"); err != nil {
+		return fmt.Errorf("reload systemd after proxy compatibility network setup: %w", err)
+	}
+	if err := runCommand("systemctl", "enable", "--now", proxyNetworkSvc); err != nil {
+		return fmt.Errorf("enable and start proxy compatibility network: %w", err)
+	}
+	slog.Info("[Install] Linux-only pod proxy gateway configured", "address", proxyNetwork.Address, "interface", proxyNetworkDev)
+	return nil
+}
+
+func removeLinuxOnlyProxyNetwork() {
+	_ = runCommand("systemctl", "disable", "--now", proxyNetworkSvc)
+	_ = os.Remove(filepath.Join("/etc/systemd/system", proxyNetworkSvc+".service"))
+	_ = runCommand("ip", "link", "delete", proxyNetworkDev)
+}
+
+func linuxProxyNetworkExists(proxyNetwork config.KubeSwitchConfig) (bool, error) {
+	output, err := runCommandOutput("ip", "-o", "-4", "addr", "show", "dev", proxyNetworkDev)
+	if err != nil {
+		return false, nil // Interface not found is the normal first-install state.
+	}
+	if !strings.Contains(output, proxyNetwork.CIDR) {
+		return false, fmt.Errorf("existing interface %q does not own required configured KubeSwitch address %s; remove or correct it before installing K2s", proxyNetworkDev, proxyNetwork.CIDR)
+	}
+	return true, nil
+}
+
+func ensureProxyNetworkIsAvailable(proxyNetwork config.KubeSwitchConfig) error {
+	addresses, err := runCommandOutput("ip", "-o", "-4", "addr", "show")
+	if err != nil {
+		return fmt.Errorf("inspect host addresses for proxy compatibility network: %w", err)
+	}
+	if strings.Contains(addresses, proxyNetwork.Address+"/") {
+		return fmt.Errorf("configured KubeSwitch proxy address %s is already used by the host; remove the conflict before installing K2s", proxyNetwork.Address)
+	}
+
+	route, err := runCommandOutput("ip", "route", "show", proxyNetwork.CIDR)
+	if err != nil {
+		return fmt.Errorf("inspect host routes for proxy compatibility network: %w", err)
+	}
+	if strings.TrimSpace(route) != "" {
+		return fmt.Errorf("configured KubeSwitch proxy network %s conflicts with existing route %q; remove the conflict before installing K2s", proxyNetwork.CIDR, strings.TrimSpace(route))
+	}
+	return nil
 }
 
 func resolveKubernetesVersion(installDir string) (string, error) {

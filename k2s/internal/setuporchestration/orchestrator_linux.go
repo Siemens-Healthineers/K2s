@@ -92,7 +92,7 @@ func (o *LinuxOrchestrator) Install(cfg InstallConfig) error {
 	}
 
 	if cfg.SkipStart {
-		if err := o.Stop(StopConfig{}); err != nil {
+		if err := o.Stop(StopConfig{LinuxOnly: cfg.LinuxOnly}); err != nil {
 			return fmt.Errorf("stop cluster after --skip-start: %w", err)
 		}
 	}
@@ -119,7 +119,7 @@ func (o *LinuxOrchestrator) Uninstall(cfg UninstallConfig) error {
 	_ = runCommand("ip", "link", "delete", "cni0")
 	_ = runCommand("ip", "link", "delete", "flannel.1")
 
-	removeHTTPProxy()
+	removeHTTPProxy(cfg.LinuxOnly)
 
 	// Remove kubeconfig
 	if u, err := invokingUser(); err == nil {
@@ -208,6 +208,11 @@ func (o *LinuxOrchestrator) cleanupCriOMirrorDropIns() {
 func (o *LinuxOrchestrator) Start(cfg StartConfig) error {
 	slog.Info("[Start] Starting K2s cluster on Linux host")
 
+	if cfg.LinuxOnly {
+		if err := runCommand("systemctl", "start", proxyNetworkSvc); err != nil {
+			return fmt.Errorf("failed to start Linux-only proxy compatibility network: %w", err)
+		}
+	}
 	if err := runCommand("systemctl", "start", proxyService); err != nil {
 		return fmt.Errorf("failed to start local HTTP proxy: %w", err)
 	}
@@ -241,6 +246,11 @@ func (o *LinuxOrchestrator) Stop(cfg StopConfig) error {
 	}
 	if err := runCommand("systemctl", "stop", proxyService); err != nil {
 		slog.Warn("[Stop] Could not stop local HTTP proxy", "error", err)
+	}
+	if cfg.LinuxOnly {
+		if err := runCommand("systemctl", "stop", proxyNetworkSvc); err != nil {
+			slog.Warn("[Stop] Could not stop Linux-only proxy compatibility network", "error", err)
+		}
 	}
 
 	slog.Info("[Stop] K2s cluster stopped")
