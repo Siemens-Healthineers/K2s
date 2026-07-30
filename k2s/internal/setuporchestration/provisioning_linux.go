@@ -257,7 +257,7 @@ ExecStop=/usr/sbin/ip link delete %s
 
 [Install]
 WantedBy=multi-user.target
-`, proxyNetworkDev, proxyNetworkDev, proxyNetwork.CIDR, proxyNetworkDev, proxyNetworkDev, proxyNetworkDev)
+`, proxyNetworkDev, proxyNetworkDev, proxyNetwork.AddressCIDR, proxyNetworkDev, proxyNetworkDev, proxyNetworkDev)
 	if err := os.WriteFile(unitPath, []byte(unit), 0644); err != nil {
 		return fmt.Errorf("write proxy compatibility network service: %w", err)
 	}
@@ -282,8 +282,8 @@ func linuxProxyNetworkExists(proxyNetwork config.KubeSwitchConfig) (bool, error)
 	if err != nil {
 		return false, nil // Interface not found is the normal first-install state.
 	}
-	if !strings.Contains(output, proxyNetwork.CIDR) {
-		return false, fmt.Errorf("existing interface %q does not own required configured KubeSwitch address %s; remove or correct it before installing K2s", proxyNetworkDev, proxyNetwork.CIDR)
+	if !strings.Contains(output, proxyNetwork.AddressCIDR) {
+		return false, fmt.Errorf("existing interface %q does not own required configured KubeSwitch address %s; remove or correct it before installing K2s", proxyNetworkDev, proxyNetwork.AddressCIDR)
 	}
 	return true, nil
 }
