@@ -59,6 +59,7 @@ func (p *linuxClusterProvider) Uninstall(cfg ClusterUninstallConfig) error {
 	return orch.Uninstall(setuporchestration.UninstallConfig{
 		ShowLogs:                          cfg.ShowLogs,
 		SkipPurge:                         cfg.SkipPurge,
+		LinuxOnly:                         cfg.LinuxOnly,
 		DeleteFilesForOfflineInstallation: cfg.DeleteFilesForOfflineInstallation,
 		AdditionalHooksDir:                cfg.AdditionalHooksDir,
 		ConfigDir:                         cfg.ConfigDir,
@@ -69,6 +70,7 @@ func (p *linuxClusterProvider) Start(cfg ClusterStartConfig) error {
 	orch := setuporchestration.NewOrchestrator(nil)
 	return orch.Start(setuporchestration.StartConfig{
 		ShowLogs:            cfg.ShowLogs,
+		LinuxOnly:           cfg.LinuxOnly,
 		AdditionalHooksDir:  cfg.AdditionalHooksDir,
 		UseCachedK2sVSwitch: cfg.UseCachedK2sVSwitch,
 	})
@@ -78,6 +80,7 @@ func (p *linuxClusterProvider) Stop(cfg ClusterStopConfig) error {
 	orch := setuporchestration.NewOrchestrator(nil)
 	return orch.Stop(setuporchestration.StopConfig{
 		ShowLogs:           cfg.ShowLogs,
+		LinuxOnly:          cfg.LinuxOnly,
 		AdditionalHooksDir: cfg.AdditionalHooksDir,
 	})
 }

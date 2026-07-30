@@ -12,6 +12,7 @@ import (
 	"time"
 
 	contracts "github.com/siemens-healthineers/k2s/internal/contracts/ssh"
+	coreconfig "github.com/siemens-healthineers/k2s/internal/core/config"
 	"github.com/siemens-healthineers/k2s/internal/definitions"
 	"github.com/siemens-healthineers/k2s/internal/providers/ssh"
 	"github.com/siemens-healthineers/k2s/test/framework"
@@ -48,12 +49,14 @@ func TestClusterCore(t *testing.T) {
 
 var _ = BeforeSuite(func(ctx context.Context) {
 	manifestDir = "workload/windows"
-	proxy = "http://172.19.1.1:8181"
 
 	suite = framework.Setup(ctx, framework.SystemMustBeRunning,
 		framework.ClusterTestStepPollInterval(time.Millisecond*200),
 		framework.ClusterTestStepTimeout(8*time.Minute))
 	k2s = dsl.NewK2s(suite)
+	kubeSwitchConfig, err := coreconfig.ReadKubeSwitchConfig(suite.RootDir())
+	Expect(err).NotTo(HaveOccurred())
+	proxy = "http://" + kubeSwitchConfig.Address + ":8181"
 
 	if suite.SetupInfo().RuntimeConfig.InstallConfig().LinuxOnly() {
 		GinkgoWriter.Println("Found Linux-only setup, skipping Windows-based workloads")
