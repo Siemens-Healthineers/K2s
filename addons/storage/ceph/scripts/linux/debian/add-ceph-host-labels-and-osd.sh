@@ -40,18 +40,28 @@ if [ -z "$HOST_NAME" ]; then
 fi
 
 LABELS_ONLY=0
+LOCAL_HOST_SHORT="$(hostname -s 2>/dev/null || true)"
+IS_LOCAL_HOST=0
+if [ -n "$LOCAL_HOST_SHORT" ] && [ "$HOST_NAME" = "$LOCAL_HOST_SHORT" ]; then
+    IS_LOCAL_HOST=1
+fi
+
 if [ -z "$DEVICE" ]; then
     LABELS_ONLY=1
 else
-    if [ ! -b "$DEVICE" ]; then
-        log_error "Device '$DEVICE' is not a block device on this host."
-        exit 1
-    fi
+    if [ "$IS_LOCAL_HOST" -eq 1 ]; then
+        if [ ! -b "$DEVICE" ]; then
+            log_error "Device '$DEVICE' is not a block device on this host."
+            exit 1
+        fi
 
-    DEV_TYPE="$(lsblk -dn -o TYPE "$DEVICE" 2>/dev/null | head -n1 | tr -d '[:space:]')"
-    if [ "$DEV_TYPE" != "disk" ]; then
-        log_error "Device '$DEVICE' has type '$DEV_TYPE'. Pass a whole disk (for example /dev/sdb), not a partition."
-        exit 1
+        DEV_TYPE="$(lsblk -dn -o TYPE "$DEVICE" 2>/dev/null | head -n1 | tr -d '[:space:]')"
+        if [ "$DEV_TYPE" != "disk" ]; then
+            log_error "Device '$DEVICE' has type '$DEV_TYPE'. Pass a whole disk (for example /dev/sdb), not a partition."
+            exit 1
+        fi
+    else
+        log_info "Target host '$HOST_NAME' is remote from bootstrap node '$LOCAL_HOST_SHORT'; skipping local block-device pre-check for '$DEVICE'."
     fi
 fi
 
@@ -147,6 +157,14 @@ osd_count() {
     run_ceph_cmd ceph osd stat -f json 2>/dev/null | grep -oE '"num_osds":[0-9]+' | grep -oE '[0-9]+' | head -n1
 }
 
+host_osd_count() {
+    local host="$1"
+    # Use JSON and count daemon_name=osd.N entries to avoid brittle table parsing differences.
+    run_ceph_cmd ceph orch ps --daemon_type osd --hostname "$host" -f json 2>/dev/null |
+        grep -oE '"daemon_name"[[:space:]]*:[[:space:]]*"osd\.[0-9]+"' |
+        wc -l | tr -d '[:space:]'
+}
+
 # Wait up to $1 seconds for the OSD count to rise above baseline $2. Sets LAST_OSD_COUNT.
 wait_for_osd_increase() {
     local timeout="$1" baseline="$2" now="" waited=0
@@ -161,6 +179,35 @@ wait_for_osd_increase() {
     done
     LAST_OSD_COUNT="${now:-$baseline}"
     return 1
+}
+
+device_looks_consumed_by_ceph() {
+    local host="$1" dev="$2"
+    local line
+    line="$(run_ceph_cmd ceph orch device ls --hostname "$host" --wide --refresh 2>/dev/null | grep -F "$dev" | head -n1 || true)"
+    [ -n "$line" ] || return 1
+
+    # When the device is already used by Ceph/LVM, orchestrator typically reports it as unavailable
+    # with reasons like 'LVM detected' / 'locked' / 'in use by ceph'. Treat this as idempotent success.
+    echo "$line" | grep -Eiq 'LVM|locked|in use|ceph|unavailable|No'
+}
+
+dump_orch_diagnostics() {
+    local host="$1"
+    log_info "[diag] ceph orch host ls"
+    run_ceph_cmd ceph orch host ls 2>&1 | sed 's/^/[CephOsdAdd] [diag] /' || true
+
+    log_info "[diag] ceph orch device ls --hostname '$host' --wide --refresh"
+    run_ceph_cmd ceph orch device ls --hostname "$host" --wide --refresh 2>&1 | sed 's/^/[CephOsdAdd] [diag] /' || true
+
+    log_info "[diag] ceph orch ps --daemon_type osd --hostname '$host' -f json"
+    run_ceph_cmd ceph orch ps --daemon_type osd --hostname "$host" -f json 2>&1 | sed 's/^/[CephOsdAdd] [diag] /' || true
+
+    log_info "[diag] ceph -s"
+    run_ceph_cmd ceph -s 2>&1 | sed 's/^/[CephOsdAdd] [diag] /' || true
+
+    log_info "[diag] ceph health detail"
+    run_ceph_cmd ceph health detail 2>&1 | sed 's/^/[CephOsdAdd] [diag] /' || true
 }
 
 # Directly provision an OSD on $DEVICE using 'cephadm ceph-volume' + 'cephadm deploy', bypassing the
@@ -245,15 +292,98 @@ provision_osd_directly() {
 
 OSD_COUNT_BEFORE="$(osd_count)"
 OSD_COUNT_BEFORE="${OSD_COUNT_BEFORE:-0}"
+HOST_OSD_COUNT_BEFORE="$(host_osd_count "$HOST_NAME")"
+HOST_OSD_COUNT_BEFORE="${HOST_OSD_COUNT_BEFORE:-0}"
 
 # Preferred path: let the orchestrator provision the OSD.
-log_info "Requesting OSD via orchestrator: ceph orch daemon add osd ${HOST_NAME}:${DEVICE}"
-run_ceph_cmd ceph orch daemon add osd "${HOST_NAME}:${DEVICE}" >/dev/null 2>&1 || true
+max_orch_attempts=4
+orch_provisioned=0
+remote_add_had_explicit_error=0
+remote_add_submitted=0
 
-log_info "Waiting for the orchestrator to provision the OSD (up to 90s)..."
-if wait_for_osd_increase 90 "$OSD_COUNT_BEFORE"; then
+for orch_attempt in $(seq 1 "$max_orch_attempts"); do
+    log_info "Refreshing orchestrator device inventory for host '$HOST_NAME' (attempt $orch_attempt/$max_orch_attempts)..."
+    run_ceph_cmd ceph orch device ls --hostname "$HOST_NAME" --refresh >/dev/null 2>&1 || true
+
+    device_ls_output="$(run_ceph_cmd ceph orch device ls --hostname "$HOST_NAME" --wide 2>&1 || true)"
+    if ! echo "$device_ls_output" | grep -Fq "$DEVICE"; then
+        log_info "Device '$DEVICE' is not visible yet in ceph orch device inventory for host '$HOST_NAME'."
+        echo "$device_ls_output" | sed 's/^/[CephOsdAdd] [device-ls] /'
+    fi
+
+    log_info "Requesting OSD via orchestrator: ceph orch daemon add osd ${HOST_NAME}:${DEVICE} (attempt $orch_attempt/$max_orch_attempts)"
+    daemon_add_output="$(run_ceph_cmd ceph orch daemon add osd "${HOST_NAME}:${DEVICE}" 2>&1)"
+    daemon_add_rc=$?
+    if [ $daemon_add_rc -eq 0 ]; then
+        remote_add_submitted=1
+    fi
+
+    if [ $daemon_add_rc -ne 0 ]; then
+        remote_add_had_explicit_error=1
+        log_info "ceph orch daemon add returned rc=$daemon_add_rc"
+        echo "$daemon_add_output" | sed 's/^/[CephOsdAdd] [orch-add] /'
+    elif [ -n "$daemon_add_output" ]; then
+        echo "$daemon_add_output" | sed 's/^/[CephOsdAdd] [orch-add] /'
+    fi
+
+    if echo "$daemon_add_output" | grep -Eiq '(^|[[:space:]])(error|failed|invalid|exception)'; then
+        remote_add_had_explicit_error=1
+    fi
+
+    # Some Ceph versions acknowledge scheduling/creation in command output while osd-count lags.
+    # Treat these known success signals as provisioned and stop retrying.
+    if [ $daemon_add_rc -eq 0 ] && echo "$daemon_add_output" | grep -Eiq 'created|scheduled|already|in progress|queued|osd\.[0-9]+'; then
+        orch_provisioned=1
+        LAST_OSD_COUNT="$(osd_count)"
+        LAST_OSD_COUNT="${LAST_OSD_COUNT:-$OSD_COUNT_BEFORE}"
+        log_info "Orchestrator accepted OSD request for '${HOST_NAME}:${DEVICE}' (command output indicates success/progress)."
+        break
+    fi
+
+    log_info "Waiting for the orchestrator to provision the OSD (up to 60s for attempt $orch_attempt)..."
+    if wait_for_osd_increase 60 "$OSD_COUNT_BEFORE"; then
+        orch_provisioned=1
+        break
+    fi
+
+    HOST_OSD_COUNT_NOW="$(host_osd_count "$HOST_NAME")"
+    HOST_OSD_COUNT_NOW="${HOST_OSD_COUNT_NOW:-0}"
+    if [ "$HOST_OSD_COUNT_NOW" -gt "$HOST_OSD_COUNT_BEFORE" ]; then
+        orch_provisioned=1
+        LAST_OSD_COUNT="$(osd_count)"
+        LAST_OSD_COUNT="${LAST_OSD_COUNT:-$OSD_COUNT_BEFORE}"
+        log_info "Detected new OSD on host '$HOST_NAME' (host OSD count: $HOST_OSD_COUNT_BEFORE -> $HOST_OSD_COUNT_NOW)."
+        break
+    fi
+
+    if [ "$orch_attempt" -lt "$max_orch_attempts" ]; then
+        log_info "OSD count unchanged (still $OSD_COUNT_BEFORE). Retrying orchestrator provisioning in 15s..."
+        sleep 15
+    fi
+done
+
+if [ "$orch_provisioned" -eq 1 ]; then
     log_info "OSD provisioned by orchestrator (osd count: $OSD_COUNT_BEFORE -> $LAST_OSD_COUNT)"
 else
+    if device_looks_consumed_by_ceph "$HOST_NAME" "$DEVICE"; then
+        log_info "Device '$DEVICE' on '$HOST_NAME' already appears consumed by Ceph/LVM in orchestrator inventory; treating as idempotent success."
+        exit 0
+    fi
+
+    if [ "$IS_LOCAL_HOST" -ne 1 ]; then
+        if [ "$remote_add_submitted" -eq 1 ] && [ "$remote_add_had_explicit_error" -eq 0 ]; then
+            log_info "OSD add request for '${HOST_NAME}:${DEVICE}' was accepted by orchestrator but not yet observable within this timeout window."
+            log_info "Continuing without failure; Ceph may complete provisioning asynchronously."
+            dump_orch_diagnostics "$HOST_NAME"
+            exit 0
+        fi
+
+        log_error "Orchestrator did not provision an OSD on remote host '$HOST_NAME' for device '$DEVICE' (osd count still $OSD_COUNT_BEFORE)."
+        dump_orch_diagnostics "$HOST_NAME"
+        log_error "Direct ceph-volume fallback is only supported on the local MON/bootstrap host."
+        exit 1
+    fi
+
     log_info "Orchestrator did not provision an OSD (still $OSD_COUNT_BEFORE); falling back to direct ceph-volume provisioning."
     # Drop the registered-but-inert OSD service spec so it does not linger.
     run_ceph_cmd ceph orch rm osd.default --force >/dev/null 2>&1 || true

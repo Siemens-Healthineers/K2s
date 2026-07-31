@@ -11,14 +11,17 @@ brand-new Ceph cluster** on a K2s node and wires it up through the upstream
 [`ceph-csi-operator`](https://github.com/ceph/ceph-csi-operator) — no Rook required. On **disable**,
 the addon can tear that cluster down again.
 
-The target node is chosen by the **`clusterHostNode`** value in
+The cluster bootstrap node is chosen by **`clusterHost.node`** in
 [`config/ceph-config.json`](config/ceph-config.json): its IP address is resolved from the K2s
-cluster descriptor (`cluster.json`). When `clusterHostNode` is the K2s control plane node name
+cluster descriptor (`cluster.json`). When `clusterHost.node` is the K2s control plane node name
 (e.g. `kubemaster`), Ceph is installed on the kubemaster; otherwise it is installed on the named
-node.
+node. OSD provisioning is configured separately via `osdHosts`.
 
 > **Only Debian 13 nodes are supported.** The addon validates the target node's OS over SSH on
 > enable and refuses to continue on any other distribution.
+>
+> **Only Hyper-V worker nodes are supported for OSD provisioning.** `osdHosts` entries must
+> resolve to `cluster.json` nodes with `NodeType` = `VM-EXISTING`.
 
 After the cluster is provisioned, the addon deploys the `ceph-csi-operator` and a small set of
 custom resources. The operator then reconciles those resources and creates/maintains the CephFS CSI
@@ -55,19 +58,49 @@ This implementation provides:
 
 ## Quick Start
 
-### 1. Choose the Ceph host node
+### 1. Configure cluster host and OSD hosts
 
-Edit [`config/ceph-config.json`](config/ceph-config.json) and set `clusterHostNode` to the name
-of the Debian 13 K2s node that should host the new Ceph cluster (as listed in `cluster.json`). Use
-the K2s control plane node name (e.g. `kubemaster`) to install Ceph on the kubemaster, or any other
-Debian 13 node name to install it there:
+Edit [`config/ceph-config.json`](config/ceph-config.json). Set `clusterHost.node` to the Debian 13
+bootstrap node for the Ceph cluster, then list every OSD node under `osdHosts`.
+
+- `clusterHost` controls Ceph cluster bootstrap settings only (`monCount`, `mgrCount`, `mdsCount`,
+  `osdCrushChooseleafType`).
+- `osdHosts` drives OSD host preparation and OSD creation.
+- Each `osdHosts` entry supports `osdCount` and either:
+  - `osdSizesInGb`: one size per OSD, or
+  - `osdSizeInGb`: one common size for all OSDs on that host.
 
 ```json
 {
-    "comment": "Ceph CSI Configuration - 'clusterHostNode' must be the name of a K2s node (as listed in cluster.json) running Debian 13.",
-    "cephfsPool": "cephfs.cephfs.data",
-    "cephfsFilesystem": "cephfs",
-    "clusterHostNode": "kubemaster"
+  "comment": "Ceph CSI storage config. 'clusterHost.node' bootstraps only the Ceph cluster control plane and MUST be a Debian 13 K2s node listed in cluster.json (or the control plane node). OSD provisioning is driven exclusively by 'osdHosts' and supports only Hyper-V worker nodes (cluster.json NodeType 'VM-EXISTING'). Each entry in 'osdHosts' is prepared as a Ceph OSD host (via prepare-ceph-osd-host.sh) and contributes OSDs. Use 'osdSizesInGb' to set per-OSD sizes (one value per OSD) or 'osdSizeInGb' for one common size. 'windowsHosts' is a placeholder for future Windows OSD/client support and is currently NOT provisioned.",
+  "cephfsFilesystem": "cephfs",
+  "cephfsPool": "cephfs.cephfs.data",
+  "clusterHost": {
+    "node": "kubemaster",
+    "os": "linux",
+    "osdCrushChooseleafType": 0,
+    "monCount": 1,
+    "mgrCount": 1,
+    "mdsCount": 1
+  },
+  "osdHosts": [
+    {
+      "node": "kubemaster",
+      "os": "linux",
+      "osdCount": 1,
+      "osdSizesInGb": [
+        10
+      ]
+    },
+    {
+      "node": "cephosdnode1",
+      "os": "linux",
+      "osdCount": 2,
+      "osdSizesInGb": [
+        5,5
+      ]
+    }
+  ]
 }
 ```
 
@@ -78,10 +111,11 @@ k2s addons enable storage ceph
 ```
 
 On enable the addon:
-1. Reads `clusterHostNode` and resolves its IP address from `cluster.json`.
+1. Reads `clusterHost.node` and resolves its IP address from `cluster.json`.
 2. Validates over SSH that the node runs **Debian 13** (aborts otherwise).
 3. Provisions a fresh single-node Ceph cluster on that node.
-4. Deploys the Ceph CSI operator and the `ceph-cephfs` StorageClass.
+4. Reads `osdHosts`, validates Hyper-V worker node type, and provisions the requested OSDs.
+5. Deploys the Ceph CSI operator and the `ceph-cephfs` StorageClass.
 
 ### 3. Verify Installation
 
@@ -275,89 +309,34 @@ reduce degraded single-OSD behavior, you can add another Debian host and create 
 
 ### Preconditions
 
-- The new host runs Debian and is reachable over SSH.
-- **Bare-metal only:** pass a **dedicated empty raw disk** for the OSD (for example `/dev/sdb`).
-- **Hyper-V:** OSD disks are created automatically by the addon as `ceph-osd-*.vhdx`.
-- The bootstrap/MGR Ceph node is reachable so you can run Ceph orchestration commands.
+- The new host runs Debian 13 and is reachable over SSH.
+- The new host is added to K2s as an existing Hyper-V VM (`NodeType` = `VM-EXISTING`).
+- OSD disks are created automatically by the addon as `ceph-osd-*.vhdx`.
 
-### 1. Get the cephadm public key from the bootstrap/MGR node
+### 1. Add/verify the node in `osdHosts`
 
-You can get the key either from addon logs or directly from the host:
+Add an entry for the node under `osdHosts` in [`config/ceph-config.json`](config/ceph-config.json),
+including `osdCount` and size settings (`osdSizesInGb` or `osdSizeInGb`).
 
-```bash
-# direct command on the Ceph bootstrap/MGR node
-sudo cat /etc/ceph/ceph.pub
+### 2. Trigger reconciliation
+
+If the node was added using `k2s add node`, Ceph reconciliation is triggered automatically.
+You can also run reconciliation manually:
+
+```powershell
+& addons\storage\ceph\Update.ps1 -ShowLogs
 ```
 
-During `k2s addons enable storage ceph`, the bootstrap script also prints a marker line:
+`Update.ps1` prepares the host, registers it in cephadm, labels it, creates the requested OSD disk(s),
+and creates the OSD daemon(s).
 
-```text
-K2S_CEPH_PUB_KEY=<ssh-public-key>
-```
-
-### 2. Prepare the new OSD host machine
-
-Run `prepare-ceph-osd-host.sh` on the **new host** to install required packages and authorize the
-cluster key for root SSH (this is required by `cephadm`):
-
-```bash
-# on the new host
-./prepare-ceph-osd-host.sh "<paste-ceph-pub-key>"
-
-# optional: pass proxy when the host needs one for apt/curl access
-./prepare-ceph-osd-host.sh "<paste-ceph-pub-key>" "http://<kubeswitch-ip>:8181"
-```
-
-Expected success marker:
-
-```text
-K2S_CEPH_OSD_HOST_READY=1
-```
-
-### 3. Add/register the new host in Ceph inventory
-
-Add the host in the Ceph UI (Dashboard -> Hosts -> Add Host), then verify it appears in orchestration:
-
-```bash
-sudo cephadm shell -- ceph orch host ls
-```
-
-If you prefer CLI registration instead of UI:
-
-```bash
-sudo cephadm shell -- ceph orch host add <host-name> <host-ip>
-```
-
-### 4. Label the host and create the OSD
-
-Run `add-ceph-host-labels-and-osd.sh` on the bootstrap/MGR node.
-
-```bash
-# labels only (no OSD yet)
-./add-ceph-host-labels-and-osd.sh <host-name>
-
-# label + create OSD on a specific device
-./add-ceph-host-labels-and-osd.sh <host-name> /dev/sdb
-```
-
-Optional third parameter (`cluster-fsid`):
-
-```bash
-FSID="$(sudo cephadm shell -- ceph fsid)"
-./add-ceph-host-labels-and-osd.sh <host-name> /dev/sdb "$FSID"
-```
-
-### 5. Verify host and OSD state
+### 3. Verify host and OSD state
 
 ```bash
 sudo cephadm shell -- ceph -s
 sudo cephadm shell -- ceph orch host ls
 sudo cephadm shell -- ceph orch ps --daemon_type osd
 ```
-
-!!! warning
-  `add-ceph-host-labels-and-osd.sh` requires a **whole disk device** (not a partition). Use a
-  dedicated empty device for OSD creation.
 
 ## Disabling
 
@@ -405,7 +384,7 @@ Skips the confirmation, deletes the `ceph-cephfs` PVCs/PVs, and removes the clus
 ## Backup, Restore & Upgrade
 
 Because this addon provisions a Ceph cluster on a K2s node, the only state that must be preserved to
-re-enable the addon is its **configuration** (`clusterHostNode`, plus the `cephfsPool` /
+re-enable the addon is its **configuration** (`clusterHost` + `osdHosts`, plus the `cephfsPool` /
 `cephfsFilesystem` names). This configuration is persisted to `config/ceph-config.json` when the
 addon is enabled and is what the backup/restore/upgrade flows capture. Re-enabling always
 provisions a fresh Ceph cluster on the configured Debian 13 node.
@@ -479,36 +458,53 @@ File: `addons/storage/ceph/config/ceph-config.json`
 
 ```json
 {
-  "comment": "Ceph CSI Configuration - 'clusterHostNode' must be the name of a K2s node (as listed in cluster.json) running Debian 13.",
-  "cephfsPool": "cephfs.cephfs.data",
+  "comment": "Ceph CSI storage config. clusterHost boots the Ceph cluster; osdHosts defines Hyper-V OSD nodes.",
   "cephfsFilesystem": "cephfs",
-  "clusterHostNode": "kubemaster",
-  "osdsizeInGb": 20,
-  "osdcount": 3,
-  "osdCrushChooseleafType": 0,
-  "monCount": 1,
-  "mgrCount": 1,
-  "mdsCount": 1,
-  "osddevicebaremetal": "/dev/sdb, /dev/sdc"
+  "cephfsPool": "cephfs.cephfs.data",
+  "clusterHost": {
+    "node": "kubemaster",
+    "os": "linux",
+    "osdCrushChooseleafType": 0,
+    "monCount": 1,
+    "mgrCount": 1,
+    "mdsCount": 1
+  },
+  "osdHosts": [
+    {
+      "node": "kubemaster",
+      "os": "linux",
+      "osdCount": 2,
+      "osdSizesInGb": [10, 5]
+    },
+    {
+      "node": "worker2",
+      "os": "linux",
+      "osdCount": 1,
+      "osdSizeInGb": 10
+    }
+  ],
+  "windowsHosts": []
 }
 ```
 
 | Field | Required | Description |
 |-------|----------|-------------|
-| `clusterHostNode` | Yes | Name of the K2s node (as listed in `cluster.json`) that hosts the new Ceph cluster. Must run **Debian 13**. Use the control plane node name (e.g. `kubemaster`) for the kubemaster, or another Debian 13 node name. |
+| `clusterHost.node` | Yes | Name of the K2s node (as listed in `cluster.json`) that hosts the new Ceph cluster bootstrap. Must run **Debian 13**. |
+| `clusterHost.osdCrushChooseleafType` | No | Optional Ceph `osd_crush_chooseleaf_type` override. Set `0` to choose individual OSDs as the failure domain on single-host labs; leave unset to keep the Ceph default. |
+| `clusterHost.monCount` | No | Optional monitor daemon count applied with `ceph orch apply mon --placement="count:N"`. |
+| `clusterHost.mgrCount` | No | Optional manager daemon count applied with `ceph orch apply mgr --placement="count:N"`. |
+| `clusterHost.mdsCount` | No | Optional CephFS MDS daemon count applied with `ceph orch apply mds <fs> --placement="count:N"`. |
+| `osdHosts[]` | Yes | List of OSD host definitions. Each node must be Linux and must resolve to a Hyper-V worker node in `cluster.json` (`NodeType` = `VM-EXISTING`). |
+| `osdHosts[].osdCount` | No | Number of OSD data disks to create on that host (default `1`). |
+| `osdHosts[].osdSizesInGb` | No | Array of per-OSD sizes in GiB (one value per OSD). Example: `[10, 5]` with `osdCount: 2`. |
+| `osdHosts[].osdSizeInGb` | No | Common size in GiB applied to all OSDs on that host when `osdSizesInGb` is not provided. |
 | `cephfsPool` | No | CephFS **data pool** name (default `cephfs.cephfs.data`). Refreshed with the value read back from the freshly provisioned cluster. |
 | `cephfsFilesystem` | No | CephFS filesystem name (default `cephfs`). |
-| `osdsizeInGb` | No | Size in **GiB** of each OSD data disk created on a Hyper-V host (default `20`). Increase it to grow the available CephFS capacity. Aliases: `osdsize`, `osdDiskSizeGB`. Applies only to Hyper-V-created disks; bare-metal hosts use the provided physical disk. Invalid values fall back to the default. |
-| `osdcount` | No | Number of OSD data disks to create on the host (default `3` in the shipped template profile). Invalid values fall back to the script default. |
-| `osdCrushChooseleafType` | No | Optional Ceph `osd_crush_chooseleaf_type` override. Set `0` to choose individual OSDs as the failure domain on single-host labs; leave unset to keep the Ceph default. |
-| `monCount` | No | Optional desired monitor daemon count applied with `ceph orch apply mon --placement="count:N"`. Ceph HA guidance is commonly `5`; this addon uses `1` on single-host deployments. |
-| `mgrCount` | No | Optional desired manager daemon count applied with `ceph orch apply mgr --placement="count:N"`. Ceph HA guidance is commonly `5`; this addon uses `1` on single-host deployments. |
-| `mdsCount` | No | Optional desired CephFS MDS daemon count applied with `ceph orch apply mds <fs> --placement="count:N"`. Use `1` for a single-node cluster. |
-| `osddevicebaremetal` | No | Comma-separated list of target bare-metal OSD devices (for example `/dev/sdb, /dev/sdc`). Device 1 is used for OSD #1, device 2 for OSD #2, and so on. Required for bare-metal OSD provisioning when `osdcount` > 0; each listed device is wiped before OSD creation. |
+| `windowsHosts[]` | No | Placeholder for future Windows support; currently not provisioned. |
 | `comment` | No | Free-text note; ignored by the addon. |
 
-`osdsizeInGb`, `osdcount`, `osdCrushChooseleafType`, `monCount`, `mgrCount`, `mdsCount`, and `osddevicebaremetal` are **configurable** — edit them before enabling the
-addon to size Ceph storage to your needs and map bare-metal OSDs to specific drives. For
+`clusterHost.*`, `osdHosts[].osdCount`, `osdHosts[].osdSizeInGb`, and `osdHosts[].osdSizesInGb` are
+**configurable** — edit them before enabling the addon to size Ceph storage to your needs. For
 hardware/capacity planning guidance, see the upstream
 [Ceph Hardware Recommendations](https://docs.ceph.com/en/latest/start/hardware-recommendations/).
 
@@ -522,11 +518,11 @@ When no config object is passed by the CLI, `enable` falls back to this file, so
 
 The shipped K2s Ceph profile is tuned for a **single host** lab footprint:
 
-- `osdcount: 3`
-- `osdCrushChooseleafType: 0`
-- `monCount: 1`
-- `mgrCount: 1`
-- `mdsCount: 1`
+- `osdHosts` contains one node (typically `kubemaster`) with desired `osdCount`/size values
+- `clusterHost.osdCrushChooseleafType: 0`
+- `clusterHost.monCount: 1`
+- `clusterHost.mgrCount: 1`
+- `clusterHost.mdsCount: 1`
 
 `osdCrushChooseleafType: 0` means placement can choose **individual OSDs** as the leaf level,
 which is practical on one host when no host-level failure domain exists yet.
@@ -535,10 +531,10 @@ For production-style resilience, Ceph is designed for **multiple hosts** with OS
 After adding a second and third host, switch back to host-level protection and increase daemon
 placement counts. In K2s config, set:
 
-- `osdCrushChooseleafType: 1`
-- `monCount`: increase from `1` toward your HA target (commonly `3` or `5`)
-- `mgrCount`: increase from `1` toward your HA target (commonly `2` or more; some teams choose `5`)
-- `mdsCount`: increase from `1` based on CephFS availability/performance needs
+- `clusterHost.osdCrushChooseleafType: 1`
+- `clusterHost.monCount`: increase from `1` toward your HA target (commonly `3` or `5`)
+- `clusterHost.mgrCount`: increase from `1` toward your HA target (commonly `2` or more; some teams choose `5`)
+- `clusterHost.mdsCount`: increase from `1` based on CephFS availability/performance needs
 
 Why this matters: with host-level protection and replicas spread across hosts, a full server loss
 still leaves data online from the remaining hosts.
@@ -592,11 +588,12 @@ k2s addons enable storage ceph
 
 Enable command validates:
 1. No conflicting storage implementation (SMB) is active
-2. `clusterHostNode` is set and exists in `cluster.json`
+2. `clusterHost.node` is set and exists in `cluster.json` (or matches the control plane node)
 3. The target node runs **Debian 13** (checked over SSH)
-4. K8s cluster is available
-5. Namespaces can be created
-6. Secrets can be created
+4. Each `osdHosts` node resolves to a Hyper-V worker (`NodeType` = `VM-EXISTING`)
+5. K8s cluster is available
+6. Namespaces can be created
+7. Secrets can be created
 
 ## Performance Tuning
 

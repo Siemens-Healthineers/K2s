@@ -9,11 +9,12 @@ Enables Ceph CSI storage provisioner addon
 
 .DESCRIPTION
 Always provisions a NEW Ceph cluster on a K2s Debian 13 node and deploys the Ceph CSI operator
-components for CephFS (file) provisioning without the Rook operator. The Ceph host node is
-identified by 'clusterHostNode' in ceph-config.json; its IP address and SSH user are resolved from
-the K2s cluster descriptor (cluster.json). When 'clusterHostNode' matches the K2s control plane
-node name, Ceph is installed on the kubemaster; otherwise on the named node. Only Debian 13 nodes
-are supported.
+components for CephFS (file) provisioning without the Rook operator. The Ceph cluster/bootstrap host
+is identified by 'clusterHost.node' in ceph-config.json; its IP address and SSH user are resolved
+from the K2s cluster descriptor (cluster.json). When 'clusterHost.node' matches the K2s control
+plane node name, Ceph is installed on the kubemaster; otherwise on the named node. Additional OSD
+hosts can be declared under 'osdHosts' and are prepared automatically. Only Debian 13 nodes are
+supported.
 
 .PARAMETER ShowLogs
 If log output shall be streamed also to CLI output.
@@ -219,6 +220,55 @@ function Read-CephConnectionConfig {
   if ($Config -and -not [string]::IsNullOrWhiteSpace($Config.cephKey)) { $script:AdminKey = "$($Config.cephKey)".Trim() }
 }
 
+function Test-CephOsdHostsPreflight {
+  param(
+    [pscustomobject]$Config,
+    [Parameter(Mandatory = $true)]
+    [string]$ClusterHostNode,
+    [Parameter(Mandatory = $true)]
+    [string]$ControlPlaneNodeName
+  )
+
+  if ($null -eq $Config -or -not ($Config.PSObject.Properties.Name -contains 'osdHosts') -or $null -eq $Config.osdHosts) {
+    return $null
+  }
+
+  $osdHosts = @($Config.osdHosts)
+  if ($osdHosts.Count -eq 0) {
+    return $null
+  }
+
+  foreach ($osdHostConfig in $osdHosts) {
+    if ($null -eq $osdHostConfig) { continue }
+
+    $osdNodeName = if ($osdHostConfig.PSObject.Properties.Name -contains 'node') { "$($osdHostConfig.node)".Trim() } else { '' }
+    if ([string]::IsNullOrWhiteSpace($osdNodeName)) {
+      return "Each osdHosts entry must define a non-empty 'node' value."
+    }
+
+    $osdNodeOs = if ($osdHostConfig.PSObject.Properties.Name -contains 'os') { "$($osdHostConfig.os)".Trim().ToLowerInvariant() } else { 'linux' }
+    if (-not [string]::IsNullOrWhiteSpace($osdNodeOs) -and $osdNodeOs -ne 'linux') {
+      return "OSD host '$osdNodeName' has os '$osdNodeOs'. Only Linux OSD hosts are supported."
+    }
+
+    if ($osdNodeName -eq $ClusterHostNode) {
+      continue
+    }
+
+    $targetNodeConfig = Get-NodeConfig -NodeName $osdNodeName
+    if ($null -eq $targetNodeConfig) {
+      return "OSD host '$osdNodeName' is not present in cluster.json. Add it first as an existing Hyper-V VM node."
+    }
+
+    $nodeType = if ($targetNodeConfig.PSObject.Properties.Name -contains 'NodeType') { "$($targetNodeConfig.NodeType)".Trim() } else { '' }
+    if (-not [string]::Equals($nodeType, 'VM-EXISTING', [System.StringComparison]::OrdinalIgnoreCase)) {
+      return "OSD host '$osdNodeName' has NodeType '$nodeType'. Ceph OSD provisioning supports only Hyper-V worker nodes (NodeType 'VM-EXISTING')."
+    }
+  }
+
+  return $null
+}
+
 # When the CLI does not pass a -Config object, fall back to the addon config file
 # so the documented 'edit ceph-config.json then enable' workflow works.
 if ($null -eq $Config) {
@@ -239,12 +289,12 @@ if ($null -eq $Config) {
 }
 
 
-$clusterHostNode = if ($Config -and ($Config.PSObject.Properties.Name -contains 'clusterHostNode')) { "$($Config.clusterHostNode)".Trim() } else { '' }
+$clusterHostNode = if ($Config -and ($Config.PSObject.Properties.Name -contains 'clusterHost') -and $null -ne $Config.clusterHost -and ($Config.clusterHost.PSObject.Properties.Name -contains 'node')) { "$($Config.clusterHost.node)".Trim() } else { '' }
 
 if ([string]::IsNullOrWhiteSpace($clusterHostNode)) {
-  Write-Log "[Ceph] ERROR: 'clusterHostNode' is required in ceph-config.json." -Console -Error
+  Write-Log "[Ceph] ERROR: 'clusterHost.node' is required in ceph-config.json." -Console -Error
   if ($EncodeStructuredOutput -eq $true) {
-    Send-ToCli -MessageType $MessageType -Message @{Error = (New-CephStructuredError -Message "'clusterHostNode' is required in ceph-config.json") }
+    Send-ToCli -MessageType $MessageType -Message @{Error = (New-CephStructuredError -Message "'clusterHost.node' is required in ceph-config.json") }
   }
   exit 1
 }
@@ -253,12 +303,12 @@ $controlPlaneNodeName = Get-ConfigControlPlaneNodeHostname
 if ($clusterHostNode -eq $controlPlaneNodeName) {
   $clusterHostNodeIp = "$(Get-ConfiguredIPControlPlane)".Trim()
   $clusterHostNodeUser = "$(Get-DefaultUserNameControlPlane)".Trim()
-  Write-Log "[Ceph] 'clusterHostNode' ('$clusterHostNode') is the K2s control plane node; the Ceph cluster will be installed on the kubemaster (IP $clusterHostNodeIp)." -Console
+  Write-Log "[Ceph] 'clusterHost.node' ('$clusterHostNode') is the K2s control plane node; the Ceph cluster will be installed on the kubemaster (IP $clusterHostNodeIp)." -Console
 }
 else {
   $targetNodeConfig = Get-NodeConfig -NodeName $clusterHostNode
   if ($null -eq $targetNodeConfig) {
-    Write-Log "[Ceph] ERROR: Node '$clusterHostNode' was not found in cluster.json. 'clusterHostNode' must be the K2s control plane node name (e.g. '$controlPlaneNodeName') or the name of a worker node that is part of the K2s cluster." -Console -Error
+    Write-Log "[Ceph] ERROR: Node '$clusterHostNode' was not found in cluster.json. 'clusterHost.node' must be the K2s control plane node name (e.g. '$controlPlaneNodeName') or the name of a worker node that is part of the K2s cluster." -Console -Error
     if ($EncodeStructuredOutput -eq $true) {
       Send-ToCli -MessageType $MessageType -Message @{Error = (New-CephStructuredError -Message "Node '$clusterHostNode' not found in cluster.json") }
     }
@@ -300,6 +350,16 @@ if ($installedDistribution -ne 'debian13') {
   exit 1
 }
 Write-Log "[Ceph] Node '$clusterHostNode' runs Debian 13" -Console
+
+$osdHostsPreflightError = Test-CephOsdHostsPreflight -Config $Config -ClusterHostNode $clusterHostNode -ControlPlaneNodeName $controlPlaneNodeName
+if (-not [string]::IsNullOrWhiteSpace($osdHostsPreflightError)) {
+  Write-Log "[Ceph] ERROR: $osdHostsPreflightError" -Console -Error
+  if ($EncodeStructuredOutput -eq $true) {
+    Send-ToCli -MessageType $MessageType -Message @{Error = (New-CephStructuredError -Message $osdHostsPreflightError) }
+  }
+  exit 1
+}
+Write-Log '[Ceph] OSD host preflight validation passed.' -Console
 
 # Always provision a fresh Ceph cluster on the target Debian 13 node before installing CSI.
 $newClusterScript = "$PSScriptRoot\scripts\linux\debian\New-CephCluster.ps1"
@@ -511,6 +571,15 @@ Update-StorageImplementationRegistry -Implementation 'ceph' -Enabled $true
 Update-StorageImplementationRegistry -Implementation 'smb' -Enabled $false
 
 Add-AddonToSetupJson -Addon ([pscustomobject] @{Name = $addonName; Implementation = 'ceph' })
+
+# Persist the cephadm cluster public key (read back from the freshly bootstrapped cluster) into the
+# addon section of setup.json. It is required later to authorize additional OSD hosts for root SSH
+# (prepare-ceph-osd-host.sh) when a new node is added and the ceph Update script runs.
+$cephPublicKey = if ($Config -and ($Config.PSObject.Properties.Name -contains 'cephPublicKey')) { "$($Config.cephPublicKey)".Trim() } else { '' }
+if (-not [string]::IsNullOrWhiteSpace($cephPublicKey)) {
+  Set-AddonSetupJsonProperty -Addon ([pscustomobject] @{Name = $addonName; Implementation = 'ceph' }) -PropertyName 'CephPublicKey' -PropertyValue $cephPublicKey
+  Write-Log '[Ceph] Stored cephadm cluster public key in setup.json for future OSD host preparation.' -Console
+}
 
 Copy-ScriptsToHooksDir -ScriptPaths @(Get-ChildItem -Path "$PSScriptRoot\hooks" -Filter '*.ps1' | ForEach-Object { $_.FullName })
 

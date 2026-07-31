@@ -150,3 +150,24 @@ $kubeToolsPath = Get-KubeToolsPath
 Write-Log '---------------------------------------------------------------'
 Write-Log "Linux Hyper-V VM with IP  '$IpAddress' and hostname '$NodeName' added to the cluster.   Total duration: $('{0:hh\:mm\:ss}' -f $durationStopwatch.Elapsed )"
 Write-Log '---------------------------------------------------------------'
+
+# If the storage/ceph addon is enabled and this node is declared as a Ceph OSD host in
+# ceph-config.json, prepare it as an OSD host now that it has joined the cluster. The ceph
+# Update.ps1 is idempotent and only provisions hosts that are not yet part of the Ceph cluster.
+try {
+    $cephAddonsModule = "$PSScriptRoot\..\..\..\..\..\..\addons\addons.module.psm1"
+    Import-Module $cephAddonsModule -DisableNameChecking
+    if ((Test-IsAddonEnabled -Addon ([pscustomobject] @{Name = 'storage'; Implementation = 'ceph' })) -eq $true) {
+        $cephUpdateScript = "$PSScriptRoot\..\..\..\..\..\..\addons\storage\ceph\Update.ps1"
+        if (Test-Path $cephUpdateScript) {
+            Write-Log '[NodeAdd] storage/ceph addon is enabled; reconciling Ceph OSD hosts for the newly added node...' -Console
+            & $cephUpdateScript -ShowLogs:$ShowLogs
+            if ($LASTEXITCODE -ne 0) {
+                Write-Log "[NodeAdd] WARNING: Ceph OSD host reconciliation reported a failure (exit code $LASTEXITCODE)." -Console
+            }
+        }
+    }
+}
+catch {
+    Write-Log "[NodeAdd] WARNING: Could not reconcile Ceph OSD hosts after adding the node: $($_.Exception.Message)" -Console
+}

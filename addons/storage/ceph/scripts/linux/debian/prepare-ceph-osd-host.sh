@@ -6,17 +6,17 @@
 # prepare-ceph-osd-host.sh  -  Debian (12/13) variant
 #
 # Prepares THIS machine to join an existing cephadm-managed Ceph cluster as an OSD host.
-# cephadm manages cluster hosts over SSH as the 'root' user using the cluster's own key pair
-# (/etc/ceph/ceph.pub on the bootstrap/MGR node). For cephadm to add this host and deploy OSD
-# daemons on its data drives, that cluster public key must be authorized for root login here and
+# cephadm manages cluster hosts over SSH as root using the cluster's own key pair
+# (/etc/ceph/ceph.pub on the bootstrap/MGR node). K2s always bootstraps with --ssh-user root so
+# that external OSD nodes with different K2s usernames are handled uniformly. For cephadm to add
+# this host and deploy OSD daemons, the cluster public key must be authorized for root login and
 # root key-based SSH must be enabled.
 #
 # This script automates the manual host-preparation steps:
-#   Install a container runtime (docker-ce / containerd.io) and lvm2 - both required by cephadm
-#   to deploy an OSD daemon and carve the OSD out of a raw drive:
+#   Install a container runtime (podman) and lvm2 - both required by cephadm to deploy an OSD
+#   daemon and carve the OSD out of a raw drive (cephadm supports podman as its container engine):
 #     - sudo apt install -y ca-certificates curl gnupg lsb-release
-#     - add the Docker apt repository + GPG key
-#     - sudo apt install -y docker-ce docker-ce-cli containerd.io
+#     - sudo apt install -y podman
 #     - sudo apt install -y lvm2
 #   Authorize the cephadm cluster key for root SSH:
 #     1. sudo cat /etc/ceph/ceph.pub        (run on the MGR node to obtain the key -> pass as arg)
@@ -36,22 +36,32 @@
 #   Optional HTTP/HTTPS proxy URL (e.g. the K2s transparent proxy http://<kubeswitch-ip>:8181).
 #     The proxy is recognised by its 'http://' or 'https://' prefix, so it can appear before or
 #     after the key without being confused with a key fragment.
+#   Optional Ceph container image reference (e.g. quay.io/ceph/ceph:v20). Recognised by containing
+#     both '/' and ':' (registry/repo:tag). When provided, the image is pulled locally via the
+#     proxy so cephadm can deploy the crash/OSD daemons and run ceph-volume on this host without
+#     reaching the public registry (which fails on air-gapped OSD nodes).
 #
 # Examples:
-#   ./prepare-ceph-osd-host.sh ssh-ed25519 AAAA... ceph-<fsid> http://172.19.1.1:8181
-#   ./prepare-ceph-osd-host.sh "ssh-ed25519 AAAA... ceph-<fsid>" http://172.19.1.1:8181
+#   ./prepare-ceph-osd-host.sh ssh-ed25519 AAAA... ceph-<fsid> http://172.19.1.1:8181 quay.io/ceph/ceph:v20
+#   ./prepare-ceph-osd-host.sh "ssh-ed25519 AAAA... ceph-<fsid>" http://172.19.1.1:8181 quay.io/ceph/ceph:v20
 
 set -uo pipefail
 
-# Separate the (possibly space-containing) public key from the optional proxy URL. Everything that
-# is not an http(s):// URL is treated as part of the key, so quoting the key is optional and the
-# proxy may be placed before or after it.
+# Separate the (possibly space-containing) public key from the optional proxy URL and the optional
+# Ceph container image reference. Classification rules (order-independent):
+#   - an http(s):// token is the proxy URL
+#   - a token containing both '/' and ':' (e.g. quay.io/ceph/ceph:v20) is the Ceph image reference
+#   - everything else is treated as part of the OpenSSH public key (which may span several tokens)
 CEPH_PUB_KEY=""
 PROXY=""
+CEPH_IMAGE=""
 for arg in "$@"; do
     case "$arg" in
         http://*|https://*)
             PROXY="$arg"
+            ;;
+        */*:*)
+            CEPH_IMAGE="$arg"
             ;;
         *)
             if [ -z "$CEPH_PUB_KEY" ]; then
@@ -88,8 +98,8 @@ case "$CEPH_PUB_KEY" in
 esac
 
 # ---------------------------------------------------------------------------
-# Install container runtime (docker-ce / containerd.io) and lvm2 required by
-# cephadm to deploy the OSD daemon and provision the OSD on a raw drive.
+# Install container runtime (podman) and lvm2 required by cephadm to deploy the
+# OSD daemon and provision the OSD on a raw drive.
 # ---------------------------------------------------------------------------
 
 # Configure apt to use the K2s proxy when provided (air-gapped nodes reach the internet only
@@ -122,13 +132,9 @@ wait_for_apt_lock() {
     return 0
 }
 
-# curl fetches the Docker GPG key; route it through the proxy when set.
-CURL_PROXY_ARGS=()
-if [ -n "$PROXY" ]; then
-    CURL_PROXY_ARGS=(-x "$PROXY")
-else
-    log_info "No proxy argument was provided; the Docker GPG key / packages are fetched directly."
-    log_info "On an air-gapped node this will fail to resolve download.docker.com - re-run passing the K2s proxy URL, e.g. http://<kubeswitch-ip>:8181"
+if [ -z "$PROXY" ]; then
+    log_info "No proxy argument was provided; packages are fetched directly."
+    log_info "On an air-gapped node this may fail - re-run passing the K2s proxy URL, e.g. http://<kubeswitch-ip>:8181"
 fi
 
 wait_for_apt_lock || exit 1
@@ -155,41 +161,19 @@ else
     log_info "Prerequisite packages (ca-certificates, curl, gnupg, lsb-release) already installed; skipping"
 fi
 
-# Add the Docker apt repository + GPG key (idempotent). Skip the whole repository setup and
-# install when Docker is already present (e.g. installed via dpkg during offline artifact import).
-# containerd.io is NOT installed explicitly here: every K2s node already ships containerd, so it
-# is expected to be present already (apt still pulls it as a docker-ce dependency if it is not).
-if command -v docker >/dev/null 2>&1; then
-    log_info "Docker (docker-ce) already installed; skipping Docker repository setup and install"
+# Install podman (the container engine cephadm uses to deploy the OSD daemon). Skip when it is
+# already present (e.g. installed via dpkg during offline artifact import). podman ships in the
+# Debian base repositories, so no external apt repository / GPG key setup is required.
+if command -v podman >/dev/null 2>&1; then
+    log_info "podman already installed; skipping podman install"
 else
-    sudo install -m 0755 -d /usr/share/keyrings
-    if ! curl -fsSL "${CURL_PROXY_ARGS[@]}" https://download.docker.com/linux/debian/gpg | sudo gpg --dearmor --yes -o /usr/share/keyrings/docker-archive-keyring.gpg; then
-        log_error "Failed to download and import the Docker GPG key from download.docker.com."
-        if [ -z "$PROXY" ]; then
-            log_error "This node could not reach download.docker.com directly. Re-run this script passing the K2s proxy URL as an argument, e.g.:"
-            log_error "  ./prepare-ceph-osd-host.sh <ceph-pub-key> http://<kubeswitch-ip>:8181"
-        fi
-        exit 1
-    fi
-    sudo chmod a+r /usr/share/keyrings/docker-archive-keyring.gpg
-
-    echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/docker-archive-keyring.gpg] https://download.docker.com/linux/debian $(lsb_release -cs) stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
-    log_info "Configured Docker apt repository:"
-    sudo cat /etc/apt/sources.list.d/docker.list | sed 's/^/[CephOsd]   /'
-
     wait_for_apt_lock || exit 1
-    if ! sudo apt-get update; then
-        log_error "'apt-get update' failed after adding the Docker repository."
-        exit 1
-    fi
-
-    wait_for_apt_lock || exit 1
-    if ! sudo apt-get install -y docker-ce docker-ce-cli; then
-        log_error "Failed to install docker-ce / docker-ce-cli (required by cephadm)."
+    if ! sudo apt-get install -y podman; then
+        log_error "Failed to install podman (required by cephadm)."
         exit 1
     fi
 fi
-log_info "Installed container runtime: $(command -v docker) / $(command -v containerd)"
+log_info "Installed container runtime: $(command -v podman)"
 
 # lvm2 provides the LVM tooling cephadm uses to create the OSD's logical volume on the drive.
 # Skip when already present (e.g. installed via dpkg during offline artifact import).
@@ -202,6 +186,35 @@ else
         exit 1
     fi
     log_info "Installed lvm2"
+fi
+
+# ---------------------------------------------------------------------------
+# Ensure the Ceph container image is present locally so cephadm can deploy the crash/OSD daemons
+# and run ceph-volume WITHOUT reaching out to the public registry (quay.io). On an air-gapped OSD
+# node cephadm's own 'podman pull quay.io/ceph/ceph:<tag>' fails with a DNS/timeout error and the
+# OSD/crash daemon placement never completes. Pull the exact image the cluster uses via the K2s
+# proxy here, mirroring what create-ceph-cluster.sh does on the bootstrap node.
+# ---------------------------------------------------------------------------
+if [ -n "$CEPH_IMAGE" ]; then
+    if sudo podman image exists "$CEPH_IMAGE" 2>/dev/null; then
+        log_info "Ceph image '$CEPH_IMAGE' already present locally; skipping pull"
+    elif [ -n "$PROXY" ]; then
+        log_info "Pulling Ceph image via proxy so cephadm does not need registry access: $CEPH_IMAGE"
+        if ! sudo env HTTP_PROXY="$PROXY" HTTPS_PROXY="$PROXY" http_proxy="$PROXY" https_proxy="$PROXY" podman pull "$CEPH_IMAGE"; then
+            log_error "Failed to pull Ceph image '$CEPH_IMAGE' via proxy '$PROXY'. cephadm will not be able to deploy OSD/crash daemons on this host."
+            exit 1
+        fi
+        log_info "Pulled Ceph image '$CEPH_IMAGE'"
+    else
+        log_info "Pulling Ceph image without proxy: $CEPH_IMAGE"
+        if ! sudo podman pull "$CEPH_IMAGE"; then
+            log_error "Failed to pull Ceph image '$CEPH_IMAGE'. cephadm will not be able to deploy OSD/crash daemons on this host."
+            exit 1
+        fi
+        log_info "Pulled Ceph image '$CEPH_IMAGE'"
+    fi
+else
+    log_info "No Ceph image reference was provided; assuming the image is already present locally for cephadm."
 fi
 
 # 1) Ensure root's .ssh directory exists with correct permissions.

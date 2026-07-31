@@ -16,20 +16,23 @@
 #   $1 - Optional HTTP/HTTPS proxy URL
 #   $2 - Ceph image reference from storage addon additionalImages
 #   $3 - CephFS filesystem name to create (from ceph-config.json 'cephfsFilesystem')
-#   $4 - SSH user for cephadm host management (defaults to 'remote')
+#   $4 - SSH user for cephadm host management (must be 'root'; K2s always passes 'root' so that
+#          external OSD nodes with different usernames are handled uniformly)
 #   $5 - Optional osd_crush_chooseleaf_type value
 #   $6 - Optional mon daemon count
 #   $7 - Optional mgr daemon count
 #   $8 - Optional mds daemon count for the CephFS filesystem
+#   $9 - Optional total OSD count across all hosts (used to right-size replicated pools)
 
 PROXY="${1:-}"
 CEPH_IMAGE_INPUT="${2:-}"
 CEPH_FS_NAME="${3:-cephfs}"
-CEPH_SSH_USER="${4:-remote}"
+CEPH_SSH_USER="${4:-root}"
 OSD_CRUSH_CHOOSELEAF_TYPE="${5:-}"
 MON_COUNT="${6:-}"
 MGR_COUNT="${7:-}"
 MDS_COUNT="${8:-}"
+TOTAL_OSD_COUNT="${9:-}"
 
 log_info() {
     echo "[CephNew] $1"
@@ -37,6 +40,36 @@ log_info() {
 
 log_error() {
     echo "[CephNew] ERROR: $1" >&2
+}
+
+ensure_root_ssh_ready_for_cephadm() {
+    # cephadm bootstrap registers the bootstrap node itself through the orchestrator using SSH.
+    # Ensure root pubkey login is enabled before bootstrap so localhost host-add succeeds.
+    local ssh_dropin="/etc/ssh/sshd_config.d/60-k2s-ceph-bootstrap.conf"
+
+    sudo mkdir -p /root/.ssh
+    sudo chmod 700 /root/.ssh
+    sudo touch /root/.ssh/authorized_keys
+    sudo chmod 600 /root/.ssh/authorized_keys
+
+    sudo mkdir -p /etc/ssh/sshd_config.d
+    sudo tee "$ssh_dropin" > /dev/null <<'EOF'
+# Managed by K2s storage/ceph addon (create-ceph-cluster.sh).
+# Required so cephadm can SSH as root to the bootstrap host during orchestrator host registration.
+PermitRootLogin prohibit-password
+PubkeyAuthentication yes
+EOF
+
+    if sudo systemctl restart ssh 2>/dev/null; then
+        log_info "Restarted 'ssh' service after applying root SSH settings"
+    elif sudo systemctl restart sshd 2>/dev/null; then
+        log_info "Restarted 'sshd' service after applying root SSH settings"
+    else
+        log_error "Failed to restart SSH service after applying root SSH settings"
+        return 1
+    fi
+
+    return 0
 }
 
 log_info "Starting new Ceph cluster bootstrap on Debian"
@@ -163,11 +196,33 @@ if [ -n "$PROXY" ]; then
     CEPHADM_PROXY_ENV=(http_proxy="$PROXY" https_proxy="$PROXY" HTTP_PROXY="$PROXY" HTTPS_PROXY="$PROXY")
 fi
 
-sudo env "${CEPHADM_PROXY_ENV[@]}" ./cephadm add-repo --release "$CEPH_RELEASE" || \
-    log_info "add-repo failed (continuing; host-side ceph CLI may be unavailable)"
+DEBIAN_CODENAME="$(. /etc/os-release 2>/dev/null; echo "${VERSION_CODENAME:-trixie}")"
+CEPH_REPO_RELEASE_URL="https://download.ceph.com/debian-${CEPH_RELEASE}/dists/${DEBIAN_CODENAME}/Release"
 
-sudo env "${CEPHADM_PROXY_ENV[@]}" ./cephadm install || \
-    log_info "cephadm install failed (continuing; using available cephadm binary for bootstrap)"
+# Host-side add-repo/install is optional. Bootstrap and all runtime ceph commands use the
+# downloaded/staged cephadm binary plus the container image, so skip this path when the
+# release/codename repo is unavailable (common for newly released Debian versions).
+repo_probe_ok=0
+if [ -n "$PROXY" ]; then
+    if curl -x "$PROXY" --fail --silent --show-error --location --output /dev/null "$CEPH_REPO_RELEASE_URL"; then
+        repo_probe_ok=1
+    fi
+else
+    if curl --fail --silent --show-error --location --output /dev/null "$CEPH_REPO_RELEASE_URL"; then
+        repo_probe_ok=1
+    fi
+fi
+
+if [ "$repo_probe_ok" -eq 1 ]; then
+    log_info "Ceph Debian repo is reachable for release '$CEPH_RELEASE' on codename '$DEBIAN_CODENAME'; running cephadm add-repo/install"
+    sudo env "${CEPHADM_PROXY_ENV[@]}" ./cephadm add-repo --release "$CEPH_RELEASE" || \
+        log_info "add-repo failed (continuing; host-side ceph CLI may be unavailable)"
+
+    sudo env "${CEPHADM_PROXY_ENV[@]}" ./cephadm install || \
+        log_info "cephadm install failed (continuing; using available cephadm binary for bootstrap)"
+else
+    log_info "Ceph Debian repo not available at '$CEPH_REPO_RELEASE_URL'; skipping cephadm add-repo/install and continuing with staged cephadm binary."
+fi
 
 
 CEPHADM_BIN=''
@@ -241,6 +296,13 @@ if [ -n "$EXISTING_FSIDS" ]; then
     log_info "Finished cleanup of existing Ceph cluster state"
 fi
 
+if [ "$CEPH_SSH_USER" = "root" ]; then
+    log_info "Preparing bootstrap host SSH configuration for cephadm root login"
+    if ! ensure_root_ssh_ready_for_cephadm; then
+        exit 1
+    fi
+fi
+
 
 if ! sudo "$CEPHADM_BIN" --image "$CEPH_IMAGE" bootstrap --mon-ip "$MON_IP" --ssh-user "$CEPH_SSH_USER" --skip-pull --allow-mismatched-release --skip-monitoring-stack; then
     log_error "cephadm bootstrap failed"
@@ -295,6 +357,19 @@ if [ -n "$OSD_CRUSH_CHOOSELEAF_TYPE" ]; then
     fi
     log_info "Configured osd_crush_chooseleaf_type=$OSD_CRUSH_CHOOSELEAF_TYPE"
 fi
+
+# Derive the replicated pool size from the requested number of OSDs so pools are never left
+# permanently undersized/degraded (HEALTH_WARN). min_size is ALWAYS 1 so a single surviving
+# replica keeps the pool available; size follows the OSD count and is capped at 3 (Ceph's
+# conventional replication maximum). Applied BEFORE creating the CephFS volume so its
+# auto-created pools inherit the healthy layout.
+POOL_SIZE=3
+if printf '%s' "${TOTAL_OSD_COUNT:-}" | grep -Eq '^[0-9]+$' && [ "${TOTAL_OSD_COUNT}" -ge 1 ] && [ "${TOTAL_OSD_COUNT}" -lt 3 ]; then
+    POOL_SIZE="${TOTAL_OSD_COUNT}"
+fi
+log_info "Setting global osd_pool_default_size=$POOL_SIZE / osd_pool_default_min_size=1 (requested OSD count=${TOTAL_OSD_COUNT:-unknown})"
+sudo "$CEPHADM_BIN" shell -- ceph config set global osd_pool_default_size "$POOL_SIZE" || log_info "Failed to set osd_pool_default_size=$POOL_SIZE (continuing)"
+sudo "$CEPHADM_BIN" shell -- ceph config set global osd_pool_default_min_size 1 || log_info "Failed to set osd_pool_default_min_size=1 (continuing)"
 
 if [ -n "$MON_COUNT" ]; then
     if ! sudo "$CEPHADM_BIN" shell -- ceph orch apply mon --placement="count:${MON_COUNT}"; then
@@ -383,5 +458,14 @@ if [ "${OSD_CRUSH_CHOOSELEAF_TYPE:-}" = "0" ]; then
         exit 1
     fi
 fi
+
+# Explicitly enforce the derived sizing on the CephFS and .mgr pools. Pools created by
+# 'ceph fs volume create' before the global default took effect, and the .mgr pool created at
+# bootstrap, would otherwise keep size=3 and hold the cluster in HEALTH_WARN when fewer OSDs exist.
+log_info "Enforcing size=$POOL_SIZE/min_size=1 on CephFS and .mgr pools (requested OSD count=${TOTAL_OSD_COUNT:-unknown})"
+for pool in "cephfs.${CEPH_FS_NAME}.meta" "cephfs.${CEPH_FS_NAME}.data" ".mgr"; do
+    sudo "$CEPHADM_BIN" shell -- ceph osd pool set "$pool" size "$POOL_SIZE" || log_info "Failed to set size=$POOL_SIZE on pool '$pool' (continuing)"
+    sudo "$CEPHADM_BIN" shell -- ceph osd pool set "$pool" min_size 1 || log_info "Failed to set min_size=1 on pool '$pool' (continuing)"
+done
 
 log_info "Finished collecting Ceph cluster connection details"

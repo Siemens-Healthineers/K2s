@@ -8,17 +8,15 @@
 Provisions a raw, unformatted, unpartitioned disk for a Ceph OSD on a Debian node and prepares it.
 
 .DESCRIPTION
-Determines whether the target OSD node identified by -NodeIp is a local Hyper-V virtual machine or
-a bare-metal machine, reusing the same detection K2s uses when adding worker nodes: prefer the
-KubeSwitch ARP/MAC-to-VM lookup used by the existing-vm add-node path, and fall back to a direct
-Hyper-V adapter IP-address match only when needed. Otherwise the node is treated as bare-metal.
+Determines whether the target OSD node identified by -NodeIp is a local Hyper-V virtual machine,
+reusing the same detection K2s uses when adding worker nodes: prefer the KubeSwitch ARP/MAC-to-VM
+lookup used by the existing-vm add-node path, and fall back to a direct Hyper-V adapter IP-address
+match only when needed.
 
-Based on the detected node type it dispatches to the matching shell script:
-  - Hyper-V   : creates a new dynamic .vhdx on the Windows host, hot-attaches it to the VM as a raw
-                SCSI disk, discovers the resulting guest device, then runs
-                osd\hyperv\prepare-osd-disk-hyperv.sh to wipe it to a raw state.
-  - Bare-metal: runs osd\baremetal\prepare-osd-disk-baremetal.sh against an EXISTING empty physical
-                disk that must be provided explicitly (a physical disk cannot be created).
+Ceph OSD provisioning is supported only for Hyper-V worker nodes. For supported nodes this script
+creates a new dynamic .vhdx on the Windows host, hot-attaches it to the VM as a raw SCSI disk,
+discovers the resulting guest device, then runs osd\hyperv\prepare-osd-disk-hyperv.sh to wipe it
+to a raw state.
 
 .PARAMETER NodeIp
 IP address of the OSD node (ceph-config.json 'clusterHostNodeIp').
@@ -27,16 +25,14 @@ IP address of the OSD node (ceph-config.json 'clusterHostNodeIp').
 SSH user for the OSD node. If omitted it is resolved from the cluster descriptor, falling back to 'remote'.
 
 .PARAMETER Device
-Target whole-disk block device on the node, e.g. '/dev/sdb'. REQUIRED for bare-metal nodes.
-For Hyper-V nodes it is optional: the freshly-attached virtual disk is discovered automatically.
+Target whole-disk block device on the node, e.g. '/dev/sdb'. Optional for Hyper-V nodes; when
+omitted, the freshly-attached virtual disk is discovered automatically.
 
 .PARAMETER DiskSizeGB
-Size (in GiB) of the virtual disk to create for a Hyper-V node. Ignored for bare-metal. Default 20.
+Size (in GiB) of the virtual disk to create for a Hyper-V node. Default 20.
 
 .PARAMETER OsdIndex
-1-based OSD index within the current provisioning run. Used on bare-metal nodes to map
-`osddevicebaremetal` entries to a specific OSD (for example the second configured device is used
-for OSD index 2).
+1-based OSD index within the current provisioning run.
 
 .PARAMETER Config
 The parsed ceph-config.json object (used to resolve the SSH user).
@@ -49,11 +45,11 @@ Param(
     [string] $NodeIp,
     [parameter(Mandatory = $false, HelpMessage = 'SSH user name for the OSD node')]
     [string] $UserName = '',
-    [parameter(Mandatory = $false, HelpMessage = 'Target whole-disk device (required for bare-metal)')]
+    [parameter(Mandatory = $false, HelpMessage = 'Target whole-disk device (optional for Hyper-V)')]
     [string] $Device = '',
     [parameter(Mandatory = $false, HelpMessage = 'Virtual disk size in GiB for Hyper-V nodes')]
     [uint32] $DiskSizeGB = 20,
-    [parameter(Mandatory = $false, HelpMessage = '1-based OSD index used for bare-metal device selection')]
+    [parameter(Mandatory = $false, HelpMessage = '1-based OSD index')]
     [uint32] $OsdIndex = 1,
     [parameter(Mandatory = $false, HelpMessage = 'Force creation of a new Hyper-V virtual disk even when K2s OSD disks already exist')]
     [switch] $CreateNewDisk = $false,
@@ -259,70 +255,25 @@ function Resolve-HyperVVmNameByIp {
     return $null
 }
 
-function Get-BareMetalOsdDevicesFromConfig {
-    param(
-        [pscustomobject] $Config
-    )
-
-    $devices = @()
-    if ($null -eq $Config) { return $devices }
-
-    $rawValue = $null
-    if ($Config.PSObject.Properties.Name -contains 'osddevicebaremetal') {
-        $rawValue = $Config.osddevicebaremetal
-    }
-
-    if ($null -eq $rawValue) { return $devices }
-
-    # Accept both comma-separated strings and JSON arrays; normalize to non-empty trimmed entries.
-    if ($rawValue -is [System.Array]) {
-        foreach ($entry in $rawValue) {
-            $candidate = "$entry".Trim()
-            if (-not [string]::IsNullOrWhiteSpace($candidate)) {
-                $devices += $candidate
-            }
-        }
-    }
-    else {
-        foreach ($entry in ("$rawValue" -split ',')) {
-            $candidate = "$entry".Trim()
-            if (-not [string]::IsNullOrWhiteSpace($candidate)) {
-                $devices += $candidate
-            }
-        }
-    }
-
-    return $devices
-}
-
 # ---------------------------------------------------------------------------
 # Determine node type using the same signal K2s uses when adding a worker node:
 # prefer KubeSwitch ARP/MAC lookup to identify an existing Hyper-V VM.
 # ---------------------------------------------------------------------------
 $vmName = Resolve-HyperVVmNameByIp -IpAddress $NodeIp
 
-if (-not [string]::IsNullOrWhiteSpace($vmName)) {
-    $nodeType = 'HyperV'
-    Write-Log "[Ceph] Node '$NodeIp' detected as a local Hyper-V VM ('$vmName')." -Console
+if ([string]::IsNullOrWhiteSpace($vmName)) {
+    Write-Log "[Ceph] ERROR: Node '$NodeIp' is not a local Hyper-V VM. Ceph OSD provisioning supports only Hyper-V worker nodes." -Console -Error
+    exit 1
 }
-else {
-    $nodeType = 'BareMetal'
-    $loopbackAdapter = Get-L2BridgeName
-    if (Test-IpInPhysicalSubnet -IpAddress $NodeIp -ExcludeNetworkInterfaceName $loopbackAdapter) {
-        Write-Log "[Ceph] Node '$NodeIp' detected as a bare-metal machine (IP belongs to a physical host subnet)." -Console
-    }
-    else {
-        Write-Log "[Ceph] Node '$NodeIp' was not matched to a local Hyper-V VM; treating it as bare-metal." -Console
-    }
-}
+Write-Log "[Ceph] Node '$NodeIp' detected as a local Hyper-V VM ('$vmName')." -Console
+$nodeType = 'HyperV'
 
 # ---------------------------------------------------------------------------
 # Provision / prepare the OSD disk according to the node type.
 # ---------------------------------------------------------------------------
 $createdVhdxPath = ''
 
-if ($nodeType -eq 'HyperV') {
-    $diskScript = Join-Path $PSScriptRoot 'hyperv\prepare-osd-disk-hyperv.sh'
+$diskScript = Join-Path $PSScriptRoot 'hyperv\prepare-osd-disk-hyperv.sh'
 
     # If no explicit device was given, create and attach a fresh virtual disk, then discover it.
     if ([string]::IsNullOrWhiteSpace($Device)) {
@@ -438,37 +389,7 @@ if ($nodeType -eq 'HyperV') {
         }
     }
 
-    $scriptArgs = if ([string]::IsNullOrWhiteSpace($Device)) { @() } else { @($Device) }
-}
-else {
-    $diskScript = Join-Path $PSScriptRoot 'baremetal\prepare-osd-disk-baremetal.sh'
-
-    if ([string]::IsNullOrWhiteSpace($Device)) {
-        $configuredBareMetalDevices = @(Get-BareMetalOsdDevicesFromConfig -Config $Config)
-        if ($configuredBareMetalDevices.Count -gt 0) {
-            if ($OsdIndex -lt 1) {
-                Write-Log "[Ceph] ERROR: Invalid OSD index '$OsdIndex' for bare-metal device selection." -Console -Error
-                exit 1
-            }
-
-            $selectedDeviceIndex = [int]$OsdIndex - 1
-            if ($selectedDeviceIndex -lt $configuredBareMetalDevices.Count) {
-                $Device = $configuredBareMetalDevices[$selectedDeviceIndex]
-                Write-Log "[Ceph] Selected bare-metal OSD device '$Device' from osddevicebaremetal (OSD index $OsdIndex)." -Console
-            }
-            else {
-                Write-Log "[Ceph] ERROR: osddevicebaremetal provides only $($configuredBareMetalDevices.Count) device(s), but OSD index $OsdIndex was requested. Provide at least one device per OSD." -Console -Error
-                exit 1
-            }
-        }
-    }
-
-    if ([string]::IsNullOrWhiteSpace($Device)) {
-        Write-Log "[Ceph] ERROR: A bare-metal OSD node requires an explicit target disk. Pass -Device (e.g. /dev/sdb) or set 'osddevicebaremetal' in ceph-config.json." -Console -Error
-        exit 1
-    }
-    $scriptArgs = @($Device)
-}
+$scriptArgs = if ([string]::IsNullOrWhiteSpace($Device)) { @() } else { @($Device) }
 
 if (-not (Test-Path $diskScript)) {
     Write-Log "[Ceph] ERROR: OSD disk preparation script not found: '$diskScript'" -Console -Error

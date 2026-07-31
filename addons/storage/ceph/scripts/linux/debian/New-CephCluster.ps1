@@ -15,8 +15,8 @@ writes the resulting connection details (monitorEndpoints, cephKey, clusterId) b
 into the provided configuration so the subsequent CSI installation can connect.
 
 .PARAMETER NodeIp
-IP address of the target node that will host the new Ceph cluster
-(ceph-config.json 'clusterHostNodeIp').
+IP address of the cluster/bootstrap node that will host the new Ceph cluster
+(resolved from ceph-config.json 'clusterHost.node').
 
 .PARAMETER Config
 The parsed ceph-config.json object.
@@ -88,6 +88,7 @@ Function New-CephClusterOnNode {
         [string]$MonCount = '',
         [string]$MgrCount = '',
         [string]$MdsCount = '',
+        [string]$TotalOsdCount = '',
         [string]$Proxy = '',
         [string]$InstalledDistribution = 'debian'
     )
@@ -100,7 +101,7 @@ Function New-CephClusterOnNode {
                         -UserName $UserName `
                         -IpAddress $IpAddress `
                         -UserPwd $UserPwd `
-                        -Arguments @($Proxy, $CephBootstrapImage, $CephFsFilesystem, $UserName, $OsdCrushChooseleafType, $MonCount, $MgrCount, $MdsCount) `
+                        -Arguments @($Proxy, $CephBootstrapImage, $CephFsFilesystem, 'root', $OsdCrushChooseleafType, $MonCount, $MgrCount, $MdsCount, $TotalOsdCount) `
                         -CleanupAfterExecution `
                         -Retries 0
 
@@ -109,43 +110,161 @@ Function New-CephClusterOnNode {
     return $scriptOutput
 }
 
-function Get-CephNodeAccessDetails {
+function Resolve-CephNodeAccess {
     param (
-        [pscustomobject]$Config,
-        [string]$NodeName = '',
-        [string]$IpAddress = ''
+        [Parameter(Mandatory = $true)][string]$NodeName
     )
 
     $resolvedNodeName = "$NodeName".Trim()
-    if ([string]::IsNullOrWhiteSpace($resolvedNodeName) -and $null -ne $Config) {
-        $clusterHostIp = "$($Config.clusterHostNodeIp)".Trim()
-        $osdHostIp = "$($Config.osdHostNodeIp)".Trim()
+    $resolvedUserName = 'remote'
+    $resolvedIpAddress = ''
 
-        if (-not [string]::IsNullOrWhiteSpace($IpAddress) -and $IpAddress -eq $clusterHostIp) {
-            $resolvedNodeName = "$($Config.clusterHostNode)".Trim()
-        }
-        elseif (-not [string]::IsNullOrWhiteSpace($IpAddress) -and $IpAddress -eq $osdHostIp) {
-            $resolvedNodeName = "$($Config.osdHostNode)".Trim()
-        }
+    if ([string]::IsNullOrWhiteSpace($resolvedNodeName)) {
+        return [pscustomobject]@{ NodeName = ''; UserName = $resolvedUserName; IpAddress = ''; NodeType = '' }
     }
 
-    $resolvedUserName = 'remote'
-    if (-not [string]::IsNullOrWhiteSpace($resolvedNodeName)) {
-        try {
-            $targetNodeConfig = Get-NodeConfig -NodeName $resolvedNodeName
-            if ($null -ne $targetNodeConfig -and -not [string]::IsNullOrWhiteSpace($targetNodeConfig.Username)) {
-                $resolvedUserName = $targetNodeConfig.Username
+    $controlPlaneNodeName = Get-ConfigControlPlaneNodeHostname
+    if ($resolvedNodeName -eq $controlPlaneNodeName) {
+        $resolvedIpAddress = "$(Get-ConfiguredIPControlPlane)".Trim()
+        $resolvedUserName = "$(Get-DefaultUserNameControlPlane)".Trim()
+        if ([string]::IsNullOrWhiteSpace($resolvedUserName)) { $resolvedUserName = 'remote' }
+        return [pscustomobject]@{ NodeName = $resolvedNodeName; UserName = $resolvedUserName; IpAddress = $resolvedIpAddress; NodeType = 'VM-EXISTING' }
+    }
+
+    $resolvedNodeType = ''
+    try {
+        $targetNodeConfig = Get-NodeConfig -NodeName $resolvedNodeName
+        if ($null -ne $targetNodeConfig) {
+            if (-not [string]::IsNullOrWhiteSpace($targetNodeConfig.Username)) { $resolvedUserName = $targetNodeConfig.Username }
+            if (-not [string]::IsNullOrWhiteSpace($targetNodeConfig.IpAddress)) { $resolvedIpAddress = "$($targetNodeConfig.IpAddress)".Trim() }
+            if (-not [string]::IsNullOrWhiteSpace($targetNodeConfig.NodeType)) { $resolvedNodeType = "$($targetNodeConfig.NodeType)".Trim() }
+        }
+    }
+    catch {
+        Write-Log "[Ceph] WARNING: Could not resolve access details for node '$resolvedNodeName': $($_.Exception.Message)" -Console
+    }
+
+    return [pscustomobject]@{ NodeName = $resolvedNodeName; UserName = $resolvedUserName; IpAddress = $resolvedIpAddress; NodeType = $resolvedNodeType }
+}
+
+<#
+.SYNOPSIS
+Builds a normalized OSD host descriptor from a host section of ceph-config.json.
+
+.DESCRIPTION
+Reads osdCount (default 1) and osdSizesInGb/osdSizeInGb (default 20) from an entry of the
+'osdHosts' array and returns a uniform descriptor used by the OSD provisioning loop.
+#>
+function New-CephHostDescriptor {
+    param (
+        [pscustomobject]$HostConfig,
+        [Parameter(Mandatory = $true)][string]$NodeName,
+        [Parameter(Mandatory = $true)][string]$NodeIp,
+        [Parameter(Mandatory = $true)][string]$UserName,
+        [bool]$IsBootstrapNode = $false
+    )
+
+    [uint32]$osdCount = 1
+    [uint32]$osdDiskSizeGB = 20
+    $osdDiskSizesGB = @()
+
+    if ($null -ne $HostConfig) {
+        $configuredCount = if ($HostConfig.PSObject.Properties.Name -contains 'osdCount') { "$($HostConfig.osdCount)".Trim() } else { '' }
+        if (-not [string]::IsNullOrWhiteSpace($configuredCount)) {
+            $parsedCount = 0
+            if ([uint32]::TryParse($configuredCount, [ref]$parsedCount) -and $parsedCount -gt 0) { $osdCount = $parsedCount }
+            else { Write-Log "[Ceph] WARNING: Invalid osdCount '$configuredCount' for host '$NodeName'. Falling back to $osdCount." -Console }
+        }
+
+        if ($HostConfig.PSObject.Properties.Name -contains 'osdSizesInGb' -and $null -ne $HostConfig.osdSizesInGb) {
+            foreach ($sizeEntry in @($HostConfig.osdSizesInGb)) {
+                $parsedSize = 0
+                if ([uint32]::TryParse("$sizeEntry".Trim(), [ref]$parsedSize) -and $parsedSize -gt 0) {
+                    $osdDiskSizesGB += $parsedSize
+                }
+                else {
+                    Write-Log "[Ceph] WARNING: Invalid osdSizesInGb entry '$sizeEntry' for host '$NodeName'. Ignoring this entry." -Console
+                }
+            }
+            if ($osdDiskSizesGB.Count -gt 0) {
+                $osdDiskSizeGB = $osdDiskSizesGB[0]
             }
         }
-        catch {
-            Write-Log "[Ceph] WARNING: Could not resolve SSH user for node '$resolvedNodeName': $($_.Exception.Message)" -Console
+
+        if ($osdDiskSizesGB.Count -eq 0) {
+            $configuredSize = if ($HostConfig.PSObject.Properties.Name -contains 'osdSizeInGb') { "$($HostConfig.osdSizeInGb)".Trim() } else { '' }
+            if (-not [string]::IsNullOrWhiteSpace($configuredSize)) {
+                $parsedSize = 0
+                if ([uint32]::TryParse($configuredSize, [ref]$parsedSize) -and $parsedSize -gt 0) { $osdDiskSizeGB = $parsedSize }
+                else { Write-Log "[Ceph] WARNING: Invalid osdSizeInGb '$configuredSize' for host '$NodeName'. Falling back to ${osdDiskSizeGB} GiB." -Console }
+            }
         }
     }
 
     return [pscustomobject]@{
-        NodeName = $resolvedNodeName
-        UserName = $resolvedUserName
+        NodeName         = "$NodeName".Trim()
+        NodeIp           = "$NodeIp".Trim()
+        UserName         = if ([string]::IsNullOrWhiteSpace($UserName)) { 'remote' } else { "$UserName".Trim() }
+        OsdCount         = $osdCount
+        OsdDiskSizeGB    = $osdDiskSizeGB
+        OsdDiskSizesGB   = @($osdDiskSizesGB)
+        IsBootstrapNode  = $IsBootstrapNode
     }
+}
+
+<#
+.SYNOPSIS
+Returns the ordered list of OSD host descriptors from osdHosts.
+#>
+function Get-CephHostDescriptors {
+    param (
+        [pscustomobject]$Config,
+        [Parameter(Mandatory = $true)][string]$BootstrapNodeName,
+        [Parameter(Mandatory = $true)][string]$BootstrapNodeIp,
+        [Parameter(Mandatory = $true)][string]$BootstrapNodeUserName
+    )
+
+    $descriptors = @()
+
+    if ($null -ne $Config -and ($Config.PSObject.Properties.Name -contains 'osdHosts') -and $null -ne $Config.osdHosts) {
+        foreach ($osdHostConfig in @($Config.osdHosts)) {
+            if ($null -eq $osdHostConfig) { continue }
+            $osdNodeName = if ($osdHostConfig.PSObject.Properties.Name -contains 'node') { "$($osdHostConfig.node)".Trim() } else { '' }
+            if ([string]::IsNullOrWhiteSpace($osdNodeName)) { continue }
+
+            $osdNodeOs = if ($osdHostConfig.PSObject.Properties.Name -contains 'os') { "$($osdHostConfig.os)".Trim().ToLowerInvariant() } else { 'linux' }
+            if (-not [string]::IsNullOrWhiteSpace($osdNodeOs) -and $osdNodeOs -ne 'linux') {
+                Write-Log "[Ceph] WARNING: OSD host '$osdNodeName' has os '$osdNodeOs'; only Linux OSD hosts are provisioned currently. Skipping it." -Console
+                continue
+            }
+
+            $access = $null
+            $isBootstrapNode = $false
+            if ($osdNodeName -eq $BootstrapNodeName) {
+                $access = [pscustomobject]@{ NodeName = $BootstrapNodeName; UserName = $BootstrapNodeUserName; IpAddress = $BootstrapNodeIp }
+                $isBootstrapNode = $true
+            }
+            else {
+                $access = Resolve-CephNodeAccess -NodeName $osdNodeName
+                if ([string]::IsNullOrWhiteSpace($access.IpAddress)) {
+                    Write-Log "[Ceph] WARNING: Could not resolve an IP address for OSD host '$osdNodeName' from cluster.json. Skipping it." -Console
+                    continue
+                }
+                if (-not [string]::Equals("$($access.NodeType)", 'VM-EXISTING', [System.StringComparison]::OrdinalIgnoreCase)) {
+                    Write-Log "[Ceph] ERROR: OSD host '$osdNodeName' has NodeType '$($access.NodeType)'. Ceph OSD provisioning supports only Hyper-V worker nodes (NodeType 'VM-EXISTING')." -Console -Error
+                    exit 1
+                }
+            }
+
+            $descriptors += (New-CephHostDescriptor -HostConfig $osdHostConfig -NodeName $osdNodeName -NodeIp $access.IpAddress -UserName $access.UserName -IsBootstrapNode $isBootstrapNode)
+        }
+    }
+
+    if ($descriptors.Count -eq 0) {
+        Write-Log "[Ceph] WARNING: No valid OSD host entries were resolved from ceph-config.json 'osdHosts'. The Ceph cluster was created without OSD provisioning." -Console
+    }
+
+    return , $descriptors
 }
 
 <#
@@ -196,98 +315,15 @@ function Remove-CreatedOsdVhdxPaths {
 
 function Invoke-CephOsdPreparation {
     param (
+        [Parameter(Mandatory = $true)][string]$BootstrapNodeName,
         [Parameter(Mandatory = $true)][string]$BootstrapNodeIp,
         [Parameter(Mandatory = $true)][string]$BootstrapNodeUserName,
         [string]$CephPubKey = '',
         [string]$Proxy = '',
+        [string]$CephImage = '',
         [pscustomobject]$Config,
         [switch]$ShowLogs = $false
     )
-
-    $osdNodeIp = if ($null -ne $Config -and -not [string]::IsNullOrWhiteSpace("$($Config.osdHostNodeIp)".Trim())) {
-        "$($Config.osdHostNodeIp)".Trim()
-    }
-    else {
-        $BootstrapNodeIp
-    }
-
-    $osdNodeName = if ($null -ne $Config -and -not [string]::IsNullOrWhiteSpace("$($Config.osdHostNode)".Trim())) {
-        "$($Config.osdHostNode)".Trim()
-    }
-    else {
-        if ($null -ne $Config) { "$($Config.clusterHostNode)".Trim() } else { '' }
-    }
-
-    $osdAccess = Get-CephNodeAccessDetails -Config $Config -NodeName $osdNodeName -IpAddress $osdNodeIp
-    if ([string]::IsNullOrWhiteSpace($osdAccess.UserName)) {
-        $osdAccess.UserName = $BootstrapNodeUserName
-    }
-
-    if ($osdNodeIp -ne $BootstrapNodeIp) {
-        if ([string]::IsNullOrWhiteSpace($CephPubKey)) {
-            Write-Log "[Ceph] ERROR: Cannot prepare OSD host '$osdNodeIp' because the cephadm public key was not available from bootstrap output." -Console -Error
-            exit 1
-        }
-
-        $prepareHostScript = Join-Path $PSScriptRoot 'prepare-ceph-osd-host.sh'
-        if (-not (Test-Path $prepareHostScript)) {
-            Write-Log "[Ceph] ERROR: OSD host preparation script not found: '$prepareHostScript'" -Console -Error
-            exit 1
-        }
-
-        Write-Log "[Ceph] Preparing remote OSD host '$osdNodeIp'$(if ($osdAccess.NodeName) { " ($($osdAccess.NodeName))" }) for cephadm..." -Console
-        $hostPrepOutput = Invoke-RemoteScript -LocalScriptPath $prepareHostScript `
-                            -UserName $osdAccess.UserName `
-                            -IpAddress $osdNodeIp `
-                            -UserPwd '' `
-                            -Arguments @($CephPubKey, $Proxy) `
-                            -CleanupAfterExecution `
-                            -Retries 2
-
-        $hostPrepReady = ($hostPrepOutput | Out-String) -match 'K2S_CEPH_OSD_HOST_READY=1'
-        if (-not $hostPrepReady) {
-            Write-Log "[Ceph] ERROR: OSD host preparation did not complete successfully on node '$osdNodeIp'." -Console -Error
-            exit 1
-        }
-    }
-    else {
-        Write-Log "[Ceph] Bootstrap node '$BootstrapNodeIp' is also the OSD host; skipping prepare-ceph-osd-host.sh because bootstrap already installed the required host packages." -Console
-    }
-
-    [uint32]$osdDiskSizeGB = 20
-    $configuredDiskSize = if ($null -ne $Config -and -not [string]::IsNullOrWhiteSpace("$($Config.osdsizeInGb)".Trim())) {
-        "$($Config.osdsizeInGb)".Trim()
-    }
-    elseif ($null -ne $Config -and -not [string]::IsNullOrWhiteSpace("$($Config.osdsize)".Trim())) {
-        "$($Config.osdsize)".Trim()
-    }
-    elseif ($null -ne $Config) {
-        "$($Config.osdDiskSizeGB)".Trim()
-    }
-    else {
-        ''
-    }
-    if (-not [string]::IsNullOrWhiteSpace($configuredDiskSize)) {
-        $parsedDiskSize = 0
-        if ([uint32]::TryParse($configuredDiskSize, [ref]$parsedDiskSize) -and $parsedDiskSize -gt 0) {
-            $osdDiskSizeGB = $parsedDiskSize
-        }
-        else {
-            Write-Log "[Ceph] WARNING: Invalid osdsizeInGb/osdsize/osdDiskSizeGB '$configuredDiskSize' in ceph-config.json. Falling back to ${osdDiskSizeGB} GiB." -Console
-        }
-    }
-
-    [uint32]$osdCount = 2
-    $configuredOsdCount = if ($null -ne $Config) { "$($Config.osdcount)".Trim() } else { '' }
-    if (-not [string]::IsNullOrWhiteSpace($configuredOsdCount)) {
-        $parsedOsdCount = 0
-        if ([uint32]::TryParse($configuredOsdCount, [ref]$parsedOsdCount) -and $parsedOsdCount -gt 0) {
-            $osdCount = $parsedOsdCount
-        }
-        else {
-            Write-Log "[Ceph] WARNING: Invalid osdcount '$configuredOsdCount' in ceph-config.json. Falling back to $osdCount." -Console
-        }
-    }
 
     $prepareDiskScript = Join-Path $PSScriptRoot 'osd\New-CephOsdDisk.ps1'
     if (-not (Test-Path $prepareDiskScript)) {
@@ -295,23 +331,7 @@ function Invoke-CephOsdPreparation {
         exit 1
     }
 
-    $orchestratorHostName = if (-not [string]::IsNullOrWhiteSpace($osdAccess.NodeName)) {
-        "$($osdAccess.NodeName)".Trim()
-    }
-    else {
-        if ($null -ne $Config) { "$($Config.clusterHostNode)".Trim() } else { '' }
-    }
-
-    if ([string]::IsNullOrWhiteSpace($orchestratorHostName)) {
-        $hostnameResult = Invoke-CmdOnVmViaSSHKey -CmdToExecute 'hostname -s' -UserName $osdAccess.UserName -IpAddress $osdNodeIp -NoLog -IgnoreErrors -Retries 2
-        $orchestratorHostName = (($hostnameResult.Output | Out-String).Trim() -split "`r?`n" | Select-Object -First 1).Trim()
-    }
-
-    if ([string]::IsNullOrWhiteSpace($orchestratorHostName)) {
-        Write-Log "[Ceph] ERROR: Could not resolve Ceph host name for node '$osdNodeIp' to add labels/osd." -Console -Error
-        exit 1
-    }
-
+    $prepareHostScript = Join-Path $PSScriptRoot 'prepare-ceph-osd-host.sh'
     $addOsdScript = Join-Path $PSScriptRoot 'add-ceph-host-labels-and-osd.sh'
     if (-not (Test-Path $addOsdScript)) {
         Write-Log "[Ceph] ERROR: Ceph OSD add script not found: '$addOsdScript'" -Console -Error
@@ -320,147 +340,332 @@ function Invoke-CephOsdPreparation {
 
     $clusterFsid = if ($null -ne $Config) { "$($Config.clusterId)".Trim() } else { '' }
 
-    $configuredBareMetalDevices = if ($null -ne $Config -and -not [string]::IsNullOrWhiteSpace("$($Config.osddevicebaremetal)".Trim())) {
-        "$($Config.osddevicebaremetal)".Trim()
-    }
-    else {
-        ''
-    }
+    $hostDescriptors = Get-CephHostDescriptors -Config $Config -BootstrapNodeName $BootstrapNodeName -BootstrapNodeIp $BootstrapNodeIp -BootstrapNodeUserName $BootstrapNodeUserName
 
-    if (-not [string]::IsNullOrWhiteSpace($configuredBareMetalDevices)) {
-        Write-Log "[Ceph] OSD configuration: count=$osdCount, size=${osdDiskSizeGB}GiB, osddevicebaremetal='$configuredBareMetalDevices'" -Console
-    }
-    else {
-        Write-Log "[Ceph] OSD configuration: count=$osdCount, size=${osdDiskSizeGB}GiB" -Console
-    }
-
-    # Add the host label once (osd) before creating OSDs, to avoid repeating label operations per disk.
-    # Only pass hostname; cluster fsid is not needed for label-only operation.
-    $addLabelsScriptArgs = @($orchestratorHostName)
-
-    Write-Log "[Ceph] Adding host label (osd) on '$orchestratorHostName'..." -Console
-    $addLabelsOutput = Invoke-RemoteScript -LocalScriptPath $addOsdScript `
-                            -UserName $BootstrapNodeUserName `
-                            -IpAddress $BootstrapNodeIp `
-                            -UserPwd '' `
-                            -Arguments $addLabelsScriptArgs `
-                            -CleanupAfterExecution `
-                            -Retries 2
-
-    if (($addLabelsOutput | Out-String) -match '\[CephOsdAdd\]\s+ERROR:') {
-        Write-Log "[Ceph] ERROR: Failed while adding host labels. See previous CephOsdAdd logs." -Console -Error
-        exit 1
-    }
-
-    # Track OSD disk paths for cleanup validation by cluster ID
+    # Track OSD disk paths (Hyper-V VHDX) for rollback and cleanup validation across all hosts.
     $osdDiskPaths = @()
-    # Track devices that had successful OSD provisioning so orphaned OSDs can be cleaned on failure
+    # Track devices that had successful OSD provisioning so orphaned OSDs can be cleaned on failure.
     $provisionedOsdDevices = @()
 
-    for ($osdIndex = 1; $osdIndex -le $osdCount; $osdIndex++) {
-        Write-Log "[Ceph] Preparing OSD disk #$osdIndex of $osdCount on node '$osdNodeIp'$(if ($osdAccess.NodeName) { " ($($osdAccess.NodeName))" })..." -Console
-        $prepareDiskOutput = & $prepareDiskScript -NodeIp $osdNodeIp -UserName $osdAccess.UserName -DiskSizeGB $osdDiskSizeGB -OsdIndex $osdIndex -CreateNewDisk:($osdIndex -gt 1) -RemoveExistingOsdDisks:($osdIndex -eq 1) -Config $Config -ShowLogs:$ShowLogs
-        if ($LASTEXITCODE -ne 0) {
-            Write-Log "[Ceph] ERROR: OSD disk preparation failed on node '$osdNodeIp' for OSD #$osdIndex (exit code $LASTEXITCODE)." -Console -Error
-            Remove-CreatedOsdVhdxPaths -VhdxPaths $osdDiskPaths
+    foreach ($hostDescriptor in $hostDescriptors) {
+        $osdNodeIp = $hostDescriptor.NodeIp
+        $osdNodeUser = $hostDescriptor.UserName
+        $osdCount = $hostDescriptor.OsdCount
+        $osdDiskSizeGB = $hostDescriptor.OsdDiskSizeGB
+        $osdDiskSizesGB = @($hostDescriptor.OsdDiskSizesGB)
+        $orchestratorHostName = $hostDescriptor.NodeName
+
+        if ([string]::IsNullOrWhiteSpace($orchestratorHostName)) {
+            $hostnameResult = Invoke-CmdOnVmViaSSHKey -CmdToExecute 'hostname -s' -UserName $osdNodeUser -IpAddress $osdNodeIp -NoLog -IgnoreErrors -Retries 2
+            $orchestratorHostName = (($hostnameResult.Output | Out-String).Trim() -split "`r?`n" | Select-Object -First 1).Trim()
+        }
+
+        if ([string]::IsNullOrWhiteSpace($orchestratorHostName)) {
+            Write-Log "[Ceph] ERROR: Could not resolve Ceph host name for node '$osdNodeIp' to add labels/osd." -Console -Error
             exit 1
         }
 
-        $prepareDiskOutputText = ($prepareDiskOutput | Out-String)
-        $preparedDiskLine = $prepareDiskOutputText -split "`r?`n" | Where-Object { $_.Trim().StartsWith('K2S_CEPH_OSD_DISK=') } | Select-Object -Last 1
-        $preparedDisk = if (-not [string]::IsNullOrWhiteSpace($preparedDiskLine)) { $preparedDiskLine.Trim().Substring('K2S_CEPH_OSD_DISK='.Length).Trim() } else { '' }
+        if ($hostDescriptor.IsBootstrapNode) {
+            Write-Log "[Ceph] Bootstrap node '$BootstrapNodeIp' ($orchestratorHostName) is also an OSD host; skipping prepare-ceph-osd-host.sh because bootstrap already installed the required host packages." -Console
+        }
+        else {
+            if ([string]::IsNullOrWhiteSpace($CephPubKey)) {
+                Write-Log "[Ceph] ERROR: Cannot prepare OSD host '$osdNodeIp' because the cephadm public key was not available." -Console -Error
+                exit 1
+            }
 
-        # Track the VHDX path if one was created (for Hyper-V nodes) BEFORE validating the device,
-        # so a rollback can remove it even when the returned device path is missing.
-        $vhdxPathLine = $prepareDiskOutputText -split "`r?`n" | Where-Object { $_.Trim().StartsWith('K2S_CEPH_OSD_VHDX_PATH=') } | Select-Object -Last 1
-        if (-not [string]::IsNullOrWhiteSpace($vhdxPathLine)) {
-            $vhdxPath = $vhdxPathLine.Trim().Substring('K2S_CEPH_OSD_VHDX_PATH='.Length).Trim()
-            if (-not [string]::IsNullOrWhiteSpace($vhdxPath)) {
-                $osdDiskPaths += $vhdxPath
+            if (-not (Test-Path $prepareHostScript)) {
+                Write-Log "[Ceph] ERROR: OSD host preparation script not found: '$prepareHostScript'" -Console -Error
+                exit 1
+            }
+
+            Write-Log "[Ceph] Preparing remote OSD host '$osdNodeIp' ($orchestratorHostName) for cephadm..." -Console
+            $prepareHostArgs = @($CephPubKey, $Proxy)
+            if (-not [string]::IsNullOrWhiteSpace($CephImage)) {
+                $prepareHostArgs += $CephImage
+            }
+            $hostPrepOutput = Invoke-RemoteScript -LocalScriptPath $prepareHostScript `
+                                -UserName $osdNodeUser `
+                                -IpAddress $osdNodeIp `
+                                -UserPwd '' `
+                                -Arguments $prepareHostArgs `
+                                -CleanupAfterExecution `
+                                -Retries 2
+
+            if (-not (($hostPrepOutput | Out-String) -match 'K2S_CEPH_OSD_HOST_READY=1')) {
+                Write-Log "[Ceph] ERROR: OSD host preparation did not complete successfully on node '$osdNodeIp'." -Console -Error
+                exit 1
+            }
+
+            # Register the freshly prepared host with the cephadm orchestrator so OSDs can be placed on it.
+            # The orchestrator may need a few seconds to become fully responsive after a fresh bootstrap,
+            # so we retry the registration with a delay rather than failing immediately.
+            $maxHostAddAttempts = 6
+            $hostRegistered = $false
+            for ($hostAddAttempt = 1; $hostAddAttempt -le $maxHostAddAttempts; $hostAddAttempt++) {
+                Write-Log "[Ceph] Registering OSD host '$orchestratorHostName' ($osdNodeIp) with the Ceph orchestrator (attempt $hostAddAttempt/$maxHostAddAttempts)..." -Console
+                $hostAddResult = Invoke-CmdOnVmViaSSHKey `
+                                    -CmdToExecute "sudo cephadm shell -- ceph orch host add $orchestratorHostName $osdNodeIp" `
+                                    -UserName $BootstrapNodeUserName `
+                                    -IpAddress $BootstrapNodeIp `
+                                    -IgnoreErrors
+
+                $hostAddOutput = if ($null -ne $hostAddResult) { ($hostAddResult.Output | Out-String).Trim() } else { '' }
+
+                if ($hostAddResult.Success) {
+                    Write-Log "[Ceph] OSD host '$orchestratorHostName' registered successfully." -Console
+                    $hostRegistered = $true
+                    break
+                }
+
+                # Even when the command returns non-zero, cephadm may have added the host (e.g. 'already exists').
+                $hostLsResult = Invoke-CmdOnVmViaSSHKey `
+                                    -CmdToExecute 'sudo cephadm shell -- ceph orch host ls' `
+                                    -UserName $BootstrapNodeUserName `
+                                    -IpAddress $BootstrapNodeIp `
+                                    -NoLog `
+                                    -IgnoreErrors
+                if (($hostLsResult.Output | Out-String) -match [regex]::Escape($orchestratorHostName)) {
+                    Write-Log "[Ceph] OSD host '$orchestratorHostName' is already present in the Ceph orchestrator host list." -Console
+                    $hostRegistered = $true
+                    break
+                }
+
+                if (-not [string]::IsNullOrWhiteSpace($hostAddOutput)) {
+                    Write-Log "[Ceph] ceph orch host add output: $hostAddOutput" -Console
+                }
+
+                if ($hostAddAttempt -lt $maxHostAddAttempts) {
+                    Write-Log "[Ceph] Orchestrator not ready yet; retrying in 10s..." -Console
+                    Start-Sleep -Seconds 10
+                }
+            }
+
+            if (-not $hostRegistered) {
+                Write-Log "[Ceph] ERROR: Could not register OSD host '$orchestratorHostName' ($osdNodeIp) with the Ceph orchestrator after $maxHostAddAttempts attempts." -Console -Error
+                exit 1
             }
         }
 
-        if ([string]::IsNullOrWhiteSpace($preparedDisk)) {
-            Write-Log "[Ceph] ERROR: OSD disk preparation for OSD #$osdIndex finished but no device path was returned." -Console -Error
+        if ($osdDiskSizesGB.Count -gt 0) {
+            Write-Log "[Ceph] OSD host '$orchestratorHostName' configuration: count=$osdCount, sizesInGb=[$($osdDiskSizesGB -join ', ')]" -Console
+        }
+        else {
+            Write-Log "[Ceph] OSD host '$orchestratorHostName' configuration: count=$osdCount, size=${osdDiskSizeGB}GiB" -Console
+        }
+
+        # Add the host label once (osd) before creating OSDs, to avoid repeating label operations per disk.
+        Write-Log "[Ceph] Adding host label (osd) on '$orchestratorHostName'..." -Console
+        $addLabelsOutput = Invoke-RemoteScript -LocalScriptPath $addOsdScript `
+                                -UserName $BootstrapNodeUserName `
+                                -IpAddress $BootstrapNodeIp `
+                                -UserPwd '' `
+                                -Arguments @($orchestratorHostName) `
+                                -CleanupAfterExecution `
+                                -Retries 2
+
+        if (($addLabelsOutput | Out-String) -match '\[CephOsdAdd\]\s+ERROR:') {
+            Write-Log "[Ceph] ERROR: Failed while adding host labels on '$orchestratorHostName'. See previous CephOsdAdd logs." -Console -Error
             Remove-CreatedOsdVhdxPaths -VhdxPaths $osdDiskPaths
             exit 1
         }
 
-        Write-Log "[Ceph] Creating OSD #$osdIndex on '$($orchestratorHostName):$($preparedDisk)'..." -Console
-        $createOsdScriptArgs = @($orchestratorHostName, $preparedDisk)
-        if (-not [string]::IsNullOrWhiteSpace($clusterFsid)) {
-            $createOsdScriptArgs += $clusterFsid
+        for ($osdIndex = 1; $osdIndex -le $osdCount; $osdIndex++) {
+            [uint32]$currentOsdDiskSizeGB = $osdDiskSizeGB
+            if ($osdDiskSizesGB.Count -gt 0) {
+                if ($osdIndex -le $osdDiskSizesGB.Count) {
+                    $currentOsdDiskSizeGB = [uint32]$osdDiskSizesGB[$osdIndex - 1]
+                }
+                else {
+                    Write-Log "[Ceph] ERROR: OSD host '$orchestratorHostName' defines osdCount=$osdCount but only $($osdDiskSizesGB.Count) osdSizesInGb values. Provide one size per OSD or use osdSizeInGb as a common size." -Console -Error
+                    Remove-CreatedOsdVhdxPaths -VhdxPaths $osdDiskPaths
+                    exit 1
+                }
+            }
+
+            Write-Log "[Ceph] Preparing OSD disk #$osdIndex of $osdCount on host '$orchestratorHostName' ($osdNodeIp)..." -Console
+
+            $prepareDiskParams = @{
+                NodeIp                 = $osdNodeIp
+                UserName               = $osdNodeUser
+                DiskSizeGB             = $currentOsdDiskSizeGB
+                OsdIndex               = $osdIndex
+                CreateNewDisk          = ($osdIndex -gt 1)
+                RemoveExistingOsdDisks = ($osdIndex -eq 1)
+                Config                 = $Config
+                ShowLogs               = $ShowLogs
+            }
+
+            $prepareDiskOutput = & $prepareDiskScript @prepareDiskParams
+            if ($LASTEXITCODE -ne 0) {
+                Write-Log "[Ceph] ERROR: OSD disk preparation failed on host '$orchestratorHostName' for OSD #$osdIndex (exit code $LASTEXITCODE)." -Console -Error
+                Remove-CreatedOsdVhdxPaths -VhdxPaths $osdDiskPaths
+                exit 1
+            }
+
+            $prepareDiskOutputText = ($prepareDiskOutput | Out-String)
+            $preparedDiskLine = $prepareDiskOutputText -split "`r?`n" | Where-Object { $_.Trim().StartsWith('K2S_CEPH_OSD_DISK=') } | Select-Object -Last 1
+            $preparedDisk = if (-not [string]::IsNullOrWhiteSpace($preparedDiskLine)) { $preparedDiskLine.Trim().Substring('K2S_CEPH_OSD_DISK='.Length).Trim() } else { '' }
+
+            # Track the VHDX path if one was created (for Hyper-V nodes) BEFORE validating the device,
+            # so a rollback can remove it even when the returned device path is missing.
+            $vhdxPathLine = $prepareDiskOutputText -split "`r?`n" | Where-Object { $_.Trim().StartsWith('K2S_CEPH_OSD_VHDX_PATH=') } | Select-Object -Last 1
+            if (-not [string]::IsNullOrWhiteSpace($vhdxPathLine)) {
+                $vhdxPath = $vhdxPathLine.Trim().Substring('K2S_CEPH_OSD_VHDX_PATH='.Length).Trim()
+                if (-not [string]::IsNullOrWhiteSpace($vhdxPath)) {
+                    $osdDiskPaths += $vhdxPath
+                }
+            }
+
+            if ([string]::IsNullOrWhiteSpace($preparedDisk)) {
+                Write-Log "[Ceph] ERROR: OSD disk preparation for OSD #$osdIndex on '$orchestratorHostName' finished but no device path was returned." -Console -Error
+                Remove-CreatedOsdVhdxPaths -VhdxPaths $osdDiskPaths
+                exit 1
+            }
+
+            Write-Log "[Ceph] Creating OSD #$osdIndex on '$($orchestratorHostName):$($preparedDisk)'..." -Console
+            $createOsdScriptArgs = @($orchestratorHostName, $preparedDisk)
+            if (-not [string]::IsNullOrWhiteSpace($clusterFsid)) {
+                $createOsdScriptArgs += $clusterFsid
+            }
+
+            $addOsdOutput = Invoke-RemoteScript -LocalScriptPath $addOsdScript `
+                                -UserName $BootstrapNodeUserName `
+                                -IpAddress $BootstrapNodeIp `
+                                -UserPwd '' `
+                                -Arguments $createOsdScriptArgs `
+                                -CleanupAfterExecution `
+                                -Retries 2
+
+            if (($addOsdOutput | Out-String) -match '\[CephOsdAdd\]\s+ERROR:') {
+                Write-Log "[Ceph] ERROR: Failed while creating OSD #$osdIndex on '$orchestratorHostName'. See previous CephOsdAdd logs." -Console -Error
+                Remove-CreatedOsdVhdxPaths -VhdxPaths $osdDiskPaths
+                exit 1
+            }
+
+            # Track successful OSD provisioning for cleanup on later failure
+            $provisionedOsdDevices += $preparedDisk
         }
-
-        $addOsdOutput = Invoke-RemoteScript -LocalScriptPath $addOsdScript `
-                            -UserName $BootstrapNodeUserName `
-                            -IpAddress $BootstrapNodeIp `
-                            -UserPwd '' `
-                            -Arguments $createOsdScriptArgs `
-                            -CleanupAfterExecution `
-                            -Retries 2
-
-        if (($addOsdOutput | Out-String) -match '\[CephOsdAdd\]\s+ERROR:') {
-            Write-Log "[Ceph] ERROR: Failed while creating OSD #$osdIndex. See previous CephOsdAdd logs." -Console -Error
-            Remove-CreatedOsdVhdxPaths -VhdxPaths $osdDiskPaths
-            exit 1
-        }
-
-        # Track successful OSD provisioning for cleanup on later failure
-        $provisionedOsdDevices += $preparedDisk
     }
 
-    $configuredChooseleafType = if ($null -ne $Config -and -not [string]::IsNullOrWhiteSpace("$($Config.osdCrushChooseleafType)".Trim())) {
-        "$($Config.osdCrushChooseleafType)".Trim()
+    # Final orchestrator reconciliation: refresh device inventory and let cephadm schedule OSDs
+    # on any remaining available devices (observed to surface delayed third OSD details in dashboard).
+    Write-Log "[Ceph] Refreshing cephadm device inventory after explicit OSD provisioning..." -Console
+    $refreshDevicesResult = Invoke-CmdOnVmViaSSHKey `
+                            -CmdToExecute "sudo cephadm shell -- ceph orch device ls --refresh" `
+                            -UserName $BootstrapNodeUserName `
+                            -IpAddress $BootstrapNodeIp `
+                            -NoLog `
+                            -IgnoreErrors
+    if (-not $refreshDevicesResult.Success) {
+        $refreshDevicesOutput = if ($null -ne $refreshDevicesResult) { ($refreshDevicesResult.Output | Out-String).Trim() } else { '' }
+        Write-Log "[Ceph] WARNING: 'ceph orch device ls --refresh' failed; continuing with OSD reconciliation." -Console
+        if (-not [string]::IsNullOrWhiteSpace($refreshDevicesOutput)) { Write-Log "[Ceph] Output: $refreshDevicesOutput" }
+    }
+
+    Write-Log "[Ceph] Applying cephadm OSD reconciliation on all available devices..." -Console
+    $applyAllDevicesResult = Invoke-CmdOnVmViaSSHKey `
+                            -CmdToExecute "sudo cephadm shell -- ceph orch apply osd --all-available-devices" `
+                            -UserName $BootstrapNodeUserName `
+                            -IpAddress $BootstrapNodeIp `
+                            -NoLog `
+                            -IgnoreErrors
+    if (-not $applyAllDevicesResult.Success) {
+        $applyAllDevicesOutput = if ($null -ne $applyAllDevicesResult) { ($applyAllDevicesResult.Output | Out-String).Trim() } else { '' }
+        Write-Log "[Ceph] WARNING: 'ceph orch apply osd --all-available-devices' failed; continuing with explicit OSD state." -Console
+        if (-not [string]::IsNullOrWhiteSpace($applyAllDevicesOutput)) { Write-Log "[Ceph] Output: $applyAllDevicesOutput" }
+    }
+
+    $configuredChooseleafType = if ($null -ne $Config -and ($Config.PSObject.Properties.Name -contains 'clusterHost') -and $null -ne $Config.clusterHost -and -not [string]::IsNullOrWhiteSpace("$($Config.clusterHost.osdCrushChooseleafType)".Trim())) {
+        "$($Config.clusterHost.osdCrushChooseleafType)".Trim()
     }
     else {
         ''
     }
 
-    # On single-host profiles (chooseleaf_type=0), the bootstrap script creates an OSD-level
-    # rule (k2s-osd-rule). Apply it to .mgr AFTER OSD creation, when .mgr is consistently present.
-    if ($configuredChooseleafType -eq '0') {
-        Write-Log "[Ceph] Applying OSD-level CRUSH rule to '.mgr' pool after OSD provisioning..." -Console
+    # Reconcile pool replication with the number of OSDs that were actually provisioned. With
+    # fewer OSDs (or fewer hosts) than the default size=3, replicated pools stay permanently
+    # undersized/degraded (PG_DEGRADED / TOO_FEW_OSDS -> HEALTH_WARN). Set every pool's size to the
+    # actual OSD count (capped at 3, Ceph's conventional replication maximum) and min_size to 1 so a
+    # single surviving replica keeps the pool available. On OSD-level profiles (chooseleaf_type=0)
+    # also apply the OSD-failure-domain rule (k2s-osd-rule) so replicas can be placed across OSDs on
+    # the same host. Runs after OSD provisioning, when the pools and OSDs are consistently present.
+    $cephFsName = if ($null -ne $Config -and ($Config.PSObject.Properties.Name -contains 'cephfsFilesystem')) { "$($Config.cephfsFilesystem)".Trim() } else { '' }
 
-        $mgrRuleApplied = $false
-        $maxMgrRuleAttempts = 12
-        for ($mgrAttempt = 1; $mgrAttempt -le $maxMgrRuleAttempts; $mgrAttempt++) {
+    # Determine how many OSDs are actually up so the pool size never exceeds the available OSDs.
+    $actualOsdCount = 0
+    $osdCountResult = Invoke-CmdOnVmViaSSHKey `
+                        -CmdToExecute "sudo cephadm shell -- ceph osd ls" `
+                        -UserName $BootstrapNodeUserName `
+                        -IpAddress $BootstrapNodeIp `
+                        -NoLog `
+                        -IgnoreErrors `
+                        -Retries 2
+    if ($null -ne $osdCountResult -and $osdCountResult.Success) {
+        $actualOsdCount = @(($osdCountResult.Output | Out-String) -split "`r?`n" | Where-Object { $_.Trim() -match '^\d+$' }).Count
+    }
+    if ($actualOsdCount -lt 1) { $actualOsdCount = 1 }
+    $desiredPoolSize = [Math]::Min($actualOsdCount, 3)
+
+    Write-Log "[Ceph] Reconciling pool replication to size=$desiredPoolSize / min_size=1 (actual OSD count=$actualOsdCount) after OSD provisioning..." -Console
+
+    # Ensure global defaults reflect the actual OSD count for any pools created later.
+    Invoke-CmdOnVmViaSSHKey -CmdToExecute "sudo cephadm shell -- ceph config set global osd_pool_default_size $desiredPoolSize" -UserName $BootstrapNodeUserName -IpAddress $BootstrapNodeIp -NoLog -IgnoreErrors | Out-Null
+    Invoke-CmdOnVmViaSSHKey -CmdToExecute "sudo cephadm shell -- ceph config set global osd_pool_default_min_size 1" -UserName $BootstrapNodeUserName -IpAddress $BootstrapNodeIp -NoLog -IgnoreErrors | Out-Null
+
+    $poolsToReconcile = @('.mgr')
+    if (-not [string]::IsNullOrWhiteSpace($cephFsName)) {
+        $poolsToReconcile += "cephfs.$cephFsName.meta"
+        $poolsToReconcile += "cephfs.$cephFsName.data"
+    }
+
+    foreach ($pool in $poolsToReconcile) {
+        $poolReconciled = $false
+        $maxPoolAttempts = 12
+        for ($poolAttempt = 1; $poolAttempt -le $maxPoolAttempts; $poolAttempt++) {
             $poolExistsResult = Invoke-CmdOnVmViaSSHKey `
-                                -CmdToExecute "sudo cephadm shell -- ceph osd pool ls | grep -qx '.mgr'" `
+                                -CmdToExecute "sudo cephadm shell -- ceph osd pool ls | grep -qx '$pool'" `
                                 -UserName $BootstrapNodeUserName `
                                 -IpAddress $BootstrapNodeIp `
                                 -NoLog `
                                 -IgnoreErrors
 
             if (-not $poolExistsResult.Success) {
-                Write-Log "[Ceph] '.mgr' pool not available yet (attempt $mgrAttempt/$maxMgrRuleAttempts), retrying in 10s..." -Console
+                Write-Log "[Ceph] Pool '$pool' not available yet (attempt $poolAttempt/$maxPoolAttempts), retrying in 10s..." -Console
                 Start-Sleep -Seconds 10
                 continue
             }
 
-            $setMgrRuleResult = Invoke-CmdOnVmViaSSHKey `
-                                -CmdToExecute "sudo cephadm shell -- ceph osd pool set .mgr crush_rule k2s-osd-rule" `
+            # On OSD-level profiles, place replicas across OSDs (not hosts) so single-host / few-host
+            # clusters can satisfy the replication size.
+            if ($configuredChooseleafType -eq '0') {
+                Invoke-CmdOnVmViaSSHKey -CmdToExecute "sudo cephadm shell -- ceph osd pool set $pool crush_rule k2s-osd-rule" -UserName $BootstrapNodeUserName -IpAddress $BootstrapNodeIp -NoLog -IgnoreErrors | Out-Null
+            }
+
+            $setSizeResult = Invoke-CmdOnVmViaSSHKey `
+                                -CmdToExecute "sudo cephadm shell -- ceph osd pool set $pool size $desiredPoolSize" `
                                 -UserName $BootstrapNodeUserName `
                                 -IpAddress $BootstrapNodeIp `
                                 -NoLog `
                                 -IgnoreErrors
+            Invoke-CmdOnVmViaSSHKey -CmdToExecute "sudo cephadm shell -- ceph osd pool set $pool min_size 1" -UserName $BootstrapNodeUserName -IpAddress $BootstrapNodeIp -NoLog -IgnoreErrors | Out-Null
 
-            if ($setMgrRuleResult.Success) {
-                $mgrRuleApplied = $true
-                Write-Log "[Ceph] Applied k2s-osd-rule to '.mgr' pool" -Console
+            if ($null -ne $setSizeResult -and $setSizeResult.Success) {
+                $poolReconciled = $true
+                Write-Log "[Ceph] Reconciled pool '$pool' to size=$desiredPoolSize / min_size=1$(if ($configuredChooseleafType -eq '0') { ' (crush_rule=k2s-osd-rule)' })" -Console
                 break
             }
 
-            $setMgrRuleOutput = if ($null -ne $setMgrRuleResult) { ($setMgrRuleResult.Output | Out-String).Trim() } else { '' }
-            Write-Log "[Ceph] Failed to apply k2s-osd-rule to '.mgr' (attempt $mgrAttempt/$maxMgrRuleAttempts), retrying in 10s..." -Console
-            if (-not [string]::IsNullOrWhiteSpace($setMgrRuleOutput)) {
-                Write-Log "[Ceph] Output: $setMgrRuleOutput"
+            $setSizeOutput = if ($null -ne $setSizeResult) { ($setSizeResult.Output | Out-String).Trim() } else { '' }
+            Write-Log "[Ceph] Failed to reconcile pool '$pool' (attempt $poolAttempt/$maxPoolAttempts), retrying in 10s..." -Console
+            if (-not [string]::IsNullOrWhiteSpace($setSizeOutput)) {
+                Write-Log "[Ceph] Output: $setSizeOutput"
             }
             Start-Sleep -Seconds 10
         }
 
-        if (-not $mgrRuleApplied) {
-            Write-Log "[Ceph] WARNING: Could not apply k2s-osd-rule to '.mgr' after OSD provisioning. If health warnings reference '.mgr', run: sudo cephadm shell -- ceph osd pool set .mgr crush_rule k2s-osd-rule" -Console
+        if (-not $poolReconciled) {
+            Write-Log "[Ceph] WARNING: Could not reconcile pool '$pool' to size=$desiredPoolSize/min_size=1. If health warnings reference '$pool', run: sudo cephadm shell -- ceph osd pool set $pool size $desiredPoolSize; sudo cephadm shell -- ceph osd pool set $pool min_size 1" -Console
         }
     }
 
@@ -628,7 +833,8 @@ Function Set-CephConnectionDetailsFromClusterOutput {
     return $true
 }
 
-$clusterHostNode = if ($Config) { "$($Config.clusterHostNode)".Trim() } else { '' }
+$clusterHostConfig = if ($Config -and ($Config.PSObject.Properties.Name -contains 'clusterHost')) { $Config.clusterHost } else { $null }
+$clusterHostNode = if ($null -ne $clusterHostConfig -and ($clusterHostConfig.PSObject.Properties.Name -contains 'node')) { "$($clusterHostConfig.node)".Trim() } else { '' }
 $controlPlaneNodeName = Get-ConfigControlPlaneNodeHostname
 if (-not [string]::IsNullOrWhiteSpace($clusterHostNode) -and $clusterHostNode -eq $controlPlaneNodeName) {
     # Control plane node (e.g. kubemaster) is not part of cluster.json nodes.
@@ -655,7 +861,7 @@ else {
 $cephFsFilesystem = if ($Config) { "$($Config.cephfsFilesystem)".Trim() } else { '' }
 $cephFsPool = if ($Config) { "$($Config.cephfsPool)".Trim() } else { '' }
 
-$configuredOsdCrushChooseleafType = if ($Config -and ($Config.PSObject.Properties.Name -contains 'osdCrushChooseleafType')) { "$($Config.osdCrushChooseleafType)".Trim() } else { '' }
+$configuredOsdCrushChooseleafType = if ($null -ne $clusterHostConfig -and ($clusterHostConfig.PSObject.Properties.Name -contains 'osdCrushChooseleafType')) { "$($clusterHostConfig.osdCrushChooseleafType)".Trim() } else { '' }
 if (-not [string]::IsNullOrWhiteSpace($configuredOsdCrushChooseleafType)) {
     $parsedOsdCrushChooseleafType = 0
     if (-not ([int]::TryParse($configuredOsdCrushChooseleafType, [ref]$parsedOsdCrushChooseleafType) -and $parsedOsdCrushChooseleafType -ge 0)) {
@@ -664,7 +870,7 @@ if (-not [string]::IsNullOrWhiteSpace($configuredOsdCrushChooseleafType)) {
     }
 }
 
-$configuredMonCount = if ($Config -and ($Config.PSObject.Properties.Name -contains 'monCount')) { "$($Config.monCount)".Trim() } else { '' }
+$configuredMonCount = if ($null -ne $clusterHostConfig -and ($clusterHostConfig.PSObject.Properties.Name -contains 'monCount')) { "$($clusterHostConfig.monCount)".Trim() } else { '' }
 if (-not [string]::IsNullOrWhiteSpace($configuredMonCount)) {
     $parsedMonCount = 0
     if (-not ([uint32]::TryParse($configuredMonCount, [ref]$parsedMonCount) -and $parsedMonCount -gt 0)) {
@@ -673,7 +879,7 @@ if (-not [string]::IsNullOrWhiteSpace($configuredMonCount)) {
     }
 }
 
-$configuredMgrCount = if ($Config -and ($Config.PSObject.Properties.Name -contains 'mgrCount')) { "$($Config.mgrCount)".Trim() } else { '' }
+$configuredMgrCount = if ($null -ne $clusterHostConfig -and ($clusterHostConfig.PSObject.Properties.Name -contains 'mgrCount')) { "$($clusterHostConfig.mgrCount)".Trim() } else { '' }
 if (-not [string]::IsNullOrWhiteSpace($configuredMgrCount)) {
     $parsedMgrCount = 0
     if (-not ([uint32]::TryParse($configuredMgrCount, [ref]$parsedMgrCount) -and $parsedMgrCount -gt 0)) {
@@ -682,7 +888,7 @@ if (-not [string]::IsNullOrWhiteSpace($configuredMgrCount)) {
     }
 }
 
-$configuredMdsCount = if ($Config -and ($Config.PSObject.Properties.Name -contains 'mdsCount')) { "$($Config.mdsCount)".Trim() } else { '' }
+$configuredMdsCount = if ($null -ne $clusterHostConfig -and ($clusterHostConfig.PSObject.Properties.Name -contains 'mdsCount')) { "$($clusterHostConfig.mdsCount)".Trim() } else { '' }
 if (-not [string]::IsNullOrWhiteSpace($configuredMdsCount)) {
     $parsedMdsCount = 0
     if (-not ([uint32]::TryParse($configuredMdsCount, [ref]$parsedMdsCount) -and $parsedMdsCount -gt 0)) {
@@ -690,6 +896,28 @@ if (-not [string]::IsNullOrWhiteSpace($configuredMdsCount)) {
         $configuredMdsCount = ''
     }
 }
+
+# Compute the total number of OSDs from osdHosts only.
+# create-ceph-cluster.sh uses this to right-size replicated pools (single OSD => size/min_size 1).
+[uint32]$totalOsdCount = 0
+if ($Config -and ($Config.PSObject.Properties.Name -contains 'osdHosts') -and $null -ne $Config.osdHosts) {
+    foreach ($osdHostEntry in @($Config.osdHosts)) {
+        if ($null -eq $osdHostEntry) { continue }
+        $entryNodeName = if ($osdHostEntry.PSObject.Properties.Name -contains 'node') { "$($osdHostEntry.node)".Trim() } else { '' }
+        if ([string]::IsNullOrWhiteSpace($entryNodeName)) { continue }
+
+        $entryOs = if ($osdHostEntry.PSObject.Properties.Name -contains 'os') { "$($osdHostEntry.os)".Trim().ToLowerInvariant() } else { 'linux' }
+        if (-not [string]::IsNullOrWhiteSpace($entryOs) -and $entryOs -ne 'linux') { continue }
+
+        $entryOsdCount = 1
+        if ($osdHostEntry.PSObject.Properties.Name -contains 'osdCount') {
+            $parsedEntryOsdCount = 0
+            if ([uint32]::TryParse("$($osdHostEntry.osdCount)".Trim(), [ref]$parsedEntryOsdCount) -and $parsedEntryOsdCount -gt 0) { $entryOsdCount = $parsedEntryOsdCount }
+        }
+        $totalOsdCount += $entryOsdCount
+    }
+}
+$configuredTotalOsdCount = if ($totalOsdCount -gt 0) { "$totalOsdCount" } else { '' }
 
 if ([string]::IsNullOrWhiteSpace($Proxy)) {
     $kubeSwitchIp = Get-ConfiguredKubeSwitchIP
@@ -714,6 +942,7 @@ $bootstrapOutput = New-CephClusterOnNode -UserName $nodeUserName `
                       -MonCount $configuredMonCount `
                       -MgrCount $configuredMgrCount `
                       -MdsCount $configuredMdsCount `
+                      -TotalOsdCount $configuredTotalOsdCount `
                       -Proxy $Proxy `
                       -InstalledDistribution 'debian'
 
@@ -749,6 +978,12 @@ if (-not [string]::IsNullOrWhiteSpace($cephPubKeyLine)) {
     $cephPubKeyValue = $cephPubKeyLine.Trim().Substring('K2S_CEPH_PUB_KEY='.Length).Trim()
     Write-Log '[Ceph] To add another machine as an OSD host, authorize this cephadm public key on it (see scripts\linux\debian\prepare-ceph-osd-host.sh):' -Console
     Write-Log "[Ceph]   $cephPubKeyValue" -Console
+
+    # Surface the cephadm public key into the shared config object so Enable.ps1 can persist it in
+    # setup.json and later OSD host additions (Update.ps1 / add-node flow) can prepare new hosts.
+    if (-not [string]::IsNullOrWhiteSpace($cephPubKeyValue) -and $null -ne $Config) {
+        $Config | Add-Member -NotePropertyName 'cephPublicKey' -NotePropertyValue $cephPubKeyValue -Force
+    }
 }
 
 # Read the ACTUAL Ceph connection values (monitor endpoints, admin key, filesystem/pool, fsid)
@@ -764,7 +999,7 @@ if (-not $connectionResolved) {
     exit 1
 }
 
-Invoke-CephOsdPreparation -BootstrapNodeIp $NodeIp -BootstrapNodeUserName $nodeUserName -CephPubKey $cephPubKeyValue -Proxy $Proxy -Config $Config -ShowLogs:$ShowLogs
+Invoke-CephOsdPreparation -BootstrapNodeName $clusterHostNode -BootstrapNodeIp $NodeIp -BootstrapNodeUserName $nodeUserName -CephPubKey $cephPubKeyValue -Proxy $Proxy -CephImage $cephBootstrapImage -Config $Config -ShowLogs:$ShowLogs
 
 $cephFsForSubvolumeGroup = if (-not [string]::IsNullOrWhiteSpace($cephFsFilesystem)) { $cephFsFilesystem } else { 'cephfs' }
 
