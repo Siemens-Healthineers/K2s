@@ -120,7 +120,7 @@ func (o *LinuxOrchestrator) Uninstall(cfg UninstallConfig) error {
 	_ = runCommand("ip", "link", "delete", "cni0")
 	_ = runCommand("ip", "link", "delete", "flannel.1")
 
-	removeHTTPProxy(cfg.LinuxOnly)
+	removeHTTPProxy(cfg.LinuxOnly, cfg.ConfigDir)
 
 	// Remove kubeconfig
 	if u, err := invokingUser(); err == nil {

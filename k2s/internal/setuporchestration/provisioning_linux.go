@@ -9,6 +9,7 @@ import (
 	"bufio"
 	"fmt"
 	"log/slog"
+	"net"
 	"net/url"
 	"os"
 	"os/exec"
@@ -33,7 +34,11 @@ const (
 	kubeletLogDir    = "/var/log/kubelet"
 	kubeletLogFile   = "/var/log/kubelet/kubelet.log"
 	kubeletLogDropIn = "/etc/systemd/system/kubelet.service.d/20-k2s-logging.conf"
+	aptProxyConfig   = "/etc/apt/apt.conf.d/proxy.conf"
+	criOProxyConfig  = "/etc/systemd/system/crio.service.d/http-proxy.conf"
 )
+
+const aptProxyConfigHeader = "# Managed by K2s native Linux installation"
 
 var k8sVersionPattern = regexp.MustCompile(`(?m)return\s+['\"](v[0-9]+\.[0-9]+\.[0-9]+)['\"]`)
 
@@ -92,6 +97,9 @@ func (o *LinuxOrchestrator) provisionKubernetes(cfg InstallConfig) (string, erro
 	}
 
 	if err := o.installHTTPProxy(cfg); err != nil {
+		return "", err
+	}
+	if err := configureAptProxy(localProxyURL, cfg.ConfigDir); err != nil {
 		return "", err
 	}
 
@@ -183,10 +191,17 @@ func (o *LinuxOrchestrator) installHTTPProxy(cfg InstallConfig) error {
 		if err := installLinuxOnlyProxyNetwork(proxyNetwork); err != nil {
 			return err
 		}
+		primaryHostIP, err := primaryHostIPv4()
+		if err != nil {
+			return fmt.Errorf("determine primary host address for local HTTP proxy access: %w", err)
+		}
 		networkDependencies = fmt.Sprintf("Requires=%s.service\nAfter=%s.service\n", proxyNetworkSvc, proxyNetworkSvc)
-		// Permit clients that use the configured KubeSwitch compatibility
-		// address, including local host diagnostics such as curl -x.
+		// Permit pods through the configured KubeSwitch compatibility network
+		// and this host only through its primary address. Do not allow the
+		// complete primary network, which would expose the proxy to peers.
 		proxyAllowedCIDRs = append(proxyAllowedCIDRs, proxyNetwork.CIDR)
+		proxyAllowedCIDRs = append(proxyAllowedCIDRs, primaryHostIP+"/32")
+		slog.Info("[Install] Permitting host access to KubeSwitch proxy endpoint", "address", primaryHostIP)
 	}
 	if err := ensureServiceLogFile(proxyLogDir, proxyLogFile); err != nil {
 		return fmt.Errorf("prepare local HTTP proxy log file: %w", err)
@@ -239,13 +254,94 @@ WantedBy=multi-user.target
 	return nil
 }
 
-func removeHTTPProxy(removeCompatibilityNetwork bool) {
+func removeHTTPProxy(removeCompatibilityNetwork bool, configDir string) {
 	_ = runCommand("systemctl", "disable", "--now", proxyService)
 	_ = os.Remove(filepath.Join("/etc/systemd/system", proxyService+".service"))
+	removeCriOProxyConfiguration()
+	removeAptProxy(configDir)
 	if removeCompatibilityNetwork {
 		removeLinuxOnlyProxyNetwork()
 	}
 	_ = runCommand("systemctl", "daemon-reload")
+}
+
+func configureAptProxy(proxyURL string, configDir string) error {
+	content := []byte(fmt.Sprintf("%s\nAcquire::http::Proxy \"%s\";\nAcquire::https::Proxy \"%s\";\n", aptProxyConfigHeader, proxyURL, proxyURL))
+	current, err := os.ReadFile(aptProxyConfig)
+	if err != nil && !os.IsNotExist(err) {
+		return fmt.Errorf("read existing apt proxy configuration: %w", err)
+	}
+
+	backupPath := filepath.Join(configDir, "apt-proxy.conf.pre-k2s")
+	if len(current) > 0 && !strings.Contains(string(current), aptProxyConfigHeader) {
+		if _, err := os.Stat(backupPath); err == nil {
+			return fmt.Errorf("refusing to overwrite apt proxy configuration because backup %s already exists", backupPath)
+		} else if !os.IsNotExist(err) {
+			return fmt.Errorf("inspect apt proxy backup: %w", err)
+		}
+		if err := os.MkdirAll(configDir, 0700); err != nil {
+			return fmt.Errorf("create apt proxy backup directory: %w", err)
+		}
+		if err := os.WriteFile(backupPath, current, 0600); err != nil {
+			return fmt.Errorf("back up existing apt proxy configuration: %w", err)
+		}
+	}
+
+	if err := os.WriteFile(aptProxyConfig, content, 0644); err != nil {
+		return fmt.Errorf("write K2s apt proxy configuration: %w", err)
+	}
+	slog.Info("[Install] Configured apt to use the local HTTP proxy", "proxy", proxyURL)
+	return nil
+}
+
+func removeAptProxy(configDir string) {
+	content, err := os.ReadFile(aptProxyConfig)
+	if err != nil {
+		if !os.IsNotExist(err) {
+			slog.Warn("[Uninstall] Could not read apt proxy configuration", "path", aptProxyConfig, "error", err)
+		}
+		return
+	}
+	if !strings.Contains(string(content), aptProxyConfigHeader) {
+		slog.Warn("[Uninstall] Leaving apt proxy configuration unchanged because it is not managed by K2s", "path", aptProxyConfig)
+		return
+	}
+
+	backupPath := filepath.Join(configDir, "apt-proxy.conf.pre-k2s")
+	backup, backupErr := os.ReadFile(backupPath)
+	if backupErr == nil {
+		if err := os.WriteFile(aptProxyConfig, backup, 0644); err != nil {
+			slog.Warn("[Uninstall] Could not restore pre-existing apt proxy configuration", "path", aptProxyConfig, "error", err)
+			return
+		}
+		if err := os.Remove(backupPath); err != nil && !os.IsNotExist(err) {
+			slog.Warn("[Uninstall] Could not remove apt proxy backup", "path", backupPath, "error", err)
+		}
+		return
+	}
+	if !os.IsNotExist(backupErr) {
+		slog.Warn("[Uninstall] Could not read apt proxy backup", "path", backupPath, "error", backupErr)
+		return
+	}
+	if err := os.Remove(aptProxyConfig); err != nil && !os.IsNotExist(err) {
+		slog.Warn("[Uninstall] Could not remove K2s apt proxy configuration", "path", aptProxyConfig, "error", err)
+	}
+}
+
+func removeCriOProxyConfiguration() {
+	if err := os.Remove(criOProxyConfig); err != nil && !os.IsNotExist(err) {
+		slog.Warn("[Uninstall] Could not remove K2s CRI-O proxy configuration", "path", criOProxyConfig, "error", err)
+		return
+	}
+	if err := runCommand("systemctl", "daemon-reload"); err != nil {
+		slog.Warn("[Uninstall] Could not reload systemd after CRI-O proxy cleanup", "error", err)
+		return
+	}
+	if err := runCommand("systemctl", "is-active", "--quiet", crioServiceName); err == nil {
+		if err := runCommand("systemctl", "restart", crioServiceName); err != nil {
+			slog.Warn("[Uninstall] Could not restart CRI-O after proxy cleanup", "error", err)
+		}
+	}
 }
 
 func configureKubeletFileLogging() error {
@@ -363,6 +459,34 @@ func ensureProxyNetworkIsAvailable(proxyNetwork config.KubeSwitchConfig) error {
 		return fmt.Errorf("configured KubeSwitch proxy network %s conflicts with existing route %q; remove the conflict before installing K2s", proxyNetwork.CIDR, strings.TrimSpace(route))
 	}
 	return nil
+}
+
+// primaryHostIPv4 returns the IPv4 source address selected by the host's
+// default route. The local proxy needs this exact /32 allow-list entry so
+// host processes can reach the KubeSwitch endpoint without exposing it to
+// other hosts on the primary network.
+func primaryHostIPv4() (string, error) {
+	route, err := runCommandOutput("ip", "-4", "route", "get", "1.1.1.1")
+	if err != nil {
+		return "", fmt.Errorf("inspect IPv4 default route: %w", err)
+	}
+	return primaryHostIPv4FromRoute(route)
+}
+
+func primaryHostIPv4FromRoute(route string) (string, error) {
+	fields := strings.Fields(route)
+	for index, field := range fields {
+		if field != "src" || index+1 >= len(fields) {
+			continue
+		}
+
+		address := net.ParseIP(fields[index+1])
+		if address == nil || address.To4() == nil || address.IsLoopback() || address.IsUnspecified() || address.IsLinkLocalUnicast() {
+			return "", fmt.Errorf("default route returned invalid primary IPv4 address %q", fields[index+1])
+		}
+		return address.String(), nil
+	}
+	return "", fmt.Errorf("could not find source address in IPv4 route %q", strings.TrimSpace(route))
 }
 
 func resolveKubernetesVersion(installDir string) (string, error) {
