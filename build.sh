@@ -67,8 +67,9 @@ if ! command -v go >/dev/null 2>&1; then
     exit 1
 fi
 
-# GOFIPS140=certified for FIPS compliance (matches BuildGoExe.ps1).
-export GOFIPS140=certified
+
+unset GOEXPERIMENT # ensure stale boringcrypto value doesn't linger
+export GOFIPS140=certified # GOFIPS140=certified for FIPS compliance (matches BuildGoExe.ps1).
 export GOOS=linux
 export GOARCH=amd64
 

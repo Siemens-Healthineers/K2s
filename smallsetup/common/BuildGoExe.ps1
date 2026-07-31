@@ -78,8 +78,8 @@ if ($ExeOutDir -eq '') {
 #Initial directory to collect git details
 Set-Location $ProjectDir
 
-# use latest NIST-certified FIPS 140-3 compliant GO std crypto library
-$env:GOFIPS140 = 'certified'
+$env:GOEXPERIMENT = $null  # ensure stale boringcrypto value doesn't linger
+$env:GOFIPS140 = 'certified' # use latest NIST-certified FIPS 140-3 compliant GO std crypto library
 
 # Set proxy environment variables if Proxy parameter is provided
 if ($Proxy) {
