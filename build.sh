@@ -6,7 +6,7 @@
 # Native Linux build for the K2s Go executables -- no PowerShell required.
 #
 # Mirrors the Linux build performed by smallsetup/common/BuildGoExe.ps1
-# (GOOS=linux, GOARCH=amd64, GOEXPERIMENT=boringcrypto, matching ldflags and
+# (GOOS=linux, GOARCH=amd64, GOFIPS140=certified, matching ldflags and
 # gcflags, and the same version metadata injected into internal/version).
 #
 # Usage:
@@ -67,8 +67,8 @@ if ! command -v go >/dev/null 2>&1; then
     exit 1
 fi
 
-# boringcrypto for FIPS compliance (matches BuildGoExe.ps1).
-export GOEXPERIMENT=boringcrypto
+# GOFIPS140=certified for FIPS compliance (matches BuildGoExe.ps1).
+export GOFIPS140=certified
 export GOOS=linux
 export GOARCH=amd64
 
