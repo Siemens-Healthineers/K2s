@@ -25,7 +25,6 @@ import (
 const (
 	crioServiceName  = "crio"
 	crioSocket       = "unix:///var/run/crio/crio.sock"
-	localProxyURL    = "http://127.0.0.1:8181"
 	proxyService     = "k2s-httpproxy"
 	proxyNetworkSvc  = "k2s-proxy-network"
 	proxyNetworkDev  = "k2s-proxy0"
@@ -95,11 +94,15 @@ func (o *LinuxOrchestrator) provisionKubernetes(cfg InstallConfig) (string, erro
 	if err != nil {
 		return "", err
 	}
+	proxyURL, err := kubeSwitchProxyURL(cfg.InstallDir)
+	if err != nil {
+		return "", err
+	}
 
 	if err := o.installHTTPProxy(cfg); err != nil {
 		return "", err
 	}
-	if err := configureAptProxy(localProxyURL, cfg.ConfigDir); err != nil {
+	if err := configureAptProxy(proxyURL, cfg.ConfigDir); err != nil {
 		return "", err
 	}
 
@@ -129,7 +132,7 @@ func (o *LinuxOrchestrator) provisionKubernetes(cfg InstallConfig) (string, erro
 	if cfg.ShowLogs {
 		slog.Info("[Install] Package staging directory", "path", stagingDir)
 	}
-	if err := runCommandWithLogs(cfg.ShowLogs, "bash", downloadScript, stagingDir, k8sVersion, localProxyURL); err != nil {
+	if err := runCommandWithLogs(cfg.ShowLogs, "bash", downloadScript, stagingDir, k8sVersion, proxyURL); err != nil {
 		return "", fmt.Errorf("download Kubernetes packages: %w", err)
 	}
 
@@ -139,7 +142,7 @@ func (o *LinuxOrchestrator) provisionKubernetes(cfg InstallConfig) (string, erro
 	}
 
 	slog.Info("[Install] Installing Kubernetes and CRI-O packages")
-	if err := runCommandWithLogs(cfg.ShowLogs, "bash", installScript, stagingDir, localProxyURL, registryToken, "false", mergeNoProxy(cfg.NoProxy)); err != nil {
+	if err := runCommandWithLogs(cfg.ShowLogs, "bash", installScript, stagingDir, proxyURL, registryToken, "false", mergeNoProxy(cfg.NoProxy)); err != nil {
 		return "", fmt.Errorf("install Kubernetes packages: %w", err)
 	}
 
@@ -290,7 +293,7 @@ func configureAptProxy(proxyURL string, configDir string) error {
 	if err := os.WriteFile(aptProxyConfig, content, 0644); err != nil {
 		return fmt.Errorf("write K2s apt proxy configuration: %w", err)
 	}
-	slog.Info("[Install] Configured apt to use the local HTTP proxy", "proxy", proxyURL)
+	slog.Info("[Install] Configured apt to use the KubeSwitch HTTP proxy", "proxy", proxyURL)
 	return nil
 }
 
@@ -487,6 +490,18 @@ func primaryHostIPv4FromRoute(route string) (string, error) {
 		return address.String(), nil
 	}
 	return "", fmt.Errorf("could not find source address in IPv4 route %q", strings.TrimSpace(route))
+}
+
+// kubeSwitchProxyURL returns the stable K2s proxy endpoint used by Linux
+// control-plane VMs on Windows hosts and by the native Linux host. The native
+// proxy is deliberately accessed through this address rather than loopback so
+// APT and CRI-O use the same configuration in both topologies.
+func kubeSwitchProxyURL(installDir string) (string, error) {
+	proxyNetwork, err := config.ReadKubeSwitchConfig(installDir)
+	if err != nil {
+		return "", fmt.Errorf("read KubeSwitch proxy configuration: %w", err)
+	}
+	return "http://" + proxyNetwork.Address + ":8181", nil
 }
 
 func resolveKubernetesVersion(installDir string) (string, error) {
