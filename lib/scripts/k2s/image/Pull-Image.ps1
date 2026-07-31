@@ -87,44 +87,6 @@ function Get-LinuxPullFallbackImage {
     return "$registryHostIp`:30500/$imagePath"
 }
 
-function Get-RegistryHostIp {
-    $controlPlaneIp = Get-ConfiguredIPControlPlane
-
-    $registryNodeName = ''
-    try {
-        $kubeToolsPath = Get-KubeToolsPath
-        $kubectlExe = "$kubeToolsPath\kubectl.exe"
-        if (Test-Path $kubectlExe) {
-            $registryNodeName = (& $kubectlExe -n registry get pod -l app=registry -o jsonpath='{.items[0].spec.nodeName}' 2>$null) | Out-String
-            $registryNodeName = $registryNodeName.Trim()
-        }
-    }
-    catch {
-        Write-Log "[Pull] Unable to detect registry pod node, using control-plane IP fallback"
-    }
-
-    if ([string]::IsNullOrWhiteSpace($registryNodeName)) {
-        return $controlPlaneIp
-    }
-
-    $setupFilePath = Get-SetupConfigFilePath
-    $controlPlaneHostname = Get-ConfigValue -Path $setupFilePath -Key 'ControlPlaneNodeHostname'
-    if ([string]::IsNullOrWhiteSpace($controlPlaneHostname)) {
-        $controlPlaneHostname = 'kubemaster'
-    }
-
-    if ($registryNodeName.ToLower() -eq $controlPlaneHostname.ToLower()) {
-        return $controlPlaneIp
-    }
-
-    $registryNodeConfig = Get-NodeConfig -NodeName $registryNodeName
-    if ($null -ne $registryNodeConfig -and -not [string]::IsNullOrWhiteSpace($registryNodeConfig.IpAddress)) {
-        return $registryNodeConfig.IpAddress
-    }
-
-    return $controlPlaneIp
-}
-
 function Ensure-LinuxRegistryHostResolution {
     param(
         [Parameter(Mandatory = $true)]
@@ -261,7 +223,8 @@ function Invoke-PullOnNode {
         }
 
         if ($NodeInfo.Kind -eq 'LinuxWorker') {
-            return (Invoke-CmdOnVmViaSSHKey -CmdToExecute "sudo buildah pull $Image 2>&1" -IpAddress $NodeInfo.IpAddress -UserName $NodeInfo.Username -NoLog -IgnoreErrors).Success
+            $proxyCmd = Get-LinuxTransparentProxyPrefix -LogPrefix 'Pull' -NodeName $NodeInfo.Name -Reference $Image
+            return (Invoke-CmdOnVmViaSSHKey -CmdToExecute "sudo ${proxyCmd}buildah pull $Image 2>&1" -IpAddress $NodeInfo.IpAddress -UserName $NodeInfo.Username -NoLog -IgnoreErrors).Success
         }
     }
 
