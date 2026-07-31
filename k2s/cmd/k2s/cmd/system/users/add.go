@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText:  © 2025 Siemens Healthineers AG
+// SPDX-FileCopyrightText:  © 2026 Siemens Healthineers AG
 // SPDX-License-Identifier:   MIT
 
 package users
@@ -29,7 +29,7 @@ const (
 func newAddCommand() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "add",
-		Short: "Grants a Windows user access to K2s",
+		Short: "Grants a Windows user access to K2s (host only)",
 		RunE:  run,
 	}
 

@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText:  © 2024 Siemens Healthineers AG
+// SPDX-FileCopyrightText:  © 2026 Siemens Healthineers AG
 // SPDX-License-Identifier:   MIT
 
 package exec
@@ -31,7 +31,7 @@ const (
 	timeoutFlag     = "timeout"
 	portFlag        = "port"
 	rawFlag         = "raw"
-	longDescription = "Executes a command on a remote node."
+	longDescription = "Executes a command on a remote node. By default this targets the control-plane node; pass --ip-addr to run on a specific node (e.g. a worker node)."
 	example         = `# Execute a command on Linux node
 k2s node exec -i 172.19.1.100 -u remote -c "echo 'Hello, World!'"
 
