@@ -35,7 +35,7 @@ $clusterModule = "$PSScriptRoot/../../../lib/modules/k2s/k2s.cluster.module/k2s.
 $nodeModule = "$PSScriptRoot/../../../lib/modules/k2s/k2s.node.module/k2s.node.module.psm1"
 $clusterConfigModule = "$PSScriptRoot/../../../lib/modules/k2s/k2s.infra.module/config/cluster.config.module.psm1"
 $proxyModule = "$PSScriptRoot/../../../lib/modules/k2s/k2s.node.module/windowsnode/proxy/proxy.module.psm1"
-$addonsModule = "$PSScriptRoot\..\addons.module.psm1"
+$addonsModule = "$PSScriptRoot\..\..\addons.module.psm1"
 Import-Module $infraModule, $clusterModule, $nodeModule, $clusterConfigModule, $proxyModule, $addonsModule
 
 Initialize-Logging -ShowLogs:$ShowLogs
@@ -60,6 +60,27 @@ try {
 catch {
     Write-Log "[Ceph] ERROR: Failed to parse ceph-config.json: $($_.Exception.Message)" -Console -Error
     exit 1
+}
+
+function Resolve-ClusterNodeConfigForCephHost {
+    param(
+        [Parameter(Mandatory = $true)][string]$DeclaredHostName
+    )
+
+    $declared = "$DeclaredHostName".Trim()
+    if ([string]::IsNullOrWhiteSpace($declared)) { return $null }
+
+    $nodeConfig = Get-NodeConfig -NodeName $declared
+    if ($null -ne $nodeConfig) {
+        return [pscustomobject]@{
+            NodeConfig = $nodeConfig
+            MatchedBy = 'NodeName'
+            DeclaredHostName = $declared
+            ResolvedNodeName = "$($nodeConfig.Name)".Trim()
+        }
+    }
+
+    return $null
 }
 
 # Determine the configured OSD hosts (Linux only). Nothing to do when none are declared.
@@ -107,6 +128,9 @@ if ([string]::IsNullOrWhiteSpace($cephPubKey)) {
         Set-AddonSetupJsonProperty -Addon $addonDescriptor -PropertyName 'CephPublicKey' -PropertyValue $cephPubKey
     }
 }
+else {
+    Write-Log '[Ceph] Using cephadm public key from setup.json to prepare newly added OSD hosts.' -Console
+}
 if ([string]::IsNullOrWhiteSpace($cephPubKey)) {
     Write-Log '[Ceph] ERROR: Could not obtain the cephadm public key required to prepare OSD hosts.' -Console -Error
     exit 1
@@ -136,14 +160,20 @@ foreach ($requiredScript in @($prepareHostScript, $prepareDiskScript, $addOsdScr
 # pull it locally via the proxy; without it cephadm's own pull from quay.io fails on air-gapped nodes.
 $cephImage = ''
 try {
-    $manifestPath = [System.IO.Path]::GetFullPath((Join-Path -Path $PSScriptRoot -ChildPath 'addon.manifest.yaml'))
+    $manifestPath = [System.IO.Path]::GetFullPath((Join-Path -Path $PSScriptRoot -ChildPath '..\addon.manifest.yaml'))
     if (Test-Path $manifestPath) {
         $imageRef = Get-Content -Path $manifestPath | ForEach-Object { $_.Trim() } | Where-Object { $_ -like '- quay.io/ceph/ceph:*' } | Select-Object -First 1
         if (-not [string]::IsNullOrWhiteSpace($imageRef)) { $cephImage = ($imageRef -replace '^-\s*', '') }
     }
+    else {
+        Write-Log "[Ceph] WARNING: Storage addon manifest not found at '$manifestPath'; OSD hosts will rely on a locally present Ceph image." -Console
+    }
 }
 catch {
     Write-Log "[Ceph] WARNING: Could not resolve the Ceph image from the addon manifest; OSD hosts will rely on a locally present image: $($_.Exception.Message)" -Console
+}
+if (-not [string]::IsNullOrWhiteSpace($cephImage)) {
+    Write-Log "[Ceph] Using Ceph image '$cephImage' for OSD host preparation." -Console
 }
 
 $clusterFsid = if ($Config -and ($Config.PSObject.Properties.Name -contains 'clusterId')) { "$($Config.clusterId)".Trim() } else { '' }
@@ -153,6 +183,8 @@ $orchHostLsResult = Invoke-CmdOnVmViaSSHKey -CmdToExecute 'sudo cephadm shell --
 $orchHostLsText = ($orchHostLsResult.Output | Out-String)
 
 $reconciledCount = 0
+
+Write-Log "[Ceph] Reconciling $($osdHosts.Count) configured OSD host entry(ies) from ceph-config.json with the running Ceph cluster..." -Console
 
 foreach ($osdHostConfig in $osdHosts) {
     if ($null -eq $osdHostConfig) { continue }
@@ -173,11 +205,13 @@ foreach ($osdHostConfig in $osdHosts) {
         $osdNodeUser = $bootstrapNodeUser
     }
     else {
-        $osdNodeConfig = Get-NodeConfig -NodeName $osdNodeName
-        if ($null -eq $osdNodeConfig) {
+        $resolvedNode = Resolve-ClusterNodeConfigForCephHost -DeclaredHostName $osdNodeName
+        if ($null -eq $resolvedNode -or $null -eq $resolvedNode.NodeConfig) {
             Write-Log "[Ceph] OSD host '$osdNodeName' is declared in ceph-config.json but not yet part of the K2s cluster (cluster.json). Skipping until the node is added." -Console
             continue
         }
+
+        $osdNodeConfig = $resolvedNode.NodeConfig
 
         $osdNodeType = if ($osdNodeConfig.PSObject.Properties.Name -contains 'NodeType') { "$($osdNodeConfig.NodeType)".Trim() } else { '' }
         if (-not [string]::Equals($osdNodeType, 'VM-EXISTING', [System.StringComparison]::OrdinalIgnoreCase)) {
@@ -200,10 +234,14 @@ foreach ($osdHostConfig in $osdHosts) {
     $orchestratorHostName = (($hostnameResult.Output | Out-String).Trim() -split "`r?`n" | Select-Object -First 1).Trim()
     if ([string]::IsNullOrWhiteSpace($orchestratorHostName)) { $orchestratorHostName = $osdNodeName }
 
+    Write-Log "[Ceph] Evaluating configured OSD host '$orchestratorHostName' ($osdNodeIp) from ceph-config.json..." -Console
+
     if ($orchHostLsText -match [regex]::Escape($orchestratorHostName)) {
-        Write-Log "[Ceph] OSD host '$orchestratorHostName' ($osdNodeIp) is already registered with the Ceph cluster. Skipping." -Console
+        Write-Log "[Ceph] OSD host '$orchestratorHostName' ($osdNodeIp) is already part of the Ceph cluster. Ignoring this host entry." -Console
         continue
     }
+
+    Write-Log "[Ceph] OSD host '$orchestratorHostName' ($osdNodeIp) is configured but not yet part of the Ceph cluster. This node will be added now." -Console
 
     [uint32]$osdCount = 1
     if ($osdHostConfig.PSObject.Properties.Name -contains 'osdCount') {
@@ -277,6 +315,7 @@ foreach ($osdHostConfig in $osdHosts) {
         if ($hostAddResult.Success) {
             Write-Log "[Ceph] OSD host '$orchestratorHostName' registered successfully." -Console
             $hostRegistered = $true
+            $orchHostLsText += "`n$orchestratorHostName"
             break
         }
 
@@ -289,6 +328,7 @@ foreach ($osdHostConfig in $osdHosts) {
         if (($verifyResult.Output | Out-String) -match [regex]::Escape($orchestratorHostName)) {
             Write-Log "[Ceph] OSD host '$orchestratorHostName' is already present in the Ceph orchestrator host list." -Console
             $hostRegistered = $true
+            $orchHostLsText += "`n$orchestratorHostName"
             break
         }
 
@@ -306,6 +346,8 @@ foreach ($osdHostConfig in $osdHosts) {
         Write-Log "[Ceph] ERROR: Could not register OSD host '$orchestratorHostName' ($osdNodeIp) with the Ceph orchestrator after $maxHostAddAttempts attempts." -Console -Error
         exit 1
     }
+
+    Write-Log "[Ceph] OSD host '$orchestratorHostName' has been added to the Ceph cluster and will now be provisioned based on ceph-config.json." -Console
 
     # Label the host as an OSD host once before creating OSDs.
     Write-Log "[Ceph] Adding host label (osd) on '$orchestratorHostName'..." -Console

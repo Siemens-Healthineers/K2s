@@ -60,6 +60,8 @@ var _ = AfterSuite(func(ctx context.Context) {
 	if suite.ShouldCleanup(testFailed) {
 		exportimport.CleanupExportedFiles(exportPath, exportedOciFile)
 	}
+	suite.K2sCli().Exec(ctx, "addons", "disable", "storage", "ceph", "--force", "-o")
+	os.RemoveAll(exportPath)
 	suite.TearDown(ctx)
 })
 

@@ -610,6 +610,19 @@ function Invoke-CephOsdPreparation {
     Write-Log "[Ceph] Reconciling pool replication to size=$desiredPoolSize / min_size=1 (actual OSD count=$actualOsdCount) after OSD provisioning..." -Console
 
     # Ensure global defaults reflect the actual OSD count for any pools created later.
+    # When size=1 is required, first unlock single-replica pools (disabled by default in Ceph).
+    if ($desiredPoolSize -eq 1) {
+        Invoke-CmdOnVmViaSSHKey -CmdToExecute "sudo cephadm shell -- ceph config set global mon_allow_pool_size_one true" -UserName $BootstrapNodeUserName -IpAddress $BootstrapNodeIp -NoLog -IgnoreErrors | Out-Null
+        Invoke-CmdOnVmViaSSHKey -CmdToExecute "sudo cephadm shell -- ceph config set mon mon_allow_pool_size_one true" -UserName $BootstrapNodeUserName -IpAddress $BootstrapNodeIp -NoLog -IgnoreErrors | Out-Null
+        # Single OSD/host cannot provide redundancy; avoid permanent health warn noise.
+        Invoke-CmdOnVmViaSSHKey -CmdToExecute "sudo cephadm shell -- ceph config set global mon_warn_on_pool_no_redundancy false" -UserName $BootstrapNodeUserName -IpAddress $BootstrapNodeIp -NoLog -IgnoreErrors | Out-Null
+        Invoke-CmdOnVmViaSSHKey -CmdToExecute "sudo cephadm shell -- ceph health mute POOL_NO_REDUNDANCY 1w --sticky" -UserName $BootstrapNodeUserName -IpAddress $BootstrapNodeIp -NoLog -IgnoreErrors | Out-Null
+    }
+    else {
+        # Re-enable redundancy warnings when replication > 1 is feasible again.
+        Invoke-CmdOnVmViaSSHKey -CmdToExecute "sudo cephadm shell -- ceph config set global mon_warn_on_pool_no_redundancy true" -UserName $BootstrapNodeUserName -IpAddress $BootstrapNodeIp -NoLog -IgnoreErrors | Out-Null
+        Invoke-CmdOnVmViaSSHKey -CmdToExecute "sudo cephadm shell -- ceph health unmute POOL_NO_REDUNDANCY" -UserName $BootstrapNodeUserName -IpAddress $BootstrapNodeIp -NoLog -IgnoreErrors | Out-Null
+    }
     Invoke-CmdOnVmViaSSHKey -CmdToExecute "sudo cephadm shell -- ceph config set global osd_pool_default_size $desiredPoolSize" -UserName $BootstrapNodeUserName -IpAddress $BootstrapNodeIp -NoLog -IgnoreErrors | Out-Null
     Invoke-CmdOnVmViaSSHKey -CmdToExecute "sudo cephadm shell -- ceph config set global osd_pool_default_min_size 1" -UserName $BootstrapNodeUserName -IpAddress $BootstrapNodeIp -NoLog -IgnoreErrors | Out-Null
 
@@ -642,8 +655,13 @@ function Invoke-CephOsdPreparation {
                 Invoke-CmdOnVmViaSSHKey -CmdToExecute "sudo cephadm shell -- ceph osd pool set $pool crush_rule k2s-osd-rule" -UserName $BootstrapNodeUserName -IpAddress $BootstrapNodeIp -NoLog -IgnoreErrors | Out-Null
             }
 
+            $setSizeCmd = if ($desiredPoolSize -eq 1) {
+                "sudo cephadm shell -- ceph osd pool set $pool size $desiredPoolSize --yes-i-really-mean-it"
+            } else {
+                "sudo cephadm shell -- ceph osd pool set $pool size $desiredPoolSize"
+            }
             $setSizeResult = Invoke-CmdOnVmViaSSHKey `
-                                -CmdToExecute "sudo cephadm shell -- ceph osd pool set $pool size $desiredPoolSize" `
+                                -CmdToExecute $setSizeCmd `
                                 -UserName $BootstrapNodeUserName `
                                 -IpAddress $BootstrapNodeIp `
                                 -NoLog `
@@ -665,7 +683,12 @@ function Invoke-CephOsdPreparation {
         }
 
         if (-not $poolReconciled) {
-            Write-Log "[Ceph] WARNING: Could not reconcile pool '$pool' to size=$desiredPoolSize/min_size=1. If health warnings reference '$pool', run: sudo cephadm shell -- ceph osd pool set $pool size $desiredPoolSize; sudo cephadm shell -- ceph osd pool set $pool min_size 1" -Console
+            $manualSizeCmd = if ($desiredPoolSize -eq 1) {
+                "sudo cephadm shell -- ceph config set global mon_allow_pool_size_one true; sudo cephadm shell -- ceph osd pool set $pool size $desiredPoolSize --yes-i-really-mean-it"
+            } else {
+                "sudo cephadm shell -- ceph osd pool set $pool size $desiredPoolSize"
+            }
+            Write-Log "[Ceph] WARNING: Could not reconcile pool '$pool' to size=$desiredPoolSize/min_size=1. If health warnings reference '$pool', run: $manualSizeCmd; sudo cephadm shell -- ceph osd pool set $pool min_size 1" -Console
         }
     }
 
@@ -976,9 +999,6 @@ Write-Log '[Ceph] A new (empty) volume drive will be consumed to create the Ceph
 $cephPubKeyLine = ($bootstrapOutput | Out-String) -split "`r?`n" | Where-Object { $_.Trim().StartsWith('K2S_CEPH_PUB_KEY=') } | Select-Object -Last 1
 if (-not [string]::IsNullOrWhiteSpace($cephPubKeyLine)) {
     $cephPubKeyValue = $cephPubKeyLine.Trim().Substring('K2S_CEPH_PUB_KEY='.Length).Trim()
-    Write-Log '[Ceph] To add another machine as an OSD host, authorize this cephadm public key on it (see scripts\linux\debian\prepare-ceph-osd-host.sh):' -Console
-    Write-Log "[Ceph]   $cephPubKeyValue" -Console
-
     # Surface the cephadm public key into the shared config object so Enable.ps1 can persist it in
     # setup.json and later OSD host additions (Update.ps1 / add-node flow) can prepare new hosts.
     if (-not [string]::IsNullOrWhiteSpace($cephPubKeyValue) -and $null -ne $Config) {

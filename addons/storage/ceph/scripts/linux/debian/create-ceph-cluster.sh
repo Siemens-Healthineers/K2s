@@ -368,6 +368,18 @@ if printf '%s' "${TOTAL_OSD_COUNT:-}" | grep -Eq '^[0-9]+$' && [ "${TOTAL_OSD_CO
     POOL_SIZE="${TOTAL_OSD_COUNT}"
 fi
 log_info "Setting global osd_pool_default_size=$POOL_SIZE / osd_pool_default_min_size=1 (requested OSD count=${TOTAL_OSD_COUNT:-unknown})"
+# When size=1 is needed, first unlock single-replica pools (Ceph rejects size=1 without this).
+if [ "$POOL_SIZE" = "1" ]; then
+    sudo "$CEPHADM_BIN" shell -- ceph config set global mon_allow_pool_size_one true || log_info "Failed to set global mon_allow_pool_size_one=true (continuing)"
+    sudo "$CEPHADM_BIN" shell -- ceph config set mon mon_allow_pool_size_one true || log_info "Failed to set mon mon_allow_pool_size_one=true (continuing)"
+    # Single OSD/host cannot satisfy replication; suppress persistent POOL_NO_REDUNDANCY warnings.
+    sudo "$CEPHADM_BIN" shell -- ceph config set global mon_warn_on_pool_no_redundancy false || log_info "Failed to set mon_warn_on_pool_no_redundancy=false (continuing)"
+    sudo "$CEPHADM_BIN" shell -- ceph health mute POOL_NO_REDUNDANCY 1w --sticky || log_info "Failed to mute POOL_NO_REDUNDANCY health warning (continuing)"
+else
+    # Keep warning enabled whenever replication >1 can be achieved.
+    sudo "$CEPHADM_BIN" shell -- ceph config set global mon_warn_on_pool_no_redundancy true || log_info "Failed to set mon_warn_on_pool_no_redundancy=true (continuing)"
+    sudo "$CEPHADM_BIN" shell -- ceph health unmute POOL_NO_REDUNDANCY || log_info "Failed to unmute POOL_NO_REDUNDANCY health warning (continuing)"
+fi
 sudo "$CEPHADM_BIN" shell -- ceph config set global osd_pool_default_size "$POOL_SIZE" || log_info "Failed to set osd_pool_default_size=$POOL_SIZE (continuing)"
 sudo "$CEPHADM_BIN" shell -- ceph config set global osd_pool_default_min_size 1 || log_info "Failed to set osd_pool_default_min_size=1 (continuing)"
 
@@ -464,7 +476,11 @@ fi
 # bootstrap, would otherwise keep size=3 and hold the cluster in HEALTH_WARN when fewer OSDs exist.
 log_info "Enforcing size=$POOL_SIZE/min_size=1 on CephFS and .mgr pools (requested OSD count=${TOTAL_OSD_COUNT:-unknown})"
 for pool in "cephfs.${CEPH_FS_NAME}.meta" "cephfs.${CEPH_FS_NAME}.data" ".mgr"; do
-    sudo "$CEPHADM_BIN" shell -- ceph osd pool set "$pool" size "$POOL_SIZE" || log_info "Failed to set size=$POOL_SIZE on pool '$pool' (continuing)"
+    if [ "$POOL_SIZE" = "1" ]; then
+        sudo "$CEPHADM_BIN" shell -- ceph osd pool set "$pool" size "$POOL_SIZE" --yes-i-really-mean-it || log_info "Failed to set size=$POOL_SIZE on pool '$pool' (continuing)"
+    else
+        sudo "$CEPHADM_BIN" shell -- ceph osd pool set "$pool" size "$POOL_SIZE" || log_info "Failed to set size=$POOL_SIZE on pool '$pool' (continuing)"
+    fi
     sudo "$CEPHADM_BIN" shell -- ceph osd pool set "$pool" min_size 1 || log_info "Failed to set min_size=1 on pool '$pool' (continuing)"
 done
 

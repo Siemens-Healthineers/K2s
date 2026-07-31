@@ -99,6 +99,14 @@ bootstrap node for the Ceph cluster, then list every OSD node under `osdHosts`.
       "osdSizesInGb": [
         5,5
       ]
+    },
+    {
+      "node": "cephosdagent2",
+      "os": "linux",
+      "osdCount": 2,
+      "osdSizesInGb": [
+        6,7
+      ]
     }
   ]
 }
