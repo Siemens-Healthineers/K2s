@@ -612,15 +612,15 @@ Describe 'New-PluginInitContainer' -Tag 'unit', 'ci', 'addon', 'dashboard', 'plu
 
     It 'returns an object with the correct Name property' {
         InModuleScope $moduleName {
-            $result = New-PluginInitContainer -Name 'flux-plugin' -Image 'shsk2s.azurecr.io/headlamp-plugin-flux:0.6.0'
+            $result = New-PluginInitContainer -Name 'flux-plugin' -Image 'shsk2s.azurecr.io/headlamp-plugin-flux:0.7.0'
             $result.Name | Should -Be 'flux-plugin'
         }
     }
 
     It 'returns an object with the correct Image property' {
         InModuleScope $moduleName {
-            $result = New-PluginInitContainer -Name 'flux-plugin' -Image 'shsk2s.azurecr.io/headlamp-plugin-flux:0.6.0'
-            $result.Image | Should -Be 'shsk2s.azurecr.io/headlamp-plugin-flux:0.6.0'
+            $result = New-PluginInitContainer -Name 'flux-plugin' -Image 'shsk2s.azurecr.io/headlamp-plugin-flux:0.7.0'
+            $result.Image | Should -Be 'shsk2s.azurecr.io/headlamp-plugin-flux:0.7.0'
         }
     }
 
@@ -986,7 +986,7 @@ Describe 'Build-PluginPatchJson' -Tag 'unit', 'ci', 'addon', 'dashboard', 'plugi
 
     It 'contains the container name when a plugin is being added' {
         InModuleScope $moduleName {
-            $ic = [pscustomobject]@{ Name = 'flux-plugin'; Image = 'shsk2s.azurecr.io/headlamp-plugin-flux:0.6.0' }
+            $ic = [pscustomobject]@{ Name = 'flux-plugin'; Image = 'shsk2s.azurecr.io/headlamp-plugin-flux:0.7.0' }
             $result = Build-PluginPatchJson -K2sInitContainers @($ic)
             $result | Should -Match 'flux-plugin'
         }
@@ -994,7 +994,7 @@ Describe 'Build-PluginPatchJson' -Tag 'unit', 'ci', 'addon', 'dashboard', 'plugi
 
     It 'contains the image reference when a plugin is being added' {
         InModuleScope $moduleName {
-            $ic = [pscustomobject]@{ Name = 'flux-plugin'; Image = 'shsk2s.azurecr.io/headlamp-plugin-flux:0.6.0' }
+            $ic = [pscustomobject]@{ Name = 'flux-plugin'; Image = 'shsk2s.azurecr.io/headlamp-plugin-flux:0.7.0' }
             $result = Build-PluginPatchJson -K2sInitContainers @($ic)
             $result | Should -Match 'headlamp-plugin-flux'
         }
