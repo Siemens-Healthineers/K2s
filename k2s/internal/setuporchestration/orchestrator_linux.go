@@ -46,6 +46,10 @@ func (o *LinuxOrchestrator) Install(cfg InstallConfig) error {
 	if !cfg.LinuxOnly {
 		return fmt.Errorf("Linux host installation currently supports only --linux-only; Windows worker provisioning is not supported yet")
 	}
+	registryToken, err := readRegistryToken(cfg.InstallDir)
+	if err != nil {
+		return err
+	}
 
 	// Step 1: Validate the host before Kubernetes packages exist.
 	if err := o.checkHostPrerequisites(cfg); err != nil {
@@ -53,7 +57,7 @@ func (o *LinuxOrchestrator) Install(cfg InstallConfig) error {
 	}
 
 	// Step 2: Install the version-pinned Kubernetes and CRI-O package set.
-	k8sVersion, err := o.provisionKubernetes(cfg)
+	k8sVersion, err := o.provisionKubernetes(cfg, registryToken)
 	if err != nil {
 		return fmt.Errorf("package provisioning failed: %w", err)
 	}
