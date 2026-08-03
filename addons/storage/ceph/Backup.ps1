@@ -50,6 +50,18 @@ Initialize-Logging -ShowLogs:$ShowLogs
 
 Write-Log "[StorageCephBackup] Backing up addon 'storage ceph'" -Console
 
+if ((Test-IsAddonEnabled -Addon ([pscustomobject] @{Name = 'storage'; Implementation = 'ceph' })) -ne $true) {
+    $errMsg = "Addon 'storage ceph' is not enabled. Nothing to back up."
+    if ($EncodeStructuredOutput -eq $true) {
+        $err = New-Error -Severity Warning -Code 'addon-not-enabled' -Message $errMsg
+        Send-ToCli -MessageType $MessageType -Message @{ Error = $err }
+        return
+    }
+
+    Write-Log $errMsg -Error
+    exit 1
+}
+
 # Best-effort only: allow backing up local config even if cluster isn't running
 $systemError = Test-SystemAvailability -Structured
 if ($systemError) {
