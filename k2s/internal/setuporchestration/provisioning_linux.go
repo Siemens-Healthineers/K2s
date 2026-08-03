@@ -7,6 +7,7 @@ package setuporchestration
 
 import (
 	"bufio"
+	"encoding/base64"
 	"fmt"
 	"log/slog"
 	"net"
@@ -23,18 +24,19 @@ import (
 )
 
 const (
-	crioServiceName  = "crio"
-	crioSocket       = "unix:///var/run/crio/crio.sock"
-	proxyService     = "k2s-httpproxy"
-	proxyNetworkSvc  = "k2s-proxy-network"
-	proxyNetworkDev  = "k2s-proxy0"
-	proxyLogDir      = "/var/log/httpproxy"
-	proxyLogFile     = "/var/log/httpproxy/httpproxy.log"
-	kubeletLogDir    = "/var/log/kubelet"
-	kubeletLogFile   = "/var/log/kubelet/kubelet.log"
-	kubeletLogDropIn = "/etc/systemd/system/kubelet.service.d/20-k2s-logging.conf"
-	aptProxyConfig   = "/etc/apt/apt.conf.d/proxy.conf"
-	criOProxyConfig  = "/etc/systemd/system/crio.service.d/http-proxy.conf"
+	crioServiceName       = "crio"
+	crioSocket            = "unix:///var/run/crio/crio.sock"
+	proxyService          = "k2s-httpproxy"
+	proxyNetworkSvc       = "k2s-proxy-network"
+	proxyNetworkDev       = "k2s-proxy0"
+	proxyLogDir           = "/var/log/httpproxy"
+	proxyLogFile          = "/var/log/httpproxy/httpproxy.log"
+	kubeletLogDir         = "/var/log/kubelet"
+	kubeletLogFile        = "/var/log/kubelet/kubelet.log"
+	kubeletLogDropIn      = "/etc/systemd/system/kubelet.service.d/20-k2s-logging.conf"
+	aptProxyConfig        = "/etc/apt/apt.conf.d/proxy.conf"
+	criOProxyConfig       = "/etc/systemd/system/crio.service.d/http-proxy.conf"
+	containersProxyConfig = "/etc/containers/containers.conf.d/20-k2s-proxy.conf"
 )
 
 const aptProxyConfigHeader = "# Managed by K2s native Linux installation"
@@ -89,7 +91,7 @@ func (o *LinuxOrchestrator) checkHostPrerequisites(_ InstallConfig) error {
 	return nil
 }
 
-func (o *LinuxOrchestrator) provisionKubernetes(cfg InstallConfig) (string, error) {
+func (o *LinuxOrchestrator) provisionKubernetes(cfg InstallConfig, registryToken string) (string, error) {
 	k8sVersion, err := resolveKubernetesVersion(cfg.InstallDir)
 	if err != nil {
 		return "", err
@@ -98,7 +100,6 @@ func (o *LinuxOrchestrator) provisionKubernetes(cfg InstallConfig) (string, erro
 	if err != nil {
 		return "", err
 	}
-
 	if err := o.installHTTPProxy(cfg); err != nil {
 		return "", err
 	}
@@ -134,11 +135,6 @@ func (o *LinuxOrchestrator) provisionKubernetes(cfg InstallConfig) (string, erro
 	}
 	if err := runCommandWithLogs(cfg.ShowLogs, "bash", downloadScript, stagingDir, k8sVersion, proxyURL); err != nil {
 		return "", fmt.Errorf("download Kubernetes packages: %w", err)
-	}
-
-	registryToken, err := readRegistryToken(cfg.InstallDir)
-	if err != nil {
-		return "", err
 	}
 
 	slog.Info("[Install] Installing Kubernetes and CRI-O packages")
@@ -261,6 +257,7 @@ func removeHTTPProxy(removeCompatibilityNetwork bool, configDir string) {
 	_ = runCommand("systemctl", "disable", "--now", proxyService)
 	_ = os.Remove(filepath.Join("/etc/systemd/system", proxyService+".service"))
 	removeCriOProxyConfiguration()
+	removeContainersProxyConfiguration()
 	removeAptProxy(configDir)
 	if removeCompatibilityNetwork {
 		removeLinuxOnlyProxyNetwork()
@@ -344,6 +341,12 @@ func removeCriOProxyConfiguration() {
 		if err := runCommand("systemctl", "restart", crioServiceName); err != nil {
 			slog.Warn("[Uninstall] Could not restart CRI-O after proxy cleanup", "error", err)
 		}
+	}
+}
+
+func removeContainersProxyConfiguration() {
+	if err := os.Remove(containersProxyConfig); err != nil && !os.IsNotExist(err) {
+		slog.Warn("[Uninstall] Could not remove K2s containers proxy configuration", "path", containersProxyConfig, "error", err)
 	}
 }
 
@@ -523,9 +526,21 @@ func readRegistryToken(installDir string) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("read packaged registry credentials from %s: %w", path, err)
 	}
-	value := strings.TrimSpace(string(data))
+	value, err := normalizeRegistryToken(string(data))
+	if err != nil {
+		return "", fmt.Errorf("invalid packaged registry credentials at %s: %w", path, err)
+	}
+	return value, nil
+}
+
+func normalizeRegistryToken(value string) (string, error) {
+	value = strings.TrimPrefix(strings.TrimSpace(value), "\uFEFF")
+	value = strings.TrimSpace(value)
 	if value == "" {
-		return "", fmt.Errorf("packaged registry credentials at %s are empty", path)
+		return "", fmt.Errorf("credential is empty")
+	}
+	if _, err := base64.StdEncoding.DecodeString(value); err != nil {
+		return "", fmt.Errorf("credential is not valid base64")
 	}
 	return value, nil
 }

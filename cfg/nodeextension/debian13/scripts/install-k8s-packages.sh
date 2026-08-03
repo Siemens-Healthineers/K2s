@@ -116,6 +116,24 @@ if [ -n "$PROXY" ]; then
         echo "Environment='NO_PROXY=$NO_PROXY'"
         echo "Environment='no_proxy=$NO_PROXY'"
     } | sudo tee /etc/systemd/system/crio.service.d/http-proxy.conf > /dev/null
+
+    # Buildah and Podman use containers.conf rather than CRI-O's systemd
+    # environment. Keep this K2s-owned drop-in separate from distribution and
+    # user configuration so it can be removed safely during K2s uninstall.
+    echo "[InstallK8s] Configuring containers tooling proxy: $PROXY"
+    sudo mkdir -p /etc/containers/containers.conf.d
+    {
+        echo '# Managed by K2s native Linux installation'
+        echo '[engine]'
+        echo 'env = ['
+        echo "  \"HTTP_PROXY=$PROXY\","
+        echo "  \"HTTPS_PROXY=$PROXY\","
+        echo "  \"http_proxy=$PROXY\","
+        echo "  \"https_proxy=$PROXY\","
+        echo "  \"NO_PROXY=$NO_PROXY\","
+        echo "  \"no_proxy=$NO_PROXY\""
+        echo ']'
+    } | sudo tee /etc/containers/containers.conf.d/20-k2s-proxy.conf > /dev/null
 fi
 
 # ---------------------------------------------------------------------------
