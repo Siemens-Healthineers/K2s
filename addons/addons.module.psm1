@@ -742,8 +742,14 @@ function Add-HostEntries {
 	$hostFile = 'C:\Windows\System32\drivers\etc\hosts'
 
 	# add in host
-	if (!$(Get-Content $hostFile | ForEach-Object { $_ -match $hostEntry }).Contains($true)) {
-		Add-Content $hostFile $hostEntry
+	$hostEntryPattern = '^\s*' + [regex]::Escape($hostEntry) + '\s*$'
+	$hostEntryExists = $false
+	if (Test-Path $hostFile) {
+		$hostEntryExists = @((Get-Content -Path $hostFile -ErrorAction SilentlyContinue) | Where-Object { $_ -match $hostEntryPattern }).Count -gt 0
+	}
+
+	if (-not $hostEntryExists) {
+		Add-Content -Path $hostFile -Value $hostEntry
 	}
 }
 

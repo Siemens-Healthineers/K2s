@@ -141,6 +141,92 @@ var _ = Describe("generic pkg", func() {
 		})
 	})
 
+	Describe("validateAddonCommandArgs", func() {
+		It("accepts empty args", func() {
+			cmd := &cobra.Command{Use: "test"}
+			cmd.Flags().String("node", "", "")
+
+			err := validateAddonCommandArgs(cmd, []string{})
+
+			Expect(err).ToNot(HaveOccurred())
+		})
+
+		It("accepts whitespace-only args", func() {
+			cmd := &cobra.Command{Use: "test"}
+			cmd.Flags().String("node", "", "")
+
+			err := validateAddonCommandArgs(cmd, []string{""})
+
+			Expect(err).ToNot(HaveOccurred())
+		})
+
+		It("returns generic unexpected args error", func() {
+			cmd := &cobra.Command{Use: "test"}
+
+			err := validateAddonCommandArgs(cmd, []string{"extra"})
+
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("unexpected argument(s): extra"))
+		})
+
+		It("shows trailing-comma hint when --node was split by whitespace", func() {
+			cmd := &cobra.Command{Use: "test"}
+			cmd.Flags().String("node", "", "")
+			Expect(cmd.Flags().Set("node", "k2s-nodepkg-debian13,")).To(Succeed())
+
+			err := validateAddonCommandArgs(cmd, []string{"gpunode1"})
+
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("It looks like the --node value was split by whitespace"))
+		})
+
+		It("accepts extra args when --node is set without trailing comma", func() {
+			cmd := &cobra.Command{Use: "test"}
+			cmd.Flags().String("node", "", "")
+			Expect(cmd.Flags().Set("node", "k2s-nodepkg-debian13")).To(Succeed())
+
+			err := validateAddonCommandArgs(cmd, []string{"gpunode1"})
+
+			Expect(err).ToNot(HaveOccurred())
+		})
+	})
+
+	Describe("mergeExtraNodeArgs", func() {
+		It("merges positional args into --node list", func() {
+			cmd := &cobra.Command{Use: "test"}
+			cmd.Flags().String("node", "", "")
+			Expect(cmd.Flags().Set("node", "k2s-nodepkg-debian13,")).To(Succeed())
+
+			err := mergeExtraNodeArgs(cmd, []string{"gpunode1"})
+
+			Expect(err).ToNot(HaveOccurred())
+			v, getErr := cmd.Flags().GetString("node")
+			Expect(getErr).ToNot(HaveOccurred())
+			Expect(v).To(Equal("k2s-nodepkg-debian13,gpunode1"))
+		})
+
+		It("returns error when positional args exist but --node is not set", func() {
+			cmd := &cobra.Command{Use: "test"}
+			cmd.Flags().String("node", "", "")
+
+			err := mergeExtraNodeArgs(cmd, []string{"gpunode1"})
+
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("unexpected argument(s): gpunode1"))
+		})
+
+		It("returns error when positional args look like flags", func() {
+			cmd := &cobra.Command{Use: "test"}
+			cmd.Flags().String("node", "", "")
+			Expect(cmd.Flags().Set("node", "k2s-nodepkg-debian13")).To(Succeed())
+
+			err := mergeExtraNodeArgs(cmd, []string{"--tiime-slices", "4"})
+
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("unexpected argument(s): --tiime-slices 4"))
+		})
+	})
+
 	Describe("newAddonCmd", func() {
 		When("no CLI config exists", func() {
 			When("addon name and implementation name are the same", func() {
@@ -816,7 +902,7 @@ var _ = Describe("generic pkg", func() {
 
 				Expect(err).ToNot(HaveOccurred())
 				Expect(result).To(Equal("&'test-dir\\test.script'"))
-				Expect(params).To(ConsistOf("-p1 v1", "-p2 v2"))
+				Expect(params).To(ConsistOf("-p1 'v1'", "-p2 'v2'"))
 			})
 		})
 	})
@@ -989,7 +1075,7 @@ var _ = Describe("generic pkg", func() {
 				}
 
 				addMock := &mockObject{}
-				addMock.On(reflection.GetFunctionName(addMock.add), "-TestStringValue test-value").Once()
+				addMock.On(reflection.GetFunctionName(addMock.add), "-TestStringValue 'test-value'").Once()
 
 				Expect(convertToPsParam(flag, cmd, addMock.add)).To(Succeed())
 
