@@ -638,10 +638,17 @@ func VerifyImportedLinuxCurlPackages(ctx context.Context, suite *framework.K2sTe
 	GinkgoWriter.Printf("[ImportedLinuxCurl] Expected packages: %d\n", len(impl.OfflineUsage.LinuxResources.CurlPackages))
 
 	for i, pkg := range impl.OfflineUsage.LinuxResources.CurlPackages {
-		checkCmd := fmt.Sprintf("[ -f %s ]", pkg.Destination)
-		GinkgoWriter.Printf("[ImportedLinuxCurl]   [%d] Checking: %s -> %s\n", i, pkg.Url, pkg.Destination)
+		// Mirror Import.ps1 staging: absolute destinations are installed system-wide at that
+		// path, while relative destinations are staged into the addon storage folder
+		// (~/.<ExportDirectoryName>/<destination>) on the control plane.
+		checkPath := pkg.Destination
+		if !strings.HasPrefix(pkg.Destination, "/") {
+			checkPath = fmt.Sprintf(".%s/%s", impl.ExportDirectoryName, pkg.Destination)
+		}
+		checkCmd := fmt.Sprintf("[ -f %s ]", checkPath)
+		GinkgoWriter.Printf("[ImportedLinuxCurl]   [%d] Checking: %s -> %s\n", i, pkg.Url, checkPath)
 		suite.K2sCli().MustExec(ctx, "node", "exec", "-i", controlPlaneIP, "-u", "remote", "-c", checkCmd)
-		GinkgoWriter.Printf("[ImportedLinuxCurl]   [%d] OK: %s exists\n", i, pkg.Destination)
+		GinkgoWriter.Printf("[ImportedLinuxCurl]   [%d] OK: %s exists\n", i, checkPath)
 	}
 	GinkgoWriter.Println("=== VERIFY IMPORTED LINUX CURL PACKAGES END ===")
 }
