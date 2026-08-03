@@ -246,16 +246,36 @@ func getClusterHostNodeFromCephConfig(cephConfigPath string) (string, error) {
 		return "", err
 	}
 
-	value, found := config["clusterHostNode"]
+	clusterHostValue, found := config["clusterHost"]
 	if !found {
-		return "", fmt.Errorf("clusterHostNode is missing in '%s'", cephConfigPath)
+		return "", fmt.Errorf("clusterHost.node is missing in '%s'", cephConfigPath)
 	}
 
-	clusterHostNode, ok := value.(string)
-	if !ok || strings.TrimSpace(clusterHostNode) == "" {
-		return "", fmt.Errorf("clusterHostNode in '%s' is empty or not a string", cephConfigPath)
+	clusterHost, ok := clusterHostValue.(map[string]any)
+	if !ok {
+		return "", fmt.Errorf("clusterHost in '%s' is not an object", cephConfigPath)
 	}
-	return strings.TrimSpace(clusterHostNode), nil
+
+	clusterHostNode, ok := getTrimmedString(clusterHost["node"])
+	if !ok {
+		return "", fmt.Errorf("clusterHost.node in '%s' is empty or not a string", cephConfigPath)
+	}
+
+	return clusterHostNode, nil
+}
+
+func getTrimmedString(value any) (string, bool) {
+	stringValue, ok := value.(string)
+	if !ok {
+		return "", false
+	}
+
+	trimmedValue := strings.TrimSpace(stringValue)
+	if trimmedValue == "" {
+		return "", false
+	}
+
+	return trimmedValue, true
 }
 
 // For the control plane node, use its well-known hostname directly.

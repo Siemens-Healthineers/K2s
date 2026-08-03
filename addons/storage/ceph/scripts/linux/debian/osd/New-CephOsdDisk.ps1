@@ -73,11 +73,15 @@ $ErrorActionPreference = 'Stop'
 $sshUserName = $UserName
 if ([string]::IsNullOrWhiteSpace($sshUserName) -and $null -ne $Config) {
     try {
+        $clusterHostNode = if (($Config.PSObject.Properties.Name -contains 'clusterHost') -and $null -ne $Config.clusterHost -and ($Config.clusterHost.PSObject.Properties.Name -contains 'node')) {
+            "$($Config.clusterHost.node)".Trim()
+        } else { '' }
+
         $nodeName = if (-not [string]::IsNullOrWhiteSpace("$($Config.osdHostNode)".Trim())) {
             "$($Config.osdHostNode)".Trim()
         }
         else {
-            "$($Config.clusterHostNode)".Trim()
+            $clusterHostNode
         }
 
         $nodeConfig = $null

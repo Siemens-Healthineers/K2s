@@ -111,17 +111,33 @@ function Remove-CephCsiKubernetesResources {
 Resolves the name and IP of the node that hosts the provisioned Ceph cluster.
 
 .DESCRIPTION
-The target node is identified by 'clusterHostNode' in ceph-config.json. The K2s control plane node
+The target node is identified by 'clusterHost.node' in ceph-config.json. The K2s control plane node
 (e.g. 'kubemaster') is NOT stored in cluster.json, so its IP comes from the control-plane
 configuration; any other node is resolved from the K2s cluster descriptor (cluster.json). Returns an
 object with 'Name' and 'Ip' (empty 'Ip' when it cannot be resolved).
 #>
+function Get-CephClusterHostNodeName {
+    param(
+        [pscustomobject]$Config
+    )
+
+    if ($null -eq $Config) {
+        return ''
+    }
+
+    if (($Config.PSObject.Properties.Name -contains 'clusterHost') -and $null -ne $Config.clusterHost -and ($Config.clusterHost.PSObject.Properties.Name -contains 'node')) {
+        return "$($Config.clusterHost.node)".Trim()
+    }
+
+    return ''
+}
+
 function Get-CephClusterHostNode {
     param(
         [pscustomobject]$Config
     )
 
-    $clusterHostNode = if ($Config -and ($Config.PSObject.Properties.Name -contains 'clusterHostNode')) { "$($Config.clusterHostNode)".Trim() } else { '' }
+    $clusterHostNode = Get-CephClusterHostNodeName -Config $Config
     $clusterHostNodeIp = ''
     if (-not [string]::IsNullOrWhiteSpace($clusterHostNode)) {
         $controlPlaneNodeName = Get-ConfigControlPlaneNodeHostname
@@ -190,7 +206,7 @@ function Remove-CephDashboardHostEntry {
         [pscustomobject]$Config
     )
 
-    $clusterHostNode = if ($Config -and ($Config.PSObject.Properties.Name -contains 'clusterHostNode')) { "$($Config.clusterHostNode)".Trim() } else { '' }
+    $clusterHostNode = Get-CephClusterHostNodeName -Config $Config
     $controlPlaneNodeName = Get-ConfigControlPlaneNodeHostname
     if (-not [string]::IsNullOrWhiteSpace($clusterHostNode) -and $clusterHostNode -eq $controlPlaneNodeName) {
         Write-Log "[Ceph] Skipping dashboard hosts-entry cleanup for control plane node '$clusterHostNode'." -Console

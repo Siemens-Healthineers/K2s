@@ -21,7 +21,7 @@ when SSH fails, the cluster cannot be queried, or the identity does not match th
 IP address of the node that hosts the Ceph cluster (ceph-config.json 'clusterHostNodeIp').
 
 .PARAMETER Config
-The parsed ceph-config.json object (provides 'clusterHostNode', 'clusterId', 'cephfsFilesystem',
+The parsed ceph-config.json object (provides 'clusterHost.node', 'clusterId', 'cephfsFilesystem',
 'cephfsPool').
 
 .PARAMETER ShowLogs
@@ -42,11 +42,27 @@ $clusterConfigModule = "$PSScriptRoot/../../../../../../lib/modules/k2s/k2s.infr
 Import-Module $infraModule, $nodeModule, $clusterConfigModule
 Initialize-Logging -ShowLogs:$ShowLogs
 
+function Get-CephClusterHostNodeName {
+    param(
+        [pscustomobject]$Config
+    )
+
+    if ($null -eq $Config) {
+        return ''
+    }
+
+    if (($Config.PSObject.Properties.Name -contains 'clusterHost') -and $null -ne $Config.clusterHost -and ($Config.clusterHost.PSObject.Properties.Name -contains 'node')) {
+        return "$($Config.clusterHost.node)".Trim()
+    }
+
+    return ''
+}
+
 Write-Log "[Ceph] Verifying connectivity to existing Ceph cluster on node '$NodeIp'" -Console
 
 # Resolve the SSH user for the node from cluster.json (falls back to 'remote' when the node is
 # not a registered K2s node).
-$clusterHostNode = if ($Config) { "$($Config.clusterHostNode)".Trim() } else { '' }
+$clusterHostNode = Get-CephClusterHostNodeName -Config $Config
 $nodeConfig = $null
 if (-not [string]::IsNullOrWhiteSpace($clusterHostNode)) {
     $nodeConfig = Get-NodeConfig -NodeName $clusterHostNode

@@ -18,7 +18,7 @@ create-ceph-cluster.sh installed (cephadm binary, Ceph apt repo/packages, contai
 IP address of the node that hosts the Ceph cluster (ceph-config.json 'clusterHostNodeIp').
 
 .PARAMETER Config
-The parsed ceph-config.json object (provides 'clusterHostNode').
+The parsed ceph-config.json object (provides 'clusterHost.node').
 
 .PARAMETER ShowLogs
 If log output shall be streamed also to CLI output.
@@ -37,6 +37,22 @@ $nodeModule = "$PSScriptRoot/../../../../../../lib/modules/k2s/k2s.node.module/k
 $clusterConfigModule = "$PSScriptRoot/../../../../../../lib/modules/k2s/k2s.infra.module/config/cluster.config.module.psm1"
 Import-Module $infraModule, $nodeModule, $clusterConfigModule
 Initialize-Logging -ShowLogs:$ShowLogs
+
+function Get-CephClusterHostNodeName {
+    param(
+        [pscustomobject]$Config
+    )
+
+    if ($null -eq $Config) {
+        return ''
+    }
+
+    if (($Config.PSObject.Properties.Name -contains 'clusterHost') -and $null -ne $Config.clusterHost -and ($Config.clusterHost.PSObject.Properties.Name -contains 'node')) {
+        return "$($Config.clusterHost.node)".Trim()
+    }
+
+    return ''
+}
 
 Write-Log "[Ceph] Removing Ceph cluster from node '$NodeIp'" -Console
 
@@ -75,7 +91,7 @@ Function Remove-CephClusterOnNode {
     return $scriptOutput
 }
 
-$clusterHostNode = if ($Config) { "$($Config.clusterHostNode)".Trim() } else { '' }
+$clusterHostNode = Get-CephClusterHostNodeName -Config $Config
 $controlPlaneNodeName = Get-ConfigControlPlaneNodeHostname
 if (-not [string]::IsNullOrWhiteSpace($clusterHostNode) -and $clusterHostNode -eq $controlPlaneNodeName) {
     # The K2s control plane node (e.g. 'kubemaster') is NOT stored in cluster.json, so its SSH user
