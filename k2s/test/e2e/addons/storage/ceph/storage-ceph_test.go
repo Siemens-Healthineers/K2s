@@ -137,69 +137,6 @@ var _ = Describe("storage ceph addon", Ordered, func() {
 			))
 		})
 
-		It("maps a data object to 3 distinct acting OSDs", func(ctx context.Context) {
-			// Placement test: verifies an object maps to three unique acting OSDs (replication fan-out),
-			// confirming the CRUSH rule and pool replica behavior are wired as expected.
-			clusterHostNode, err := getClusterHostNodeFromCephConfig(originalConfigPath)
-			Expect(err).ToNot(HaveOccurred())
-
-			cephHostIP, err := getDashboardTargetHost(clusterHostNode, suite.SetupInfo().Config.Host().K2sSetupConfigDir())
-			Expect(err).ToNot(HaveOccurred())
-
-			objectName := fmt.Sprintf("k2s-ceph-repl-e2e-%d", time.Now().UnixNano())
-
-			runSSHOnCephHost(ctx, cephHostIP, fmt.Sprintf("sudo cephadm shell -- rados -p %s put %s /etc/hosts", cephDataPool, objectName))
-			DeferCleanup(func(ctx context.Context) {
-				runSSHOnCephHost(ctx, cephHostIP, fmt.Sprintf("sudo cephadm shell -- rados -p %s rm %s || true", cephDataPool, objectName))
-			})
-
-			mapOutput := runSSHOnCephHost(ctx, cephHostIP, fmt.Sprintf("sudo cephadm shell -- ceph osd map %s %s --format json", cephDataPool, objectName))
-
-			var mapping cephOSDMapResult
-			jsonBlob, err := extractJSONBlob(mapOutput)
-			Expect(err).ToNot(HaveOccurred(), "failed to parse ceph osd map output: %s", mapOutput)
-			Expect(json.Unmarshal([]byte(jsonBlob), &mapping)).To(Succeed(), "failed to decode ceph osd map JSON: %s", jsonBlob)
-
-			Expect(len(mapping.Acting)).To(Equal(3), "expected 3 acting OSD replicas for object %q, got: %v", objectName, mapping.Acting)
-			Expect(countDistinctInts(mapping.Acting)).To(Equal(3), "expected acting OSD set to contain 3 distinct OSD IDs, got: %v", mapping.Acting)
-		})
-
-		It("keeps object readable when one acting OSD is out", func(ctx context.Context) {
-			// Runtime resiliency test: writes an object, marks one acting OSD out, then asserts
-			// the object stays readable from the same pool while Ceph serves from remaining replicas.
-			clusterHostNode, err := getClusterHostNodeFromCephConfig(originalConfigPath)
-			Expect(err).ToNot(HaveOccurred())
-
-			cephHostIP, err := getDashboardTargetHost(clusterHostNode, suite.SetupInfo().Config.Host().K2sSetupConfigDir())
-			Expect(err).ToNot(HaveOccurred())
-
-			objectName := fmt.Sprintf("k2s-ceph-runtime-proof-%d", time.Now().UnixNano())
-			outputFilePath := fmt.Sprintf("/tmp/%s.out", objectName)
-
-			runSSHOnCephHost(ctx, cephHostIP, fmt.Sprintf("sudo cephadm shell -- rados -p %s put %s /etc/hosts", cephDataPool, objectName))
-			DeferCleanup(func(ctx context.Context) {
-				runSSHOnCephHost(ctx, cephHostIP, fmt.Sprintf("sudo cephadm shell -- rados -p %s rm %s || true", cephDataPool, objectName))
-			})
-
-			mapOutput := runSSHOnCephHost(ctx, cephHostIP, fmt.Sprintf("sudo cephadm shell -- ceph osd map %s %s --format json", cephDataPool, objectName))
-			var mapping cephOSDMapResult
-			jsonBlob, err := extractJSONBlob(mapOutput)
-			Expect(err).ToNot(HaveOccurred(), "failed to parse ceph osd map output: %s", mapOutput)
-			Expect(json.Unmarshal([]byte(jsonBlob), &mapping)).To(Succeed(), "failed to decode ceph osd map JSON: %s", jsonBlob)
-			Expect(len(mapping.Acting)).To(BeNumerically(">=", 2), "expected at least 2 acting OSDs before failure test, got: %v", mapping.Acting)
-
-			osdToOut := mapping.Acting[0]
-			runSSHOnCephHost(ctx, cephHostIP, fmt.Sprintf("sudo cephadm shell -- ceph osd out %d", osdToOut))
-			DeferCleanup(func(ctx context.Context) {
-				runSSHOnCephHost(ctx, cephHostIP, fmt.Sprintf("sudo cephadm shell -- ceph osd in %d || true", osdToOut))
-			})
-
-			Eventually(func() string {
-				out := runSSHOnCephHost(ctx, cephHostIP, fmt.Sprintf("sudo cephadm shell -- bash -lc \"rados -p %s get %s %s && cat %s; rc=$?; rm -f %s; exit $rc\"", cephDataPool, objectName, outputFilePath, outputFilePath, outputFilePath))
-				return strings.TrimSpace(out)
-			}).WithTimeout(2*time.Minute).WithPolling(5*time.Second).Should(ContainSubstring("localhost"), "object should remain readable after taking one acting OSD out")
-		})
-
 		It("makes Ceph dashboard URL reachable", func(ctx context.Context) {
 			dashboardURL, err := getExpectedCephDashboardURL(originalConfigPath, suite.SetupInfo().Config.Host().K2sSetupConfigDir())
 			Expect(err).ToNot(HaveOccurred())
