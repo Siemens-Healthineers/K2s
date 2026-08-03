@@ -609,8 +609,10 @@ func VerifyImportedImages(ctx context.Context, suite *framework.K2sTestSuite, k2
 	GinkgoWriter.Println("=== VERIFY IMPORTED IMAGES END ===")
 }
 
-// VerifyImportedDebPackages verifies that expected debian packages are available after import.
-func VerifyImportedDebPackages(ctx context.Context, suite *framework.K2sTestSuite, impl *addons.Implementation, controlPlaneIP string) {
+func VerifyImportedDebPackages(ctx context.Context, suite *framework.K2sTestSuite, impl *addons.Implementation, controlPlaneIP string, folderName ...string) {
+	if len(folderName) > 0 && folderName[0] != "" {
+		impl.ExportDirectoryName = folderName[0]
+	}
 	GinkgoWriter.Println("=== VERIFY IMPORTED DEB PACKAGES START ===")
 	GinkgoWriter.Printf("[ImportedDeb] Implementation: %s\n", impl.Name)
 	GinkgoWriter.Printf("[ImportedDeb] Export directory name: %s\n", impl.ExportDirectoryName)
@@ -626,8 +628,10 @@ func VerifyImportedDebPackages(ctx context.Context, suite *framework.K2sTestSuit
 	GinkgoWriter.Println("=== VERIFY IMPORTED DEB PACKAGES END ===")
 }
 
-// VerifyImportedLinuxCurlPackages verifies that expected linux curl packages are available after import.
-func VerifyImportedLinuxCurlPackages(ctx context.Context, suite *framework.K2sTestSuite, impl *addons.Implementation, controlPlaneIP string) {
+func VerifyImportedLinuxCurlPackages(ctx context.Context, suite *framework.K2sTestSuite, impl *addons.Implementation, controlPlaneIP string, folderName ...string) {
+	if len(folderName) > 0 && folderName[0] != "" {
+		impl.ExportDirectoryName = folderName[0]
+	}
 	GinkgoWriter.Println("=== VERIFY IMPORTED LINUX CURL PACKAGES START ===")
 	GinkgoWriter.Printf("[ImportedLinuxCurl] Implementation: %s\n", impl.Name)
 	GinkgoWriter.Printf("[ImportedLinuxCurl] Control plane IP: %s\n", controlPlaneIP)
@@ -642,8 +646,10 @@ func VerifyImportedLinuxCurlPackages(ctx context.Context, suite *framework.K2sTe
 	GinkgoWriter.Println("=== VERIFY IMPORTED LINUX CURL PACKAGES END ===")
 }
 
-// VerifyImportedWindowsCurlPackages verifies that expected windows curl packages are available after import.
-func VerifyImportedWindowsCurlPackages(suite *framework.K2sTestSuite, impl *addons.Implementation) {
+func VerifyImportedWindowsCurlPackages(suite *framework.K2sTestSuite, impl *addons.Implementation, folderName ...string) {
+	if len(folderName) > 0 && folderName[0] != "" {
+		impl.ExportDirectoryName = folderName[0]
+	}
 	GinkgoWriter.Println("=== VERIFY IMPORTED WINDOWS CURL PACKAGES START ===")
 	GinkgoWriter.Printf("[ImportedWindowsCurl] Implementation: %s\n", impl.Name)
 	GinkgoWriter.Printf("[ImportedWindowsCurl] Root dir: %s\n", suite.RootDir())

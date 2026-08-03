@@ -130,15 +130,15 @@ var _ = Describe("storage ceph addon export and import", Ordered, func() {
 		})
 
 		It("has debian packages available after import", func(ctx context.Context) {
-			exportimport.VerifyImportedDebPackages(ctx, suite, impl, controlPlaneIpAddress)
+			exportimport.VerifyImportedDebPackages(ctx, suite, impl, controlPlaneIpAddress, "storage")
 		})
 
 		It("has linux curl packages available after import", func(ctx context.Context) {
-			exportimport.VerifyImportedLinuxCurlPackages(ctx, suite, impl, controlPlaneIpAddress)
+			exportimport.VerifyImportedLinuxCurlPackages(ctx, suite, impl, controlPlaneIpAddress, "storage")
 		})
 
 		It("has windows curl packages available after import", func(ctx context.Context) {
-			exportimport.VerifyImportedWindowsCurlPackages(suite, impl)
+			exportimport.VerifyImportedWindowsCurlPackages(suite, impl, "storage")
 		})
 
 		It("has expected addon files after import", func(ctx context.Context) {
