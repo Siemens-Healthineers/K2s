@@ -63,6 +63,35 @@ stop_lingering_ceph_containers() {
     fi
 }
 
+is_ceph_pid() {
+    local pid="$1"
+    local cmdline=""
+
+    cmdline="$(sudo ps -p "$pid" -o args= 2>/dev/null | tr -d '\r')"
+    if [ -z "$cmdline" ]; then
+        return 1
+    fi
+
+    case "$cmdline" in
+        *ceph*|*cephadm*|*radosgw*|*quay.io/ceph*|*/var/lib/ceph*|*/run/ceph*)
+            return 0
+            ;;
+    esac
+
+    return 1
+}
+
+format_pid_details() {
+    local pids="$1"
+    local details=""
+    local pid=""
+    while IFS= read -r pid; do
+        [ -n "$pid" ] || continue
+        details+="$(sudo ps -p "$pid" -o pid=,user=,args= 2>/dev/null | sed -e 's/^ *//')\n"
+    done <<< "$pids"
+    printf "%b" "$details"
+}
+
 kill_processes_on_port() {
     local port="$1"
     local pids=""
@@ -80,26 +109,92 @@ kill_processes_on_port() {
     fi
 
     log_info "Port $port is still in use by PID(s): $(echo "$pids" | tr '\n' ' ' | xargs)"
-    # shellcheck disable=SC2086
-    sudo kill $pids >/dev/null 2>&1 || true
-    sleep 2
+
+    local ceph_pids=""
+    local non_ceph_pids=""
+    local pid=""
+
+    while IFS= read -r pid; do
+        [ -n "$pid" ] || continue
+        if is_ceph_pid "$pid"; then
+            ceph_pids+="$pid\n"
+        else
+            non_ceph_pids+="$pid\n"
+        fi
+    done <<< "$pids"
+
+    if [ -n "$ceph_pids" ]; then
+        # shellcheck disable=SC2086
+        sudo kill $(echo -e "$ceph_pids" | tr '\n' ' ') >/dev/null 2>&1 || true
+        sleep 2
+    fi
 
     local still_listening=""
     if command -v ss >/dev/null 2>&1; then
         still_listening="$(sudo ss -ltnp "sport = :$port" 2>/dev/null | awk -F'pid=' 'NR>1 {split($2,a,",|"); if (a[1] ~ /^[0-9]+$/) print a[1]}' | sort -u)"
     fi
+
     if [ -n "$still_listening" ]; then
-        log_info "Force-killing PID(s) still listening on port $port"
-        # shellcheck disable=SC2086
-        sudo kill -9 $still_listening >/dev/null 2>&1 || true
+        local still_ceph_pids=""
+        local still_non_ceph_pids=""
+        while IFS= read -r pid; do
+            [ -n "$pid" ] || continue
+            if is_ceph_pid "$pid"; then
+                still_ceph_pids+="$pid\n"
+            else
+                still_non_ceph_pids+="$pid\n"
+            fi
+        done <<< "$still_listening"
+
+        if [ -n "$still_ceph_pids" ]; then
+            log_info "Force-killing lingering Ceph PID(s) still listening on port $port"
+            # shellcheck disable=SC2086
+            sudo kill -9 $(echo -e "$still_ceph_pids" | tr '\n' ' ') >/dev/null 2>&1 || true
+        fi
+
+        if [ -n "$still_non_ceph_pids" ]; then
+            log_error "Port $port is used by non-Ceph process(es). Refusing to terminate them."
+            format_pid_details "$still_non_ceph_pids" | while IFS= read -r detail; do
+                [ -n "$detail" ] || continue
+                log_error "  $detail"
+            done
+            return 1
+        fi
     fi
+
+    if [ -n "$non_ceph_pids" ]; then
+        # Re-check after Ceph-specific cleanup. If non-Ceph owners remain on the port, fail safely.
+        local non_ceph_still_listening=""
+        if command -v ss >/dev/null 2>&1; then
+            non_ceph_still_listening="$(sudo ss -ltnp "sport = :$port" 2>/dev/null | awk -F'pid=' 'NR>1 {split($2,a,",|"); if (a[1] ~ /^[0-9]+$/) print a[1]}' | sort -u)"
+        fi
+        if [ -n "$non_ceph_still_listening" ]; then
+            local confirmed_non_ceph=""
+            while IFS= read -r pid; do
+                [ -n "$pid" ] || continue
+                if ! is_ceph_pid "$pid"; then
+                    confirmed_non_ceph+="$pid\n"
+                fi
+            done <<< "$non_ceph_still_listening"
+            if [ -n "$confirmed_non_ceph" ]; then
+                log_error "Port $port remains occupied by non-Ceph process(es)."
+                format_pid_details "$confirmed_non_ceph" | while IFS= read -r detail; do
+                    [ -n "$detail" ] || continue
+                    log_error "  $detail"
+                done
+                return 1
+            fi
+        fi
+    fi
+
+    return 0
 }
 
 ensure_ceph_ports_free() {
     # Ceph monitor ports must be free before bootstrap.
     stop_lingering_ceph_containers
-    kill_processes_on_port 3300
-    kill_processes_on_port 6789
+    kill_processes_on_port 3300 || return 1
+    kill_processes_on_port 6789 || return 1
 
     if command -v ss >/dev/null 2>&1; then
         local port_3300_in_use
