@@ -42,6 +42,79 @@ log_error() {
     echo "[CephNew] ERROR: $1" >&2
 }
 
+stop_lingering_ceph_containers() {
+    # Cleanup leftover Ceph containers that can keep monitor ports bound after failed teardowns.
+    if command -v podman >/dev/null 2>&1; then
+        lingering_ids="$(sudo podman ps -a --format '{{.ID}} {{.Image}} {{.Names}}' 2>/dev/null | awk '/ceph/ {print $1}')"
+        if [ -n "$lingering_ids" ]; then
+            log_info "Removing lingering Ceph podman container(s) before bootstrap"
+            # shellcheck disable=SC2086
+            sudo podman rm -f $lingering_ids >/dev/null 2>&1 || true
+        fi
+    fi
+
+    if command -v docker >/dev/null 2>&1; then
+        lingering_ids="$(sudo docker ps -a --format '{{.ID}} {{.Image}} {{.Names}}' 2>/dev/null | awk '/ceph/ {print $1}')"
+        if [ -n "$lingering_ids" ]; then
+            log_info "Removing lingering Ceph docker container(s) before bootstrap"
+            # shellcheck disable=SC2086
+            sudo docker rm -f $lingering_ids >/dev/null 2>&1 || true
+        fi
+    fi
+}
+
+kill_processes_on_port() {
+    local port="$1"
+    local pids=""
+
+    if command -v ss >/dev/null 2>&1; then
+        pids="$(sudo ss -ltnp "sport = :$port" 2>/dev/null | awk -F'pid=' 'NR>1 {split($2,a,",|"); if (a[1] ~ /^[0-9]+$/) print a[1]}' | sort -u)"
+    fi
+
+    if [ -z "$pids" ] && command -v lsof >/dev/null 2>&1; then
+        pids="$(sudo lsof -ti TCP:"$port" -sTCP:LISTEN 2>/dev/null | sort -u)"
+    fi
+
+    if [ -z "$pids" ]; then
+        return 0
+    fi
+
+    log_info "Port $port is still in use by PID(s): $(echo "$pids" | tr '\n' ' ' | xargs)"
+    # shellcheck disable=SC2086
+    sudo kill $pids >/dev/null 2>&1 || true
+    sleep 2
+
+    local still_listening=""
+    if command -v ss >/dev/null 2>&1; then
+        still_listening="$(sudo ss -ltnp "sport = :$port" 2>/dev/null | awk -F'pid=' 'NR>1 {split($2,a,",|"); if (a[1] ~ /^[0-9]+$/) print a[1]}' | sort -u)"
+    fi
+    if [ -n "$still_listening" ]; then
+        log_info "Force-killing PID(s) still listening on port $port"
+        # shellcheck disable=SC2086
+        sudo kill -9 $still_listening >/dev/null 2>&1 || true
+    fi
+}
+
+ensure_ceph_ports_free() {
+    # Ceph monitor ports must be free before bootstrap.
+    stop_lingering_ceph_containers
+    kill_processes_on_port 3300
+    kill_processes_on_port 6789
+
+    if command -v ss >/dev/null 2>&1; then
+        local port_3300_in_use
+        local port_6789_in_use
+        port_3300_in_use="$(sudo ss -ltn "sport = :3300" 2>/dev/null | awk 'NR>1 {print $4}')"
+        port_6789_in_use="$(sudo ss -ltn "sport = :6789" 2>/dev/null | awk 'NR>1 {print $4}')"
+        if [ -n "$port_3300_in_use" ] || [ -n "$port_6789_in_use" ]; then
+            log_error "Ceph monitor ports are still occupied after cleanup (3300='${port_3300_in_use:-free}', 6789='${port_6789_in_use:-free}')."
+            return 1
+        fi
+    fi
+
+    return 0
+}
+
 ensure_root_ssh_ready_for_cephadm() {
     # cephadm bootstrap registers the bootstrap node itself through the orchestrator using SSH.
     # Ensure root pubkey login is enabled before bootstrap so localhost host-add succeeds.
@@ -294,6 +367,11 @@ if [ -n "$EXISTING_FSIDS" ]; then
     sudo rm -rf /etc/ceph /var/lib/ceph /var/log/ceph /run/ceph
 
     log_info "Finished cleanup of existing Ceph cluster state"
+fi
+
+log_info "Ensuring Ceph monitor ports are free before bootstrap"
+if ! ensure_ceph_ports_free; then
+    exit 1
 fi
 
 if [ "$CEPH_SSH_USER" = "root" ]; then
