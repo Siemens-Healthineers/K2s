@@ -78,8 +78,8 @@ if ($ExeOutDir -eq '') {
 #Initial directory to collect git details
 Set-Location $ProjectDir
 
-#boringcrypto for FIPS compliance, needs GO 1.19.4 or higher
-$Env:GOEXPERIMENT = 'boringcrypto';
+$env:GOEXPERIMENT = $null  # ensure stale boringcrypto value doesn't linger
+$env:GOFIPS140 = 'certified' # use latest NIST-certified FIPS 140-3 compliant GO std crypto library
 
 # Set proxy environment variables if Proxy parameter is provided
 if ($Proxy) {
@@ -152,7 +152,8 @@ for ($i = 0; $i -lt $goExecutables.Count; $i++) {
         $candidatePath = [IO.Path]::Combine($goExecutable.OutDir, $appName)
         if (Test-Path -Path $candidatePath -PathType Container) {
             $outPath = "${candidatePath}.${TargetOS}"
-        } else {
+        }
+        else {
             $outPath = $candidatePath
         }
     }
