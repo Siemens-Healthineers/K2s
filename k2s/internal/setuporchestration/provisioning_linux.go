@@ -20,6 +20,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/siemens-healthineers/k2s/internal/core/config"
 )
@@ -354,7 +355,25 @@ WantedBy=multi-user.target
 	if err := runCommand("systemctl", "enable", "--now", dnsProxyService); err != nil {
 		return fmt.Errorf("enable and start DNS proxy: %w", err)
 	}
+	if err := waitForDNSProxy(); err != nil {
+		return err
+	}
 	return nil
+}
+
+func waitForDNSProxy() error {
+	deadline := time.Now().Add(15 * time.Second)
+	for time.Now().Before(deadline) {
+		if err := runCommand("systemctl", "is-active", "--quiet", dnsProxyService); err == nil {
+			return nil
+		}
+		time.Sleep(500 * time.Millisecond)
+	}
+	status, statusErr := runCommandOutput("systemctl", "status", dnsProxyService, "--no-pager", "--full")
+	if statusErr != nil {
+		return fmt.Errorf("DNS proxy did not become active; systemd status: %s", statusErr)
+	}
+	return fmt.Errorf("DNS proxy did not become active; systemd status: %s", strings.TrimSpace(status))
 }
 
 func stopHostDNS(configDir string) error {
@@ -573,6 +592,7 @@ func writeDNSProxyConfig(kubeSwitchAddress string, coreDNSIP string, zones []str
 	var builder strings.Builder
 	builder.WriteString("---\nlisten-addrs:\n  - \"127.0.0.1\"\n")
 	builder.WriteString(fmt.Sprintf("  - \"%s\"\n", kubeSwitchAddress))
+	builder.WriteString("listen-ports:\n  - 53\n")
 	builder.WriteString("upstream:\n")
 	for _, zone := range zones {
 		builder.WriteString(fmt.Sprintf("  - \"[/%s/]%s\"\n", zone, coreDNSIP))
