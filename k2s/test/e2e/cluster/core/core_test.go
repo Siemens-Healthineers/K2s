@@ -7,6 +7,8 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"os/exec"
+	"runtime"
 	"strings"
 	"testing"
 	"time"
@@ -382,7 +384,17 @@ var _ = Describe("Cluster Core", func() {
 		})
 
 		Describe("Control Plane Tools", func() {
-			sshExec := func(cmd string) error {
+			controlPlaneExec := func(command string) error {
+				if runtime.GOOS == "linux" {
+					// The native Linux host is the control plane. SSH keys and a
+					// kubemaster VM are intentionally absent in this topology.
+					output, err := exec.Command("sh", "-c", command).CombinedOutput()
+					if err != nil {
+						return fmt.Errorf("run control-plane command %q locally: %w; output: %s", command, err, strings.TrimSpace(string(output)))
+					}
+					return nil
+				}
+
 				var buf bytes.Buffer
 				opts := contracts.ConnectionOptions{
 					IpAddress:         suite.SetupInfo().Config.ControlPlane().IpAddress(),
@@ -392,15 +404,15 @@ var _ = Describe("Cluster Core", func() {
 					Timeout:           time.Minute,
 					StdOutWriter:      &buf,
 				}
-				return ssh.Exec(cmd, opts)
+				return ssh.Exec(command, opts)
 			}
 
 			It("helm is installed on control-plane", func() {
-				Expect(sshExec("helm version")).To(Succeed())
+				Expect(controlPlaneExec("helm version")).To(Succeed())
 			})
 
 			It("yq is installed on control-plane", func() {
-				Expect(sshExec("yq --version")).To(Succeed())
+				Expect(controlPlaneExec("yq --version")).To(Succeed())
 			})
 		})
 
