@@ -4,7 +4,18 @@
 
 BeforeAll {
     $scriptPath = "$PSScriptRoot\ResetWinContainerStorage.ps1"
-    $scriptContent = (Get-Content -Path $scriptPath | Where-Object { $_ -notmatch '^#Requires\b' }) -join [Environment]::NewLine
+    # The script is executed as a DYNAMIC scriptblock ([scriptblock]::Create). A dynamic scriptblock
+    # has no backing file, so inside it $PSScriptRoot is EMPTY. The script builds its module paths as
+    # "$PSScriptRoot\..\..\..\modules\..."; with an empty $PSScriptRoot these become unresolvable
+    # relative paths and the real 'Import-Module' would fail (fatally under CI's ErrorActionPreference
+    # = 'Stop'). This is a TEST-ONLY artifact - production runs from a real .ps1 where $PSScriptRoot is
+    # correct. Imports are neutralized two ways: (1) 'Import-Module' is mocked in BeforeEach (portable,
+    # scoped, auto-removed - works even from the dynamic scriptblock), and (2) the '#Requires' and
+    # 'Import-Module' lines are stripped here as belt-and-suspenders. All external module functions are
+    # stubbed globally below.
+    $scriptContent = (Get-Content -Path $scriptPath | Where-Object {
+            $_ -notmatch '^#Requires\b' -and $_ -notmatch '^\s*Import-Module\b'
+        }) -join [Environment]::NewLine
 
     # Stub external module functions consumed by the script.
     function global:Initialize-Logging { }
@@ -23,7 +34,8 @@ BeforeAll {
     function Invoke-ResetWinContainerStorageScript {
         param(
             [string] $Containerd,
-            [string] $Docker
+            [string] $Docker,
+            [switch] $EncodeStructuredOutput
         )
 
         $invokeParams = @{
@@ -34,6 +46,11 @@ BeforeAll {
         }
         if ($PSBoundParameters.ContainsKey('Docker')) {
             $invokeParams.Docker = $Docker
+        }
+        if ($EncodeStructuredOutput) {
+            # Use structured output so validation failures return (not exit) - keeps the test host alive.
+            $invokeParams.EncodeStructuredOutput = $true
+            $invokeParams.MessageType = 'reset-win-storage'
         }
 
         & ([scriptblock]::Create($scriptContent)) @invokeParams
@@ -46,6 +63,10 @@ Describe 'ResetWinContainerStorage.ps1' -Tag 'unit', 'ci', 'image' {
         Mock -CommandName Initialize-Logging { }
         Mock -CommandName Write-Log { }
         Mock -CommandName Send-ToCli { }
+        # Neutralize module loading: inside the dynamic scriptblock $PSScriptRoot is empty, so the
+        # script's relative module paths are unresolvable and a real Import-Module would fail. This
+        # mock is scoped to the test and auto-removed afterwards (safe for the shared CI runspace).
+        Mock -CommandName Import-Module { }
         Mock -CommandName Get-SetupInfo { return [PSCustomObject]@{ Name = 'k2s'; LinuxOnly = $false } }
         Mock -CommandName Get-RunningState { return [PSCustomObject]@{ IsRunning = $false } }
         # Docker daemon not running -> Get-Process returns nothing
@@ -99,9 +120,16 @@ Describe 'ResetWinContainerStorage.ps1' -Tag 'unit', 'ci', 'image' {
 
     Context 'Stopping the container runtime as a safety net before deletion' {
         BeforeEach {
-            # Make the containerd directory "exist" so the cleanup path runs, but neutralize the
-            # actual destructive operations so no filesystem changes occur during the test.
-            Mock -CommandName Test-Path { param($Path) return ($Path -eq 'D:\containerd') }
+            # Make the containerd directory "exist" (with a valid containerd layout so the safety
+            # validation passes), but neutralize the actual destructive operations so no filesystem
+            # changes occur during the test.
+            Mock -CommandName Test-Path {
+                param($Path)
+                return ($Path -eq 'D:\containerd' -or
+                    $Path -eq 'D:\containerd\root' -or
+                    $Path -eq 'D:\containerd\state' -or
+                    $Path -eq 'D:\containerd\root\io.containerd.snapshotter.v1.windows')
+            }
             Mock -CommandName takeown { }
             Mock -CommandName icacls { }
             Mock -CommandName fsutil { }
@@ -132,15 +160,27 @@ Describe 'ResetWinContainerStorage.ps1' -Tag 'unit', 'ci', 'image' {
     Context 'Removing Windows snapshotter layers via the HCS DestroyLayer path' {
         BeforeEach {
             $script:snapshotsPath = 'D:\containerd\root\io.containerd.snapshotter.v1.windows\snapshots'
-            # containerd dir and the snapshots dir "exist"; zap.exe does NOT, so Invoke-ZapFolder
-            # takes its safe not-found branch and never launches a real executable during the test.
-            Mock -CommandName Test-Path { param($Path) return ($Path -eq 'D:\containerd' -or $Path -eq $script:snapshotsPath) }
+            # containerd dir (with a valid containerd layout) and the snapshots dir "exist"; zap.exe
+            # does NOT, so Invoke-ZapFolder takes its safe not-found branch and never launches a real
+            # executable during the test.
+            Mock -CommandName Test-Path {
+                param($Path)
+                return ($Path -eq 'D:\containerd' -or
+                    $Path -eq $script:snapshotsPath -or
+                    $Path -eq 'D:\containerd\root' -or
+                    $Path -eq 'D:\containerd\state' -or
+                    $Path -eq 'D:\containerd\root\io.containerd.snapshotter.v1.windows')
+            }
             Mock -CommandName Get-ChildItem {
                 param($Path)
                 if ($Path -eq $script:snapshotsPath) {
+                    # Deliberately unsorted, mixing single- and multi-digit IDs to prove NUMERIC
+                    # (not lexicographic) descending ordering.
                     return @(
-                        [PSCustomObject]@{ Name = '138'; FullName = "$script:snapshotsPath\138" },
-                        [PSCustomObject]@{ Name = '4'; FullName = "$script:snapshotsPath\4" }
+                        [PSCustomObject]@{ Name = '4'; FullName = "$script:snapshotsPath\4" },
+                        [PSCustomObject]@{ Name = '2008'; FullName = "$script:snapshotsPath\2008" },
+                        [PSCustomObject]@{ Name = '1'; FullName = "$script:snapshotsPath\1" },
+                        [PSCustomObject]@{ Name = '138'; FullName = "$script:snapshotsPath\138" }
                     )
                 }
                 return @()
@@ -159,13 +199,140 @@ Describe 'ResetWinContainerStorage.ps1' -Tag 'unit', 'ci', 'image' {
         It 'enumerates the Windows snapshotter layers' {
             Invoke-ResetWinContainerStorageScript -Containerd 'D:\containerd'
 
-            Should -Invoke Get-ChildItem -ParameterFilter { $Path -eq $snapshotsPath }
+            Should -Invoke Get-ChildItem -ParameterFilter { $Path -eq $script:snapshotsPath }
         }
 
         It 'attempts to destroy every snapshot layer individually' {
             Invoke-ResetWinContainerStorageScript -Containerd 'D:\containerd'
 
-            Should -Invoke Write-Log -Exactly 2 -ParameterFilter { $Message -like '*Destroying container layer*' }
+            Should -Invoke Write-Log -Exactly 4 -ParameterFilter { $Message -like '*Destroying container layer*' }
+        }
+
+        It 'destroys the snapshot layers in numeric descending order (child before parent)' {
+            $script:destroyOrder = [System.Collections.Generic.List[string]]::new()
+            Mock -CommandName Write-Log -ParameterFilter { $Message -like '*Destroying container layer:*' } -MockWith {
+                # Capture the layer id (trailing path segment) in invocation order.
+                $script:destroyOrder.Add(($Message -split '\\')[-1])
+            }
+
+            Invoke-ResetWinContainerStorageScript -Containerd 'D:\containerd'
+
+            $script:destroyOrder | Should -Be @('2008', '138', '4', '1')
+        }
+    }
+
+    Context 'Validating the containerd storage layout before any destructive action' {
+        BeforeEach {
+            # Neutralize every destructive/side-effecting operation so a failed validation can be
+            # proven to have skipped all of them.
+            Mock -CommandName takeown { }
+            Mock -CommandName icacls { }
+            Mock -CommandName fsutil { }
+            Mock -CommandName Remove-Item { }
+            Mock -CommandName Get-ChildItem { return @() }
+            Mock -CommandName Get-KubeBinPath { return 'C:\k\bin' }
+            Mock -CommandName Get-Service { return $null }
+            Mock -CommandName Stop-Service { }
+            Mock -CommandName Get-Process { return $null }
+            Mock -CommandName Stop-Process { }
+        }
+
+        It 'accepts a valid containerd directory (root, state, windows snapshotter) and proceeds to cleanup' {
+            $existing = @(
+                'D:\containerd',
+                'D:\containerd\root',
+                'D:\containerd\state',
+                'D:\containerd\root\io.containerd.snapshotter.v1.windows'
+            )
+            Mock -CommandName Test-Path { param($Path) return ($existing -contains $Path) }
+
+            Invoke-ResetWinContainerStorageScript -Containerd 'D:\containerd'
+
+            Should -Invoke Write-Log -ParameterFilter { $Message -like '*Performing cleanup of*' }
+        }
+
+        It 'accepts a valid containerd directory with a different runtime layout (content store) and proceeds' {
+            $existing = @(
+                'D:\containerd',
+                'D:\containerd\root',
+                'D:\containerd\state',
+                'D:\containerd\root\io.containerd.content.v1.content'
+            )
+            Mock -CommandName Test-Path { param($Path) return ($existing -contains $Path) }
+
+            Invoke-ResetWinContainerStorageScript -Containerd 'D:\containerd'
+
+            Should -Invoke Write-Log -ParameterFilter { $Message -like '*Performing cleanup of*' }
+        }
+
+        It 'rejects a directory that is missing root' {
+            $existing = @(
+                'D:\containerd',
+                'D:\containerd\state',
+                'D:\containerd\root\io.containerd.snapshotter.v1.windows'
+            )
+            Mock -CommandName Test-Path { param($Path) return ($existing -contains $Path) }
+
+            Invoke-ResetWinContainerStorageScript -Containerd 'D:\containerd' -EncodeStructuredOutput
+
+            Should -Invoke Send-ToCli -ParameterFilter { $Message.Error.Code -eq 'invalid-containerd-storage' }
+            Should -Invoke takeown -Exactly 0
+            Should -Invoke Remove-Item -Exactly 0
+        }
+
+        It 'rejects a directory that is missing state' {
+            $existing = @(
+                'D:\containerd',
+                'D:\containerd\root',
+                'D:\containerd\root\io.containerd.snapshotter.v1.windows'
+            )
+            Mock -CommandName Test-Path { param($Path) return ($existing -contains $Path) }
+
+            Invoke-ResetWinContainerStorageScript -Containerd 'D:\containerd' -EncodeStructuredOutput
+
+            Should -Invoke Send-ToCli -ParameterFilter { $Message.Error.Code -eq 'invalid-containerd-storage' }
+            Should -Invoke takeown -Exactly 0
+            Should -Invoke Remove-Item -Exactly 0
+        }
+
+        It 'rejects an existing directory that is not containerd storage' {
+            # root/state present but NO known containerd runtime subdirectory.
+            $existing = @(
+                'D:\Projects',
+                'D:\Projects\root',
+                'D:\Projects\state'
+            )
+            Mock -CommandName Test-Path { param($Path) return ($existing -contains $Path) }
+
+            Invoke-ResetWinContainerStorageScript -Containerd 'D:\Projects' -EncodeStructuredOutput
+
+            Should -Invoke Send-ToCli -ParameterFilter { $Message.Error.Code -eq 'invalid-containerd-storage' }
+            Should -Invoke takeown -Exactly 0
+            Should -Invoke Remove-Item -Exactly 0
+        }
+
+        It 'rejects an empty directory' {
+            $existing = @('D:\empty')
+            Mock -CommandName Test-Path { param($Path) return ($existing -contains $Path) }
+
+            Invoke-ResetWinContainerStorageScript -Containerd 'D:\empty' -EncodeStructuredOutput
+
+            Should -Invoke Send-ToCli -ParameterFilter { $Message.Error.Code -eq 'invalid-containerd-storage' }
+            Should -Invoke takeown -Exactly 0
+            Should -Invoke Remove-Item -Exactly 0
+        }
+
+        It 'aborts an explicit --containerd invalid path before any ownership change or deletion' {
+            $existing = @('D:\Projects')
+            Mock -CommandName Test-Path { param($Path) return ($existing -contains $Path) }
+
+            Invoke-ResetWinContainerStorageScript -Containerd 'D:\Projects' -EncodeStructuredOutput
+
+            Should -Invoke Send-ToCli -ParameterFilter { $Message.Error.Code -eq 'invalid-containerd-storage' }
+            Should -Invoke takeown -Exactly 0
+            Should -Invoke icacls -Exactly 0
+            Should -Invoke Remove-Item -Exactly 0
+            Should -Invoke Stop-Service -Exactly 0
         }
     }
 }

@@ -85,7 +85,6 @@ const (
 var (
 	// defaultContainerdDir is intentionally empty: an empty value signals
 	// ResetWinContainerStorage.ps1 to resolve the containerd storage path
-	// configured for this installation (fallback: C:\containerd).
 	defaultContainerdDir = ""
 	defaultDockerDir     = determineDefaultDir("docker")
 
