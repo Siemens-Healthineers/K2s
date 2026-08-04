@@ -137,7 +137,14 @@ Describe 'ResetWinContainerStorage.ps1' -Tag 'unit', 'ci', 'image' {
             Mock -CommandName takeown { }
             Mock -CommandName icacls { }
             Mock -CommandName fsutil { }
-            Mock -CommandName Get-ChildItem { return @() }
+            # Validation enumerates root/state for an 'io.containerd.*' child; return one for 'root'.
+            Mock -CommandName Get-ChildItem {
+                param($Path)
+                if ($Path -eq 'D:\containerd\root') {
+                    return @([PSCustomObject]@{ Name = 'io.containerd.snapshotter.v1.windows'; FullName = 'D:\containerd\root\io.containerd.snapshotter.v1.windows' })
+                }
+                return @()
+            }
             Mock -CommandName Remove-Item { }
             Mock -CommandName Get-KubeBinPath { return 'C:\k\bin' }
             Mock -CommandName Get-Service { return [PSCustomObject]@{ Name = 'containerd'; Status = 'Running' } }
@@ -177,6 +184,10 @@ Describe 'ResetWinContainerStorage.ps1' -Tag 'unit', 'ci', 'image' {
             }
             Mock -CommandName Get-ChildItem {
                 param($Path)
+                # Validation enumerates 'root' for an 'io.containerd.*' child.
+                if ($Path -eq 'D:\containerd\root') {
+                    return @([PSCustomObject]@{ Name = 'io.containerd.snapshotter.v1.windows'; FullName = 'D:\containerd\root\io.containerd.snapshotter.v1.windows' })
+                }
                 if ($Path -eq $script:snapshotsPath) {
                     # Deliberately unsorted, mixing single- and multi-digit IDs to prove NUMERIC
                     # (not lexicographic) descending ordering.
@@ -244,13 +255,17 @@ Describe 'ResetWinContainerStorage.ps1' -Tag 'unit', 'ci', 'image' {
         }
 
         It 'accepts a valid containerd directory (root, state, windows snapshotter) and proceeds to cleanup' {
-            $existing = @(
-                'D:\containerd',
-                'D:\containerd\root',
-                'D:\containerd\state',
-                'D:\containerd\root\io.containerd.snapshotter.v1.windows'
-            )
+            $existing = @('D:\containerd', 'D:\containerd\root', 'D:\containerd\state')
             Mock -CommandName Test-Path { param($Path) return ($existing -contains $Path) }
+            # Validation now enumerates immediate child dirs under root/state and accepts any name
+            # starting with 'io.containerd.'. Return such a plugin dir for 'root', nothing elsewhere.
+            Mock -CommandName Get-ChildItem {
+                param($Path)
+                if ($Path -eq 'D:\containerd\root') {
+                    return @([PSCustomObject]@{ Name = 'io.containerd.snapshotter.v1.windows'; FullName = 'D:\containerd\root\io.containerd.snapshotter.v1.windows' })
+                }
+                return @()
+            }
 
             Invoke-ResetWinContainerStorageScript -Containerd 'D:\containerd'
 
@@ -258,13 +273,34 @@ Describe 'ResetWinContainerStorage.ps1' -Tag 'unit', 'ci', 'image' {
         }
 
         It 'accepts a valid containerd directory with a different runtime layout (content store) and proceeds' {
-            $existing = @(
-                'D:\containerd',
-                'D:\containerd\root',
-                'D:\containerd\state',
-                'D:\containerd\root\io.containerd.content.v1.content'
-            )
+            $existing = @('D:\containerd', 'D:\containerd\root', 'D:\containerd\state')
             Mock -CommandName Test-Path { param($Path) return ($existing -contains $Path) }
+            # A different plugin (content store) still matches the 'io.containerd.' prefix.
+            Mock -CommandName Get-ChildItem {
+                param($Path)
+                if ($Path -eq 'D:\containerd\root') {
+                    return @([PSCustomObject]@{ Name = 'io.containerd.content.v1.content'; FullName = 'D:\containerd\root\io.containerd.content.v1.content' })
+                }
+                return @()
+            }
+
+            Invoke-ResetWinContainerStorageScript -Containerd 'D:\containerd'
+
+            Should -Invoke Write-Log -ParameterFilter { "$Messages$Message" -like '*Performing cleanup of*' }
+        }
+
+        It 'accepts an unknown FUTURE plugin directory (version-independent io.containerd.* prefix)' {
+            $existing = @('D:\containerd', 'D:\containerd\root', 'D:\containerd\state')
+            Mock -CommandName Test-Path { param($Path) return ($existing -contains $Path) }
+            # No known plugin under root; only a future/unknown plugin under state. The prefix-based
+            # fingerprint must still accept it (this would FAIL under the old fixed-list check).
+            Mock -CommandName Get-ChildItem {
+                param($Path)
+                if ($Path -eq 'D:\containerd\state') {
+                    return @([PSCustomObject]@{ Name = 'io.containerd.future.plugin'; FullName = 'D:\containerd\state\io.containerd.future.plugin' })
+                }
+                return @()
+            }
 
             Invoke-ResetWinContainerStorageScript -Containerd 'D:\containerd'
 
@@ -302,13 +338,23 @@ Describe 'ResetWinContainerStorage.ps1' -Tag 'unit', 'ci', 'image' {
         }
 
         It 'rejects an existing directory that is not containerd storage' {
-            # root/state present but NO known containerd runtime subdirectory.
+            # root/state present but their children are UNRELATED folders (no 'io.containerd.*' plugin).
             $existing = @(
                 'D:\Projects',
                 'D:\Projects\root',
                 'D:\Projects\state'
             )
             Mock -CommandName Test-Path { param($Path) return ($existing -contains $Path) }
+            Mock -CommandName Get-ChildItem {
+                param($Path)
+                if ($Path -eq 'D:\Projects\root' -or $Path -eq 'D:\Projects\state') {
+                    return @(
+                        [PSCustomObject]@{ Name = 'Downloads'; FullName = "$Path\Downloads" },
+                        [PSCustomObject]@{ Name = 'bin'; FullName = "$Path\bin" }
+                    )
+                }
+                return @()
+            }
 
             Invoke-ResetWinContainerStorageScript -Containerd 'D:\Projects' -EncodeStructuredOutput
 
