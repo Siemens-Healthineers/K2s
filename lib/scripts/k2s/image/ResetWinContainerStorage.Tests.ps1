@@ -19,7 +19,11 @@ BeforeAll {
 
     # Stub external module functions consumed by the script.
     function global:Initialize-Logging { }
-    function global:Write-Log { param([Parameter(ValueFromPipeline = $true)]$Message, [switch]$Console, [switch]$Error) }
+    # NOTE: the real Write-Log (k2s.infra.module) declares '[string[]] $Messages' (plural). Mirror that
+    # here so the unit tests match production. In the shared CI runspace the real module is loaded by
+    # other test files, so Pester binds the mock against '$Messages'; the assertions below reference the
+    # message via "$Messages$Message" to stay correct regardless of which parameter name is resolved.
+    function global:Write-Log { param([Parameter(ValueFromPipeline = $true)][string[]]$Messages, [switch]$Console, [switch]$Error) }
     function global:Send-ToCli { param($MessageType, $Message) }
     function global:New-Error { param($Severity, $Code, $Message) return [PSCustomObject]@{ Severity = $Severity; Code = $Code; Message = $Message } }
     function global:Get-ErrCodeWrongSetupType { return 'wrong-setup-type' }
@@ -205,14 +209,16 @@ Describe 'ResetWinContainerStorage.ps1' -Tag 'unit', 'ci', 'image' {
         It 'attempts to destroy every snapshot layer individually' {
             Invoke-ResetWinContainerStorageScript -Containerd 'D:\containerd'
 
-            Should -Invoke Write-Log -Exactly 4 -ParameterFilter { $Message -like '*Destroying container layer*' }
+            # "$Messages$Message" reads the log text whether the resolved Write-Log parameter is
+            # $Messages (real k2s.infra.module in the shared CI runspace) or $Message (isolated stub).
+            Should -Invoke Write-Log -Exactly 4 -ParameterFilter { "$Messages$Message" -like '*Destroying container layer*' }
         }
 
         It 'destroys the snapshot layers in numeric descending order (child before parent)' {
             $script:destroyOrder = [System.Collections.Generic.List[string]]::new()
-            Mock -CommandName Write-Log -ParameterFilter { $Message -like '*Destroying container layer:*' } -MockWith {
+            Mock -CommandName Write-Log -ParameterFilter { "$Messages$Message" -like '*Destroying container layer:*' } -MockWith {
                 # Capture the layer id (trailing path segment) in invocation order.
-                $script:destroyOrder.Add(($Message -split '\\')[-1])
+                $script:destroyOrder.Add((("$Messages$Message") -split '\\')[-1])
             }
 
             Invoke-ResetWinContainerStorageScript -Containerd 'D:\containerd'
@@ -248,7 +254,7 @@ Describe 'ResetWinContainerStorage.ps1' -Tag 'unit', 'ci', 'image' {
 
             Invoke-ResetWinContainerStorageScript -Containerd 'D:\containerd'
 
-            Should -Invoke Write-Log -ParameterFilter { $Message -like '*Performing cleanup of*' }
+            Should -Invoke Write-Log -ParameterFilter { "$Messages$Message" -like '*Performing cleanup of*' }
         }
 
         It 'accepts a valid containerd directory with a different runtime layout (content store) and proceeds' {
@@ -262,7 +268,7 @@ Describe 'ResetWinContainerStorage.ps1' -Tag 'unit', 'ci', 'image' {
 
             Invoke-ResetWinContainerStorageScript -Containerd 'D:\containerd'
 
-            Should -Invoke Write-Log -ParameterFilter { $Message -like '*Performing cleanup of*' }
+            Should -Invoke Write-Log -ParameterFilter { "$Messages$Message" -like '*Performing cleanup of*' }
         }
 
         It 'rejects a directory that is missing root' {
