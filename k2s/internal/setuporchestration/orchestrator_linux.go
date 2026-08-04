@@ -81,6 +81,9 @@ func (o *LinuxOrchestrator) Install(cfg InstallConfig) error {
 	if err := o.waitForNodeReady(120 * time.Second); err != nil {
 		slog.Warn("[Install] Control plane node not ready yet (may take a moment)", "error", err)
 	}
+	if err := o.removeControlPlaneTaints(); err != nil {
+		return fmt.Errorf("failed to make native Linux control-plane nodes schedulable: %w", err)
+	}
 
 	// Step 7: Persist setup.json only after successful provisioning.
 	hostname, _ := os.Hostname()
@@ -442,6 +445,58 @@ func (o *LinuxOrchestrator) waitForAPIServer(timeout time.Duration) error {
 		time.Sleep(3 * time.Second)
 	}
 	return fmt.Errorf("API server not reachable after %s", timeout)
+}
+
+// removeControlPlaneTaints mirrors the Windows-host kubemaster setup: native
+// Linux control-plane nodes are also workload nodes. It removes only the
+// standard control-plane taint and verifies that it is absent afterwards.
+func (o *LinuxOrchestrator) removeControlPlaneTaints() error {
+	const controlPlaneTaint = "node-role.kubernetes.io/control-plane"
+
+	output, err := runCommandOutput("kubectl", "--kubeconfig", kubeconfigSrc, "get", "nodes", "-l", controlPlaneTaint, "-o", "jsonpath={range .items[*]}{.metadata.name}{'\n'}{end}")
+	if err != nil {
+		return fmt.Errorf("list control-plane nodes: %w", err)
+	}
+	nodeNames := nodeNamesFromKubectlOutput(output)
+	if len(nodeNames) == 0 {
+		return fmt.Errorf("no control-plane nodes found with label %q", controlPlaneTaint)
+	}
+
+	for _, nodeName := range nodeNames {
+		taints, err := runCommandOutput("kubectl", "--kubeconfig", kubeconfigSrc, "get", "node", nodeName, "-o", "jsonpath={range .spec.taints[*]}{.key}{'\n'}{end}")
+		if err != nil {
+			return fmt.Errorf("verify taints on node %q: %w", nodeName, err)
+		}
+		if containsNodeTaint(taints, controlPlaneTaint) {
+			slog.Info("[Install] Removing control-plane taint to allow workloads", "node", nodeName)
+			if err := runCommand("kubectl", "--kubeconfig", kubeconfigSrc, "taint", "nodes", nodeName, controlPlaneTaint+"-"); err != nil {
+				return fmt.Errorf("remove control-plane taint from node %q: %w", nodeName, err)
+			}
+			taints, err = runCommandOutput("kubectl", "--kubeconfig", kubeconfigSrc, "get", "node", nodeName, "-o", "jsonpath={range .spec.taints[*]}{.key}{'\n'}{end}")
+			if err != nil {
+				return fmt.Errorf("verify removed taints on node %q: %w", nodeName, err)
+			}
+		}
+		if containsNodeTaint(taints, controlPlaneTaint) {
+			return fmt.Errorf("control-plane taint remains on node %q", nodeName)
+		}
+	}
+
+	slog.Info("[Install] Native Linux control-plane nodes are schedulable", "count", len(nodeNames))
+	return nil
+}
+
+func nodeNamesFromKubectlOutput(output string) []string {
+	return strings.Fields(output)
+}
+
+func containsNodeTaint(output string, taint string) bool {
+	for _, value := range strings.Fields(output) {
+		if value == taint {
+			return true
+		}
+	}
+	return false
 }
 
 // ---------- Windows VM provisioning ----------
