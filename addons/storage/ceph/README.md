@@ -38,6 +38,46 @@ This implementation provides:
 
 > All addon resources are deployed into the **`ceph-csi-operator-system`** namespace.
 
+## Windows native node setup
+
+On Linux nodes the `ceph-csi-operator` reconciles the CephFS node plugin automatically. Windows
+worker nodes are **not** managed by the operator. Because Ceph is
+[supported natively on Windows](https://docs.ceph.com/en/latest/install/windows-install/), the
+addon configures and mounts CephFS through the host-installed Ceph client rather than a Linux
+container.
+
+When the addon is enabled on a K2s cluster that has a Windows worker node, `Enable.ps1`:
+
+1. discovers the Windows worker node(s) from the Kubernetes API (`kubectl get nodes`, label
+   `kubernetes.io/os=windows`) and cross-references them with the cluster descriptor (`cluster.json`):
+   the local K2s host is the Windows worker node (`HOST`); an added external node (`VM-EXISTING`) is a
+   Hyper-V worker VM reached over a PowerShell remoting session,
+2. dispatches to [`scripts/windows/New-CephWindowsNode.ps1`](scripts/windows/New-CephWindowsNode.ps1), which
+   installs and configures the native Ceph Windows client via
+   [`scripts/windows/Install-CephForWindows.ps1`](scripts/windows/Install-CephForWindows.ps1) — locally on
+   the `HOST` node and remotely on `VM-EXISTING` nodes:
+   - the **Ceph for Windows** MSI (bundles the **WNBD** RBD driver, `rbd-wnbd` and **`ceph-dokan`**),
+   - **Dokany** 2.0.5+ (required by `ceph-dokan` to mount CephFS),
+   - `C:\ProgramData\ceph\ceph.conf` and the admin `keyring` built from the provisioned cluster's
+    connection details,
+  3. dispatches to [`scripts/windows/Mount-CephForWindows.ps1`](scripts/windows/Mount-CephForWindows.ps1)
+     (locally and remotely) to:
+     - mount CephFS with `ceph-dokan` at `C:\ceph\data`,
+     - register the startup scheduled task `K2s-CephFS-Mount` so the mount is re-established after
+    reboot.
+
+  There is no upstream Windows `cephcsi` image. Windows consumption therefore uses the native host
+  mount (`C:\ceph\data`) plus a pod `hostPath` volume, not a Windows CSI node plugin DaemonSet.
+
+> **Secure Boot must be disabled** on the Windows node for RBD (block) mapping, because the WNBD
+> driver is not signed by Microsoft. CephFS mounting via `ceph-dokan` is unaffected.
+
+The Ceph for Windows MSI is distributed from <https://cloudbase.it/ceph-for-windows/>. MSI URL
+defaults are resolved from `addons/storage/addon.manifest.yaml` (for example, Dokany). For
+**offline** installs stage the MSIs under `ceph/bin/windows` (Dokany is staged automatically during
+addon export). The installer is dispatched automatically to all discovered Windows worker nodes:
+local `HOST` and added external `VM-EXISTING` nodes.
+
 ## Prerequisites
 
 1. **A K2s node running Debian 13** to host the Ceph cluster:
@@ -72,7 +112,7 @@ bootstrap node for the Ceph cluster, then list every OSD node under `osdHosts`.
 
 ```json
 {
-  "comment": "Ceph CSI storage config. 'clusterHost.node' bootstraps only the Ceph cluster control plane and MUST be a Debian 13 K2s node listed in cluster.json (or the control plane node). OSD provisioning is driven exclusively by 'osdHosts' and supports only Hyper-V worker nodes (cluster.json NodeType 'VM-EXISTING'). Each entry in 'osdHosts' is prepared as a Ceph OSD host (via prepare-ceph-osd-host.sh) and contributes OSDs. Use 'osdSizesInGb' to set per-OSD sizes (one value per OSD) or 'osdSizeInGb' for one common size. 'windowsHosts' is a placeholder for future Windows OSD/client support and is currently NOT provisioned.",
+  "comment": "Ceph CSI storage config. 'clusterHost.node' bootstraps only the Ceph cluster control plane and MUST be a Debian 13 K2s node listed in cluster.json (or the control plane node). OSD provisioning is driven exclusively by 'osdHosts' and supports only Hyper-V worker nodes (cluster.json NodeType 'VM-EXISTING'). Each entry in 'osdHosts' is prepared as a Ceph OSD host (via prepare-ceph-osd-host.sh) and contributes OSDs. Use 'osdSizesInGb' to set per-OSD sizes (one value per OSD) or 'osdSizeInGb' for one common size. Native Windows client MSI URL defaults are resolved from addons/storage/addon.manifest.yaml; for offline installs stage MSIs under 'bin/windows'.",
   "cephfsFilesystem": "cephfs",
   "cephfsPool": "cephfs.cephfs.data",
   "clusterHost": {
@@ -310,6 +350,55 @@ kubectl delete pod ceph-writer ceph-reader --ignore-not-found
 kubectl delete pvc ceph-test-pvc --ignore-not-found
 ```
 
+## Testing Windows CephFS Access And Cross-OS Sharing
+
+Linux workloads should keep using dynamic PVCs (`storageClassName: ceph-cephfs`). Windows workloads
+consume the CephFS backend through the native host mount (`C:\ceph\data`) and `hostPath`.
+
+### 1. Validate the Windows host mount path
+
+On each Windows worker node:
+
+```powershell
+Get-ScheduledTask -TaskName K2s-CephFS-Mount
+Get-Process ceph-dokan -ErrorAction SilentlyContinue
+Get-ChildItem C:\ceph\data
+```
+
+Expected:
+- scheduled task exists,
+- `ceph-dokan` process is running,
+- `C:\ceph\data` is accessible.
+
+### 2. Run a Windows pod using the host mount
+
+Apply the sample workload:
+
+```powershell
+kubectl apply -f addons/storage/ceph/example/win-ceph-consumer.yaml
+kubectl wait --for=condition=Ready pod/win-ceph-consumer --timeout=300s
+kubectl logs win-ceph-consumer
+```
+
+The pod writes/reads a file in `C:\data`, which maps to `C:\ceph\data` on the node.
+
+### 3. Validate cross-OS data sharing (Windows -> Linux and Linux -> Windows)
+
+Create a Linux PVC-backed pod and a Windows hostPath pod that point at the same CephFS subvolume:
+
+1. Create PVC and Linux pod (`ceph-cephfs`) and wait for `Bound/Ready`.
+2. Resolve the PV's CephFS subvolume path from `spec.csi.volumeAttributes.subvolumePath`.
+3. In the Windows pod, write to `C:\data\<subvolumePath>\from-windows.txt`.
+4. In the Linux PVC pod, read `/mnt/data/from-windows.txt`.
+5. Write `/mnt/data/from-linux.txt` in Linux and read it from Windows at
+  `C:\data\<subvolumePath>\from-linux.txt`.
+
+This exact scenario is covered by the dedicated e2e suite:
+
+```console
+go test ./k2s/test/e2e/addons/storage/ceph/windowscross -v
+```
+
 ## Add Another OSD Host to the Ceph Cluster
 
 By default, this addon provisions a **single-node** Ceph cluster. If you want to expand capacity or
@@ -490,8 +579,7 @@ File: `addons/storage/ceph/config/ceph-config.json`
       "osdCount": 1,
       "osdSizeInGb": 10
     }
-  ],
-  "windowsHosts": []
+  ]
 }
 ```
 
@@ -508,7 +596,6 @@ File: `addons/storage/ceph/config/ceph-config.json`
 | `osdHosts[].osdSizeInGb` | No | Common size in GiB applied to all OSDs on that host when `osdSizesInGb` is not provided. |
 | `cephfsPool` | No | CephFS **data pool** name (default `cephfs.cephfs.data`). Refreshed with the value read back from the freshly provisioned cluster. |
 | `cephfsFilesystem` | No | CephFS filesystem name (default `cephfs`). |
-| `windowsHosts[]` | No | Placeholder for future Windows support; currently not provisioned. |
 | `comment` | No | Free-text note; ignored by the addon. |
 
 `clusterHost.*`, `osdHosts[].osdCount`, `osdHosts[].osdSizeInGb`, and `osdHosts[].osdSizesInGb` are

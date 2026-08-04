@@ -1,0 +1,47 @@
+# SPDX-FileCopyrightText: © 2026 Siemens Healthineers AG
+#
+# SPDX-License-Identifier: MIT
+
+# Sample: consume Ceph cluster storage from a Windows container.
+#
+# Prerequisites (handled automatically by the storage/ceph addon on enable):
+#   - The native Ceph for Windows client (ceph-dokan) is installed on the Windows node
+#     (scripts/windows/Install-CephForWindows.ps1).
+#   - CephFS is mounted on the Windows host at C:\ceph\data and re-mounted at startup by the
+#     'K2s-CephFS-Mount' scheduled task (scripts/windows/Mount-CephForWindows.ps1).
+#
+# The pod consumes that host mount through a hostPath volume. There is no upstream Windows CephFS
+# CSI node plugin, so hostPath is the supported consumption path for the native client. Because the
+# CephFS mount is a single host-wide ReadWriteMany mount, multiple Windows pods on the same node can
+# share it; use a per-application subfolder to isolate data.
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: win-ceph-consumer
+  labels:
+    app: win-ceph-consumer
+spec:
+  nodeSelector:
+    kubernetes.io/os: windows
+  containers:
+    - name: app
+      image: mcr.microsoft.com/windows/nanoserver:ltsc2022
+      command:
+        - powershell.exe
+        - -Command
+        - |
+          # Write and read a file on the Ceph-backed volume to prove connectivity, then idle.
+          $marker = "C:\data\win-ceph-consumer.txt"
+          Set-Content -Path $marker -Value "written by $env:COMPUTERNAME at $(Get-Date -Format o)"
+          Get-Content -Path $marker
+          while ($true) { Start-Sleep -Seconds 3600 }
+      volumeMounts:
+        - name: ceph-vol
+          mountPath: "C:\\data"
+  volumes:
+    - name: ceph-vol
+      hostPath:
+        # Matches the -MountPoint used by Mount-CephForWindows.ps1 (default C:\ceph\data).
+        path: "C:\\ceph\\data"
+        type: Directory

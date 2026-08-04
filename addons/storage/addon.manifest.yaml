@@ -100,7 +100,16 @@ spec:
             - manifests/operator.yaml
             - manifests/csi-rbac.yaml
         windows:
-          curl: []
+          curl:
+            # Ceph for Windows MSI (includes WNBD driver, rbd-wnbd and ceph-dokan). Downloaded
+            # during export and staged into the ceph addon 'bin/windows' folder for offline installs.
+            - url: https://cloudbase.it/downloads/ceph_squid.msi
+              destination: ceph/bin/windows/ceph_squid.msi
+            # Dokany user-mode file-system driver required by ceph-dokan on Windows nodes. Downloaded
+            # during export and staged into the ceph addon 'bin/windows' folder so the native Ceph
+            # Windows client can be installed fully offline.
+            - url: https://github.com/dokan-dev/dokany/releases/download/v2.1.0.1000/Dokan_x64.msi
+              destination: ceph/bin/windows/Dokan_x64.msi
       commands:
         enable:
           cli:

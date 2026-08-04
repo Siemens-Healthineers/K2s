@@ -646,8 +646,23 @@ try {
                     mkdir -Force $targetWinPkgDir | Out-Null
                     foreach ($package in $windowsCurlPackages) {
                         $filename = ([uri]$package.url).Segments[-1]
+                        $targetPackagePath = "$targetWinPkgDir\${filename}"
 
-                        Invoke-DownloadFile "$targetWinPkgDir\${filename}" $package.url $true -ProxyToUse $Proxy
+                        # Prefer already staged Windows packages from the addon destination path (offline).
+                        # Example for ceph: addons/storage/ceph/bin/windows/Dokan_x64.msi
+                        $stagedPackagePath = $null
+                        if ($package.PSObject.Properties.Name -contains 'destination' -and -not [string]::IsNullOrWhiteSpace("$($package.destination)")) {
+                            $normalizedDestination = "$($package.destination)".Trim() -replace '/', '\\'
+                            $stagedPackagePath = Join-Path $PSScriptRoot $normalizedDestination
+                        }
+
+                        if ($stagedPackagePath -and (Test-Path -Path $stagedPackagePath)) {
+                            Write-Log "Using staged Windows package for export: '$stagedPackagePath'" -Console
+                            Copy-Item -Path $stagedPackagePath -Destination $targetPackagePath -Force
+                        }
+                        else {
+                            Invoke-DownloadFile $targetPackagePath $package.url $true -ProxyToUse $Proxy
+                        }
                     }
                 }
             }

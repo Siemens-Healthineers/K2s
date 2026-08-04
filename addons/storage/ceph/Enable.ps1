@@ -567,6 +567,31 @@ catch {
 
 Write-Log "[Ceph] Ceph CSI pods are Ready" -Console
 
+# Deploy the Ceph node plugin to Windows worker node(s). The ceph-csi-operator only reconciles the
+# Linux node plugin; Windows nodes need the native Ceph client (WNBD + ceph-dokan) and a separate
+# Windows CSI node plugin DaemonSet. The Windows dispatch script resolves the Windows node details
+# from cluster.json and installs/configures the client using the freshly provisioned cluster's
+# connection details (already loaded into $Config by New-CephCluster.ps1). Only run this for a k2s
+# cluster that actually has a Windows node.
+if ($setupInfo.LinuxOnly -ne $true) {
+  $windowsNodeScript = "$PSScriptRoot\scripts\windows\New-CephWindowsNode.ps1"
+  if (-not (Test-Path $windowsNodeScript)) {
+    Write-Log "[Ceph] WARNING: Windows Ceph native setup script not found at '$windowsNodeScript'; skipping Windows Ceph native setup." -Console
+  }
+  else {
+    Write-Log "[Ceph] Configuring native Ceph client and host mount on Windows worker node(s)" -Console
+    & $windowsNodeScript -Config $Config -ShowLogs:$ShowLogs
+    if ($LASTEXITCODE -ne 0) {
+      Write-Log "[Ceph] ERROR: Windows Ceph native setup failed (exit code $LASTEXITCODE)." -Console -Error
+      if ($EncodeStructuredOutput -eq $true) {
+        Send-ToCli -MessageType $MessageType -Message @{Error = (New-CephStructuredError -Message 'Windows Ceph native setup failed') }
+      }
+      exit 1
+    }
+    Write-Log "[Ceph] Windows Ceph native setup completed successfully" -Console
+  }
+}
+
 Update-StorageImplementationRegistry -Implementation 'ceph' -Enabled $true
 Update-StorageImplementationRegistry -Implementation 'smb' -Enabled $false
 

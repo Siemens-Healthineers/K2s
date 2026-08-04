@@ -194,7 +194,10 @@ Expected pods (names may vary by hash):
 
 - `ceph-csi-operator-controller-manager` — the operator that reconciles the driver
 - `cephfs.csi.ceph.com-ctrlplugin` — CephFS CSI controller (provisioner/attacher/resizer/snapshotter)
-- `cephfs.csi.ceph.com-nodeplugin` — CephFS CSI node plugin (one pod per node)
+- `cephfs.csi.ceph.com-nodeplugin` — CephFS CSI node plugin (one pod per Linux node)
+
+On Windows nodes, CephFS is mounted natively by `ceph-dokan` on the host (`C:\ceph\data`) through
+the addon scripts; there is no upstream Windows `cephcsi` image and no Windows Ceph CSI DaemonSet.
 
 You can also check status through the CLI:
 
@@ -293,6 +296,43 @@ kubectl delete pvc ceph-test-pvc --ignore-not-found
 
 For the full test (including a second reader pod that verifies concurrent `ReadWriteMany` access),
 see the [addon README](https://github.com/Siemens-Healthineers/K2s/blob/main/addons/storage/ceph/README.md).
+
+### Testing Windows mount path and cross-OS sharing
+
+For Windows workloads, CephFS is consumed via host mount + `hostPath`:
+
+- host mount path on Windows node: `C:\ceph\data`
+- startup task: `K2s-CephFS-Mount`
+- pod mount path in container (sample): `C:\data`
+
+Validate mount state on a Windows worker node:
+
+```powershell
+Get-ScheduledTask -TaskName K2s-CephFS-Mount
+Get-Process ceph-dokan -ErrorAction SilentlyContinue
+Get-ChildItem C:\ceph\data
+```
+
+Run the sample Windows pod:
+
+```powershell
+kubectl apply -f addons/storage/ceph/example/win-ceph-consumer.yaml
+kubectl wait --for=condition=Ready pod/win-ceph-consumer --timeout=300s
+kubectl logs win-ceph-consumer
+```
+
+To validate bidirectional sharing between a Linux PVC pod and a Windows hostPath pod against the
+same CephFS subvolume, use the dedicated e2e suite:
+
+```console
+go test ./k2s/test/e2e/addons/storage/ceph/windowscross -v
+```
+
+The test verifies:
+
+1. Windows mount path exists and is reachable from pod (`C:\data`).
+2. Windows writes are readable from Linux PVC pod.
+3. Linux writes are readable from Windows pod.
 
 ## Add Another OSD Host
 
