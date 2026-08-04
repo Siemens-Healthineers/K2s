@@ -156,7 +156,7 @@ DNSPROXY_URL="https://github.com/AdguardTeam/dnsproxy/releases/download/v${DNSPR
 DNSPROXY_OUTPUT="$BIN_DIR/dnsproxy"
 echo "Downloading pinned dnsproxy v${DNSPROXY_VERSION} -> $DNSPROXY_OUTPUT ..."
 curl --fail --location --retry 3 --output "$BIN_DIR/$DNSPROXY_ARCHIVE" "$DNSPROXY_URL"
-tar --extract --gzip --file "$BIN_DIR/$DNSPROXY_ARCHIVE" --directory "$BIN_DIR" --strip-components=1 "linux-amd64/dnsproxy"
+tar --extract --gzip --file "$BIN_DIR/$DNSPROXY_ARCHIVE" --directory "$BIN_DIR" --strip-components=2 "./linux-amd64/dnsproxy"
 rm -f "$BIN_DIR/$DNSPROXY_ARCHIVE"
 chmod +x "$DNSPROXY_OUTPUT"
 

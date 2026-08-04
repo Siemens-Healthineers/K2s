@@ -370,7 +370,9 @@ func removeDNSProxy(configDir string) {
 	if err := restoreResolverState(configDir); err != nil {
 		slog.Warn("[Uninstall] Could not restore host resolver", "error", err)
 	}
-	_ = runCommand("systemctl", "disable", "--now", dnsProxyService)
+	if _, err := os.Stat(filepath.Join("/etc/systemd/system", dnsProxyService+".service")); err == nil {
+		_ = runCommand("systemctl", "disable", "--now", dnsProxyService)
+	}
 	_ = os.Remove(filepath.Join("/etc/systemd/system", dnsProxyService+".service"))
 	_ = os.Remove(dnsProxyConfig)
 	_ = os.Remove(filepath.Join(configDir, resolverStateFile))
@@ -447,6 +449,15 @@ func restoreResolverState(configDir string) error {
 	var state resolverState
 	if err := json.Unmarshal(data, &state); err != nil {
 		return fmt.Errorf("parse saved resolver state: %w", err)
+	}
+	current, err := os.ReadFile(resolverPath)
+	if err != nil {
+		return fmt.Errorf("read current resolver configuration: %w", err)
+	}
+	if !strings.HasPrefix(string(current), resolverHeader) {
+		// DNS setup can fail before K2s takes ownership of resolv.conf. In that
+		// case the original resolver is already intact and must not be touched.
+		return nil
 	}
 	if err := os.Remove(resolverPath); err != nil && !os.IsNotExist(err) {
 		return fmt.Errorf("remove K2s resolver configuration: %w", err)
