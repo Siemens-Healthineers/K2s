@@ -186,8 +186,11 @@ function Test-IsContainerdStorage([string]$ContainerdPath) {
     # Safety guard: refuse to run destructive cleanup unless the target really looks like a containerd
     # storage directory. This prevents accidental data loss if a wrong path (e.g. 'D:\Projects', 'D:\')
     # is passed via --containerd. The directory must contain 'root' and 'state', plus AT LEAST ONE
-    # known containerd runtime subdirectory. Requiring only one keeps the check tolerant across
-    # containerd versions (subdirectory sets differ by version/config).
+    # immediate child directory (under 'root' or 'state') named with containerd's stable plugin
+    # namespace prefix 'io.containerd.'. Matching the prefix instead of a fixed list of plugin IDs keeps
+    # the check version-independent: future plugins, snapshotters, metadata/content stores are all
+    # named 'io.containerd.<type>.<version>.<name>', so they are accepted automatically, while arbitrary
+    # user folders (which won't have root+state plus an 'io.containerd.*' child) are still rejected.
     if ([string]::IsNullOrWhiteSpace($ContainerdPath) -or -not (Test-Path $ContainerdPath)) {
         return $false
     }
@@ -198,25 +201,11 @@ function Test-IsContainerdStorage([string]$ContainerdPath) {
         return $false
     }
 
-    $knownRootDirs = @(
-        'io.containerd.content.v1.content',
-        'io.containerd.snapshotter.v1.windows',
-        'io.containerd.snapshotter.v1.windows-lcow',
-        'io.containerd.metadata.v1.bolt'
-    )
-    $knownStateDirs = @(
-        'io.containerd.grpc.v1.cri',
-        'io.containerd.runtime.v2.task',
-        'io.containerd.mount-manager.v1.bolt'
-    )
-
-    foreach ($dir in $knownRootDirs) {
-        if (Test-Path (Join-Path $rootPath $dir)) {
-            return $true
-        }
-    }
-    foreach ($dir in $knownStateDirs) {
-        if (Test-Path (Join-Path $statePath $dir)) {
+    foreach ($basePath in @($rootPath, $statePath)) {
+        $pluginDir = Get-ChildItem -Path $basePath -Directory -ErrorAction SilentlyContinue |
+            Where-Object { $_.Name.StartsWith('io.containerd.', [System.StringComparison]::OrdinalIgnoreCase) } |
+            Select-Object -First 1
+        if ($null -ne $pluginDir) {
             return $true
         }
     }
