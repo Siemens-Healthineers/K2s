@@ -30,6 +30,11 @@ const (
 	winVMName              = "k2s-win-worker"
 )
 
+const (
+	controlPlaneNodeNamesJSONPath = `jsonpath={range .items[*]}{.metadata.name}{"\n"}{end}`
+	nodeTaintKeysJSONPath         = `jsonpath={range .spec.taints[*]}{.key}{"\n"}{end}`
+)
+
 // LinuxOrchestrator implements Orchestrator using native Linux tools:
 // kubeadm, systemctl, and libvirt for managing a Windows worker VM.
 type LinuxOrchestrator struct{}
@@ -453,7 +458,7 @@ func (o *LinuxOrchestrator) waitForAPIServer(timeout time.Duration) error {
 func (o *LinuxOrchestrator) removeControlPlaneTaints() error {
 	const controlPlaneTaint = "node-role.kubernetes.io/control-plane"
 
-	output, err := runCommandOutput("kubectl", "--kubeconfig", kubeconfigSrc, "get", "nodes", "-l", controlPlaneTaint, "-o", "jsonpath={range .items[*]}{.metadata.name}{'\n'}{end}")
+	output, err := runCommandOutput("kubectl", "--kubeconfig", kubeconfigSrc, "get", "nodes", "-l", controlPlaneTaint, "-o", controlPlaneNodeNamesJSONPath)
 	if err != nil {
 		return fmt.Errorf("list control-plane nodes: %w", err)
 	}
@@ -463,7 +468,7 @@ func (o *LinuxOrchestrator) removeControlPlaneTaints() error {
 	}
 
 	for _, nodeName := range nodeNames {
-		taints, err := runCommandOutput("kubectl", "--kubeconfig", kubeconfigSrc, "get", "node", nodeName, "-o", "jsonpath={range .spec.taints[*]}{.key}{'\n'}{end}")
+		taints, err := runCommandOutput("kubectl", "--kubeconfig", kubeconfigSrc, "get", "node", nodeName, "-o", nodeTaintKeysJSONPath)
 		if err != nil {
 			return fmt.Errorf("verify taints on node %q: %w", nodeName, err)
 		}
@@ -472,7 +477,7 @@ func (o *LinuxOrchestrator) removeControlPlaneTaints() error {
 			if err := runCommand("kubectl", "--kubeconfig", kubeconfigSrc, "taint", "nodes", nodeName, controlPlaneTaint+"-"); err != nil {
 				return fmt.Errorf("remove control-plane taint from node %q: %w", nodeName, err)
 			}
-			taints, err = runCommandOutput("kubectl", "--kubeconfig", kubeconfigSrc, "get", "node", nodeName, "-o", "jsonpath={range .spec.taints[*]}{.key}{'\n'}{end}")
+			taints, err = runCommandOutput("kubectl", "--kubeconfig", kubeconfigSrc, "get", "node", nodeName, "-o", nodeTaintKeysJSONPath)
 			if err != nil {
 				return fmt.Errorf("verify removed taints on node %q: %w", nodeName, err)
 			}
@@ -849,12 +854,14 @@ func runCommandWithLogs(showLogs bool, name string, args ...string) error {
 	return nil
 }
 
-// runCommandOutput executes a command and returns its stdout as a string.
+// runCommandOutput executes a command and returns its combined output. Keeping
+// stderr in the error is essential for kubectl failures, which otherwise lose
+// the API, selector, or JSONPath diagnostic emitted by kubectl.
 func runCommandOutput(name string, args ...string) (string, error) {
 	cmd := exec.Command(name, args...)
-	output, err := cmd.Output()
+	output, err := cmd.CombinedOutput()
 	if err != nil {
-		return "", fmt.Errorf("%s failed: %w", name, err)
+		return "", fmt.Errorf("%s failed: %w; output: %s", name, err, strings.TrimSpace(string(output)))
 	}
 	return string(output), nil
 }
