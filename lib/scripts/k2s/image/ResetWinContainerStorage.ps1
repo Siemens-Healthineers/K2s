@@ -147,7 +147,9 @@ function Invoke-ZapFolder([string]$Folder) {
     # 'vmcompute' service to be running (it is) and expects the path of a SINGLE layer folder.
     $zap = Join-Path (Get-KubeBinPath) 'zap.exe'
     if (-not (Test-Path $zap)) {
-        Write-Log "[ResetWinStorage] zap.exe not found at '$zap'; cannot destroy HCS layer '$Folder'" -Error
+        Write-Log ("[ResetWinStorage] zap.exe not found at '$zap'. HCS layer cleanup (DestroyLayer) for " +
+            "'$Folder' was SKIPPED. Generic filesystem cleanup will still continue, but Windows container " +
+            'image layers may not be fully removable without zap.exe.') -Error
         return
     }
     & $zap -folder $Folder 2>&1 | Write-Log -Console
@@ -168,13 +170,58 @@ function Remove-WindowsSnapshotterLayers([string]$ContainerdDir) {
     }
 
     Write-Log "[ResetWinStorage] Destroying Windows container image layers via HCS under: $snapshotsPath" -Console
-    # Destroy most-derived layers first (child layers reference their parents).
+    # Destroy most-derived layers first: the Windows snapshotter names each snapshot directory with its
+    # integer storage ID (a monotonic counter), so a child layer always has a higher ID than its
+    # parent. Sort NUMERICALLY descending - a lexicographic sort would order '138' before '4' and could
+    # attempt to destroy a parent before its child. Any unexpected non-numeric name sorts last (-1).
     Get-ChildItem -Path $snapshotsPath -Directory -ErrorAction SilentlyContinue |
-        Sort-Object -Property Name -Descending |
+        Sort-Object -Property { if ($_.Name -match '^\d+$') { [long]$_.Name } else { -1 } } -Descending |
         ForEach-Object {
             Write-Log "[ResetWinStorage] Destroying container layer: $($_.FullName)" -Console
             Invoke-ZapFolder -Folder $_.FullName
         }
+}
+
+function Test-IsContainerdStorage([string]$ContainerdPath) {
+    # Safety guard: refuse to run destructive cleanup unless the target really looks like a containerd
+    # storage directory. This prevents accidental data loss if a wrong path (e.g. 'D:\Projects', 'D:\')
+    # is passed via --containerd. The directory must contain 'root' and 'state', plus AT LEAST ONE
+    # known containerd runtime subdirectory. Requiring only one keeps the check tolerant across
+    # containerd versions (subdirectory sets differ by version/config).
+    if ([string]::IsNullOrWhiteSpace($ContainerdPath) -or -not (Test-Path $ContainerdPath)) {
+        return $false
+    }
+
+    $rootPath = Join-Path $ContainerdPath 'root'
+    $statePath = Join-Path $ContainerdPath 'state'
+    if (-not (Test-Path $rootPath) -or -not (Test-Path $statePath)) {
+        return $false
+    }
+
+    $knownRootDirs = @(
+        'io.containerd.content.v1.content',
+        'io.containerd.snapshotter.v1.windows',
+        'io.containerd.snapshotter.v1.windows-lcow',
+        'io.containerd.metadata.v1.bolt'
+    )
+    $knownStateDirs = @(
+        'io.containerd.grpc.v1.cri',
+        'io.containerd.runtime.v2.task',
+        'io.containerd.mount-manager.v1.bolt'
+    )
+
+    foreach ($dir in $knownRootDirs) {
+        if (Test-Path (Join-Path $rootPath $dir)) {
+            return $true
+        }
+    }
+    foreach ($dir in $knownStateDirs) {
+        if (Test-Path (Join-Path $statePath $dir)) {
+            return $true
+        }
+    }
+
+    return $false
 }
 
 function Invoke-CleanupOfContainerStorage([string]$Directory, [int]$MaxRetries, [bool]$ForceZap) {
@@ -284,6 +331,34 @@ if ([string]::IsNullOrWhiteSpace($Containerd)) {
 
 $cleanUpWasPerformed = $false
 if (Test-Path $Containerd) {
+    # Safety validation: before ANY destructive action (DestroyLayer / takeown / icacls / delete),
+    # verify the target actually resembles a containerd storage directory. Applies to both the
+    # configured path and an explicit --containerd value.
+    if (-not (Test-IsContainerdStorage -ContainerdPath $Containerd)) {
+        $errMsg = @"
+The specified path does not appear to be a valid containerd storage directory.
+
+Path:
+$Containerd
+
+Expected layout:
+
+  root\
+  state\
+
+with standard containerd runtime directories.
+
+Aborting cleanup - no ownership changes or deletions were performed.
+"@
+        if ($EncodeStructuredOutput -eq $true) {
+            $err = New-Error -Severity Warning -Code 'invalid-containerd-storage' -Message $errMsg
+            Send-ToCli -MessageType $MessageType -Message @{Error = $err }
+            return
+        }
+        Write-Log $errMsg -Error
+        exit 1
+    }
+
     # Safety net: make sure the runtime is not running (usually already stopped here).
     Stop-ContainerdForStorageCleanup
     # Real fix for 'Access is denied' on snapshot layers: remove each Windows container image layer
