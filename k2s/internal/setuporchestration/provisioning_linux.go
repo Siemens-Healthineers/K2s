@@ -62,7 +62,7 @@ func (o *LinuxOrchestrator) checkHostPrerequisites(_ InstallConfig) error {
 		return err
 	}
 
-	for _, bin := range []string{"systemctl", "apt-get", "dpkg", "modprobe", "sysctl"} {
+	for _, bin := range []string{"systemctl", "apt-get", "dpkg", "modprobe", "sysctl", "chattr", "lsattr"} {
 		if _, err := exec.LookPath(bin); err != nil {
 			return fmt.Errorf("required host tool %q was not found in PATH: %w", bin, err)
 		}
@@ -274,9 +274,10 @@ func removeHTTPProxy(removeCompatibilityNetwork bool, configDir string) {
 }
 
 type resolverState struct {
-	Mode       os.FileMode `json:"mode"`
-	LinkTarget string      `json:"linkTarget,omitempty"`
-	Content    []byte      `json:"content,omitempty"`
+	Mode         os.FileMode `json:"mode"`
+	LinkTarget   string      `json:"linkTarget,omitempty"`
+	Content      []byte      `json:"content,omitempty"`
+	WasImmutable bool        `json:"wasImmutable"`
 }
 
 // configureHostDNS makes Kubernetes DNS records available to all host
@@ -402,7 +403,11 @@ func saveResolverState(configDir string) error {
 	if err != nil {
 		return fmt.Errorf("inspect existing resolver configuration: %w", err)
 	}
-	state := resolverState{Mode: info.Mode()}
+	immutable, err := resolverIsImmutable()
+	if err != nil {
+		return err
+	}
+	state := resolverState{Mode: info.Mode(), WasImmutable: immutable}
 	if info.Mode()&os.ModeSymlink != 0 {
 		state.LinkTarget, err = os.Readlink(resolverPath)
 		if err != nil {
@@ -427,7 +432,26 @@ func saveResolverState(configDir string) error {
 	return nil
 }
 
+func resolverIsImmutable() (bool, error) {
+	output, err := runCommandOutput("lsattr", "-d", resolverPath)
+	if err != nil {
+		return false, fmt.Errorf("inspect immutable attribute on %s: %w", resolverPath, err)
+	}
+	return resolverIsImmutableFromOutput(output)
+}
+
+func resolverIsImmutableFromOutput(output string) (bool, error) {
+	fields := strings.Fields(output)
+	if len(fields) == 0 {
+		return false, fmt.Errorf("no immutable attribute output for %s", resolverPath)
+	}
+	return strings.Contains(fields[0], "i"), nil
+}
+
 func activateK2sResolver() error {
+	if err := setResolverImmutable(false); err != nil {
+		return err
+	}
 	if err := os.Remove(resolverPath); err != nil && !os.IsNotExist(err) {
 		return fmt.Errorf("remove existing resolver configuration: %w", err)
 	}
@@ -459,6 +483,9 @@ func restoreResolverState(configDir string) error {
 		// case the original resolver is already intact and must not be touched.
 		return nil
 	}
+	if err := setResolverImmutable(false); err != nil {
+		return err
+	}
 	if err := os.Remove(resolverPath); err != nil && !os.IsNotExist(err) {
 		return fmt.Errorf("remove K2s resolver configuration: %w", err)
 	}
@@ -466,10 +493,33 @@ func restoreResolverState(configDir string) error {
 		if err := os.Symlink(state.LinkTarget, resolverPath); err != nil {
 			return fmt.Errorf("restore resolver symlink: %w", err)
 		}
+	} else if err := os.WriteFile(resolverPath, state.Content, state.Mode.Perm()); err != nil {
+		return fmt.Errorf("restore resolver configuration: %w", err)
+	}
+	if state.WasImmutable {
+		if err := setResolverImmutable(true); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func setResolverImmutable(immutable bool) error {
+	current, err := resolverIsImmutable()
+	if err != nil {
+		return err
+	}
+	if current == immutable {
 		return nil
 	}
-	if err := os.WriteFile(resolverPath, state.Content, state.Mode.Perm()); err != nil {
-		return fmt.Errorf("restore resolver configuration: %w", err)
+	flag := "-i"
+	operation := "clear"
+	if immutable {
+		flag = "+i"
+		operation = "restore"
+	}
+	if err := runCommand("chattr", flag, resolverPath); err != nil {
+		return fmt.Errorf("%s immutable attribute on %s: %w", operation, resolverPath, err)
 	}
 	return nil
 }

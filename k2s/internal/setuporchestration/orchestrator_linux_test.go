@@ -60,3 +60,19 @@ cluster.local:53 {
 		t.Fatalf("coreDNSZones() = %v, want %v", actual, expected)
 	}
 }
+
+func TestResolverIsImmutableFromOutput(t *testing.T) {
+	t.Parallel()
+
+	immutable, err := resolverIsImmutableFromOutput("----i--------- /etc/resolv.conf\n")
+	if err != nil || !immutable {
+		t.Fatalf("immutable resolver output = (%v, %v), want (true, nil)", immutable, err)
+	}
+	immutable, err = resolverIsImmutableFromOutput("-------------- /etc/resolv.conf\n")
+	if err != nil || immutable {
+		t.Fatalf("mutable resolver output = (%v, %v), want (false, nil)", immutable, err)
+	}
+	if _, err := resolverIsImmutableFromOutput(""); err == nil {
+		t.Fatal("empty lsattr output returned nil error")
+	}
+}
