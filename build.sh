@@ -24,6 +24,7 @@ Builds the Linux-targeted K2s Go executables natively (no PowerShell):
     k2s                 -> k2s.linux
   cloudinitisobuilder -> bin/
   httpproxy           -> bin/
+    dnsproxy            -> bin/
   yaml2json           -> bin/
 
 The CLI is named k2s.linux to avoid colliding with the k2s/ source directory.
@@ -148,6 +149,16 @@ for target in "${BUILD_TARGETS[@]}"; do
         "./cmd/${app}"
     echo "Built: \"$out_path\""
 done
+
+DNSPROXY_VERSION="0.83.1"
+DNSPROXY_ARCHIVE="dnsproxy-linux-amd64-v${DNSPROXY_VERSION}.tar.gz"
+DNSPROXY_URL="https://github.com/AdguardTeam/dnsproxy/releases/download/v${DNSPROXY_VERSION}/${DNSPROXY_ARCHIVE}"
+DNSPROXY_OUTPUT="$BIN_DIR/dnsproxy"
+echo "Downloading pinned dnsproxy v${DNSPROXY_VERSION} -> $DNSPROXY_OUTPUT ..."
+curl --fail --location --retry 3 --output "$BIN_DIR/$DNSPROXY_ARCHIVE" "$DNSPROXY_URL"
+tar --extract --gzip --file "$BIN_DIR/$DNSPROXY_ARCHIVE" --directory "$BIN_DIR" --strip-components=1 "linux-amd64/dnsproxy"
+rm -f "$BIN_DIR/$DNSPROXY_ARCHIVE"
+chmod +x "$DNSPROXY_OUTPUT"
 
 echo '---------------------------------------------------------------'
 echo ' Build finished.'

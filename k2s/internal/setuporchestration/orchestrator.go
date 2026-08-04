@@ -103,6 +103,8 @@ type StartConfig struct {
 	LinuxOnly           bool
 	AdditionalHooksDir  string
 	UseCachedK2sVSwitch bool
+	ConfigDir           string
+	InstallDir          string
 }
 
 // StopConfig holds parameters for cluster stop.
@@ -110,6 +112,7 @@ type StopConfig struct {
 	ShowLogs           bool
 	LinuxOnly          bool
 	AdditionalHooksDir string
+	ConfigDir          string
 }
 
 // VMConfig holds parameters for virtual machine creation.

@@ -89,6 +89,9 @@ func (o *LinuxOrchestrator) Install(cfg InstallConfig) error {
 	if err := o.removeControlPlaneTaints(); err != nil {
 		return fmt.Errorf("failed to make native Linux control-plane nodes schedulable: %w", err)
 	}
+	if err := o.configureHostDNS(cfg); err != nil {
+		return fmt.Errorf("failed to configure host Kubernetes DNS: %w", err)
+	}
 
 	// Step 7: Persist setup.json only after successful provisioning.
 	hostname, _ := os.Hostname()
@@ -104,7 +107,7 @@ func (o *LinuxOrchestrator) Install(cfg InstallConfig) error {
 	}
 
 	if cfg.SkipStart {
-		if err := o.Stop(StopConfig{LinuxOnly: cfg.LinuxOnly}); err != nil {
+		if err := o.Stop(StopConfig{LinuxOnly: cfg.LinuxOnly, ConfigDir: cfg.ConfigDir}); err != nil {
 			return fmt.Errorf("stop cluster after --skip-start: %w", err)
 		}
 	}
@@ -132,6 +135,7 @@ func (o *LinuxOrchestrator) Uninstall(cfg UninstallConfig) error {
 	_ = runCommand("ip", "link", "delete", "cni0")
 	_ = runCommand("ip", "link", "delete", "flannel.1")
 
+	removeDNSProxy(cfg.ConfigDir)
 	removeHTTPProxy(cfg.LinuxOnly, cfg.ConfigDir)
 
 	// Remove kubeconfig
@@ -240,7 +244,10 @@ func (o *LinuxOrchestrator) Start(cfg StartConfig) error {
 
 	// Wait for API server to be reachable
 	if err := o.waitForAPIServer(60 * time.Second); err != nil {
-		slog.Warn("[Start] API server not reachable yet", "error", err)
+		return fmt.Errorf("API server not reachable after start: %w", err)
+	}
+	if err := o.configureHostDNS(InstallConfig{InstallDir: cfg.InstallDir, ConfigDir: cfg.ConfigDir}); err != nil {
+		return fmt.Errorf("configure host Kubernetes DNS after start: %w", err)
 	}
 
 	slog.Info("[Start] K2s cluster started")
@@ -249,6 +256,9 @@ func (o *LinuxOrchestrator) Start(cfg StartConfig) error {
 
 func (o *LinuxOrchestrator) Stop(cfg StopConfig) error {
 	slog.Info("[Stop] Stopping K2s cluster on Linux host")
+	if err := stopHostDNS(cfg.ConfigDir); err != nil {
+		return fmt.Errorf("restore host DNS before stopping K2s: %w", err)
+	}
 
 	// Stop kubelet
 	if err := runCommand("systemctl", "stop", "kubelet"); err != nil {

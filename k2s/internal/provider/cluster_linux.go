@@ -73,6 +73,8 @@ func (p *linuxClusterProvider) Start(cfg ClusterStartConfig) error {
 		LinuxOnly:           cfg.LinuxOnly,
 		AdditionalHooksDir:  cfg.AdditionalHooksDir,
 		UseCachedK2sVSwitch: cfg.UseCachedK2sVSwitch,
+		ConfigDir:           p.configDir,
+		InstallDir:          p.installDir,
 	})
 }
 
@@ -82,6 +84,7 @@ func (p *linuxClusterProvider) Stop(cfg ClusterStopConfig) error {
 		ShowLogs:           cfg.ShowLogs,
 		LinuxOnly:          cfg.LinuxOnly,
 		AdditionalHooksDir: cfg.AdditionalHooksDir,
+		ConfigDir:          p.configDir,
 	})
 }
 
