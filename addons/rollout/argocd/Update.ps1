@@ -9,6 +9,69 @@ $rolloutModule = "$PSScriptRoot\rollout.module.psm1"
 
 Import-Module $addonsModule, $rolloutModule
 
+function Invoke-RolloutDiagKubectl {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string[]] $Params,
+        [Parameter(Mandatory = $true)]
+        [string] $Description
+    )
+
+    Write-Log "[RolloutDiag] kubectl $Description" -Console
+    $result = Invoke-Kubectl -Params $Params
+
+    if (-not [string]::IsNullOrWhiteSpace($result.Output)) {
+        $result.Output | Write-Log
+    }
+
+    if (-not $result.Success) {
+        Write-Log "[RolloutDiag] Command failed: kubectl $Description" -Console
+    }
+
+    return $result
+}
+
+function Capture-RolloutTimeoutDiagnostics {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string] $Reason
+    )
+
+    Write-Log "[RolloutDiag] Capturing diagnostics because: $Reason" -Console
+
+    $snapshotCommands = @(
+        @{ Description = 'get pods -n rollout -o wide'; Params = @('get', 'pods', '-n', 'rollout', '-o', 'wide') },
+        @{ Description = 'get deployments -n rollout -o wide'; Params = @('get', 'deployments', '-n', 'rollout', '-o', 'wide') },
+        @{ Description = 'get statefulsets -n rollout -o wide'; Params = @('get', 'statefulsets', '-n', 'rollout', '-o', 'wide') },
+        @{ Description = 'get replicasets -n rollout -o wide'; Params = @('get', 'replicasets', '-n', 'rollout', '-o', 'wide') },
+        @{ Description = 'get events -n rollout --sort-by=.lastTimestamp'; Params = @('get', 'events', '-n', 'rollout', '--sort-by=.lastTimestamp') },
+        @{ Description = 'describe deployment argocd-applicationset-controller -n rollout'; Params = @('describe', 'deployment', 'argocd-applicationset-controller', '-n', 'rollout') },
+        @{ Description = 'describe deployment argocd-dex-server -n rollout'; Params = @('describe', 'deployment', 'argocd-dex-server', '-n', 'rollout') },
+        @{ Description = 'describe deployment argocd-notifications-controller -n rollout'; Params = @('describe', 'deployment', 'argocd-notifications-controller', '-n', 'rollout') },
+        @{ Description = 'describe deployment argocd-redis -n rollout'; Params = @('describe', 'deployment', 'argocd-redis', '-n', 'rollout') },
+        @{ Description = 'describe deployment argocd-repo-server -n rollout'; Params = @('describe', 'deployment', 'argocd-repo-server', '-n', 'rollout') },
+        @{ Description = 'describe deployment argocd-server -n rollout'; Params = @('describe', 'deployment', 'argocd-server', '-n', 'rollout') },
+        @{ Description = 'describe statefulset argocd-application-controller -n rollout'; Params = @('describe', 'statefulset', 'argocd-application-controller', '-n', 'rollout') }
+    )
+
+    foreach ($entry in $snapshotCommands) {
+        Invoke-RolloutDiagKubectl -Params $entry.Params -Description $entry.Description | Out-Null
+    }
+
+    $podNamesResult = Invoke-RolloutDiagKubectl -Params @('get', 'pods', '-n', 'rollout', '-o', 'name') -Description 'get pods -n rollout -o name'
+    if (-not $podNamesResult.Success) {
+        Write-Log '[RolloutDiag] Unable to enumerate rollout namespace pods for per-pod diagnostics.' -Console
+        return
+    }
+
+    $podNames = @($podNamesResult.Output -split "`r?`n") | ForEach-Object { $_.Trim() } | Where-Object { $_ -ne '' }
+    foreach ($podName in $podNames) {
+        Invoke-RolloutDiagKubectl -Params @('describe', $podName, '-n', 'rollout') -Description "describe $podName -n rollout" | Out-Null
+        Invoke-RolloutDiagKubectl -Params @('logs', $podName, '-n', 'rollout', '--all-containers=true', '--tail=200') -Description "logs $podName -n rollout --all-containers=true --tail=200" | Out-Null
+        Invoke-RolloutDiagKubectl -Params @('logs', $podName, '-n', 'rollout', '--all-containers=true', '--previous', '--tail=200') -Description "logs $podName -n rollout --all-containers=true --previous --tail=200" | Out-Null
+    }
+}
+
 Update-IngressForAddon -Addon ([pscustomobject] @{Name = 'rollout'; Implementation = 'argocd' })
 
 $EnancedSecurityEnabled = Test-LinkerdServiceAvailability
@@ -29,8 +92,20 @@ if ($EnancedSecurityEnabled) {
 }
 (Invoke-Kubectl -Params 'rollout', 'restart', 'deployment', '-n', 'rollout').Output | Write-Log
 (Invoke-Kubectl -Params 'rollout', 'restart', 'statefulset', '-n', 'rollout').Output | Write-Log
-(Invoke-Kubectl -Params 'rollout', 'status', 'deployment', '-n', 'rollout', '--timeout', '60s').Output | Write-Log
-(Invoke-Kubectl -Params 'rollout', 'status', 'statefulset', '-n', 'rollout', '--timeout', '60s').Output | Write-Log
+
+# Evidence: failing validation logs show repeated "timed out waiting for the condition"
+# emitted by Update.ps1 during rollout status checks in non-interactive workflow VMs.
+$deploymentRollout = Invoke-Kubectl -Params 'rollout', 'status', 'deployment', '-n', 'rollout', '--timeout', '60s'
+$deploymentRollout.Output | Write-Log
+$statefulsetRollout = Invoke-Kubectl -Params 'rollout', 'status', 'statefulset', '-n', 'rollout', '--timeout', '60s'
+$statefulsetRollout.Output | Write-Log
+
+$rolloutOutput = "$($deploymentRollout.Output)`n$($statefulsetRollout.Output)"
+$rolloutTimedOut = ($rolloutOutput -match 'timed out waiting for the condition')
+$rolloutFailed = (-not $deploymentRollout.Success) -or (-not $statefulsetRollout.Success)
+if ($rolloutTimedOut -or $rolloutFailed) {
+    Capture-RolloutTimeoutDiagnostics -Reason 'ArgoCD rollout status failed or timed out after restart in Update.ps1'
+}
 
 if (Test-NginxGatewayAvailability) {
     Write-Log 'Creating ArgoCD CA certificate ConfigMap for nginx-gw BackendTLSPolicy' -Console
