@@ -370,30 +370,91 @@ Expected:
 - `ceph-dokan` process is running,
 - `C:\ceph\data` is accessible.
 
-### 2. Run a Windows pod using the host mount
+### 2. Write data from a Windows pod
 
-Apply the sample workload:
+Create a Windows writer pod that mounts the native CephFS host path and writes a file:
 
 ```powershell
-kubectl apply -f addons/storage/ceph/example/win-ceph-consumer.yaml
-kubectl wait --for=condition=Ready pod/win-ceph-consumer --timeout=300s
-kubectl logs win-ceph-consumer
+kubectl delete pod ceph-win-writer ceph-win-reader --ignore-not-found
+@'
+apiVersion: v1
+kind: Pod
+metadata:
+  name: ceph-win-writer
+spec:
+  nodeSelector:
+    kubernetes.io/os: windows
+  tolerations:
+  - key: kubernetes.io/os
+    operator: Equal
+    value: Windows
+    effect: NoSchedule
+  containers:
+  - name: writer
+    image: mcr.microsoft.com/windows/nanoserver:ltsc2022
+    command: ['powershell.exe', '-Command', 'Set-Content -Path C:\\data\\hello.txt -Value "hello from windows ceph"; Get-Content -Path C:\\data\\hello.txt; Start-Sleep -Seconds 3600']
+    volumeMounts:
+    - name: data
+      mountPath: 'C:\\data'
+  volumes:
+  - name: data
+    hostPath:
+      path: 'C:\\ceph\\data'
+      type: Directory
+'@ | kubectl apply -f -
+
+kubectl wait --for=condition=Ready pod/ceph-win-writer --timeout=300s
+kubectl logs ceph-win-writer
 ```
 
-The pod writes/reads a file in `C:\data`, which maps to `C:\ceph\data` on the node.
+Expected output: `hello from windows ceph`.
 
-### 3. Validate cross-OS data sharing (Windows -> Linux and Linux -> Windows)
+### 3. Verify shared access from a second Windows pod
 
-Create a Linux PVC-backed pod and a Windows hostPath pod that point at the same CephFS subvolume:
+Create a Windows reader pod that mounts the same CephFS-backed host path and reads the file:
 
-1. Create PVC and Linux pod (`ceph-cephfs`) and wait for `Bound/Ready`.
-2. Resolve the PV's CephFS subvolume path from `spec.csi.volumeAttributes.subvolumePath`.
-3. In the Windows pod, write to `C:\data\<subvolumePath>\from-windows.txt`.
-4. In the Linux PVC pod, read `/mnt/data/from-windows.txt`.
-5. Write `/mnt/data/from-linux.txt` in Linux and read it from Windows at
-  `C:\data\<subvolumePath>\from-linux.txt`.
+```powershell
+@'
+apiVersion: v1
+kind: Pod
+metadata:
+  name: ceph-win-reader
+spec:
+  nodeSelector:
+    kubernetes.io/os: windows
+  tolerations:
+  - key: kubernetes.io/os
+    operator: Equal
+    value: Windows
+    effect: NoSchedule
+  containers:
+  - name: reader
+    image: mcr.microsoft.com/windows/nanoserver:ltsc2022
+    command: ['powershell.exe', '-Command', 'Get-Content -Path C:\\data\\hello.txt; Start-Sleep -Seconds 3600']
+    volumeMounts:
+    - name: data
+      mountPath: 'C:\\data'
+  volumes:
+  - name: data
+    hostPath:
+      path: 'C:\\ceph\\data'
+      type: Directory
+'@ | kubectl apply -f -
 
-This exact scenario is covered by the dedicated e2e suite:
+kubectl wait --for=condition=Ready pod/ceph-win-reader --timeout=300s
+kubectl logs ceph-win-reader
+```
+
+The reader pod should print the same `hello from windows ceph` content written by the writer pod,
+confirming that both Windows pods can read and write through the same CephFS-backed host mount.
+
+### 4. Clean up the Windows test resources
+
+```powershell
+kubectl delete pod ceph-win-writer ceph-win-reader --ignore-not-found
+```
+
+Cross-OS validation is covered separately by the dedicated e2e suite:
 
 ```console
 go test ./k2s/test/e2e/addons/storage/ceph/windowscross -v

@@ -575,14 +575,14 @@ if (-not $Keep) {
 
 Remove-CephCsiKubernetesResources -ManifestsDir "$PSScriptRoot\manifests"
 
-# Remove the Ceph node plugin from Windows worker node(s): delete the Windows CSI node plugin
-# manifests and the Ceph client configuration written on the Windows host during enable.
+# Remove the native Ceph client setup from Windows worker node(s): unmount CephFS, remove the
+# startup task, delete the native client configuration and uninstall the Ceph/Dokany components.
 $setupInfo = Get-SetupInfo
 if ($setupInfo.LinuxOnly -ne $true) {
     $removeWindowsScript = "$PSScriptRoot\scripts\windows\Remove-CephFromWindows.ps1"
     if (Test-Path $removeWindowsScript) {
-        Write-Log '[Ceph] Removing Ceph node plugin from Windows worker node(s)' -Console
-        & $removeWindowsScript -ShowLogs:$ShowLogs
+        Write-Log '[Ceph] Removing native Ceph setup from Windows worker node(s)' -Console
+        & $removeWindowsScript -RemoveClient -ShowLogs:$ShowLogs
         if ($LASTEXITCODE -ne 0) {
             Write-Log "[Ceph] WARNING: Windows Ceph native setup removal returned exit code $LASTEXITCODE." -Console
         }
