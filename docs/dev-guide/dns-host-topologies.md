@@ -43,7 +43,7 @@ separate Kubernetes-zone resolution from normal external DNS resolution.
 | Worker-facing endpoint | KubeSwitch address on port 53 | Configured KubeSwitch address on port 53 |
 | Host resolver integration | Windows DNS proxy / host networking integration | Temporary K2s-owned `/etc/resolv.conf` pointing to loopback DNS proxy |
 | Physical NIC DNS | Windows flow can configure host networking | Never modified by native Linux K2s |
-| External DNS | Forwarded by Windows DNS proxy | Original nameservers are captured and forwarded by Linux DNS proxy |
+| External DNS | Forwarded by Windows DNS proxy | DNS-over-HTTPS fallback through the K2s HTTP proxy |
 | Stop behavior | K2s DNS services stop | Resolver state is restored first, then K2s DNS proxy stops |
 
 ## Compatibility boundary
