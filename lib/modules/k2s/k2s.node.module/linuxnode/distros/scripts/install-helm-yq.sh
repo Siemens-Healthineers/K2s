@@ -4,6 +4,10 @@
 # SPDX-License-Identifier: MIT
 set -e
 
+work_dir=$(mktemp -d)
+trap 'rm -rf "$work_dir"' EXIT
+cd "$work_dir"
+
 
 # Try to get proxy from apt or environment
 PROXY=""
@@ -17,9 +21,9 @@ fi
 echo "Proxy detected: $PROXY"
 
 # Set curl proxy option if proxy is set
-CURL_PROXY_OPT=""
+CURL_PROXY_ARGS=()
 if [ -n "$PROXY" ]; then
-    CURL_PROXY_OPT="--proxy $PROXY"
+    CURL_PROXY_ARGS=(--proxy "$PROXY")
 fi
 
 # Install yq
@@ -30,7 +34,7 @@ if ! command -v yq &> /dev/null; then
     if [[ "$ARCH" == "x86_64" ]]; then
         ARCH="amd64"
     fi
-    sudo curl -fL $CURL_PROXY_OPT -o /usr/local/bin/yq "https://github.com/mikefarah/yq/releases/download/${YQ_VERSION}/yq_linux_${ARCH}" --silent
+    sudo curl -fL "${CURL_PROXY_ARGS[@]}" -o /usr/local/bin/yq "https://github.com/mikefarah/yq/releases/download/${YQ_VERSION}/yq_linux_${ARCH}" --silent
     sudo chmod +x /usr/local/bin/yq
     yq --version
 else
@@ -45,7 +49,7 @@ if ! command -v helm &> /dev/null; then
     if [[ "$ARCH" == "x86_64" ]]; then
         ARCH="amd64"
     fi
-    curl -fL $CURL_PROXY_OPT -o "helm-${HELM_VERSION}-linux-${ARCH}.tar.gz" "https://get.helm.sh/helm-${HELM_VERSION}-linux-${ARCH}.tar.gz" --silent
+    curl -fL "${CURL_PROXY_ARGS[@]}" -o "helm-${HELM_VERSION}-linux-${ARCH}.tar.gz" "https://get.helm.sh/helm-${HELM_VERSION}-linux-${ARCH}.tar.gz" --silent
     tar -xzf "helm-${HELM_VERSION}-linux-${ARCH}.tar.gz"
     sudo mv "linux-${ARCH}/helm" /usr/local/bin/helm
     sudo chmod +x /usr/local/bin/helm
