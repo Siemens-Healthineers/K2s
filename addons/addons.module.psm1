@@ -1031,17 +1031,30 @@ function Test-KeyCloakServiceAvailability {
 Enables a ingress addon based on the input
 #>
 function Enable-IngressAddon([string]$Ingress) {
+	$scriptExitCode = 0
 	switch ($Ingress) {
 		'nginx' {
 			&"$PSScriptRoot\ingress\nginx\Enable.ps1"
+			$scriptExitCode = if ($null -ne $LASTEXITCODE) { [int]$LASTEXITCODE } else { 0 }
+			if ($scriptExitCode -ne 0) {
+				throw "Failed to enable ingress addon '$Ingress' (exit code: $scriptExitCode)."
+			}
 			break
 		}
 		'nginx-gw' {
 			&"$PSScriptRoot\ingress\nginx-gw\Enable.ps1"
+			$scriptExitCode = if ($null -ne $LASTEXITCODE) { [int]$LASTEXITCODE } else { 0 }
+			if ($scriptExitCode -ne 0) {
+				throw "Failed to enable ingress addon '$Ingress' (exit code: $scriptExitCode)."
+			}
 			break
 		}
 		'traefik' {
 			&"$PSScriptRoot\ingress\traefik\Enable.ps1"
+			$scriptExitCode = if ($null -ne $LASTEXITCODE) { [int]$LASTEXITCODE } else { 0 }
+			if ($scriptExitCode -ne 0) {
+				throw "Failed to enable ingress addon '$Ingress' (exit code: $scriptExitCode)."
+			}
 			break
 		}
 	}
