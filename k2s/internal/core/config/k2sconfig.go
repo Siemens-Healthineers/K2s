@@ -36,6 +36,9 @@ type smallSetup struct {
 	ControlPlanIpAddress string `json:"masterIP"`
 	KubeSwitchIPAddress  string `json:"kubeSwitch"`
 	MasterNetworkCIDR    string `json:"masterNetworkCIDR"`
+	ServicesCIDR         string `json:"servicesCIDR"`
+	ServicesCIDRLinux    string `json:"servicesCIDRLinux"`
+	ServicesCIDRWindows  string `json:"servicesCIDRWindows"`
 }
 
 // KubeSwitchConfig contains the K2s host gateway address and network from the
@@ -44,6 +47,14 @@ type KubeSwitchConfig struct {
 	Address     string
 	CIDR        string
 	AddressCIDR string
+}
+
+// ServiceCIDRConfig contains the overall Kubernetes Service CIDR and the
+// OS-specific allocation partitions enforced by the ClusterIP webhook.
+type ServiceCIDRConfig struct {
+	CIDR        string
+	LinuxCIDR   string
+	WindowsCIDR string
 }
 
 type configDir struct {
@@ -115,6 +126,42 @@ func ReadKubeSwitchCIDR(k2sInstallDir string) (string, error) {
 		return "", err
 	}
 	return config.CIDR, nil
+}
+
+// ReadServiceCIDRConfig loads and validates the Service IP allocation ranges
+// from cfg/config.json. The Linux and Windows partitions must be distinct
+// subnets of the overall Service CIDR configured for kubeadm.
+func ReadServiceCIDRConfig(k2sInstallDir string) (ServiceCIDRConfig, error) {
+	configFilePath := filepath.Join(k2sInstallDir, configFileRelDir, configFileName)
+	configJson, err := json.FromFile[configJson](configFilePath)
+	if err != nil {
+		return ServiceCIDRConfig{}, fmt.Errorf("error reading config file: %w", err)
+	}
+
+	_, serviceNetwork, err := net.ParseCIDR(configJson.SmallSetup.ServicesCIDR)
+	if err != nil {
+		return ServiceCIDRConfig{}, fmt.Errorf("invalid services CIDR %q in config: %w", configJson.SmallSetup.ServicesCIDR, err)
+	}
+	_, linuxNetwork, err := net.ParseCIDR(configJson.SmallSetup.ServicesCIDRLinux)
+	if err != nil {
+		return ServiceCIDRConfig{}, fmt.Errorf("invalid Linux services CIDR %q in config: %w", configJson.SmallSetup.ServicesCIDRLinux, err)
+	}
+	_, windowsNetwork, err := net.ParseCIDR(configJson.SmallSetup.ServicesCIDRWindows)
+	if err != nil {
+		return ServiceCIDRConfig{}, fmt.Errorf("invalid Windows services CIDR %q in config: %w", configJson.SmallSetup.ServicesCIDRWindows, err)
+	}
+	if !serviceNetwork.Contains(linuxNetwork.IP) || !serviceNetwork.Contains(windowsNetwork.IP) {
+		return ServiceCIDRConfig{}, fmt.Errorf("Linux and Windows service CIDRs must be within overall services CIDR %q", configJson.SmallSetup.ServicesCIDR)
+	}
+	if linuxNetwork.Contains(windowsNetwork.IP) || windowsNetwork.Contains(linuxNetwork.IP) {
+		return ServiceCIDRConfig{}, fmt.Errorf("Linux service CIDR %q overlaps Windows service CIDR %q", configJson.SmallSetup.ServicesCIDRLinux, configJson.SmallSetup.ServicesCIDRWindows)
+	}
+
+	return ServiceCIDRConfig{
+		CIDR:        configJson.SmallSetup.ServicesCIDR,
+		LinuxCIDR:   configJson.SmallSetup.ServicesCIDRLinux,
+		WindowsCIDR: configJson.SmallSetup.ServicesCIDRWindows,
+	}, nil
 }
 
 // ReadKubeSwitchConfig loads and validates the configured KubeSwitch address

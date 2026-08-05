@@ -9,6 +9,8 @@ import (
 	"reflect"
 	"strings"
 	"testing"
+
+	"github.com/siemens-healthineers/k2s/internal/core/config"
 )
 
 func TestNodeNamesFromKubectlOutput(t *testing.T) {
@@ -74,5 +76,18 @@ func TestResolverIsImmutableFromOutput(t *testing.T) {
 	}
 	if _, err := resolverIsImmutableFromOutput(""); err == nil {
 		t.Fatal("empty lsattr output returned nil error")
+	}
+}
+
+func TestRenderClusterIPWebhookDeploymentUsesConfiguredPartitions(t *testing.T) {
+	t.Parallel()
+
+	manifest := "--linux-subnet=172.21.0.0/24\n--windows-subnet=172.21.1.0/24\n"
+	rendered := renderClusterIPWebhookDeployment(manifest, config.ServiceCIDRConfig{
+		LinuxCIDR:   "10.10.0.0/24",
+		WindowsCIDR: "10.10.1.0/24",
+	})
+	if !strings.Contains(rendered, "--linux-subnet=10.10.0.0/24") || !strings.Contains(rendered, "--windows-subnet=10.10.1.0/24") {
+		t.Fatalf("rendered webhook deployment did not contain configured CIDRs: %q", rendered)
 	}
 }

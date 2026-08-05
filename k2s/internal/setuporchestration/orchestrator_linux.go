@@ -81,6 +81,9 @@ func (o *LinuxOrchestrator) Install(cfg InstallConfig) error {
 	if err := o.deployFlannel(cfg); err != nil {
 		return fmt.Errorf("failed to deploy flannel: %w", err)
 	}
+	if err := o.deployClusterIPWebhook(cfg); err != nil {
+		return fmt.Errorf("failed to deploy ClusterIP allocation webhook: %w", err)
+	}
 	if err := o.installControlPlaneTools(cfg); err != nil {
 		return fmt.Errorf("failed to install native Linux control-plane tools: %w", err)
 	}
@@ -124,6 +127,7 @@ func (o *LinuxOrchestrator) Uninstall(cfg UninstallConfig) error {
 
 	// Reset kubeadm
 	if !cfg.SkipPurge {
+		o.removeClusterIPWebhook()
 		_ = runCommand("systemctl", "stop", "kubelet")
 		if err := runCommand("kubeadm", "reset", "-f"); err != nil {
 			slog.Warn("[Uninstall] kubeadm reset failed (may already be clean)", "error", err)
@@ -455,6 +459,60 @@ func (o *LinuxOrchestrator) installControlPlaneTools(cfg InstallConfig) error {
 		}
 	}
 	return nil
+}
+
+// deployClusterIPWebhook keeps native Linux aligned with the Windows-host
+// kubemaster topology: kubeadm allocates from the overall Service CIDR, while
+// the existing webhook assigns workload Services from OS-specific partitions.
+func (o *LinuxOrchestrator) deployClusterIPWebhook(cfg InstallConfig) error {
+	serviceCIDRs, err := config.ReadServiceCIDRConfig(cfg.InstallDir)
+	if err != nil {
+		return err
+	}
+	manifestDir := filepath.Join(cfg.InstallDir, "lib", "manifests", "clusterip-webhook")
+	for _, manifest := range []string{"namespace.yaml", "rbac.yaml", "webhook-config.yaml"} {
+		manifestPath := filepath.Join(manifestDir, manifest)
+		if err := runCommandWithLogs(cfg.ShowLogs, "kubectl", "--kubeconfig", kubeconfigSrc, "apply", "-f", manifestPath); err != nil {
+			return fmt.Errorf("apply ClusterIP webhook manifest %s: %w", manifest, err)
+		}
+	}
+
+	deploymentPath := filepath.Join(manifestDir, "deployment.yaml")
+	deployment, err := os.ReadFile(deploymentPath)
+	if err != nil {
+		return fmt.Errorf("read ClusterIP webhook deployment: %w", err)
+	}
+	renderedPath := filepath.Join("/tmp", "k2s-clusterip-webhook-deployment.yaml")
+	if err := os.WriteFile(renderedPath, []byte(renderClusterIPWebhookDeployment(string(deployment), serviceCIDRs)), 0600); err != nil {
+		return fmt.Errorf("write rendered ClusterIP webhook deployment: %w", err)
+	}
+	defer os.Remove(renderedPath)
+	if err := runCommandWithLogs(cfg.ShowLogs, "kubectl", "--kubeconfig", kubeconfigSrc, "apply", "-f", renderedPath); err != nil {
+		return fmt.Errorf("apply ClusterIP webhook deployment: %w", err)
+	}
+	if err := runCommand("kubectl", "--kubeconfig", kubeconfigSrc, "rollout", "status", "deployment/clusterip-webhook", "-n", "k2s-webhook", "--timeout=120s"); err != nil {
+		return fmt.Errorf("wait for ClusterIP webhook readiness: %w", err)
+	}
+	slog.Info("[Install] ClusterIP allocation webhook deployed", "linuxServiceCIDR", serviceCIDRs.LinuxCIDR, "windowsServiceCIDR", serviceCIDRs.WindowsCIDR)
+	return nil
+}
+
+func renderClusterIPWebhookDeployment(manifest string, serviceCIDRs config.ServiceCIDRConfig) string {
+	manifest = strings.ReplaceAll(manifest, "--linux-subnet=172.21.0.0/24", "--linux-subnet="+serviceCIDRs.LinuxCIDR)
+	return strings.ReplaceAll(manifest, "--windows-subnet=172.21.1.0/24", "--windows-subnet="+serviceCIDRs.WindowsCIDR)
+}
+
+func (o *LinuxOrchestrator) removeClusterIPWebhook() {
+	for _, resource := range []string{
+		"mutatingwebhookconfiguration/k2s-webhook",
+		"clusterrolebinding/k2s:clusterip-webhook",
+		"clusterrole/k2s:clusterip-webhook",
+		"namespace/k2s-webhook",
+	} {
+		if err := runCommand("kubectl", "--kubeconfig", kubeconfigSrc, "delete", resource, "--ignore-not-found=true", "--wait=false"); err != nil {
+			slog.Warn("[Uninstall] Could not remove ClusterIP webhook resource", "resource", resource, "error", err)
+		}
+	}
 }
 
 // ---------- readiness checks ----------
