@@ -113,9 +113,16 @@ spec:
       commands:
         enable:
           cli:
+            flags:
+              - name: setupWindowsNode
+                shorthand: w
+                default: false
+                description: Configure native Ceph client and host mount on Windows worker node(s)
             examples:
               - cmd: k2s addons enable storage ceph
                 comment: Enables experimental Ceph CSI CephFS storage provisioning using config in 'addons/storage/ceph/config'
+              - cmd: k2s addons enable storage ceph -w
+                comment: Enables Ceph CSI and additionally configures native Ceph client and host mount on Windows worker node(s)
           script:
             subPath: ceph/Enable.ps1
             parameterMappings:
@@ -125,6 +132,8 @@ spec:
                 scriptParameterName: AdminKey
               - cliFlagName: cephfsPool
                 scriptParameterName: CephfsPool
+              - cliFlagName: setupWindowsNode
+                scriptParameterName: SetupWindowsNode
         disable:
           cli:
             flags:
@@ -132,26 +141,16 @@ spec:
                 shorthand: f
                 default: false
                 description: Disable the addon and DELETE ALL PERSISTENTVOLUMES without user confirmation
-                exclusionGroup: data-retention
-              - name: keep
-                shorthand: k
-                default: false
-                description: Disable the addon and KEEP ALL PERSISTENTVOLUMES without user confirmation
-                exclusionGroup: data-retention
             examples:
               - cmd: k2s addons disable storage ceph
-                comment: Removes Ceph CSI provisioners and prompts for data retention/deletion
+                comment: Removes Ceph CSI provisioners and prompts for data deletion
               - cmd: k2s addons disable storage ceph -f
                 comment: Removes Ceph CSI provisioners and DELETES ALL DATA without prompting
-              - cmd: k2s addons disable storage ceph -k
-                comment: Removes Ceph CSI provisioners and KEEPS ALL DATA without prompting
           script:
             subPath: ceph/Disable.ps1
             parameterMappings:
               - cliFlagName: force
                 scriptParameterName: Force
-              - cliFlagName: keep
-                scriptParameterName: Keep
         status:
           script:
             subPath: ceph/Get-Status.ps1

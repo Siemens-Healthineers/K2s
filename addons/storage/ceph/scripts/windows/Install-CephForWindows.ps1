@@ -92,6 +92,53 @@ $cephProgramData = "$env:ProgramData\ceph"
 $cephConfPath = "$cephProgramData\ceph.conf"
 $cephKeyringPath = "$cephProgramData\keyring"
 
+# Marker recording which native client components K2s itself installed. Stored OUTSIDE the ceph
+# program-data directory (which is removed on disable) so the uninstall can reliably tell whether
+# Dokany / Ceph were installed by this addon or were pre-existing, shared components that other
+# software may depend on. Never uninstall components K2s did not install.
+$installMarkerDir = Join-Path $env:ProgramData 'k2s\storage-ceph'
+$installMarkerPath = Join-Path $installMarkerDir 'windows-install-marker.json'
+
+function Save-CephInstallMarker {
+    param(
+        [Nullable[bool]]$DokanyInstalledByK2s,
+        [Nullable[bool]]$CephInstalledByK2s
+    )
+
+    $dokany = $false
+    $ceph = $false
+    try {
+        if (Test-Path -Path $installMarkerPath) {
+            $existing = Get-Content -Path $installMarkerPath -Raw | ConvertFrom-Json
+            if ($existing.PSObject.Properties.Name -contains 'dokanyInstalledByK2s') { $dokany = [bool]$existing.dokanyInstalledByK2s }
+            if ($existing.PSObject.Properties.Name -contains 'cephInstalledByK2s') { $ceph = [bool]$existing.cephInstalledByK2s }
+        }
+    }
+    catch {
+        Write-Log "[CephWin] WARNING: Could not read existing install marker '$installMarkerPath': $($_.Exception.Message)" -Console
+    }
+
+    # Once K2s has installed a component, keep it flagged as owned. A later re-enable that finds it
+    # already present must not flip ownership back to false.
+    if ($null -ne $DokanyInstalledByK2s) { $dokany = $dokany -or [bool]$DokanyInstalledByK2s }
+    if ($null -ne $CephInstalledByK2s) { $ceph = $ceph -or [bool]$CephInstalledByK2s }
+
+    try {
+        if (-not (Test-Path -Path $installMarkerDir)) {
+            New-Item -Path $installMarkerDir -ItemType Directory -Force | Out-Null
+        }
+        [pscustomobject]@{
+            dokanyInstalledByK2s = $dokany
+            cephInstalledByK2s   = $ceph
+            updated              = (Get-Date).ToString('o')
+        } | ConvertTo-Json | Set-Content -Path $installMarkerPath -Encoding ascii -Force
+        Write-Log "[CephWin] Recorded native client install ownership (Dokany=$dokany, Ceph=$ceph) in '$installMarkerPath'." -Console
+    }
+    catch {
+        Write-Log "[CephWin] WARNING: Could not write install marker '$installMarkerPath': $($_.Exception.Message)" -Console
+    }
+}
+
 function Resolve-TransparentProxy {
     param(
         [string]$Proxy
@@ -268,18 +315,6 @@ function Write-CephClientConfiguration {
     }
 }
 
-function Test-SecureBootDisabled {
-    # The WNBD driver is not signed by Microsoft, so Secure Boot must be disabled for RBD mapping.
-    try {
-        $secureBoot = Confirm-SecureBootUEFI -ErrorAction Stop
-        return (-not $secureBoot)
-    }
-    catch {
-        # Confirm-SecureBootUEFI throws on legacy BIOS systems where Secure Boot does not apply.
-        return $true
-    }
-}
-
 function Resolve-CephCliPath {
     # ceph.exe is shipped by the Ceph for Windows MSI. Prefer PATH, then the default install location.
     # Refresh PATH first in case the MSI just ran in this session.
@@ -325,36 +360,39 @@ try {
     # If no proxy is explicitly provided, try the K2s transparent proxy (kubeswitch:8181).
     $effectiveProxy = Resolve-TransparentProxy -Proxy $Proxy
 
-    $secureBootEnabled = -not (Test-SecureBootDisabled)
-    if ($secureBootEnabled) {
-        Write-Log '[CephWin] WARNING: Secure Boot is ENABLED. The WNBD RBD driver cannot be installed (unsigned). Skipping WNBD driver feature; CephFS mounting via ceph-dokan will still work.' -Console
-    }
-
     if (Test-DokanyInstalled) {
         Write-Log '[CephWin] Dokany is already installed; skipping Dokany installation.' -Console
+        $dokanyInstalledByK2s = $false
     }
     else {
         $dokanySource = Resolve-MsiSource -DisplayName 'Dokany' -LocalPath $DokanyMsiPath -Url $DokanyMsiUrl -Proxy $effectiveProxy
         Install-MsiPackage -DisplayName 'Dokany' -MsiPath $dokanySource
+        $dokanyInstalledByK2s = $true
     }
 
     if (Test-CephWindowsClientInstalled) {
         Write-Log '[CephWin] Ceph for Windows client is already installed; skipping client installation.' -Console
+        $cephInstalledByK2s = $false
     }
     else {
         $cephSource = Resolve-MsiSource -DisplayName 'Ceph for Windows' -LocalPath $CephMsiPath -Url $CephMsiUrl -Proxy $effectiveProxy
-        # When Secure Boot is enabled the WNBD kernel driver cannot be loaded (unsigned driver).
-        # ADDLOCAL to install only the CephCLI feature, completely skipping WindowsCephDriver so its
-        # InstallWindowsCephDriver custom action (wnbd-client.exe install-driver) never runs.
+        # This addon uses CephFS (file) storage only, mounted natively via ceph-dokan (Dokany). The
+        # WNBD RBD block-device driver is never needed, so ALWAYS install only the CephCLI feature and
+        # skip WindowsCephDriver entirely. This avoids installing an unsigned kernel driver (which
+        # also cannot load when Secure Boot is enabled) and the reboot its install requests.
         # IMPORTANT: do NOT include VC142Redist in ADDLOCAL — it is a child of WindowsCephDriver in
         # the MSI feature tree, so adding it would silently pull WindowsCephDriver back in.
         # The Visual C++ 2019 runtime is expected to be pre-installed (via Dokany, Windows Update,
         # or the OS image). ceph-dokan.exe (CephFS via Dokany) is in CephCLI and works without WNBD.
-        $cephMsiProps = if ($secureBootEnabled) { @('ADDLOCAL=CephCLI') } else { @() }
+        $cephMsiProps = @('ADDLOCAL=CephCLI')
         Install-MsiPackage -DisplayName 'Ceph for Windows' -MsiPath $cephSource -ExtraProperties $cephMsiProps
         # Refresh PATH so the new Ceph binaries are visible to Get-Command in this session.
         Update-PathFromRegistry
+        $cephInstalledByK2s = $true
     }
+
+    # Persist which components this addon actually installed for diagnostics and reproducibility.
+    Save-CephInstallMarker -DokanyInstalledByK2s $dokanyInstalledByK2s -CephInstalledByK2s $cephInstalledByK2s
 
     Write-CephClientConfiguration -MonitorEndpoints $MonitorEndpoints -AdminKey $AdminKey -ClusterId $ClusterId -CephUser $CephUser
 

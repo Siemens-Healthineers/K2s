@@ -21,12 +21,17 @@ If log output shall be streamed also to CLI output.
 
 .PARAMETER CephfsPool
 CephFS data pool name (default: cephfs_data)
+
+.PARAMETER SetupWindowsNode
+If set, configures native Ceph client and host mount on Windows worker node(s).
 #>
 Param(
     [parameter(Mandatory = $false, HelpMessage = 'Show all logs in terminal')]
     [switch] $ShowLogs = $false,
     [parameter(Mandatory = $false, HelpMessage = 'CephFS data pool name')]
     [string] $CephfsPool = 'cephfs_data',
+    [parameter(Mandatory = $false, HelpMessage = 'Configure native Ceph client and host mount on Windows worker node(s)')]
+    [switch] $SetupWindowsNode = $false,
     [parameter(Mandatory = $false, HelpMessage = 'JSON config object to override preceding parameters')]
     [pscustomobject] $Config,
     [parameter(Mandatory = $false, HelpMessage = 'If set to true, will encode and send result as structured data to the CLI.')]
@@ -110,6 +115,8 @@ function Write-CephUsageForUser {
     [Parameter(Mandatory = $false)]
     [string]$ClusterId = '',
     [Parameter(Mandatory = $false)]
+    [string]$StorageClassName = 'ceph-cephfs',
+    [Parameter(Mandatory = $false)]
     [string]$DashboardUrl = '',
     [Parameter(Mandatory = $false)]
     [string]$DashboardUser = '',
@@ -123,7 +130,7 @@ function Write-CephUsageForUser {
  The Ceph CSI storage addon is enabled. Dynamic CephFS provisioning is available
  through the following Kubernetes StorageClass:
 
-     StorageClass:      ceph-cephfs
+     StorageClass:      $StorageClassName
      Provisioner:       cephfs.csi.ceph.com
      CephFS filesystem: $CephfsFilesystem
      CephFS pool:       $CephfsPool
@@ -138,7 +145,7 @@ function Write-CephUsageForUser {
      spec:
        accessModes:
          - ReadWriteMany
-       storageClassName: ceph-cephfs
+       storageClassName: $StorageClassName
        resources:
          requests:
            storage: 1Gi
@@ -214,6 +221,8 @@ function Read-CephConnectionConfig {
   $script:cephUser = if ($Config -and -not [string]::IsNullOrWhiteSpace($Config.cephUser)) { "$($Config.cephUser)" } else { 'client.admin' }
   $script:clusterId = if ($Config -and -not [string]::IsNullOrWhiteSpace($Config.clusterId)) { "$($Config.clusterId)" } else { 'k2s-ceph' }
   $script:cephfsFilesystem = if ($Config -and -not [string]::IsNullOrWhiteSpace($Config.cephfsFilesystem)) { "$($Config.cephfsFilesystem)" } else { 'cephfs' }
+  $script:storageClassName = if ($Config -and -not [string]::IsNullOrWhiteSpace($Config.storageClassName)) { "$($Config.storageClassName)" } else { 'ceph-cephfs' }
+  $script:storageClassReclaimPolicy = if ($Config -and -not [string]::IsNullOrWhiteSpace($Config.storageClassReclaimPolicy)) { "$($Config.storageClassReclaimPolicy)" } else { 'Delete' }
 
   if ($Config -and -not [string]::IsNullOrWhiteSpace($Config.cephfsPool)) { $script:CephfsPool = "$($Config.cephfsPool)" }
   if ($Config -and -not [string]::IsNullOrWhiteSpace($Config.monitorEndpoints)) { $script:MonitorEndpoints = "$($Config.monitorEndpoints)" }
@@ -492,10 +501,10 @@ stringData:
 apiVersion: storage.k8s.io/v1
 kind: StorageClass
 metadata:
-  name: ceph-cephfs
+  name: $script:storageClassName
 provisioner: cephfs.csi.ceph.com
 allowVolumeExpansion: true
-reclaimPolicy: Delete
+reclaimPolicy: $script:storageClassReclaimPolicy
 volumeBindingMode: Immediate
 parameters:
   clusterID: storage
@@ -573,23 +582,31 @@ Write-Log "[Ceph] Ceph CSI pods are Ready" -Console
 # from cluster.json and installs/configures the client using the freshly provisioned cluster's
 # connection details (already loaded into $Config by New-CephCluster.ps1). Only run this for a k2s
 # cluster that actually has a Windows node.
-if ($setupInfo.LinuxOnly -ne $true) {
-  $windowsNodeScript = "$PSScriptRoot\scripts\windows\New-CephWindowsNode.ps1"
-  if (-not (Test-Path $windowsNodeScript)) {
-    Write-Log "[Ceph] WARNING: Windows Ceph native setup script not found at '$windowsNodeScript'; skipping Windows Ceph native setup." -Console
+if ($SetupWindowsNode -eq $true) {
+  if ($setupInfo.LinuxOnly -eq $true) {
+    Write-Log '[Ceph] setupWindowsNode flag was provided, but this is a Linux-only setup; skipping Windows Ceph native setup.' -Console
   }
   else {
-    Write-Log "[Ceph] Configuring native Ceph client and host mount on Windows worker node(s)" -Console
-    & $windowsNodeScript -Config $Config -ShowLogs:$ShowLogs
-    if ($LASTEXITCODE -ne 0) {
-      Write-Log "[Ceph] ERROR: Windows Ceph native setup failed (exit code $LASTEXITCODE)." -Console -Error
-      if ($EncodeStructuredOutput -eq $true) {
-        Send-ToCli -MessageType $MessageType -Message @{Error = (New-CephStructuredError -Message 'Windows Ceph native setup failed') }
-      }
-      exit 1
+    $windowsNodeScript = "$PSScriptRoot\scripts\windows\New-CephWindowsNode.ps1"
+    if (-not (Test-Path $windowsNodeScript)) {
+      Write-Log "[Ceph] WARNING: Windows Ceph native setup script not found at '$windowsNodeScript'; skipping Windows Ceph native setup." -Console
     }
-    Write-Log "[Ceph] Windows Ceph native setup completed successfully" -Console
+    else {
+      Write-Log "[Ceph] Configuring native Ceph client and host mount on Windows worker node(s)" -Console
+      & $windowsNodeScript -Config $Config -ShowLogs:$ShowLogs
+      if ($LASTEXITCODE -ne 0) {
+        Write-Log "[Ceph] ERROR: Windows Ceph native setup failed (exit code $LASTEXITCODE)." -Console -Error
+        if ($EncodeStructuredOutput -eq $true) {
+          Send-ToCli -MessageType $MessageType -Message @{Error = (New-CephStructuredError -Message 'Windows Ceph native setup failed') }
+        }
+        exit 1
+      }
+      Write-Log "[Ceph] Windows Ceph native setup completed successfully" -Console
+    }
   }
+}
+else {
+  Write-Log '[Ceph] Skipping native Windows Ceph setup (setupWindowsNode flag not set).' -Console
 }
 
 Update-StorageImplementationRegistry -Implementation 'ceph' -Enabled $true
@@ -617,6 +634,7 @@ $dashboardPassword = if ($Config -and ($Config.PSObject.Properties.Name -contain
 Write-CephUsageForUser -CephfsFilesystem $script:cephfsFilesystem `
                        -CephfsPool $script:CephfsPool `
                        -ClusterId $script:clusterId `
+                       -StorageClassName $script:storageClassName `
                        -DashboardUrl $dashboardUrl `
                        -DashboardUser $dashboardUser `
                        -DashboardPassword $dashboardPassword
@@ -626,7 +644,7 @@ if ($EncodeStructuredOutput -eq $true) {
         Error = $null
         Status = "Ceph CSI addon enabled successfully"
         AddonName = $addonName
-      StorageClasses = @('ceph-cephfs')
+      StorageClasses = @($script:storageClassName)
     }
 }
 

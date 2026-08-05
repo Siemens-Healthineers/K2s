@@ -15,17 +15,12 @@ If log output shall be streamed also to CLI output.
 
 .PARAMETER Force
 Delete all PersistentVolumes when disabling (data loss)
-
-.PARAMETER Keep
-Keep all PersistentVolumes when disabling (data preserved)
 #>
 Param(
     [parameter(Mandatory = $false, HelpMessage = 'Show all logs in terminal')]
     [switch] $ShowLogs = $false,
     [parameter(Mandatory = $false, HelpMessage = 'Delete all PersistentVolumes (data loss)')]
     [switch] $Force = $false,
-    [parameter(Mandatory = $false, HelpMessage = 'Keep all PersistentVolumes (data preserved)')]
-    [switch] $Keep = $false,
     [parameter(Mandatory = $false, HelpMessage = 'JSON config object to override preceding parameters')]
     [pscustomobject] $Config,
     [parameter(Mandatory = $false, HelpMessage = 'If set to true, will encode and send result as structured data to the CLI.')]
@@ -53,7 +48,8 @@ not part of any manifest.
 #>
 function Remove-CephCsiKubernetesResources {
     param(
-        [Parameter(Mandatory = $true)][string]$ManifestsDir
+        [Parameter(Mandatory = $true)][string]$ManifestsDir,
+        [string]$StorageClassName = 'ceph-cephfs'
     )
 
     (Invoke-Kubectl -Params 'delete', '-k', $ManifestsDir, '--ignore-not-found', '--wait=false').Output | Write-Log
@@ -91,7 +87,7 @@ function Remove-CephCsiKubernetesResources {
         Remove-Item -Path $finalizerPatchFile -Force -ErrorAction SilentlyContinue
     }
 
-    (Invoke-Kubectl -Params 'delete', 'storageclass', 'ceph-cephfs', '--ignore-not-found').Output | Write-Log
+    (Invoke-Kubectl -Params 'delete', 'storageclass', $StorageClassName, '--ignore-not-found').Output | Write-Log
 
     # Remove the CSIDriver object that the operator creates dynamically for the CephFS driver.
     # It is cluster-scoped and not part of any manifest, so 'delete -k' does not remove it and it
@@ -158,6 +154,21 @@ function Get-CephClusterHostNode {
     return [pscustomobject]@{ Name = $clusterHostNode; Ip = $clusterHostNodeIp }
 }
 
+function Get-CephWindowsMountPoint {
+    param([pscustomobject]$Config)
+
+    $defaultMountPoint = 'C:\k8s-ceph-share'
+    if ($null -eq $Config) {
+        return $defaultMountPoint
+    }
+
+    if (($Config.PSObject.Properties.Name -contains 'winMountPath') -and -not [string]::IsNullOrWhiteSpace("$($Config.winMountPath)")) {
+        return "$($Config.winMountPath)".Trim()
+    }
+
+    return $defaultMountPoint
+}
+
 <#
 .SYNOPSIS
 Tears down the Ceph cluster that the addon provisioned on the host node.
@@ -165,8 +176,8 @@ Tears down the Ceph cluster that the addon provisioned on the host node.
 .DESCRIPTION
 The addon ALWAYS provisions a new Ceph cluster on enable, so disabling must tear it down. Deleting
 that cluster is destructive and irreversible, so an explicit, dedicated confirmation is required
-(separate from the PVC data prompt). Explicit -Force deletes and -Keep preserves without prompting;
-otherwise the user is asked interactively. Only Debian 13 nodes are supported.
+(separate from the PVC data prompt). Explicit -Force deletes without prompting; otherwise the user
+is asked interactively. Only Debian 13 nodes are supported.
 #>
 function Remove-ProvisionedCephClusterOnNode {
     param(
@@ -508,6 +519,8 @@ if ($null -eq $Config) {
     }
 }
 
+$storageClassName = if ($Config -and -not [string]::IsNullOrWhiteSpace($Config.storageClassName)) { "$($Config.storageClassName)" } else { 'ceph-cephfs' }
+
 $systemError = Test-SystemAvailability -Structured
 if ($systemError) {
     if ($EncodeStructuredOutput -eq $true) {
@@ -530,22 +543,7 @@ if ($null -eq (Invoke-Kubectl -Params 'get', 'namespace', 'ceph-csi-operator-sys
     exit 1
 }
 
-if ($Force -and $Keep) {
-    $errMsg = 'Disable storage ceph failed: Cannot use both Force and Keep parameters at the same time.'
-    if ($EncodeStructuredOutput -eq $true) {
-        $err = New-Error -Severity Error -Code (Get-ErrCodeInvalidParameter) -Message $errMsg
-        Send-ToCli -MessageType $MessageType -Message @{Error = $err }
-        return
-    }
-    Write-Log $errMsg -Error
-    exit 1
-}
-
-if ($Keep) {
-    Write-Log '[Ceph] WARNING: Keep is set, so PVC/PV objects are preserved. The Ceph cluster itself will still be removed and Ceph data will be lost.' -Console
-}
-
-if (-not $Force -and -not $Keep) {
+if (-not $Force) {
     $cephHostNodeForPrompt = Get-CephClusterHostNode -Config $Config
     $cephHostNodeDisplay = if (-not [string]::IsNullOrWhiteSpace($cephHostNodeForPrompt.Name)) { $cephHostNodeForPrompt.Name } else { 'unknown-node' }
     $cephHostIpDisplay = if (-not [string]::IsNullOrWhiteSpace($cephHostNodeForPrompt.Ip)) { $cephHostNodeForPrompt.Ip } else { 'unknown-ip' }
@@ -568,21 +566,20 @@ if (-not $Force -and -not $Keep) {
 
 Write-Log 'Uninstalling storage ceph' -Console
 
-if (-not $Keep) {
-    Write-Log '[Ceph] Deleting PersistentVolumeClaims bound to StorageClass ceph-cephfs' -Console
-    Remove-PersistentVolumeClaimsForStorageClass -StorageClass 'ceph-cephfs' | Write-Log
-}
+Write-Log "[Ceph] Deleting PersistentVolumeClaims bound to StorageClass $storageClassName" -Console
+Remove-PersistentVolumeClaimsForStorageClass -StorageClass $storageClassName | Write-Log
 
-Remove-CephCsiKubernetesResources -ManifestsDir "$PSScriptRoot\manifests"
+Remove-CephCsiKubernetesResources -ManifestsDir "$PSScriptRoot\manifests" -StorageClassName $storageClassName
 
 # Remove the native Ceph client setup from Windows worker node(s): unmount CephFS, remove the
-# startup task, delete the native client configuration and uninstall the Ceph/Dokany components.
+# startup task and delete the native client configuration.
 $setupInfo = Get-SetupInfo
 if ($setupInfo.LinuxOnly -ne $true) {
     $removeWindowsScript = "$PSScriptRoot\scripts\windows\Remove-CephFromWindows.ps1"
     if (Test-Path $removeWindowsScript) {
+        $windowsMountPoint = Get-CephWindowsMountPoint -Config $Config
         Write-Log '[Ceph] Removing native Ceph setup from Windows worker node(s)' -Console
-        & $removeWindowsScript -RemoveClient -ShowLogs:$ShowLogs
+        & $removeWindowsScript -MountPoint $windowsMountPoint -ShowLogs:$ShowLogs
         if ($LASTEXITCODE -ne 0) {
             Write-Log "[Ceph] WARNING: Windows Ceph native setup removal returned exit code $LASTEXITCODE." -Console
         }
@@ -625,6 +622,6 @@ if ($EncodeStructuredOutput -eq $true) {
         Error = $null
         Status = "Storage ceph addon disabled successfully"
         AddonName = $addonName
-        DataAction = if ($Force) { "deleted" } elseif ($Keep) { "preserved" } else { "prompted" }
+        DataAction = if ($Force) { "deleted" } else { "prompted" }
     }
 }

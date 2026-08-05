@@ -9,14 +9,15 @@ Removes the Ceph native Windows setup from the Windows worker node(s) of a K2s c
 
 .DESCRIPTION
 Invoked by the storage/ceph addon Disable.ps1. Unmounts CephFS (stops/unregisters the startup task
-and terminates ceph-dokan), deletes the Ceph mount directory, removes the Ceph client configuration,
-and optionally uninstalls the native Ceph for Windows client plus Dokany. When invoked on the K2s
-host, this script also dispatches the same cleanup to remote Windows worker VMs discovered from the
-cluster so addon disable cleans up every Windows worker node consistently.
+and terminates ceph-dokan), deletes the Ceph mount directory, and removes the Ceph client
+configuration. When invoked on the K2s host, this script also dispatches the same cleanup to remote
+Windows worker VMs discovered from the cluster so addon disable cleans up every Windows worker node
+consistently.
 
-.PARAMETER RemoveClient
-If set, also uninstalls the native Ceph for Windows client and Dokany. A reboot may be required
-afterwards.
+The native 'Ceph for Windows' and 'Dokany' packages are intentionally NEVER uninstalled: the Ceph
+MSI bundles a shared Microsoft Visual C++ runtime that the Windows shell depends on, and Dokany
+installs the shared 'dokan2.sys' driver used by unrelated software. Uninstalling either can leave the
+host without a usable desktop, so K2s removes only its own configuration and mount.
 
 .PARAMETER LocalOnly
 If set, only removes the local node state and does not attempt to discover or clean remote Windows
@@ -26,8 +27,8 @@ worker nodes. This is used when the script is copied to a remote worker VM for e
 If log output shall be streamed also to CLI output.
 #>
 Param(
-    [parameter(Mandatory = $false, HelpMessage = 'Also uninstall the native Ceph client and Dokany')]
-    [switch] $RemoveClient = $false,
+    [parameter(Mandatory = $false, HelpMessage = 'CephFS mount point to remove')]
+    [string] $MountPoint = 'C:\k8s-ceph-share',
     [parameter(Mandatory = $false, HelpMessage = 'Only clean up the local node')]
     [switch] $LocalOnly = $false,
     [parameter(Mandatory = $false, HelpMessage = 'Show all logs in terminal')]
@@ -60,10 +61,7 @@ else {
 }
 
 $cephProgramData = "$env:ProgramData\ceph"
-$mountPoint = 'C:\ceph\data'
 $mountRoot = Split-Path -Path $mountPoint -Parent
-$cephInstallDir = Join-Path $env:ProgramFiles 'Ceph'
-$dokanInstallDir = Join-Path $env:ProgramFiles 'Dokan'
 $mountScript = "$PSScriptRoot\Mount-CephForWindows.ps1"
 
 function Get-WindowsClusterNodes {
@@ -136,13 +134,22 @@ function Remove-DirectoryIfPresent {
         return
     }
 
-    try {
-        Remove-Item -Path $Path -Recurse -Force -ErrorAction Stop
-        Write-Log "[CephWin] Removed $Description at '$Path'." -Console
+    # Retry a few times: a just-released Dokany mount point or a file handle held by a terminating
+    # process can briefly keep the directory locked immediately after unmount.
+    $lastError = $null
+    for ($attempt = 1; $attempt -le 5; $attempt++) {
+        try {
+            Remove-Item -Path $Path -Recurse -Force -ErrorAction Stop
+            Write-Log "[CephWin] Removed $Description at '$Path'." -Console
+            return
+        }
+        catch {
+            $lastError = $_
+            Start-Sleep -Milliseconds 500
+        }
     }
-    catch {
-        Write-Log "[CephWin] WARNING: Could not remove $Description at '$Path': $($_.Exception.Message)" -Console
-    }
+
+    Write-Log "[CephWin] WARNING: Could not remove $Description at '$Path': $($lastError.Exception.Message)" -Console
 }
 
 function Remove-EmptyDirectoryIfPresent {
@@ -164,108 +171,52 @@ function Remove-EmptyDirectoryIfPresent {
     }
 }
 
-function Get-RegisteredWindowsProducts {
-    $uninstallRoots = @(
-        'HKLM:\Software\Microsoft\Windows\CurrentVersion\Uninstall\*',
-        'HKLM:\Software\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\*'
-    )
-
-    $products = @()
-    foreach ($root in $uninstallRoots) {
-        $entries = @(Get-ItemProperty -Path $root -ErrorAction SilentlyContinue)
-        foreach ($entry in $entries) {
-            $displayName = "$($entry.DisplayName)".Trim()
-            if ([string]::IsNullOrWhiteSpace($displayName)) {
-                continue
-            }
-
-            $products += [pscustomobject]@{
-                DisplayName          = $displayName
-                QuietUninstallString = "$($entry.QuietUninstallString)".Trim()
-                UninstallString      = "$($entry.UninstallString)".Trim()
-                ProductCode          = if ($entry.PSChildName -match '^\{[0-9A-Fa-f-]+\}$') { $entry.PSChildName } else { '' }
-            }
+function Wait-CephFsMountReleased {
+    # After Remove-CephFsMount stops the scheduled task and force-terminates ceph-dokan, the Dokany
+    # device takes a moment to detach. The mount-point directory must only be removed once no
+    # ceph-dokan process remains: otherwise Remove-Item would either fail (device still in use) or
+    # recurse into the still-live CephFS mount and delete cluster data. Returns $true when released.
+    for ($i = 0; $i -lt 15; $i++) {
+        if ($null -eq (Get-Process -Name 'ceph-dokan' -ErrorAction SilentlyContinue)) {
+            return $true
         }
+        Start-Sleep -Seconds 1
     }
-
-    return $products
-}
-
-function Invoke-RegisteredProductUninstall {
-    param(
-        [Parameter(Mandatory = $true)][string]$NameRegex,
-        [Parameter(Mandatory = $true)][string]$DisplayLabel
-    )
-
-    $product = @(Get-RegisteredWindowsProducts | Where-Object { $_.DisplayName -match $NameRegex } | Select-Object -First 1)
-    if ($product.Count -eq 0) {
-        Write-Log "[CephWin] $DisplayLabel is not registered in Windows uninstall entries; skipping MSI uninstall." -Console
-        return
-    }
-
-    $target = $product[0]
-    Write-Log "[CephWin] Uninstalling '$($target.DisplayName)'" -Console
-
-    $process = $null
-    if (-not [string]::IsNullOrWhiteSpace($target.ProductCode)) {
-        $process = Start-Process -FilePath 'msiexec.exe' -ArgumentList @('/x', $target.ProductCode, '/qn', '/norestart') -Wait -PassThru -NoNewWindow
-    }
-    else {
-        $commandText = if (-not [string]::IsNullOrWhiteSpace($target.QuietUninstallString)) { $target.QuietUninstallString } else { $target.UninstallString }
-        if ([string]::IsNullOrWhiteSpace($commandText)) {
-            Write-Log "[CephWin] WARNING: '$($target.DisplayName)' has no uninstall command registered; skipping MSI uninstall." -Console
-            return
-        }
-
-        if ($commandText -match '(?i)msiexec(\.exe)?') {
-            $productCodeMatch = [regex]::Match($commandText, '\{[0-9A-Fa-f-]+\}')
-            if ($productCodeMatch.Success) {
-                $process = Start-Process -FilePath 'msiexec.exe' -ArgumentList @('/x', $productCodeMatch.Value, '/qn', '/norestart') -Wait -PassThru -NoNewWindow
-            }
-        }
-
-        if ($null -eq $process) {
-            $process = Start-Process -FilePath 'cmd.exe' -ArgumentList @('/c', $commandText) -Wait -PassThru -NoNewWindow
-        }
-    }
-
-    if ($process.ExitCode -ne 0 -and $process.ExitCode -ne 3010) {
-        Write-Log "[CephWin] WARNING: Uninstall of '$($target.DisplayName)' returned exit code $($process.ExitCode)." -Console
-    }
-    elseif ($process.ExitCode -eq 3010) {
-        Write-Log "[CephWin] '$($target.DisplayName)' uninstalled; a reboot is required to complete cleanup." -Console
-    }
-    else {
-        Write-Log "[CephWin] '$($target.DisplayName)' uninstalled successfully." -Console
-    }
+    return ($null -eq (Get-Process -Name 'ceph-dokan' -ErrorAction SilentlyContinue))
 }
 
 function Remove-LocalWindowsCephSetup {
     Write-Log '[CephWin] Unmounting CephFS and removing the startup task' -Console
 
     if (Test-Path -Path $mountScript) {
-        & $mountScript -Unmount -ShowLogs:$ShowLogs
+        & $mountScript -Unmount -MountPoint $mountPoint -ShowLogs:$ShowLogs
         if ($LASTEXITCODE -ne 0) {
             Write-Log "[CephWin] WARNING: CephFS unmount reported a problem (exit code $LASTEXITCODE); continuing with cleanup." -Console
         }
     }
 
-    Remove-DirectoryIfPresent -Path $mountPoint -Description 'Ceph mount directory'
-    Remove-EmptyDirectoryIfPresent -Path $mountRoot
+    # The mount directory is created as part of the Ceph setup, so remove it on disable. Wait for the
+    # Dokany mount to be fully released first so we never delete through a still-live CephFS mount or
+    # fail on a busy device. A single drive-letter mount point (e.g. 'X:') has no directory to remove.
+    $isDriveLetterMount = ($mountPoint -match '^[A-Za-z]:?$')
+    if (-not $isDriveLetterMount) {
+        if (Wait-CephFsMountReleased) {
+            Remove-DirectoryIfPresent -Path $mountPoint -Description 'Ceph mount directory'
+            if (-not [string]::IsNullOrWhiteSpace($mountRoot) -and ($mountRoot.TrimEnd('\\') -notmatch '^[A-Za-z]:$')) {
+                Remove-EmptyDirectoryIfPresent -Path $mountRoot
+            }
+        }
+        else {
+            Write-Log "[CephWin] WARNING: ceph-dokan is still running; skipping removal of the mount directory '$mountPoint' to avoid deleting through a live CephFS mount. Remove it manually once the mount is released." -Console
+        }
+    }
 
     if (Test-Path -Path $cephProgramData) {
         Write-Log "[CephWin] Removing Ceph client configuration from $cephProgramData" -Console
         Remove-DirectoryIfPresent -Path $cephProgramData -Description 'Ceph program data'
     }
 
-    if ($RemoveClient) {
-        Write-Log '[CephWin] Uninstalling the native Ceph for Windows client (a reboot may be required for the WNBD driver).' -Console
-        Invoke-RegisteredProductUninstall -NameRegex '(?i)\bceph\b' -DisplayLabel 'Ceph for Windows'
-        Invoke-RegisteredProductUninstall -NameRegex '(?i)\bdokan\b' -DisplayLabel 'Dokany'
-
-        Remove-DirectoryIfPresent -Path $cephInstallDir -Description 'Ceph install directory'
-        Remove-DirectoryIfPresent -Path $dokanInstallDir -Description 'Dokan install directory'
-    }
+    Write-Log "[CephWin] Native 'Ceph for Windows' and 'Dokany' packages are intentionally not auto-uninstalled. If you are certain nothing else on this machine needs them, uninstall 'Ceph for Windows' and 'Dokan Library' manually via Windows 'Apps & features' and reboot." -Console
 }
 
 function Invoke-RemoteWindowsNodeCleanup {
@@ -295,11 +246,11 @@ function Invoke-RemoteWindowsNodeCleanup {
             Copy-Item -Path $mountScript -Destination (Join-Path $remoteDir 'Mount-CephForWindows.ps1') -ToSession $session -Force
         }
 
-        $remoteExit = Invoke-Command -Session $session -ArgumentList $remoteDir, $RemoveClient.IsPresent -ScriptBlock {
-            param($dir, $removeClientFlag)
+        $remoteExit = Invoke-Command -Session $session -ArgumentList $remoteDir, $MountPoint -ScriptBlock {
+            param($dir, $mountPoint)
 
             $script = Join-Path $dir 'Remove-CephFromWindows.ps1'
-            & $script -RemoveClient:([bool]$removeClientFlag) -LocalOnly
+            & $script -MountPoint $mountPoint -LocalOnly
 
             $code = $LASTEXITCODE
             Remove-Item -Path $dir -Recurse -Force -ErrorAction SilentlyContinue

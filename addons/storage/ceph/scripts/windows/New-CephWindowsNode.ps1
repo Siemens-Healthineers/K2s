@@ -166,6 +166,21 @@ function Get-CephConnectionFromConfig {
     }
 }
 
+function Get-WindowsCephMountPoint {
+    param([pscustomobject]$Config)
+
+    $defaultMountPoint = 'C:\k8s-ceph-share'
+    if ($null -eq $Config) {
+        return $defaultMountPoint
+    }
+
+    if (($Config.PSObject.Properties.Name -contains 'winMountPath') -and -not [string]::IsNullOrWhiteSpace("$($Config.winMountPath)")) {
+        return "$($Config.winMountPath)".Trim()
+    }
+
+    return $defaultMountPoint
+}
+
 <#
 .SYNOPSIS
 Resolves a staged MSI path (for offline install) or a download URL (for online install).
@@ -379,7 +394,8 @@ Returns $true on success.
 function Mount-CephFsOnRemoteWindowsNode {
     param(
         [Parameter(Mandatory = $true)][pscustomobject]$WindowsNode,
-        [Parameter(Mandatory = $true)][pscustomobject]$Connection
+        [Parameter(Mandatory = $true)][pscustomobject]$Connection,
+        [Parameter(Mandatory = $true)][string]$MountPoint
     )
 
     $nodeName = "$($WindowsNode.Name)".Trim()
@@ -403,11 +419,11 @@ function Mount-CephFsOnRemoteWindowsNode {
 
         Copy-Item -Path $mountScript -Destination (Join-Path $remoteDir 'Mount-CephForWindows.ps1') -ToSession $session -Force
 
-        $remoteExit = Invoke-Command -Session $session -ArgumentList $remoteDir, $Connection -ScriptBlock {
-            param($dir, $conn)
+        $remoteExit = Invoke-Command -Session $session -ArgumentList $remoteDir, $Connection, $MountPoint -ScriptBlock {
+            param($dir, $conn, $mountPoint)
 
             $script = Join-Path $dir 'Mount-CephForWindows.ps1'
-            & $script -CephFsName $conn.CephFsName -CephUser $conn.CephUser
+            & $script -CephFsName $conn.CephFsName -CephUser $conn.CephUser -MountPoint $mountPoint
 
             $code = $LASTEXITCODE
             Remove-Item -Path $dir -Recurse -Force -ErrorAction SilentlyContinue
@@ -442,7 +458,10 @@ if ($windowsNodes.Count -eq 0) {
 Write-Log "[CephWin] Found $($windowsNodes.Count) Windows worker node(s); configuring native Ceph client and host mount." -Console
 
 $connection = Get-CephConnectionFromConfig -Config $Config
+$windowsMountPoint = Get-WindowsCephMountPoint -Config $Config
 $msiSettings = Resolve-WindowsMsiSettings -Config $Config
+
+Write-Log "[CephWin] Using Windows CephFS mount path '$windowsMountPoint'." -Console
 
 # Resolve the K2s transparent proxy for offline/online MSI download from the Windows host.
 $proxy = ''
@@ -505,14 +524,14 @@ foreach ($windowsNode in $windowsNodes) {
     # can consume the Ceph storage through a hostPath volume.
     Write-Log "[CephWin] Mounting CephFS on Windows node '$nodeName'." -Console
     if ([string]::Equals($nodeType, 'HOST', [System.StringComparison]::OrdinalIgnoreCase)) {
-        & $mountScript -CephFsName $connection.CephFsName -CephUser $connection.CephUser -ShowLogs:$ShowLogs
+        & $mountScript -CephFsName $connection.CephFsName -CephUser $connection.CephUser -MountPoint $windowsMountPoint -ShowLogs:$ShowLogs
         if ($LASTEXITCODE -ne 0) {
             Write-Log "[CephWin] WARNING: CephFS mount on '$nodeName' reported a problem (exit code $LASTEXITCODE)." -Console
             $mountFailures += $nodeName
         }
     }
     else {
-        $mountOk = Mount-CephFsOnRemoteWindowsNode -WindowsNode $windowsNode -Connection $connection
+        $mountOk = Mount-CephFsOnRemoteWindowsNode -WindowsNode $windowsNode -Connection $connection -MountPoint $windowsMountPoint
         if ($mountOk -ne $true) {
             $mountFailures += $nodeName
         }

@@ -46,7 +46,8 @@ worker nodes are **not** managed by the operator. Because Ceph is
 addon configures and mounts CephFS through the host-installed Ceph client rather than a Linux
 container.
 
-When the addon is enabled on a K2s cluster that has a Windows worker node, `Enable.ps1`:
+When the addon is enabled with `-w` / `--setupWindowsNode` on a K2s cluster that has a Windows
+worker node, `Enable.ps1`:
 
 1. discovers the Windows worker node(s) from the Kubernetes API (`kubectl get nodes`, label
    `kubernetes.io/os=windows`) and cross-references them with the cluster descriptor (`cluster.json`):
@@ -62,12 +63,14 @@ When the addon is enabled on a K2s cluster that has a Windows worker node, `Enab
     connection details,
   3. dispatches to [`scripts/windows/Mount-CephForWindows.ps1`](scripts/windows/Mount-CephForWindows.ps1)
      (locally and remotely) to:
-     - mount CephFS with `ceph-dokan` at `C:\ceph\data`,
+    - mount CephFS with `ceph-dokan` at the configured Windows mount path (`winMountPath`, default `C:\k8s-ceph-share`),
      - register the startup scheduled task `K2s-CephFS-Mount` so the mount is re-established after
     reboot.
 
-  There is no upstream Windows `cephcsi` image. Windows consumption therefore uses the native host
-  mount (`C:\ceph\data`) plus a pod `hostPath` volume, not a Windows CSI node plugin DaemonSet.
+  There is no upstream Windows `cephcsi` image and no Windows CSI node plugin DaemonSet. The native
+  host mount (`winMountPath`, `C:\k8s-ceph-share`) provides access to CephFS on the Windows node and
+  is consumed by Windows pods through a `hostPath` volume (see
+  [Testing Windows CephFS Access](#testing-windows-cephfs-access)).
 
 > **Secure Boot must be disabled** on the Windows node for RBD (block) mapping, because the WNBD
 > driver is not signed by Microsoft. CephFS mounting via `ceph-dokan` is unaffected.
@@ -75,8 +78,8 @@ When the addon is enabled on a K2s cluster that has a Windows worker node, `Enab
 The Ceph for Windows MSI is distributed from <https://cloudbase.it/ceph-for-windows/>. MSI URL
 defaults are resolved from `addons/storage/addon.manifest.yaml` (for example, Dokany). For
 **offline** installs stage the MSIs under `ceph/bin/windows` (Dokany is staged automatically during
-addon export). The installer is dispatched automatically to all discovered Windows worker nodes:
-local `HOST` and added external `VM-EXISTING` nodes.
+addon export). When `-w` / `--setupWindowsNode` is used, the installer is dispatched to all
+discovered Windows worker nodes: local `HOST` and added external `VM-EXISTING` nodes.
 
 ## Prerequisites
 
@@ -115,6 +118,7 @@ bootstrap node for the Ceph cluster, then list every OSD node under `osdHosts`.
   "comment": "Ceph CSI storage config. 'clusterHost.node' bootstraps only the Ceph cluster control plane and MUST be a Debian 13 K2s node listed in cluster.json (or the control plane node). OSD provisioning is driven exclusively by 'osdHosts' and supports only Hyper-V worker nodes (cluster.json NodeType 'VM-EXISTING'). Each entry in 'osdHosts' is prepared as a Ceph OSD host (via prepare-ceph-osd-host.sh) and contributes OSDs. Use 'osdSizesInGb' to set per-OSD sizes (one value per OSD) or 'osdSizeInGb' for one common size. Native Windows client MSI URL defaults are resolved from addons/storage/addon.manifest.yaml; for offline installs stage MSIs under 'bin/windows'.",
   "cephfsFilesystem": "cephfs",
   "cephfsPool": "cephfs.cephfs.data",
+  "winMountPath": "C:\\k8s-ceph-share",
   "clusterHost": {
     "node": "kubemaster",
     "os": "linux",
@@ -155,7 +159,13 @@ bootstrap node for the Ceph cluster, then list every OSD node under `osdHosts`.
 ### 2. Enable Addon
 
 ```console
-k2s addons enable storage ceph 
+k2s addons enable storage ceph
+```
+
+Enable with native Windows client setup (only when explicitly requested):
+
+```console
+k2s addons enable storage ceph -w
 ```
 
 On enable the addon:
@@ -350,10 +360,30 @@ kubectl delete pod ceph-writer ceph-reader --ignore-not-found
 kubectl delete pvc ceph-test-pvc --ignore-not-found
 ```
 
-## Testing Windows CephFS Access And Cross-OS Sharing
+## Testing Windows CephFS Access
 
-Linux workloads should keep using dynamic PVCs (`storageClassName: ceph-cephfs`). Windows workloads
-consume the CephFS backend through the native host mount (`C:\ceph\data`) and `hostPath`.
+Linux workloads should keep using dynamic PVCs (`storageClassName: ceph-cephfs`). On Windows the
+CephFS backend is mounted natively on the host by `ceph-dokan` at `winMountPath`
+(`C:\k8s-ceph-share`) for **host-side** access only (host processes, scripts, tooling).
+
+> [!IMPORTANT]
+> **Windows *pods* cannot consume the native `ceph-dokan` mount through a `hostPath` volume. This is a
+> hard limitation of the Windows container runtime and _cannot_ be fixed by changing `winMountPath`.**
+>
+> `containerd` / `hcsshim` resolve every `hostPath` source with Go's `filepath.EvalSymlinks` before
+> bind-mounting it into the container, and a `ceph-dokan` (Dokany) volume cannot be resolved that way.
+> Container creation fails no matter how CephFS is mounted:
+>
+> - **directory** mount (e.g. `C:\k8s-ceph-share`) — Dokany creates a reparse point and the runtime
+>   aborts with `hostPath type check failed: C:\k8s-ceph-share is not a directory` or
+>   `failed to resolve symlink "C:\k8s-ceph-share": The parameter is incorrect.`
+> - **drive-letter** mount (e.g. `X:`) — the Dokany volume root still cannot be resolved and the
+>   runtime aborts with `failed to resolve symlink "X:\": The parameter is incorrect.`
+>
+> There is no upstream Windows CephFS CSI node plugin, so there is currently **no supported way to
+> mount CephFS directly into a Windows pod**. If a Windows pod must consume the data, expose it over
+> SMB and use the `storage smb` addon (or an SMB/NFS gateway that re-exports CephFS): the Windows
+> container runtime supports SMB volumes via `New-SmbGlobalMapping`, unlike Dokany host mounts.
 
 ### 1. Validate the Windows host mount path
 
@@ -362,103 +392,23 @@ On each Windows worker node:
 ```powershell
 Get-ScheduledTask -TaskName K2s-CephFS-Mount
 Get-Process ceph-dokan -ErrorAction SilentlyContinue
-Get-ChildItem C:\ceph\data
+Get-ChildItem C:\k8s-ceph-share
 ```
 
 Expected:
 - scheduled task exists,
 - `ceph-dokan` process is running,
-- `C:\ceph\data` is accessible.
+- `C:\k8s-ceph-share` is accessible.
 
-### 2. Write data from a Windows pod
+This confirms host-side access. Host processes and tooling on the Windows node can read and write
+`C:\k8s-ceph-share` directly.
 
-Create a Windows writer pod that mounts the native CephFS host path and writes a file:
+### 2. Windows pod consumption is not supported
 
-```powershell
-kubectl delete pod ceph-win-writer ceph-win-reader --ignore-not-found
-@'
-apiVersion: v1
-kind: Pod
-metadata:
-  name: ceph-win-writer
-spec:
-  nodeSelector:
-    kubernetes.io/os: windows
-  tolerations:
-  - key: kubernetes.io/os
-    operator: Equal
-    value: Windows
-    effect: NoSchedule
-  containers:
-  - name: writer
-    image: mcr.microsoft.com/windows/nanoserver:ltsc2022
-    command: ['powershell.exe', '-Command', 'Set-Content -Path C:\\data\\hello.txt -Value "hello from windows ceph"; Get-Content -Path C:\\data\\hello.txt; Start-Sleep -Seconds 3600']
-    volumeMounts:
-    - name: data
-      mountPath: 'C:\\data'
-  volumes:
-  - name: data
-    hostPath:
-      path: 'C:\\ceph\\data'
-      type: Directory
-'@ | kubectl apply -f -
-
-kubectl wait --for=condition=Ready pod/ceph-win-writer --timeout=300s
-kubectl logs ceph-win-writer
-```
-
-Expected output: `hello from windows ceph`.
-
-### 3. Verify shared access from a second Windows pod
-
-Create a Windows reader pod that mounts the same CephFS-backed host path and reads the file:
-
-```powershell
-@'
-apiVersion: v1
-kind: Pod
-metadata:
-  name: ceph-win-reader
-spec:
-  nodeSelector:
-    kubernetes.io/os: windows
-  tolerations:
-  - key: kubernetes.io/os
-    operator: Equal
-    value: Windows
-    effect: NoSchedule
-  containers:
-  - name: reader
-    image: mcr.microsoft.com/windows/nanoserver:ltsc2022
-    command: ['powershell.exe', '-Command', 'Get-Content -Path C:\\data\\hello.txt; Start-Sleep -Seconds 3600']
-    volumeMounts:
-    - name: data
-      mountPath: 'C:\\data'
-  volumes:
-  - name: data
-    hostPath:
-      path: 'C:\\ceph\\data'
-      type: Directory
-'@ | kubectl apply -f -
-
-kubectl wait --for=condition=Ready pod/ceph-win-reader --timeout=300s
-kubectl logs ceph-win-reader
-```
-
-The reader pod should print the same `hello from windows ceph` content written by the writer pod,
-confirming that both Windows pods can read and write through the same CephFS-backed host mount.
-
-### 4. Clean up the Windows test resources
-
-```powershell
-kubectl delete pod ceph-win-writer ceph-win-reader --ignore-not-found
-```
-
-Cross-OS validation is covered separately by the dedicated e2e suite:
-
-```console
-go test ./k2s/test/e2e/addons/storage/ceph/windowscross -v
-```
+A Windows pod that mounts the `ceph-dokan` host path via `hostPath` will fail to start with
+`hostPath type check failed: C:\k8s-ceph-share is not a directory` (see the note above). There is no
+supported way to mount CephFS directly into a Windows pod. To consume the data from a Windows pod,
+expose it over SMB and use the `storage smb` addon.
 
 ## Add Another OSD Host to the Ceph Cluster
 
@@ -537,6 +487,15 @@ k2s addons disable storage ceph -f
 ```
 
 Skips the confirmation, deletes the `ceph-cephfs` PVCs/PVs, and removes the cluster (data lost).
+
+### Native Windows client packages
+
+> [!IMPORTANT]
+> `k2s addons disable storage ceph` never auto-uninstalls `Ceph for Windows` or `Dokany`. These
+> packages include shared, host-wide components (Visual C++ runtime and `dokan2.sys`) used by the
+> Windows shell and other software. Auto-uninstall can break the host desktop. Disable removes only
+> Ceph mount/configuration state. If you are certain nothing else needs the packages, uninstall them
+> manually via Windows **Apps & features** and reboot.
 
 
 ## Backup, Restore & Upgrade
@@ -619,6 +578,7 @@ File: `addons/storage/ceph/config/ceph-config.json`
   "comment": "Ceph CSI storage config. clusterHost boots the Ceph cluster; osdHosts defines Hyper-V OSD nodes.",
   "cephfsFilesystem": "cephfs",
   "cephfsPool": "cephfs.cephfs.data",
+  "winMountPath": "C:\\k8s-ceph-share",
   "clusterHost": {
     "node": "kubemaster",
     "os": "linux",
@@ -657,6 +617,7 @@ File: `addons/storage/ceph/config/ceph-config.json`
 | `osdHosts[].osdSizeInGb` | No | Common size in GiB applied to all OSDs on that host when `osdSizesInGb` is not provided. |
 | `cephfsPool` | No | CephFS **data pool** name (default `cephfs.cephfs.data`). Refreshed with the value read back from the freshly provisioned cluster. |
 | `cephfsFilesystem` | No | CephFS filesystem name (default `cephfs`). |
+| `winMountPath` | No | Local directory (default `C:\k8s-ceph-share`) where `ceph-dokan` mounts CephFS on the Windows node for **host-side** access. Note: this mount **cannot** be consumed by Windows pods via `hostPath` (Windows container runtime limitation — see [Testing Windows CephFS Access](#testing-windows-cephfs-access)). |
 | `comment` | No | Free-text note; ignored by the addon. |
 
 `clusterHost.*`, `osdHosts[].osdCount`, `osdHosts[].osdSizeInGb`, and `osdHosts[].osdSizesInGb` are

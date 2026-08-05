@@ -32,8 +32,8 @@ The CephX user name (defaults to 'client.admin'). The 'client.' prefix is option
 before being passed to ceph-dokan --id.
 
 .PARAMETER MountPoint
-The local directory mount point where CephFS is mounted (default 'C:\ceph\data'). It must be an empty
-directory; it is created if it does not exist. A single drive letter (e.g. 'X:') is also accepted.
+The local directory where CephFS is mounted (default 'C:\k8s-ceph-share'). Windows pods consume it
+through a hostPath volume.
 
 .PARAMETER Unmount
 If set, removes the mount (stops/unregisters the scheduled task and terminates ceph-dokan) instead of
@@ -48,7 +48,7 @@ Param(
     [parameter(Mandatory = $false, HelpMessage = 'CephX user name')]
     [string] $CephUser = 'client.admin',
     [parameter(Mandatory = $false, HelpMessage = 'Local directory mount point for CephFS')]
-    [string] $MountPoint = 'C:\ceph\data',
+    [string] $MountPoint = 'C:\k8s-ceph-share',
     [parameter(Mandatory = $false, HelpMessage = 'Remove the CephFS mount instead of creating it')]
     [switch] $Unmount = $false,
     [parameter(Mandatory = $false, HelpMessage = 'Show all logs in terminal')]

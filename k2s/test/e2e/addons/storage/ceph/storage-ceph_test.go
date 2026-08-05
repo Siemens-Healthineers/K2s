@@ -31,6 +31,7 @@ const (
 
 	namespaceManifestPath = "workloads/ceph-share-test-namespace.yaml"
 	rwxManifestDir        = "workloads/rwx"
+	windowsManifestDir    = "workloads/windows"
 
 	pvcName      = "ceph-share-test-pvc"
 	writerPod    = "ceph-share-writer"
@@ -38,6 +39,11 @@ const (
 	testFile     = "/mnt/data/hello.txt"
 	testMarker   = "hello from k2s ceph e2e"
 	cephDataPool = "cephfs.cephfs.data"
+
+	winWriterPod  = "ceph-share-win-writer"
+	winReaderPod  = "ceph-share-win-reader"
+	winTestFile   = `C:\data\win-hello.txt`
+	winTestMarker = "hello from k2s ceph windows e2e"
 
 	testClusterTimeout     = time.Minute * 20
 	addonEnableMaxAttempts = 2
@@ -82,6 +88,7 @@ var _ = AfterSuite(func(ctx context.Context) {
 	}
 
 	// Best-effort cleanup in failure paths.
+	suite.Kubectl().Exec(ctx, "delete", "-k", windowsManifestDir)
 	suite.Kubectl().Exec(ctx, "delete", "-k", rwxManifestDir)
 	suite.Kubectl().Exec(ctx, "delete", "-f", namespaceManifestPath)
 	suite.K2sCli().Exec(ctx, "addons", "disable", addonName, implementationName, "-f", "-o")
@@ -180,6 +187,33 @@ var _ = Describe("storage ceph addon", Ordered, func() {
 			suite.Kubectl().MustExec(ctx, "delete", "-k", rwxManifestDir)
 		})
 
+		It("deploys the Windows Ceph host-mount workload", func(ctx context.Context) {
+			skipIfLinuxOnly()
+			suite.Kubectl().MustExec(ctx, "apply", "-k", windowsManifestDir)
+		})
+
+		It("runs the Windows writer and reader pods", func(ctx context.Context) {
+			skipIfLinuxOnly()
+			suite.Kubectl().MustExec(ctx, "wait", "--for=condition=Ready", "pod/"+winWriterPod, "-n", namespace, "--timeout=300s")
+			suite.Kubectl().MustExec(ctx, "wait", "--for=condition=Ready", "pod/"+winReaderPod, "-n", namespace, "--timeout=300s")
+		})
+
+		It("shares data across Windows pods through the CephFS host mount", func(ctx context.Context) {
+			skipIfLinuxOnly()
+			Eventually(func() string {
+				out, exitCode := suite.Kubectl().Exec(ctx, "exec", "-n", namespace, winReaderPod, "--", "cmd", "/c", "type", winTestFile)
+				if exitCode != 0 {
+					return ""
+				}
+				return strings.TrimSpace(out)
+			}).WithTimeout(3 * time.Minute).WithPolling(5 * time.Second).Should(Equal(winTestMarker))
+		})
+
+		It("deletes the Windows Ceph workload resources", func(ctx context.Context) {
+			skipIfLinuxOnly()
+			suite.Kubectl().MustExec(ctx, "delete", "-k", windowsManifestDir)
+		})
+
 		It("disables the addon", func(ctx context.Context) {
 			suite.K2sCli().MustExec(ctx, "addons", "disable", addonName, implementationName, "-f", "-o")
 			k2s.VerifyAddonIsDisabled(addonName, implementationName)
@@ -195,12 +229,18 @@ var _ = Describe("storage ceph addon", Ordered, func() {
 	})
 })
 
+func skipIfLinuxOnly() {
+	if suite.SetupInfo().RuntimeConfig.InstallConfig().LinuxOnly() {
+		Skip("Linux-only setup: no Windows worker node to validate the native CephFS host mount")
+	}
+}
+
 func enableCephAddonWithRetry(ctx context.Context) string {
 	lastOutput := ""
 	lastExitCode := -1
 
 	for attempt := 1; attempt <= addonEnableMaxAttempts; attempt++ {
-		output, exitCode := suite.K2sCli().Exec(ctx, "addons", "enable", addonName, implementationName, "-o")
+		output, exitCode := suite.K2sCli().Exec(ctx, "addons", "enable", addonName, implementationName, "-o", "-w")
 		if exitCode == 0 {
 			return output
 		}

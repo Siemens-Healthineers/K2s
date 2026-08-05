@@ -196,8 +196,10 @@ Expected pods (names may vary by hash):
 - `cephfs.csi.ceph.com-ctrlplugin` — CephFS CSI controller (provisioner/attacher/resizer/snapshotter)
 - `cephfs.csi.ceph.com-nodeplugin` — CephFS CSI node plugin (one pod per Linux node)
 
-On Windows nodes, CephFS is mounted natively by `ceph-dokan` on the host (`C:\ceph\data`) through
-the addon scripts; there is no upstream Windows `cephcsi` image and no Windows Ceph CSI DaemonSet.
+On Windows nodes, CephFS is mounted natively by `ceph-dokan` on the host (`C:\k8s-ceph-share`) through
+the addon scripts for **host-side** access; there is no upstream Windows `cephcsi` image and no Windows
+Ceph CSI DaemonSet. This host mount **cannot** be consumed by Windows pods via `hostPath` (see
+[Testing Windows mount path](#testing-windows-mount-path)).
 
 You can also check status through the CLI:
 
@@ -297,42 +299,28 @@ kubectl delete pvc ceph-test-pvc --ignore-not-found
 For the full test (including a second reader pod that verifies concurrent `ReadWriteMany` access),
 see the [addon README](https://github.com/Siemens-Healthineers/K2s/blob/main/addons/storage/ceph/README.md).
 
-### Testing Windows mount path and cross-OS sharing
+### Testing Windows mount path
 
-For Windows workloads, CephFS is consumed via host mount + `hostPath`:
+On Windows nodes, CephFS is mounted natively on the host by `ceph-dokan` at `C:\k8s-ceph-share` for
+**host-side** access (host processes, scripts, tooling):
 
-- host mount path on Windows node: `C:\ceph\data`
+- host mount path on Windows node: `C:\k8s-ceph-share`
 - startup task: `K2s-CephFS-Mount`
-- pod mount path in container (sample): `C:\data`
 
 Validate mount state on a Windows worker node:
 
 ```powershell
 Get-ScheduledTask -TaskName K2s-CephFS-Mount
 Get-Process ceph-dokan -ErrorAction SilentlyContinue
-Get-ChildItem C:\ceph\data
+Get-ChildItem C:\k8s-ceph-share
 ```
 
-Run the sample Windows pod:
-
-```powershell
-kubectl apply -f addons/storage/ceph/example/win-ceph-consumer.yaml
-kubectl wait --for=condition=Ready pod/win-ceph-consumer --timeout=300s
-kubectl logs win-ceph-consumer
-```
-
-To validate bidirectional sharing between a Linux PVC pod and a Windows hostPath pod against the
-same CephFS subvolume, use the dedicated e2e suite:
-
-```console
-go test ./k2s/test/e2e/addons/storage/ceph/windowscross -v
-```
-
-The test verifies:
-
-1. Windows mount path exists and is reachable from pod (`C:\data`).
-2. Windows writes are readable from Linux PVC pod.
-3. Linux writes are readable from Windows pod.
+> **Windows pods cannot consume this mount via `hostPath`.** `containerd`/`hcsshim` resolve every
+> `hostPath` source with Go's `filepath.EvalSymlinks`, which cannot resolve a `ceph-dokan` (Dokany)
+> volume. A Windows pod that references the mount fails to start with
+> `hostPath type check failed: C:\k8s-ceph-share is not a directory`. There is no upstream Windows
+> CephFS CSI node plugin, so to consume the data from a Windows pod, expose it over SMB and use the
+> `storage smb` addon.
 
 ## Add Another OSD Host
 

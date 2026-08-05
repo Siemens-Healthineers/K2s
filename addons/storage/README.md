@@ -44,7 +44,6 @@ k2s addons disable storage ceph -f
 
 # Keep all data
 k2s addons disable storage smb -k
-k2s addons disable storage ceph -k
 ```
 
 ## Choosing a Storage Backend

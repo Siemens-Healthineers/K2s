@@ -27,6 +27,16 @@ Import-Module $infraModule, $clusterModule, $addonsModule
 
 Initialize-Logging -ShowLogs:$ShowLogs
 
+$storageClassName = 'ceph-cephfs'
+$cephConfigPath = "$PSScriptRoot\config\ceph-config.json"
+if (Test-Path $cephConfigPath) {
+    try {
+        $cephConfig = Get-Content -Path $cephConfigPath -Raw | ConvertFrom-Json
+        if ($cephConfig -and -not [string]::IsNullOrWhiteSpace($cephConfig.storageClassName)) { $storageClassName = "$($cephConfig.storageClassName)" }
+    }
+    catch { }
+}
+
 Write-Log "[Ceph] Getting Ceph CSI addon status" -Console
 
 # Check if Ceph operator namespace exists
@@ -45,7 +55,7 @@ $statusObject = @{
 # Get StorageClasses
 $scs = kubectl get storageclass -o json 2>$null | ConvertFrom-Json -ErrorAction SilentlyContinue
 if ($scs.items) {
-    $cephSCs = $scs.items | Where-Object { $_.metadata.name -eq 'ceph-cephfs' }
+    $cephSCs = $scs.items | Where-Object { $_.metadata.name -eq $storageClassName }
     $statusObject.StorageClasses = @($cephSCs | ForEach-Object { $_.metadata.name })
 }
 
