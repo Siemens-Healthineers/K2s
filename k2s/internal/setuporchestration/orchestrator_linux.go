@@ -482,8 +482,12 @@ func (o *LinuxOrchestrator) deployClusterIPWebhook(cfg InstallConfig) error {
 	if err != nil {
 		return fmt.Errorf("read ClusterIP webhook deployment: %w", err)
 	}
+	renderedDeployment, err := renderClusterIPWebhookDeployment(string(deployment), serviceCIDRs)
+	if err != nil {
+		return err
+	}
 	renderedPath := filepath.Join("/tmp", "k2s-clusterip-webhook-deployment.yaml")
-	if err := os.WriteFile(renderedPath, []byte(renderClusterIPWebhookDeployment(string(deployment), serviceCIDRs)), 0600); err != nil {
+	if err := os.WriteFile(renderedPath, []byte(renderedDeployment), 0600); err != nil {
 		return fmt.Errorf("write rendered ClusterIP webhook deployment: %w", err)
 	}
 	defer os.Remove(renderedPath)
@@ -497,9 +501,19 @@ func (o *LinuxOrchestrator) deployClusterIPWebhook(cfg InstallConfig) error {
 	return nil
 }
 
-func renderClusterIPWebhookDeployment(manifest string, serviceCIDRs config.ServiceCIDRConfig) string {
-	manifest = strings.ReplaceAll(manifest, "--linux-subnet=172.21.0.0/24", "--linux-subnet="+serviceCIDRs.LinuxCIDR)
-	return strings.ReplaceAll(manifest, "--windows-subnet=172.21.1.0/24", "--windows-subnet="+serviceCIDRs.WindowsCIDR)
+func renderClusterIPWebhookDeployment(manifest string, serviceCIDRs config.ServiceCIDRConfig) (string, error) {
+	const defaultLinuxArgument = "--linux-subnet=172.21.0.0/24"
+	const defaultWindowsArgument = "--windows-subnet=172.21.1.0/24"
+	if strings.Count(manifest, defaultLinuxArgument) != 1 || strings.Count(manifest, defaultWindowsArgument) != 1 {
+		return "", fmt.Errorf("ClusterIP webhook deployment must contain exactly one Linux and one Windows subnet argument")
+	}
+
+	manifest = strings.Replace(manifest, defaultLinuxArgument, "--linux-subnet="+serviceCIDRs.LinuxCIDR, 1)
+	manifest = strings.Replace(manifest, defaultWindowsArgument, "--windows-subnet="+serviceCIDRs.WindowsCIDR, 1)
+	if !strings.Contains(manifest, "--linux-subnet="+serviceCIDRs.LinuxCIDR) || !strings.Contains(manifest, "--windows-subnet="+serviceCIDRs.WindowsCIDR) {
+		return "", fmt.Errorf("rendered ClusterIP webhook deployment does not contain configured service CIDRs")
+	}
+	return manifest, nil
 }
 
 func (o *LinuxOrchestrator) removeClusterIPWebhook() {

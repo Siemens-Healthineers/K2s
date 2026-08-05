@@ -79,15 +79,37 @@ func TestResolverIsImmutableFromOutput(t *testing.T) {
 	}
 }
 
+func TestIsK2sManagedResolver(t *testing.T) {
+	t.Parallel()
+
+	if !isK2sManagedResolver([]byte(resolverHeader + "\nnameserver 127.0.0.1\n")) {
+		t.Fatal("K2s-managed resolver content was not detected")
+	}
+	if isK2sManagedResolver([]byte("nameserver 8.8.8.8\n")) {
+		t.Fatal("external resolver content was incorrectly detected as K2s-managed")
+	}
+}
+
 func TestRenderClusterIPWebhookDeploymentUsesConfiguredPartitions(t *testing.T) {
 	t.Parallel()
 
 	manifest := "--linux-subnet=172.21.0.0/24\n--windows-subnet=172.21.1.0/24\n"
-	rendered := renderClusterIPWebhookDeployment(manifest, config.ServiceCIDRConfig{
+	rendered, err := renderClusterIPWebhookDeployment(manifest, config.ServiceCIDRConfig{
 		LinuxCIDR:   "10.10.0.0/24",
 		WindowsCIDR: "10.10.1.0/24",
 	})
+	if err != nil {
+		t.Fatalf("renderClusterIPWebhookDeployment() returned an error: %v", err)
+	}
 	if !strings.Contains(rendered, "--linux-subnet=10.10.0.0/24") || !strings.Contains(rendered, "--windows-subnet=10.10.1.0/24") {
 		t.Fatalf("rendered webhook deployment did not contain configured CIDRs: %q", rendered)
+	}
+}
+
+func TestRenderClusterIPWebhookDeploymentRejectsManifestDrift(t *testing.T) {
+	t.Parallel()
+
+	if _, err := renderClusterIPWebhookDeployment("args: []", config.ServiceCIDRConfig{}); err == nil {
+		t.Fatal("renderClusterIPWebhookDeployment() accepted a manifest without allocation arguments")
 	}
 }

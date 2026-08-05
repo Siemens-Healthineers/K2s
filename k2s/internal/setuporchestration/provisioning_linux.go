@@ -9,6 +9,7 @@ import (
 	"bufio"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log/slog"
 	"net"
@@ -285,6 +286,14 @@ type resolverState struct {
 // applications. It only replaces /etc/resolv.conf while K2s is running and
 // preserves the exact original file or symlink for stop/uninstall restoration.
 func (o *LinuxOrchestrator) configureHostDNS(cfg InstallConfig) error {
+	currentResolver, err := os.ReadFile(resolverPath)
+	if err != nil {
+		return fmt.Errorf("read current resolver configuration: %w", err)
+	}
+	if isK2sManagedResolver(currentResolver) {
+		return fmt.Errorf("K2s already owns %s; stop K2s before starting it again", resolverPath)
+	}
+
 	proxyNetwork, err := config.ReadKubeSwitchConfig(cfg.InstallDir)
 	if err != nil {
 		return fmt.Errorf("read KubeSwitch DNS configuration: %w", err)
@@ -377,13 +386,12 @@ func waitForDNSProxy() error {
 }
 
 func stopHostDNS(configDir string) error {
-	if err := restoreResolverState(configDir); err != nil {
-		return err
+	restoreErr := restoreResolverState(configDir)
+	stopErr := runCommand("systemctl", "stop", dnsProxyService)
+	if stopErr != nil {
+		stopErr = fmt.Errorf("stop DNS proxy: %w", stopErr)
 	}
-	if err := runCommand("systemctl", "stop", dnsProxyService); err != nil {
-		return fmt.Errorf("stop DNS proxy: %w", err)
-	}
-	return nil
+	return errors.Join(restoreErr, stopErr)
 }
 
 func removeDNSProxy(configDir string) {
@@ -437,6 +445,9 @@ func saveResolverState(configDir string) error {
 		if err != nil {
 			return fmt.Errorf("read resolver configuration: %w", err)
 		}
+	}
+	if isK2sManagedResolver(state.Content) {
+		return fmt.Errorf("K2s already owns %s; refusing to overwrite saved resolver state", resolverPath)
 	}
 	data, err := json.Marshal(state)
 	if err != nil {
@@ -497,7 +508,7 @@ func restoreResolverState(configDir string) error {
 	if err != nil {
 		return fmt.Errorf("read current resolver configuration: %w", err)
 	}
-	if !strings.HasPrefix(string(current), resolverHeader) {
+	if !isK2sManagedResolver(current) {
 		// DNS setup can fail before K2s takes ownership of resolv.conf. In that
 		// case the original resolver is already intact and must not be touched.
 		return nil
@@ -521,6 +532,10 @@ func restoreResolverState(configDir string) error {
 		}
 	}
 	return nil
+}
+
+func isK2sManagedResolver(content []byte) bool {
+	return strings.HasPrefix(string(content), resolverHeader)
 }
 
 func setResolverImmutable(immutable bool) error {
@@ -616,6 +631,9 @@ func verifyHostDNS(coreDNSIP string, zones []string) error {
 	queryName := "kubernetes.default.svc." + zones[0]
 	if _, err := net.LookupHost(queryName); err != nil {
 		return fmt.Errorf("verify host DNS query for %s through CoreDNS service %s: %w", queryName, coreDNSIP, err)
+	}
+	if _, err := net.LookupHost("kubernetes.io"); err != nil {
+		return fmt.Errorf("verify external host DNS through K2s DNS proxy: %w", err)
 	}
 	return nil
 }
