@@ -9,6 +9,8 @@ SPDX-License-Identifier: MIT
 ## Introduction
 The `gpu-node` addon provides the possibility to configure the KubeMaster Linux VM as GPU node in order to run GPU workloads. When enabling this addon the KubeMaster Linux VM is configured to use the WSL2 Linux Kernel which is able to access the GPU of the Windows host machine and use it as shared instance together with the Windows host machine. The [k8s device plugin](https://github.com/NVIDIA/k8s-device-plugin) from Nvidia is responsible for deploying GPU workloads.
 
+Optionally, the addon can be enabled in node-targeted mode by passing one or more cluster node names with `--node`. In that mode, if kubemaster node name is not passed then KubeMaster GPU setup is skipped and no NVIDIA addon workload/images are prepared on KubeMaster.
+
 > **Supported hosting variants:** The `gpu-node` addon is fully supported on both **Hyper-V** and **WSL2** K2s setups.
 
 ## Getting started
@@ -27,6 +29,24 @@ The `gpu-node` addon provides the possibility to configure the KubeMaster Linux 
 The gpu-node addon can be enabled using the k2s CLI by running the following command:
 ```console
 k2s addons enable gpu-node
+```
+
+To target only specific cluster node(s):
+
+```console
+k2s addons enable gpu-node --node my-gpu-worker
+```
+
+Multiple workers can be passed as a comma-separated list:
+
+```console
+k2s addons enable gpu-node --node gpu-worker-a,gpu-worker-b,kubemaster
+```
+
+If you include spaces after commas in PowerShell, quote the whole value:
+
+```console
+k2s addons enable gpu-node --node "gpu-worker-a, gpu-worker-b, kubemaster"
 ```
 
 ### GPU time-slicing (optional)
@@ -130,9 +150,24 @@ k2s node add --ip-addr 192.168.1.50 --username admin --node-package C:\packages\
 
 - **Automatic GPU detection**: GPU workers are automatically configured when an NVIDIA GPU is detected during node addition
 - **Order-independent**: GPU workers can be added before or after enabling the gpu-node addon
-- **The addon must be enabled** for GPU workloads to run: `k2s addons enable gpu-node`
+- **The addon must be enabled** for GPU workloads to run: `k2s addons enable gpu-node` (or node-targeted mode: `k2s addons enable gpu-node --node <node-name>`)
 - **Labels coordinate scheduling**: The NVIDIA device plugin DaemonSet targets nodes with `gpu=true`
-- **Disabling the addon** removes the device plugin but preserves GPU configuration on external workers
+- **Disabling is global**: `k2s addons disable gpu-node` does not take `--node` and removes the device plugin DaemonSet cluster-wide
+- **External worker labels are preserved on disable**: remove manually if needed with `kubectl label node <node-name> gpu- accelerator-`
+
+### Disable Behavior
+
+Use the single command below to disable the addon:
+
+```console
+k2s addons disable gpu-node
+```
+
+Notes:
+- No node name is required or accepted for disable.
+- The NVIDIA device plugin workload is removed from all nodes.
+- Control-plane local GPU runtime cleanup is executed as part of disable.
+- External worker GPU labels/configuration are intentionally kept.
 
 ### Check GPU Worker Status
 

@@ -265,7 +265,7 @@ function Get-RegisteredHeadlampPlugins {
     return @(
         [pscustomobject]@{
             Name     = 'flux-plugin'
-            Image    = 'shsk2s.azurecr.io/headlamp-plugin-flux:0.6.0'
+            Image    = 'shsk2s.azurecr.io/headlamp-plugin-flux:0.7.0'
             Detector = { Test-FluxCapabilityAvailable }
         },
         [pscustomobject]@{
@@ -275,7 +275,7 @@ function Get-RegisteredHeadlampPlugins {
         },
         [pscustomobject]@{
             Name     = 'prometheus-plugin'
-            Image    = 'shsk2s.azurecr.io/headlamp-plugin-prometheus:0.9.0'
+            Image    = 'shsk2s.azurecr.io/headlamp-plugin-prometheus:0.9.1'
             Detector = { Test-PrometheusCapabilityAvailable }
         },
         [pscustomobject]@{
