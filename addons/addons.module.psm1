@@ -1846,11 +1846,18 @@ function Initialize-CACertificateIssuer {
 Waits for the cert-manager API to be available.
 #>
 function Wait-ForCertManagerAvailable {
-	$out = &$cmctlExe check api --wait=5m
-    if ($out -match 'The cert-manager API is ready') {
-        return $true
-    }
-    return $false
+	$out = (&$cmctlExe check api --wait=5m 2>&1 | Out-String).Trim()
+	if ($out -match 'The cert-manager API is ready') {
+		return $true
+	}
+
+	$exitCode = if ($null -ne $LASTEXITCODE) { [int]$LASTEXITCODE } else { 0 }
+	if ([string]::IsNullOrWhiteSpace($out)) {
+		$out = '<no output>'
+	}
+
+	Write-Log "[CertManager] cmctl check api failed (exit code: $exitCode). Output: $out" -Console
+	return $false
 }
 
 <#

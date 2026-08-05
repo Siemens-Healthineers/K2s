@@ -1205,10 +1205,14 @@ Describe 'Install-CmctlCli' -Tag 'unit', 'ci', 'addon' {
 }
 
 Describe 'Wait-ForCertManagerAvailable' -Tag 'unit', 'ci', 'addon' {
+    BeforeAll {
+        Mock -ModuleName $moduleName Write-Log { }
+    }
+
     Context 'cmctl reports API ready' {
         It 'returns true' {
             InModuleScope -ModuleName $moduleName {
-                $cmctlExe = { param($cmd, $subcmd, $wait) 'The cert-manager API is ready' }
+                Set-Variable -Name cmctlExe -Value { param($cmd, $subcmd, $wait) 'The cert-manager API is ready' }
                 Wait-ForCertManagerAvailable | Should -BeTrue
             }
         }
@@ -1217,8 +1221,20 @@ Describe 'Wait-ForCertManagerAvailable' -Tag 'unit', 'ci', 'addon' {
     Context 'cmctl does not report readiness' {
         It 'returns false' {
             InModuleScope -ModuleName $moduleName {
-                $cmctlExe = { param($cmd, $subcmd, $wait) 'not ready' }
+                Set-Variable -Name cmctlExe -Value { param($cmd, $subcmd, $wait) 'not ready' }
                 Wait-ForCertManagerAvailable | Should -BeFalse
+            }
+        }
+
+        It 'logs cmctl diagnostics when readiness is not reported' {
+            InModuleScope -ModuleName $moduleName {
+                Set-Variable -Name cmctlExe -Value { param($cmd, $subcmd, $wait) 'cmctl: webhook unavailable' }
+
+                Wait-ForCertManagerAvailable | Should -BeFalse
+
+                Should -Invoke Write-Log -Times 1 -Scope It -ParameterFilter {
+                    $Messages -match 'cmctl check api failed' -and $Messages -match 'cmctl: webhook unavailable'
+                }
             }
         }
     }
@@ -1228,7 +1244,7 @@ Describe 'Update-CertificateResources' -Tag 'unit', 'ci', 'addon' {
     It 'invokes cmctl renew for all namespaces' {
         InModuleScope -ModuleName $moduleName {
             $script:calls = @()
-            $cmctlExe = {
+            Set-Variable -Name cmctlExe -Value {
                 param($cmd, $p1, $p2)
                 $script:calls += , @($cmd, $p1, $p2)
             }
@@ -1298,7 +1314,7 @@ Describe 'Remove-Cmctl' -Tag 'unit', 'ci', 'addon' {
 
     It 'removes cmctl executable path' {
         InModuleScope -ModuleName $moduleName {
-            $cmctlExe = 'C:\\tmp\\cmctl.exe'
+            Set-Variable -Name cmctlExe -Value 'C:\\tmp\\cmctl.exe'
             Remove-Cmctl
         }
 
