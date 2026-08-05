@@ -26,8 +26,9 @@ flowchart LR
 At installation and `k2s start`, K2s discovers the `kube-dns` Service IP and
 the Kubernetes zones from the active CoreDNS configuration. It forwards these
 zones, including service, pod, custom, and reverse zones served by CoreDNS, to
-CoreDNS. All other requests are forwarded to the nameservers that were in the
-host resolver configuration before K2s DNS activation.
+CoreDNS. In corporate networks that block direct UDP/TCP DNS, all other requests
+use the DNS-over-HTTPS fallback through the K2s HTTP proxy. This keeps external
+host DNS available without changing the host's external resolver or NIC settings.
 
 ## Lifecycle picture
 

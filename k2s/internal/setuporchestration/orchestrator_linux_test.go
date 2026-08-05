@@ -90,6 +90,18 @@ func TestIsK2sManagedResolver(t *testing.T) {
 	}
 }
 
+func TestRenderDNSProxyConfigUsesDoHForExternalQueries(t *testing.T) {
+	t.Parallel()
+
+	config, err := renderDNSProxyConfig("172.19.1.1", "172.21.0.10", []string{"cluster.local"})
+	if err != nil {
+		t.Fatalf("renderDNSProxyConfig() returned an error: %v", err)
+	}
+	if !strings.Contains(config, `"[/cluster.local/]172.21.0.10"`) || !strings.Contains(config, `"https://dns.google/dns-query"`) {
+		t.Fatalf("DNS proxy configuration does not contain expected CoreDNS and DoH upstreams: %q", config)
+	}
+}
+
 func TestRenderClusterIPWebhookDeploymentUsesConfiguredPartitions(t *testing.T) {
 	t.Parallel()
 
