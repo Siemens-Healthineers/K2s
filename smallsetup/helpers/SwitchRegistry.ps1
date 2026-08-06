@@ -24,6 +24,47 @@ $infraModule = "$PSScriptRoot\..\..\lib\modules\k2s\k2s.infra.module\k2s.infra.m
 
 Import-Module $registryFunctionsModule, $clusterModule, $imageFunctionsModule, $infraModule -DisableNameChecking
 
+function Invoke-NssmCommandWithTimeout {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string[]]$ArgumentList,
+        [Parameter(Mandatory = $false)]
+        [int]$TimeoutInSeconds = 90,
+        [Parameter(Mandatory = $false)]
+        [switch]$ContinueOnTimeout = $false
+    )
+
+    $nssmExe = Join-Path $global:NssmInstallDirectory 'nssm'
+    if (-not (Test-Path $nssmExe)) {
+        throw "nssm executable not found at '$nssmExe'."
+    }
+
+    Write-Log "Invoking nssm with timeout ${TimeoutInSeconds}s: $($ArgumentList -join ' ')"
+    $process = Start-Process -FilePath $nssmExe -ArgumentList $ArgumentList -NoNewWindow -PassThru
+    if (-not $process.WaitForExit($TimeoutInSeconds * 1000)) {
+        try {
+            Stop-Process -Id $process.Id -Force -ErrorAction SilentlyContinue
+        }
+        catch {
+            Write-Log "Failed to stop timed-out nssm process id '$($process.Id)': $($_.Exception.Message)"
+        }
+
+        $timeoutMessage = "nssm command timed out after ${TimeoutInSeconds}s: $($ArgumentList -join ' ')"
+        if ($ContinueOnTimeout) {
+            Write-Log "$timeoutMessage. Continuing without blocking image workflow."
+            return $false
+        }
+
+        throw $timeoutMessage
+    }
+
+    if ($process.ExitCode -ne 0) {
+        throw "nssm command failed with exit code $($process.ExitCode): $($ArgumentList -join ' ')"
+    }
+
+    return $true
+}
+
 if (-not (Get-Command -Name Write-Log -ErrorAction SilentlyContinue)) {
     Import-Module $infraModule -DisableNameChecking
 }
@@ -73,15 +114,27 @@ Login-Buildah -registry $RegistryName
 # Add dockerd parameters and restart docker daemon to push nondistributable artifacts and use insecure registry
 if ($setupInfo.Name -eq $global:SetupType_k2s -or $setupInfo.Name -eq $global:SetupType_BuildOnlyEnv) {
     $storageLocalDrive = Get-StorageLocalDrive
+    Write-Log "Configuring docker daemon for registry '$RegistryName'" -Console
     &"$global:NssmInstallDirectory\nssm" set docker AppParameters --exec-opt isolation=process --data-root "$storageLocalDrive\docker" --log-level debug --allow-nondistributable-artifacts "$RegistryName" --insecure-registry "$RegistryName" | Out-Null
-    if ($(Get-Service -Name 'docker' -ErrorAction SilentlyContinue).Status -eq 'Running') {
-        &"$global:NssmInstallDirectory\nssm" restart docker
+
+    $dockerService = Get-Service -Name 'docker' -ErrorAction SilentlyContinue
+    $dockerServiceStatus = if ($null -eq $dockerService) { 'NotFound' } else { $dockerService.Status.ToString() }
+    Write-Log "Docker service status before nssm action: $dockerServiceStatus" -Console
+
+    $nssmActionSucceeded = $false
+    if ($dockerServiceStatus -eq 'Running') {
+        $nssmActionSucceeded = Invoke-NssmCommandWithTimeout -ArgumentList @('restart', 'docker') -TimeoutInSeconds 90 -ContinueOnTimeout
     }
     else {
-        &"$global:NssmInstallDirectory\nssm" start docker
+        $nssmActionSucceeded = Invoke-NssmCommandWithTimeout -ArgumentList @('start', 'docker') -TimeoutInSeconds 90 -ContinueOnTimeout
     }
 
-    Login-Docker -registry $RegistryName
+    if ($nssmActionSucceeded) {
+        Login-Docker -registry $RegistryName
+    }
+    else {
+        Write-Log "Skipping docker login because docker service action timed out. Buildah login remains active for Linux image push workflows." -Console
+    }
 }
 
 Set-ConfigValue -Path $global:SetupJsonFile -Key $global:ConfigKey_LoggedInRegistry -Value $RegistryName
