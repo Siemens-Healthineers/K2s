@@ -159,6 +159,9 @@ if (!$kubectlCmd.Success) {
 
 $kubectlCmd = (Invoke-Kubectl -Params 'rollout', 'status', 'statefulsets', '-n', 'monitoring', '--timeout=600s')
 Write-Log $kubectlCmd.Output
+if ($kubectlCmd.Output -match 'No resources found in monitoring namespace\.') {
+    Write-Log '[Monitoring] Prometheus Operator has not created statefulsets yet; continuing with extended pod readiness checks' -Console
+}
 if (!$kubectlCmd.Success) {
     $errMsg = 'Kube Prometheus Stack could not be deployed!'
     if ($EncodeStructuredOutput -eq $true) {
@@ -171,7 +174,7 @@ if (!$kubectlCmd.Success) {
     exit 1
 }
 
-$allPodsAreUp = (Wait-ForPodCondition -Condition Ready -Label 'app.kubernetes.io/name=alertmanager' -Namespace 'monitoring' -TimeoutSeconds 120)
+$allPodsAreUp = (Wait-ForPodCondition -Condition Ready -Label 'app.kubernetes.io/name=alertmanager' -Namespace 'monitoring' -TimeoutSeconds 300)
 if ($allPodsAreUp -ne $true) {
     $errMsg = "Alertmanager could not be deployed!"
     if ($EncodeStructuredOutput -eq $true) {
@@ -184,7 +187,7 @@ if ($allPodsAreUp -ne $true) {
     exit 1  
 }
 
-$allPodsAreUp = (Wait-ForPodCondition -Condition Ready -Label 'app.kubernetes.io/name=prometheus' -Namespace 'monitoring' -TimeoutSeconds 120)
+$allPodsAreUp = (Wait-ForPodCondition -Condition Ready -Label 'app.kubernetes.io/name=prometheus' -Namespace 'monitoring' -TimeoutSeconds 300)
 if ($allPodsAreUp -ne $true) {
     $errMsg = "Prometheus could not be deployed!"
     if ($EncodeStructuredOutput -eq $true) {
