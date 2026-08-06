@@ -90,15 +90,15 @@ func TestIsK2sManagedResolver(t *testing.T) {
 	}
 }
 
-func TestRenderDNSProxyConfigUsesDoHForExternalQueries(t *testing.T) {
+func TestRenderDNSProxyConfigUsesHostResolverUpstreams(t *testing.T) {
 	t.Parallel()
 
-	config, err := renderDNSProxyConfig("172.19.1.1", "172.21.0.10", []string{"cluster.local"})
+	config, err := renderDNSProxyConfig("172.19.1.1", "172.21.0.10", []string{"cluster.local"}, []string{"10.81.32.10", "10.81.32.11"})
 	if err != nil {
 		t.Fatalf("renderDNSProxyConfig() returned an error: %v", err)
 	}
-	if !strings.Contains(config, `"[/cluster.local/]172.21.0.10"`) || !strings.Contains(config, `"https://dns.google/dns-query"`) {
-		t.Fatalf("DNS proxy configuration does not contain expected CoreDNS and DoH upstreams: %q", config)
+	if !strings.Contains(config, `"[/cluster.local/]172.21.0.10"`) || !strings.Contains(config, `"10.81.32.10"`) || !strings.Contains(config, `"10.81.32.11"`) {
+		t.Fatalf("DNS proxy configuration does not contain expected CoreDNS and host resolver upstreams: %q", config)
 	}
 }
 
