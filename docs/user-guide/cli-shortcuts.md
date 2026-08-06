@@ -23,3 +23,23 @@ To interact with the *K2s* cluster, the following shortcuts can be used:
 | `kl`     | `kubectl logs`                                                           | Show logs of *Kubernetes* resource                  |
 | `krp`    | `kubectl delete pod`                                                     | Remove specified *Pod*                              |
 | `ks`     | `k2s status -o wide`                                                     | Inspect *K2s* system health                         |
+
+## Krew support
+
+*K2s* bundles [Krew](https://krew.sigs.k8s.io/){target="_blank"}, the official *kubectl* plugin
+manager, together with *kubectl*. Krew is included in the offline package, so no additional download
+is required — after installing *K2s* you can immediately run:
+
+```powershell
+kubectl krew version
+```
+
+!!! note
+    Installing plugins (for example `kubectl krew install ctx`) fetches the plugin index and packages
+    from the internet and is therefore an online, user-initiated action. It is never performed during
+    *K2s* installation, preserving *K2s*'s offline guarantees.
+
+Krew installs plugins into the per-user directory `%USERPROFILE%\.krew\bin`. For the user who installed
+*K2s*, this directory is added to `PATH` automatically, so installed plugins are discoverable right away.
+Any additional Windows user follows Krew's standard [one-time PATH setup](https://krew.sigs.k8s.io/docs/user-guide/setup/install/){target="_blank"}
+to expose their own plugins.
