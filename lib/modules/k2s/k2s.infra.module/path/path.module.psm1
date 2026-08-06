@@ -89,6 +89,39 @@ function Update-SystemPath ($Action, $Addendum) {
     }
 }
 
+function Update-UserPath ($Action, $Addendum) {
+    # Per-user (HKCU) counterpart of Update-SystemPath. Used only for locations that live under the user's
+    # profile - e.g. krew installs its plugins into '%USERPROFILE%\.krew\bin', which is per-user by design
+    # and therefore must NOT go into the machine-wide PATH (that would leak the installing user's directory
+    # to every account). The only intentional difference from Update-SystemPath is the registry scope.
+    $regLocation = 'Registry::HKEY_CURRENT_USER\Environment'
+    $path = (Get-ItemProperty -Path $regLocation -Name PATH -ErrorAction SilentlyContinue).path
+    if ($null -eq $path) {
+        # Unlike the machine hive, HKCU:\Environment may not have a PATH value yet (e.g. Server Core / fresh profile).
+        $path = ''
+    }
+
+    # Add an item to PATH
+    if ($Action -eq 'add') {
+        $path = $path + [IO.Path]::PathSeparator + $Addendum
+        $path = ( $path -split [IO.Path]::PathSeparator | Where-Object { $_ -ne '' } | Select-Object -Unique ) -join [IO.Path]::PathSeparator
+        Set-ItemProperty -Path $regLocation -Name PATH -Value $path
+
+        $env:Path = $env:Path + [IO.Path]::PathSeparator + $Addendum
+        $env:Path = ( $env:Path -split [IO.Path]::PathSeparator | Select-Object -Unique ) -join [IO.Path]::PathSeparator
+
+        Write-Verbose "Added $Addendum to user PATH variable"
+    }
+
+    # Remove an item from PATH
+    if ($Action -eq 'remove') {
+        # Case-insensitive match: Windows paths are case-insensitive, so PATH entries that differ only in
+        # casing (e.g. 'C:\K' vs 'C:\k') must still be removed (important for installation re-homing).
+        $path = ($path.Split([IO.Path]::PathSeparator) | Where-Object { $_ -ine "$Addendum" }) -join [IO.Path]::PathSeparator
+        Set-ItemProperty -Path $regLocation -Name PATH -Value $path
+    }
+}
+
 function Set-EnvVars {
     $kubePath = Get-KubePath
     Update-SystemPath -Action 'add' "$kubePath"
@@ -96,6 +129,9 @@ function Set-EnvVars {
     Update-SystemPath -Action 'add' "$kubePath\bin\kube"
     Update-SystemPath -Action 'add' "$kubePath\bin\docker"
     Update-SystemPath -Action 'add' "$kubePath\bin\containerd"
+    # krew installs its plugins into '%USERPROFILE%\.krew\bin' (per-user); expose them via the USER PATH so
+    # plugins installed via 'kubectl krew install' are discoverable. The krew binary itself stays machine-wide (bin\kube).
+    Update-UserPath -Action 'add' "$env:USERPROFILE\.krew\bin"
 }
 
 function Reset-EnvVars {
@@ -106,6 +142,8 @@ function Reset-EnvVars {
     Update-SystemPath -Action 'remove' "$kubePath\bin\docker"
     Update-SystemPath -Action 'remove' "$kubePath\containerd" # Backward compatibility
     Update-SystemPath -Action 'remove' "$kubePath\bin\containerd"
+    # Remove the krew user-plugins PATH entry added during installation (USER scope).
+    Update-UserPath -Action 'remove' "$env:USERPROFILE\.krew\bin"
 }
 
 <#
@@ -131,6 +169,7 @@ Get-InstallationDriveLetter,
 Get-SystemDriveLetter,
 Test-PathPrerequisites,
 Update-SystemPath,
+Update-UserPath,
 Set-EnvVars,
 Write-RefreshEnvVariables,
 Reset-EnvVars
