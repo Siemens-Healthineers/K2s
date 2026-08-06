@@ -93,18 +93,20 @@ if ($EnancedSecurityEnabled) {
 (Invoke-Kubectl -Params 'rollout', 'restart', 'deployment', '-n', 'rollout').Output | Write-Log
 (Invoke-Kubectl -Params 'rollout', 'restart', 'statefulset', '-n', 'rollout').Output | Write-Log
 
-# Evidence: failing validation logs show repeated "timed out waiting for the condition"
-# emitted by Update.ps1 during rollout status checks in non-interactive workflow VMs.
-$deploymentRollout = Invoke-Kubectl -Params 'rollout', 'status', 'deployment', '-n', 'rollout', '--timeout', '60s'
+$deploymentRollout = Invoke-Kubectl -Params 'rollout', 'status', 'deployment', '-n', 'rollout', '--timeout', '180s'
 $deploymentRollout.Output | Write-Log
-$statefulsetRollout = Invoke-Kubectl -Params 'rollout', 'status', 'statefulset', '-n', 'rollout', '--timeout', '60s'
-$statefulsetRollout.Output | Write-Log
+if (-not $deploymentRollout.Success) {
+    Write-Log '[Rollout] ArgoCD deployment rollout status check failed during update.' -Error
+    Capture-RolloutTimeoutDiagnostics -Reason 'ArgoCD deployment rollout status failed after restart in Update.ps1'
+    exit 1
+}
 
-$rolloutOutput = "$($deploymentRollout.Output)`n$($statefulsetRollout.Output)"
-$rolloutTimedOut = ($rolloutOutput -match 'timed out waiting for the condition')
-$rolloutFailed = (-not $deploymentRollout.Success) -or (-not $statefulsetRollout.Success)
-if ($rolloutTimedOut -or $rolloutFailed) {
-    Capture-RolloutTimeoutDiagnostics -Reason 'ArgoCD rollout status failed or timed out after restart in Update.ps1'
+$statefulsetRollout = Invoke-Kubectl -Params 'rollout', 'status', 'statefulset', '-n', 'rollout', '--timeout', '180s'
+$statefulsetRollout.Output | Write-Log
+if (-not $statefulsetRollout.Success) {
+    Write-Log '[Rollout] ArgoCD statefulset rollout status check failed during update.' -Error
+    Capture-RolloutTimeoutDiagnostics -Reason 'ArgoCD statefulset rollout status failed after restart in Update.ps1'
+    exit 1
 }
 
 if (Test-NginxGatewayAvailability) {
