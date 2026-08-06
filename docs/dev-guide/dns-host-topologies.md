@@ -28,7 +28,7 @@ flowchart LR
 	App[Linux host application] --> Resolver[/etc/resolv.conf<br/>while K2s is running]
 	Resolver --> LinuxProxy[K2s dnsproxy<br/>127.0.0.1 and KubeSwitch]
 	LinuxProxy --> CoreDNS[Discovered kube-dns / CoreDNS]
-	LinuxProxy --> External[Captured external DNS upstreams]
+	LinuxProxy --> External[Pre-K2s host DNS upstreams]
 	Worker[Future Linux or Windows worker] --> LinuxProxy
 ```
 
@@ -43,7 +43,7 @@ separate Kubernetes-zone resolution from normal external DNS resolution.
 | Worker-facing endpoint | KubeSwitch address on port 53 | Configured KubeSwitch address on port 53 |
 | Host resolver integration | Windows DNS proxy / host networking integration | Temporary K2s-owned `/etc/resolv.conf` pointing to loopback DNS proxy |
 | Physical NIC DNS | Windows flow can configure host networking | Never modified by native Linux K2s |
-| External DNS | Forwarded by Windows DNS proxy | DNS-over-HTTPS fallback through the K2s HTTP proxy |
+| External DNS | Physical NIC DNS servers are upstreams | Pre-K2s `/etc/resolv.conf` servers are upstreams |
 | Stop behavior | K2s DNS services stop | Resolver state is restored first, then K2s DNS proxy stops |
 
 ## Compatibility boundary

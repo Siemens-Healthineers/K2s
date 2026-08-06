@@ -298,6 +298,10 @@ func (o *LinuxOrchestrator) configureHostDNS(cfg InstallConfig) error {
 	if err != nil {
 		return fmt.Errorf("read KubeSwitch DNS configuration: %w", err)
 	}
+	upstreams, err := readResolverUpstreams()
+	if err != nil {
+		return err
+	}
 	if err := saveResolverState(cfg.ConfigDir); err != nil {
 		return err
 	}
@@ -307,16 +311,11 @@ func (o *LinuxOrchestrator) configureHostDNS(cfg InstallConfig) error {
 		removeDNSProxy(cfg.ConfigDir)
 		return err
 	}
-	if err := writeDNSProxyConfig(proxyNetwork.Address, coreDNSIP, zones); err != nil {
+	if err := writeDNSProxyConfig(proxyNetwork.Address, coreDNSIP, zones, upstreams); err != nil {
 		removeDNSProxy(cfg.ConfigDir)
 		return err
 	}
-	proxyURL, err := kubeSwitchProxyURL(cfg.InstallDir)
-	if err != nil {
-		removeDNSProxy(cfg.ConfigDir)
-		return err
-	}
-	if err := startDNSProxy(cfg, proxyURL); err != nil {
+	if err := startDNSProxy(cfg); err != nil {
 		removeDNSProxy(cfg.ConfigDir)
 		return err
 	}
@@ -331,7 +330,7 @@ func (o *LinuxOrchestrator) configureHostDNS(cfg InstallConfig) error {
 	return nil
 }
 
-func startDNSProxy(cfg InstallConfig, proxyURL string) error {
+func startDNSProxy(cfg InstallConfig) error {
 	binary := filepath.Join(cfg.InstallDir, "bin", "dnsproxy")
 	if _, err := os.Stat(binary); err != nil {
 		return fmt.Errorf("Linux dnsproxy binary is missing at %s: %w", binary, err)
@@ -347,12 +346,6 @@ Wants=network-online.target
 [Service]
 Type=simple
 ExecStart=%s --config-path=%s
-Environment="HTTP_PROXY=%s"
-Environment="HTTPS_PROXY=%s"
-Environment="http_proxy=%s"
-Environment="https_proxy=%s"
-Environment="NO_PROXY=%s"
-Environment="no_proxy=%s"
 StandardOutput=append:%s
 StandardError=append:%s
 Restart=on-failure
@@ -360,7 +353,7 @@ RestartSec=5
 
 [Install]
 WantedBy=multi-user.target
-`, binary, dnsProxyConfig, proxyURL, proxyURL, proxyURL, proxyURL, systemdValue(mergeNoProxy(cfg.NoProxy)), systemdValue(mergeNoProxy(cfg.NoProxy)), dnsProxyLogFile, dnsProxyLogFile)
+`, binary, dnsProxyConfig, dnsProxyLogFile, dnsProxyLogFile)
 	unitPath := filepath.Join("/etc/systemd/system", dnsProxyService+".service")
 	if err := os.WriteFile(unitPath, []byte(unit), 0644); err != nil {
 		return fmt.Errorf("write DNS proxy service: %w", err)
@@ -610,8 +603,8 @@ func coreDNSZones(corefile string) []string {
 	return zones
 }
 
-func writeDNSProxyConfig(kubeSwitchAddress string, coreDNSIP string, zones []string) error {
-	content, err := renderDNSProxyConfig(kubeSwitchAddress, coreDNSIP, zones)
+func writeDNSProxyConfig(kubeSwitchAddress string, coreDNSIP string, zones []string, upstreams []string) error {
+	content, err := renderDNSProxyConfig(kubeSwitchAddress, coreDNSIP, zones, upstreams)
 	if err != nil {
 		return err
 	}
@@ -624,9 +617,9 @@ func writeDNSProxyConfig(kubeSwitchAddress string, coreDNSIP string, zones []str
 	return nil
 }
 
-func renderDNSProxyConfig(kubeSwitchAddress string, coreDNSIP string, zones []string) (string, error) {
-	if net.ParseIP(kubeSwitchAddress) == nil || net.ParseIP(coreDNSIP) == nil || len(zones) == 0 {
-		return "", fmt.Errorf("invalid DNS proxy listener, CoreDNS address, or Kubernetes zone configuration")
+func renderDNSProxyConfig(kubeSwitchAddress string, coreDNSIP string, zones []string, upstreams []string) (string, error) {
+	if net.ParseIP(kubeSwitchAddress) == nil || net.ParseIP(coreDNSIP) == nil || len(zones) == 0 || len(upstreams) == 0 {
+		return "", fmt.Errorf("invalid DNS proxy listener, CoreDNS address, Kubernetes zone, or external upstream configuration")
 	}
 	var builder strings.Builder
 	builder.WriteString("---\nlisten-addrs:\n  - \"127.0.0.1\"\n")
@@ -636,11 +629,9 @@ func renderDNSProxyConfig(kubeSwitchAddress string, coreDNSIP string, zones []st
 	for _, zone := range zones {
 		builder.WriteString(fmt.Sprintf("  - \"[/%s/]%s\"\n", zone, coreDNSIP))
 	}
-	// The corporate network blocks direct UDP/TCP queries to the resolver
-	// addresses inherited from the host. dnsproxy sends this DoH fallback
-	// through the local K2s HTTP proxy; Kubernetes zones above still use
-	// direct in-cluster CoreDNS queries.
-	builder.WriteString("  - \"https://dns.google/dns-query\"\n")
+	for _, upstream := range upstreams {
+		builder.WriteString(fmt.Sprintf("  - \"%s\"\n", upstream))
+	}
 	return builder.String(), nil
 }
 
