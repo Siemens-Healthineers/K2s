@@ -913,6 +913,31 @@ func (c *Cluster) ExpectDNSToBeResolvableFromHost(ctx context.Context, serviceNa
 	}, c.testStepTimeout, c.testStepPollInterval, ctx).Should(Succeed(), "DNS resolution of <"+fqdn+"> should succeed")
 }
 
+func (c *Cluster) ExpectDNSToBeResolvableThroughDNSProxy(ctx context.Context, serviceName string, namespace string, resolverAddress string) {
+	fqdn := fmt.Sprintf("%s.%s.svc.cluster.local", serviceName, namespace)
+	resolver := &net.Resolver{
+		PreferGo: true,
+		Dial: func(ctx context.Context, network string, _ string) (net.Conn, error) {
+			var dialer net.Dialer
+			return dialer.DialContext(ctx, network, resolverAddress)
+		},
+	}
+
+	GinkgoWriter.Println("Waiting for DNS resolution of <", fqdn, "> through K2s DNS proxy <", resolverAddress, ">..")
+	Eventually(func() error {
+		addrs, err := resolver.LookupHost(ctx, fqdn)
+		if err != nil {
+			GinkgoWriter.Println("K2s DNS proxy lookup failed for <", fqdn, ">:", err)
+			return err
+		}
+		if len(addrs) == 0 {
+			return fmt.Errorf("no addresses resolved for %s", fqdn)
+		}
+		GinkgoWriter.Println("K2s DNS proxy resolved <", fqdn, "> to", addrs)
+		return nil
+	}, c.testStepTimeout, c.testStepPollInterval, ctx).Should(Succeed(), "DNS resolution of <"+fqdn+"> through the K2s DNS proxy should succeed")
+}
+
 // WaitForNodeToBeReady polls until the node transitions to Ready state.
 // This is useful in BeforeSuite to ensure nodes are ready before deploying workloads.
 func (c *Cluster) WaitForNodeToBeReady(name string, ctx context.Context) {
