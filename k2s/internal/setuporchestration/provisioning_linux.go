@@ -44,6 +44,7 @@ const (
 	dnsProxyConfig        = "/etc/k2s/dnsproxy.yaml"
 	dnsProxyLogDir        = "/var/log/dnsproxy"
 	dnsProxyLogFile       = "/var/log/dnsproxy/dnsproxy.log"
+	systemdResolvedConfig = "/etc/systemd/resolved.conf.d/20-k2s-dns.conf"
 	resolverPath          = "/etc/resolv.conf"
 	resolverStateFile     = "dns-resolver-state.json"
 )
@@ -323,6 +324,10 @@ func (o *LinuxOrchestrator) configureHostDNS(cfg InstallConfig) error {
 		removeDNSProxy(cfg.ConfigDir)
 		return err
 	}
+	if err := configureSystemdResolvedDNS(); err != nil {
+		removeDNSProxy(cfg.ConfigDir)
+		return err
+	}
 	if err := verifyHostDNS(coreDNSIP, zones); err != nil {
 		removeDNSProxy(cfg.ConfigDir)
 		return err
@@ -386,15 +391,19 @@ func waitForDNSProxy() error {
 }
 
 func stopHostDNS(configDir string) error {
+	resolvedErr := removeSystemdResolvedDNS()
 	restoreErr := restoreResolverState(configDir)
 	stopErr := runCommand("systemctl", "stop", dnsProxyService)
 	if stopErr != nil {
 		stopErr = fmt.Errorf("stop DNS proxy: %w", stopErr)
 	}
-	return errors.Join(restoreErr, stopErr)
+	return errors.Join(resolvedErr, restoreErr, stopErr)
 }
 
 func removeDNSProxy(configDir string) {
+	if err := removeSystemdResolvedDNS(); err != nil {
+		slog.Warn("[Uninstall] Could not restore systemd-resolved DNS configuration", "error", err)
+	}
 	if err := restoreResolverState(configDir); err != nil {
 		slog.Warn("[Uninstall] Could not restore host resolver", "error", err)
 	}
@@ -405,6 +414,41 @@ func removeDNSProxy(configDir string) {
 	_ = os.Remove(dnsProxyConfig)
 	_ = os.Remove(filepath.Join(configDir, resolverStateFile))
 	_ = runCommand("systemctl", "daemon-reload")
+}
+
+func configureSystemdResolvedDNS() error {
+	content := []byte(renderSystemdResolvedDNSConfig())
+	if err := os.MkdirAll(filepath.Dir(systemdResolvedConfig), 0755); err != nil {
+		return fmt.Errorf("create systemd-resolved configuration directory: %w", err)
+	}
+	if err := os.WriteFile(systemdResolvedConfig, content, 0644); err != nil {
+		return fmt.Errorf("write K2s systemd-resolved DNS configuration: %w", err)
+	}
+	if err := runCommand("systemctl", "restart", "systemd-resolved"); err != nil {
+		return fmt.Errorf("restart systemd-resolved with K2s DNS configuration: %w", err)
+	}
+	return nil
+}
+
+func renderSystemdResolvedDNSConfig() string {
+	return "# Managed by K2s native Linux installation; removed by k2s stop or uninstall\n[Resolve]\nDNS=127.0.0.1\nDomains=~.\n"
+}
+
+func removeSystemdResolvedDNS() error {
+	_, err := os.Stat(systemdResolvedConfig)
+	if os.IsNotExist(err) {
+		return nil
+	}
+	if err != nil {
+		return fmt.Errorf("inspect K2s systemd-resolved DNS configuration: %w", err)
+	}
+	if err := os.Remove(systemdResolvedConfig); err != nil {
+		return fmt.Errorf("remove K2s systemd-resolved DNS configuration: %w", err)
+	}
+	if err := runCommand("systemctl", "restart", "systemd-resolved"); err != nil {
+		return fmt.Errorf("restart systemd-resolved after removing K2s DNS configuration: %w", err)
+	}
+	return nil
 }
 
 func readResolverUpstreams() ([]string, error) {

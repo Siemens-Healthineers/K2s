@@ -92,6 +92,16 @@ func TestResolverUpstreamsFromOutput(t *testing.T) {
 	}
 }
 
+func TestK2sSystemdResolvedConfig(t *testing.T) {
+	t.Parallel()
+
+	const expected = "# Managed by K2s native Linux installation; removed by k2s stop or uninstall\n[Resolve]\nDNS=127.0.0.1\nDomains=~.\n"
+	actual := renderSystemdResolvedDNSConfig()
+	if actual != expected {
+		t.Fatalf("systemd-resolved configuration = %q, want %q", actual, expected)
+	}
+}
+
 func TestResolverAttributesUnsupported(t *testing.T) {
 	t.Parallel()
 

@@ -41,7 +41,6 @@ var k2s *dsl.K2s
 
 var manifestDir string
 var proxy string
-var dnsProxyAddress string
 
 var testFailed = false
 var podWatcher *watcher.PodWatcher
@@ -61,7 +60,6 @@ var _ = BeforeSuite(func(ctx context.Context) {
 	kubeSwitchConfig, err := coreconfig.ReadKubeSwitchConfig(suite.RootDir())
 	Expect(err).NotTo(HaveOccurred())
 	proxy = "http://" + kubeSwitchConfig.Address + ":8181"
-	dnsProxyAddress = kubeSwitchConfig.Address + ":53"
 
 	if suite.SetupInfo().RuntimeConfig.InstallConfig().LinuxOnly() {
 		GinkgoWriter.Println("Found Linux-only setup, skipping Windows-based workloads")
@@ -106,12 +104,12 @@ var _ = BeforeSuite(func(ctx context.Context) {
 	GinkgoWriter.Println("Waiting for DNS entries to be resolvable from host..")
 
 	for _, deploymentName := range linuxDeploymentNames {
-		suite.Cluster().ExpectDNSToBeResolvableThroughDNSProxy(ctx, deploymentName, namespace, dnsProxyAddress)
+		suite.Cluster().ExpectDNSToBeResolvableFromHost(ctx, deploymentName, namespace)
 	}
 
 	if !suite.SetupInfo().RuntimeConfig.InstallConfig().LinuxOnly() {
 		for _, deploymentName := range winDeploymentNames {
-			suite.Cluster().ExpectDNSToBeResolvableThroughDNSProxy(ctx, deploymentName, namespace, dnsProxyAddress)
+			suite.Cluster().ExpectDNSToBeResolvableFromHost(ctx, deploymentName, namespace)
 		}
 
 		waitForWindowsWorkloadNetworkReadiness(ctx)
