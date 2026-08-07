@@ -751,7 +751,13 @@ function Assert-ControlPlaneArtifactDiskSizeCompatibility {
         throw "[PREREQ-FAILED] Precheck failed: expected packaged control-plane artifact is missing at '$controlPlaneBaseImagePath'. Installation cannot validate disk-size compatibility safely. Restore a complete package (including base VHDX) or run an explicit online installation mode."
     }
 
-    $packagedVhd = Get-VHD -Path $controlPlaneBaseImagePath -ErrorAction Stop
+    try {
+        $packagedVhd = Get-VHD -Path $controlPlaneBaseImagePath -ErrorAction Stop
+    }
+    catch {
+        throw "[PREREQ-FAILED] Precheck failed: could not read packaged control-plane VHDX at '$controlPlaneBaseImagePath': $_"
+    }
+
     $packagedDiskSize = [uint64]$packagedVhd.Size
     $requestedDiskSize = [uint64]$MasterDiskSize
 

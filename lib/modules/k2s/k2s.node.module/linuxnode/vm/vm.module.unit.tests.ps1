@@ -283,6 +283,16 @@ Describe 'Control-plane artifact disk-size precheck' -Tag 'unit', 'ci', 'vm' {
             }
         }
 
+        It 'fails with prereq contract when packaged VHDX cannot be read' {
+            InModuleScope $moduleName {
+                Mock Get-ControlPlaneVMBaseImagePath { 'C:\pkg\Kubemaster-Base.vhdx' }
+                Mock Test-Path { $true }
+                Mock Get-VHD { throw 'Hyper-V service unavailable' }
+
+                { Assert-ControlPlaneArtifactDiskSizeCompatibility -MasterDiskSize 60GB } | Should -Throw '*Precheck failed*could not read packaged control-plane VHDX*'
+            }
+        }
+
         It 'passes when requested disk size equals packaged provisioned size' {
             InModuleScope $moduleName {
                 Mock Get-ControlPlaneVMBaseImagePath { 'C:\pkg\Kubemaster-Base.vhdx' }
