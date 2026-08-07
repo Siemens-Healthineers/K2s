@@ -408,21 +408,39 @@ func removeDNSProxy(configDir string) {
 }
 
 func readResolverUpstreams() ([]string, error) {
+	if output, err := runCommandOutput("resolvectl", "dns"); err == nil {
+		if upstreams := resolverUpstreamsFromOutput(output); len(upstreams) > 0 {
+			slog.Info("[Install] Using systemd-resolved DNS servers for the K2s DNS proxy", "upstreams", upstreams)
+			return upstreams, nil
+		}
+	} else {
+		slog.Warn("[Install] Could not query systemd-resolved DNS servers; falling back to resolv.conf", "error", err)
+	}
+
 	data, err := os.ReadFile(resolverPath)
 	if err != nil {
 		return nil, fmt.Errorf("read existing resolver configuration: %w", err)
 	}
-	var upstreams []string
-	for _, line := range strings.Split(string(data), "\n") {
-		fields := strings.Fields(line)
-		if len(fields) == 2 && fields[0] == "nameserver" && net.ParseIP(fields[1]) != nil {
-			upstreams = append(upstreams, fields[1])
-		}
-	}
+	upstreams := resolverUpstreamsFromOutput(string(data))
 	if len(upstreams) == 0 {
-		return nil, fmt.Errorf("no nameserver entries found in %s", resolverPath)
+		return nil, fmt.Errorf("no non-loopback nameserver entries found in systemd-resolved or %s", resolverPath)
 	}
 	return upstreams, nil
+}
+
+func resolverUpstreamsFromOutput(output string) []string {
+	seen := map[string]bool{}
+	var upstreams []string
+	for _, field := range strings.Fields(output) {
+		address := strings.Trim(field, ",;[]")
+		ip := net.ParseIP(address)
+		if ip == nil || ip.IsLoopback() || seen[address] {
+			continue
+		}
+		seen[address] = true
+		upstreams = append(upstreams, address)
+	}
+	return upstreams
 }
 
 func saveResolverState(configDir string) error {
