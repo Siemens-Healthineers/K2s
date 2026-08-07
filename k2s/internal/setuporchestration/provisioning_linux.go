@@ -465,9 +465,17 @@ func saveResolverState(configDir string) error {
 func resolverIsImmutable() (bool, error) {
 	output, err := runCommandOutput("lsattr", "-d", resolverPath)
 	if err != nil {
+		if resolverAttributesUnsupported(err.Error()) {
+			slog.Info("[Install] Resolver filesystem does not support immutable attributes; continuing without them", "path", resolverPath)
+			return false, nil
+		}
 		return false, fmt.Errorf("inspect immutable attribute on %s: %w", resolverPath, err)
 	}
 	return resolverIsImmutableFromOutput(output)
+}
+
+func resolverAttributesUnsupported(message string) bool {
+	return strings.Contains(strings.ToLower(message), "operation not supported")
 }
 
 func resolverIsImmutableFromOutput(output string) (bool, error) {

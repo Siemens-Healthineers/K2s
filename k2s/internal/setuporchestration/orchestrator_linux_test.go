@@ -79,6 +79,17 @@ func TestResolverIsImmutableFromOutput(t *testing.T) {
 	}
 }
 
+func TestResolverAttributesUnsupported(t *testing.T) {
+	t.Parallel()
+
+	if !resolverAttributesUnsupported("lsattr: Operation not supported While reading flags on /etc/resolv.conf") {
+		t.Fatal("Operation not supported was not recognized as an unsupported resolver attribute filesystem")
+	}
+	if resolverAttributesUnsupported("lsattr: Permission denied While reading flags on /etc/resolv.conf") {
+		t.Fatal("permission error was incorrectly treated as unsupported resolver attributes")
+	}
+}
+
 func TestIsK2sManagedResolver(t *testing.T) {
 	t.Parallel()
 
