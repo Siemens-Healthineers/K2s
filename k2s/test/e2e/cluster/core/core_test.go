@@ -7,7 +7,6 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"net"
 	"os/exec"
 	"runtime"
 	"strings"
@@ -41,6 +40,7 @@ var k2s *dsl.K2s
 
 var manifestDir string
 var proxy string
+var dnsProxyAddress string
 
 var testFailed = false
 var podWatcher *watcher.PodWatcher
@@ -60,6 +60,7 @@ var _ = BeforeSuite(func(ctx context.Context) {
 	kubeSwitchConfig, err := coreconfig.ReadKubeSwitchConfig(suite.RootDir())
 	Expect(err).NotTo(HaveOccurred())
 	proxy = "http://" + kubeSwitchConfig.Address + ":8181"
+	dnsProxyAddress = kubeSwitchConfig.Address + ":53"
 
 	if suite.SetupInfo().RuntimeConfig.InstallConfig().LinuxOnly() {
 		GinkgoWriter.Println("Found Linux-only setup, skipping Windows-based workloads")
@@ -104,16 +105,12 @@ var _ = BeforeSuite(func(ctx context.Context) {
 	GinkgoWriter.Println("Waiting for DNS entries to be resolvable from host..")
 
 	for _, deploymentName := range linuxDeploymentNames {
-		if suite.SetupInfo().RuntimeConfig.InstallConfig().LinuxOnly() {
-			expectDNSToBeResolvableThroughK2sProxy(ctx, deploymentName, namespace)
-		} else {
-			suite.Cluster().ExpectDNSToBeResolvableFromHost(ctx, deploymentName, namespace)
-		}
+		suite.Cluster().ExpectDNSToBeResolvableThroughDNSProxy(ctx, deploymentName, namespace, dnsProxyAddress)
 	}
 
 	if !suite.SetupInfo().RuntimeConfig.InstallConfig().LinuxOnly() {
 		for _, deploymentName := range winDeploymentNames {
-			suite.Cluster().ExpectDNSToBeResolvableFromHost(ctx, deploymentName, namespace)
+			suite.Cluster().ExpectDNSToBeResolvableThroughDNSProxy(ctx, deploymentName, namespace, dnsProxyAddress)
 		}
 
 		waitForWindowsWorkloadNetworkReadiness(ctx)
@@ -184,31 +181,6 @@ func detectSystemicImagePullFailures(ctx context.Context) {
 		Fail(fmt.Sprintf("All %d pods stuck in image pull failures — container registry may be unreachable after upgrade.\nPod status:\n%s\nRecent failure events:\n%s",
 			failCount, podStatus, events))
 	}
-}
-
-func expectDNSToBeResolvableThroughK2sProxy(ctx context.Context, serviceName string, namespace string) {
-	fqdn := fmt.Sprintf("%s.%s.svc.cluster.local", serviceName, namespace)
-	resolver := &net.Resolver{
-		PreferGo: true,
-		Dial: func(ctx context.Context, network string, _ string) (net.Conn, error) {
-			var dialer net.Dialer
-			return dialer.DialContext(ctx, network, "127.0.0.1:53")
-		},
-	}
-
-	GinkgoWriter.Println("Waiting for DNS resolution of <", fqdn, "> through the K2s DNS proxy..")
-	Eventually(func() error {
-		addrs, err := resolver.LookupHost(ctx, fqdn)
-		if err != nil {
-			GinkgoWriter.Println("K2s DNS proxy lookup failed for <", fqdn, ">:", err)
-			return err
-		}
-		if len(addrs) == 0 {
-			return fmt.Errorf("no addresses resolved for %s", fqdn)
-		}
-		GinkgoWriter.Println("K2s DNS proxy resolved <", fqdn, "> to", addrs)
-		return nil
-	}, suite.TestStepTimeout(), suite.TestStepPollInterval(), ctx).Should(Succeed(), "DNS resolution of <"+fqdn+"> through the K2s DNS proxy should succeed")
 }
 
 func waitForCoreWorkloadRollout(ctx context.Context) {
