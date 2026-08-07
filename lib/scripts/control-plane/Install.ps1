@@ -59,6 +59,14 @@ $productVersion = Get-ProductVersion
 Set-ConfigProductVersion -Value $productVersion
 Set-ConfigInstallFolder -Value $installationPath
 
+Write-Log '[Precheck] Running control-plane prerequisites at install start'
+Test-ControlPlanePrerequisites `
+    -MasterVMProcessorCount $MasterVMProcessorCount `
+    -MasterVMMemory $MasterVMMemory `
+    -MasterDiskSize $MasterDiskSize `
+    -WSL:$WSL `
+    -ForceOnlineInstallation:$ForceOnlineInstallation
+
 # Persist resolved log root so non-installed Go tools (CNI plugins started by kubelet)
 # and later script invocations pick up the configured directory cheaply via setup.json.
 try {
