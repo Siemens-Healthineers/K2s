@@ -777,7 +777,7 @@ function Get-FlannelImages {
 
     Write-Log 'Get images used by flannel'
 
-    &$executeRemoteCommand 'sudo crictl pull docker.io/flannel/flannel-cni-plugin:v1.9.1-flannel2'
+    &$executeRemoteCommand 'sudo crictl pull docker.io/flannel/flannel-cni-plugin:v1.9.1-flannel3'
     &$executeRemoteCommand 'sudo crictl pull docker.io/flannel/flannel:0.28.8'
 }
 
