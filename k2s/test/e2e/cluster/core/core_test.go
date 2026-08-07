@@ -7,6 +7,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"os"
 	"os/exec"
 	"runtime"
 	"strings"
@@ -361,13 +362,23 @@ func runDiagnosticCommand(ctx context.Context, args ...string) {
 	}
 }
 
+func controlPlaneNodeName() string {
+	if !suite.SetupInfo().RuntimeConfig.InstallConfig().LinuxOnly() {
+		return suite.SetupInfo().RuntimeConfig.ControlPlaneConfig().Hostname()
+	}
+
+	hostname, err := os.Hostname()
+	Expect(err).NotTo(HaveOccurred())
+	return hostname
+}
+
 var _ = Describe("Cluster Core", func() {
 	systemNamespace := "kube-system"
 
 	Describe("Basic Components", func() {
 		Describe("System Nodes", func() {
 			It("control-plane is ready", func(ctx SpecContext) {
-				suite.Cluster().ExpectNodeToBeReady(suite.SetupInfo().RuntimeConfig.ControlPlaneConfig().Hostname(), ctx)
+				suite.Cluster().ExpectNodeToBeReady(controlPlaneNodeName(), ctx)
 			})
 
 			It("Windows worker is ready", func(ctx SpecContext) {
@@ -419,7 +430,7 @@ var _ = Describe("Cluster Core", func() {
 		})
 
 		DescribeTable("System Pods", func(podName string) {
-			suite.Cluster().ExpectPodToBeReady(podName, systemNamespace, suite.SetupInfo().RuntimeConfig.ControlPlaneConfig().Hostname())
+			suite.Cluster().ExpectPodToBeReady(podName, systemNamespace, controlPlaneNodeName())
 		},
 			Entry("etcd-HOSTNAME_PLACEHOLDER is available", "etcd-HOSTNAME_PLACEHOLDER"),
 			Entry("kube-scheduler-HOSTNAME_PLACEHOLDER is available", "kube-scheduler-HOSTNAME_PLACEHOLDER"),
