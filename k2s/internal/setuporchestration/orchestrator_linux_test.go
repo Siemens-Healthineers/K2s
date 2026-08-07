@@ -79,6 +79,19 @@ func TestResolverIsImmutableFromOutput(t *testing.T) {
 	}
 }
 
+func TestResolverUpstreamsFromOutput(t *testing.T) {
+	t.Parallel()
+
+	actual := resolverUpstreamsFromOutput("Global: 10.81.32.10 10.81.32.11\nLink 2 (eth0): 10.81.32.10 127.0.0.53\n")
+	expected := []string{"10.81.32.10", "10.81.32.11"}
+	if !reflect.DeepEqual(actual, expected) {
+		t.Fatalf("resolverUpstreamsFromOutput() = %v, want %v", actual, expected)
+	}
+	if got := resolverUpstreamsFromOutput("nameserver 127.0.0.53\nnameserver ::1\n"); len(got) != 0 {
+		t.Fatalf("loopback-only resolver output = %v, want no upstreams", got)
+	}
+}
+
 func TestResolverAttributesUnsupported(t *testing.T) {
 	t.Parallel()
 
