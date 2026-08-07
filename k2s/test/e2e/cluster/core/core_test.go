@@ -369,7 +369,7 @@ func controlPlaneNodeName() string {
 
 	hostname, err := os.Hostname()
 	Expect(err).NotTo(HaveOccurred())
-	return hostname
+	return strings.ToLower(hostname)
 }
 
 var _ = Describe("Cluster Core", func() {
