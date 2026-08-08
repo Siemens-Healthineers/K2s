@@ -731,13 +731,57 @@ function Copy-ToRemoteComputerViaUserAndPwd($Source, $Target, $IpAddress,
     Write-Log $output
 }
 
+function Assert-ControlPlaneArtifactDiskSizeCompatibility {
+    param(
+        [parameter(Mandatory = $false, HelpMessage = 'Virtual hard disk size of Control Plane VM (Linux)')]
+        [uint64] $MasterDiskSize,
+        [parameter(Mandatory = $false, HelpMessage = 'Use WSL2 for hosting KubeMaster VM')]
+        [switch] $WSL = $false,
+        [parameter(Mandatory = $false, HelpMessage = 'Force online installation')]
+        [switch] $ForceOnlineInstallation = $false
+    )
+
+    if ($ForceOnlineInstallation) {
+        Write-Log '[Precheck] Skip package disk-size guard for force-online installation mode'
+        return
+    }
+
+    $controlPlaneBaseImagePath = Get-ControlPlaneVMBaseImagePath
+    if (!(Test-Path -Path $controlPlaneBaseImagePath)) {
+        throw "[PREREQ-FAILED] Precheck failed: expected packaged control-plane artifact is missing at '$controlPlaneBaseImagePath'. Installation cannot validate disk-size compatibility safely. Restore a complete package (including base VHDX) or run an explicit online installation mode."
+    }
+
+    try {
+        $packagedVhd = Get-VHD -Path $controlPlaneBaseImagePath -ErrorAction Stop
+    }
+    catch {
+        throw "[PREREQ-FAILED] Precheck failed: could not read packaged control-plane VHDX at '$controlPlaneBaseImagePath': $_"
+    }
+
+    $packagedDiskSize = [uint64]$packagedVhd.Size
+    $requestedDiskSize = [uint64]$MasterDiskSize
+
+    if ($requestedDiskSize -lt $packagedDiskSize) {
+        $requestedSizeGb = Convert-BytesToGB -SizeInBytes $requestedDiskSize
+        $packagedSizeGb = Convert-BytesToGB -SizeInBytes $packagedDiskSize
+        throw "[PREREQ-FAILED] Precheck failed: requested master disk size $requestedSizeGb GB is smaller than packaged control-plane disk size $packagedSizeGb GB. Installation is stopped to prevent artifact inconsistency. Rerun install with master disk >= $packagedSizeGb GB, or rebuild the package with a smaller control-plane base disk."
+    }
+
+    $mode = if ($WSL) { 'WSL' } else { 'Hyper-V' }
+    Write-Log "[Precheck] Control-plane packaged disk-size compatibility passed for $mode mode"
+}
+
 function Test-ControlPlanePrerequisites(
     [parameter(Mandatory = $false, HelpMessage = 'Number of Virtual Processors for Control Plane VM (Linux)')]
     [long] $MasterVMProcessorCount,
     [parameter(Mandatory = $false, HelpMessage = 'Startup Memory Size of Control Plane VM (Linux)')]
     [long] $MasterVMMemory,
     [parameter(Mandatory = $false, HelpMessage = 'Virtual hard disk size of Control Plane VM (Linux)')]
-    [uint64] $MasterDiskSize) {
+    [uint64] $MasterDiskSize,
+    [parameter(Mandatory = $false, HelpMessage = 'Use WSL2 for hosting KubeMaster VM')]
+    [switch] $WSL = $false,
+    [parameter(Mandatory = $false, HelpMessage = 'Force online installation')]
+    [switch] $ForceOnlineInstallation = $false) {
 
     Write-Log "Using Control Plane VM ProcessorCount: $MasterVMProcessorCount"
     Write-Log "Using Control Plane VM Memory: $(Convert-BytesToGB -SizeInBytes $MasterVMMemory)GB"
@@ -756,6 +800,8 @@ function Test-ControlPlanePrerequisites(
         Write-Log "k2s needs minimal $(Convert-BytesToGB -SizeInBytes $minimalProvisioningBaseImageSize)GB disk space, you have passed a lower value!" -Error
         throw "[PREREQ-FAILED] Master VM Disk size passed too low: $(Convert-BytesToGB -SizeInBytes $MasterDiskSize)GB"
     }
+
+    Assert-ControlPlaneArtifactDiskSizeCompatibility -MasterDiskSize $MasterDiskSize -WSL:$WSL -ForceOnlineInstallation:$ForceOnlineInstallation
 
     #Check for running VMs and minikube
     $runningVMs = Get-VM -ErrorAction SilentlyContinue | Where-Object { $_.State -eq [Microsoft.HyperV.PowerShell.VMState]::Running }

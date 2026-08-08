@@ -54,6 +54,14 @@ Set-Location $installationPath
 $script:SetupType = 'BuildOnlyEnv'
 Set-ConfigSetupType -Value $script:SetupType
 
+Write-Log '[Precheck] Running control-plane prerequisites at install start'
+Test-ControlPlanePrerequisites `
+    -MasterVMProcessorCount $MasterVMProcessorCount `
+    -MasterVMMemory $MasterVMMemory `
+    -MasterDiskSize $MasterDiskSize `
+    -WSL:$WSL `
+    -ForceOnlineInstallation:$ForceOnlineInstallation
+
 $installationType = 'Build-only'
 Write-Log "Installing $installationType setup"
 
