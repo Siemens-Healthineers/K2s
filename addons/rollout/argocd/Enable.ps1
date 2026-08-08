@@ -35,7 +35,9 @@ Param (
     [parameter(Mandatory = $false, HelpMessage = 'If set to true, will encode and send result as structured data to the CLI.')]
     [switch] $EncodeStructuredOutput,
     [parameter(Mandatory = $false, HelpMessage = 'Message type of the encoded structure; applies only if EncodeStructuredOutput was set to $true')]
-    [string] $MessageType
+    [string] $MessageType,
+    [parameter(Mandatory = $false, HelpMessage = 'Skip Update.ps1 execution (used by restore flow to avoid duplicate update execution).')]
+    [switch] $SkipPostEnableUpdate
 )
 $clusterModule = "$PSScriptRoot/../../../lib/modules/k2s/k2s.cluster.module/k2s.cluster.module.psm1"
 $infraModule = "$PSScriptRoot/../../../lib/modules/k2s/k2s.infra.module/k2s.infra.module.psm1"
@@ -101,11 +103,39 @@ Write-Log 'Creating rollout namespace'
 
 Write-Log 'Installing rollout addon' -Console
 $rolloutConfig = Get-RolloutConfig
-(Invoke-Kubectl -Params 'apply' , '-n', $rolloutNamespace, '-k', $rolloutConfig).Output | Write-Log
+# Evidence: k2s dump logs show CRD apply failure "applicationsets.argoproj.io ... metadata.annotations: Too long"
+# followed by rollout timeout; use server-side apply and fail early on apply errors.
+$kubectlCmd = Invoke-Kubectl -Params 'apply', '--server-side', '-n', $rolloutNamespace, '-k', $rolloutConfig
+$kubectlCmd.Output | Write-Log
+if (-not $kubectlCmd.Success) {
+    $errMsg = 'rollout addon manifests could not be applied successfully!'
+    if ($EncodeStructuredOutput -eq $true) {
+        $err = New-Error -Code (Get-ErrCodeAddonEnableFailed) -Message $errMsg
+        Send-ToCli -MessageType $MessageType -Message @{Error = $err }
+        return
+    }
+
+    Write-Log $errMsg -Error
+    exit 1
+}
+
+$kubectlCmd = Invoke-Kubectl -Params 'wait', '--for=condition=Established', '--timeout=180s', 'crd/applicationsets.argoproj.io'
+$kubectlCmd.Output | Write-Log
+if (-not $kubectlCmd.Success) {
+    $errMsg = 'ApplicationSet CRD was not established successfully during rollout addon enablement.'
+    if ($EncodeStructuredOutput -eq $true) {
+        $err = New-Error -Code (Get-ErrCodeAddonEnableFailed) -Message $errMsg
+        Send-ToCli -MessageType $MessageType -Message @{Error = $err }
+        return
+    }
+
+    Write-Log $errMsg -Error
+    exit 1
+}
 
 Write-Log 'Waiting for pods being ready...' -Console
 
-$kubectlCmd = (Invoke-Kubectl -Params 'rollout', 'status', 'deployments', '-n', $rolloutNamespace, '--timeout=300s')
+$kubectlCmd = (Invoke-Kubectl -Params 'rollout', 'status', 'deployments', '-n', $rolloutNamespace, '--timeout=600s')
 Write-Log $kubectlCmd.Output
 if (!$kubectlCmd.Success) {
     $errMsg = 'rollout addon could not be deployed successfully!'
@@ -119,7 +149,7 @@ if (!$kubectlCmd.Success) {
     exit 1
 }
 
-$kubectlCmd = (Invoke-Kubectl -Params 'rollout', 'status', 'statefulsets', '-n', $rolloutNamespace, '--timeout=300s')
+$kubectlCmd = (Invoke-Kubectl -Params 'rollout', 'status', 'statefulsets', '-n', $rolloutNamespace, '--timeout=600s')
 Write-Log $kubectlCmd.Output
 if (!$kubectlCmd.Success) {
     $errMsg = 'rollout addon (ArgoCD application controller) could not be deployed successfully'
@@ -137,7 +167,12 @@ if ($Ingress -ne 'none') {
     Enable-IngressAddon -Ingress:$Ingress
 }
 
-&"$PSScriptRoot\Update.ps1"
+if (-not $SkipPostEnableUpdate) {
+    &"$PSScriptRoot\Update.ps1"
+}
+else {
+    Write-Log '[AddonRestore] Skipping Update.ps1 in Enable.ps1 (restore flow will run update once in Restore.ps1).' -Console
+}
 
 Write-Log 'Installation of rollout addon finished.' -Console
 

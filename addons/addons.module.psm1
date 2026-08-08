@@ -1031,17 +1031,30 @@ function Test-KeyCloakServiceAvailability {
 Enables a ingress addon based on the input
 #>
 function Enable-IngressAddon([string]$Ingress) {
+	$scriptExitCode = 0
 	switch ($Ingress) {
 		'nginx' {
 			&"$PSScriptRoot\ingress\nginx\Enable.ps1"
+			$scriptExitCode = if ($null -ne $LASTEXITCODE) { [int]$LASTEXITCODE } else { 0 }
+			if ($scriptExitCode -ne 0) {
+				throw "Failed to enable ingress addon '$Ingress' (exit code: $scriptExitCode)."
+			}
 			break
 		}
 		'nginx-gw' {
 			&"$PSScriptRoot\ingress\nginx-gw\Enable.ps1"
+			$scriptExitCode = if ($null -ne $LASTEXITCODE) { [int]$LASTEXITCODE } else { 0 }
+			if ($scriptExitCode -ne 0) {
+				throw "Failed to enable ingress addon '$Ingress' (exit code: $scriptExitCode)."
+			}
 			break
 		}
 		'traefik' {
 			&"$PSScriptRoot\ingress\traefik\Enable.ps1"
+			$scriptExitCode = if ($null -ne $LASTEXITCODE) { [int]$LASTEXITCODE } else { 0 }
+			if ($scriptExitCode -ne 0) {
+				throw "Failed to enable ingress addon '$Ingress' (exit code: $scriptExitCode)."
+			}
 			break
 		}
 	}
@@ -1153,7 +1166,6 @@ Gets the location of nginx ingress gateway yaml
 function Get-IngressNginxGatewayConfig {
 	return 'ingress-nginx-gw'
 }
-
 
 <#
 .DESCRIPTION
@@ -1834,11 +1846,18 @@ function Initialize-CACertificateIssuer {
 Waits for the cert-manager API to be available.
 #>
 function Wait-ForCertManagerAvailable {
-    $out = &$cmctlExe check api --wait=3m
-    if ($out -match 'The cert-manager API is ready') {
-        return $true
-    }
-    return $false
+	$out = (&$cmctlExe check api --wait=5m 2>&1 | Out-String).Trim()
+	if ($out -match 'The cert-manager API is ready') {
+		return $true
+	}
+
+	$exitCode = if ($null -ne $LASTEXITCODE) { [int]$LASTEXITCODE } else { 0 }
+	if ([string]::IsNullOrWhiteSpace($out)) {
+		$out = '<no output>'
+	}
+
+	Write-Log "[CertManager] cmctl check api failed (exit code: $exitCode). Output: $out" -Console
+	return $false
 }
 
 <#
@@ -1893,6 +1912,86 @@ function Get-CAIssuerName {
     return 'K2s Self-Signed CA'
 }
 
+function Test-CertificateProviderAvailable {
+	try {
+		$null = Get-PSDrive -Name 'Cert' -ErrorAction Stop
+		return $true
+	}
+	catch {
+		return $false
+	}
+}
+
+function Import-CertificateToTrustedRootStore {
+	param(
+		[Parameter(Mandatory = $true)]
+		[string]$CertificatePath,
+		[Parameter(Mandatory = $true)]
+		[string]$CertStoreLocation
+	)
+
+	if (Test-CertificateProviderAvailable) {
+		Import-Certificate -FilePath $CertificatePath -CertStoreLocation $CertStoreLocation | Out-Null
+		return
+	}
+
+	$certificate = [System.Security.Cryptography.X509Certificates.X509Certificate2]::new($CertificatePath)
+	$store = [System.Security.Cryptography.X509Certificates.X509Store]::new(
+		[System.Security.Cryptography.X509Certificates.StoreName]::Root,
+		[System.Security.Cryptography.X509Certificates.StoreLocation]::LocalMachine
+	)
+
+	try {
+		$store.Open([System.Security.Cryptography.X509Certificates.OpenFlags]::ReadWrite)
+		$store.Add($certificate)
+	}
+	finally {
+		$store.Close()
+		$certificate.Dispose()
+	}
+}
+
+function Remove-CertificateFromTrustedRootStore {
+	param(
+		[Parameter(Mandatory = $true)]
+		[string]$IssuerName,
+		[Parameter(Mandatory = $true)]
+		[string]$TrustedRootStoreLocation
+	)
+
+	if (Test-CertificateProviderAvailable) {
+		Get-ChildItem -Path $TrustedRootStoreLocation | Where-Object { $_.Subject -match $IssuerName } | Remove-Item
+		return
+	}
+
+	$store = [System.Security.Cryptography.X509Certificates.X509Store]::new(
+		[System.Security.Cryptography.X509Certificates.StoreName]::Root,
+		[System.Security.Cryptography.X509Certificates.StoreLocation]::LocalMachine
+	)
+
+	try {
+		$store.Open([System.Security.Cryptography.X509Certificates.OpenFlags]::ReadWrite)
+		$matchingCertificates = @($store.Certificates | Where-Object { $_.Subject -match $IssuerName })
+		foreach ($certificate in $matchingCertificates) {
+			$store.Remove($certificate)
+		}
+	}
+	finally {
+		$store.Close()
+	}
+}
+
+function New-CompatTemporaryFile {
+	<#
+	.SYNOPSIS
+	Creates a temporary file object compatible with New-TemporaryFile usage
+	#>
+	$tempPath = [System.IO.Path]::GetTempFileName()
+	return [PSCustomObject]@{
+		FullName = $tempPath
+	}
+}
+
 
 <#
 .SYNOPSIS
@@ -1908,16 +2007,12 @@ function Import-CACertificateToWindowsStore {
     Write-Log 'Importing CA root certificate to trusted authorities of your computer' -Console
     
     $b64secret = (Invoke-Kubectl -Params '-n', 'cert-manager', 'get', 'secrets', 'ca-issuer-root-secret', '-o', 'jsonpath', '--template', '{.data.ca\.crt}').Output
-    $tempFile = New-TemporaryFile
+	$tempFile = New-CompatTemporaryFile
     $certLocationStore = Get-TrustedRootStoreLocation
     
     [Text.Encoding]::Utf8.GetString([Convert]::FromBase64String($b64secret)) | Out-File -Encoding utf8 -FilePath $tempFile.FullName -Force
     
-    $params = @{
-        FilePath          = $tempFile.FullName
-        CertStoreLocation = $certLocationStore
-    }
-    Import-Certificate @params
+	Import-CertificateToTrustedRootStore -CertificatePath $tempFile.FullName -CertStoreLocation $certLocationStore
     Remove-Item -Path $tempFile.FullName -Force
 }
 
@@ -2209,7 +2304,7 @@ function Uninstall-CertManager {
     Write-Log 'Removing CA issuer certificate from trusted root' -Console
     $caIssuerName = Get-CAIssuerName
     $trustedRootStoreLocation = Get-TrustedRootStoreLocation
-    Get-ChildItem -Path $trustedRootStoreLocation | Where-Object { $_.Subject -match $caIssuerName } | Remove-Item
+	Remove-CertificateFromTrustedRootStore -IssuerName $caIssuerName -TrustedRootStoreLocation $trustedRootStoreLocation
 }
 
 function Wait-ForK8sSecret {

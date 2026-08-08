@@ -26,7 +26,7 @@ Describe 'Get-FromYamlFile' -Tag 'unit', 'ci', 'yaml', 'infra', 'module', 'k2s' 
         BeforeAll {
             Mock -ModuleName $moduleName Test-Path { return $true } -ParameterFilter { $Path -eq 'yaml-path' }
             Mock -ModuleName $moduleName Get-KubeBinPath { return 'bin-path' }
-            Mock -ModuleName $moduleName New-TemporaryFile { return 'temp-file' }
+            Mock -ModuleName $moduleName New-CompatTemporaryFile { return 'temp-file' }
             Mock -ModuleName $moduleName Invoke-Expression {}
             Mock -ModuleName $moduleName Test-LastExecutionForSuccess { return $false }
             Mock -ModuleName $moduleName Remove-Item {}
@@ -53,7 +53,7 @@ Describe 'Get-FromYamlFile' -Tag 'unit', 'ci', 'yaml', 'infra', 'module', 'k2s' 
         BeforeAll {
             Mock -ModuleName $moduleName Test-Path { return $true } -ParameterFilter { $Path -eq 'yaml-path' }
             Mock -ModuleName $moduleName Get-KubeBinPath { return 'bin-path' }
-            Mock -ModuleName $moduleName New-TemporaryFile { return 'temp-file' }
+            Mock -ModuleName $moduleName New-CompatTemporaryFile { return 'temp-file' }
             Mock -ModuleName $moduleName Invoke-Expression {}
             Mock -ModuleName $moduleName Test-LastExecutionForSuccess { return $true }
             Mock -ModuleName $moduleName Get-Content { return 'content' }
