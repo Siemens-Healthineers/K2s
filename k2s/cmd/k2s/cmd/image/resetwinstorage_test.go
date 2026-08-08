@@ -108,6 +108,31 @@ var _ = Describe("reset-win-storage", Ordered, func() {
 				Expect(params).To(ConsistOf(fmt.Sprintf(" -Containerd '%v'", defaultContainerdDir), fmt.Sprintf(" -Docker '%v'", defaultDockerDir), fmt.Sprintf(" -MaxRetries %v", strconv.Itoa(defaultMaxRetry)), " -ForceZap"))
 			})
 		})
+
+		Context("with no containerd directory provided", func() {
+			It("passes an empty -Containerd so PowerShell resolves the configured storage path", func() {
+				// containerd flag left empty by resetFlags()
+
+				_, params, err := buildResetPsCmd(resetWinStorageCmd)
+
+				Expect(err).ToNot(HaveOccurred())
+				Expect(params).To(ContainElement(" -Containerd ''"))
+				// docker default must remain unchanged
+				Expect(params).To(ContainElement(fmt.Sprintf(" -Docker '%v'", defaultDockerDir)))
+			})
+		})
+
+		Context("with explicit containerd directory", func() {
+			It("forwards the explicit path and never falls back to a default", func() {
+				resetWinStorageCmd.Flags().Set(containerdDirFlag, `E:\Temp\Containerd`)
+
+				_, params, err := buildResetPsCmd(resetWinStorageCmd)
+
+				Expect(err).ToNot(HaveOccurred())
+				Expect(params).To(ContainElement(` -Containerd 'E:\Temp\Containerd'`))
+				Expect(params).ToNot(ContainElement(" -Containerd ''"))
+			})
+		})
 	})
 
 	Describe("resetWinStorage", func() {
