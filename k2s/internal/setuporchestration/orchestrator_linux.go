@@ -30,6 +30,11 @@ const (
 	winVMName              = "k2s-win-worker"
 )
 
+const (
+	controlPlaneNodeNamesJSONPath = `jsonpath={range .items[*]}{.metadata.name}{"\n"}{end}`
+	nodeTaintKeysJSONPath         = `jsonpath={range .spec.taints[*]}{.key}{"\n"}{end}`
+)
+
 // LinuxOrchestrator implements Orchestrator using native Linux tools:
 // kubeadm, systemctl, and libvirt for managing a Windows worker VM.
 type LinuxOrchestrator struct{}
@@ -46,6 +51,10 @@ func (o *LinuxOrchestrator) Install(cfg InstallConfig) error {
 	if !cfg.LinuxOnly {
 		return fmt.Errorf("Linux host installation currently supports only --linux-only; Windows worker provisioning is not supported yet")
 	}
+	registryToken, err := readRegistryToken(cfg.InstallDir)
+	if err != nil {
+		return err
+	}
 
 	// Step 1: Validate the host before Kubernetes packages exist.
 	if err := o.checkHostPrerequisites(cfg); err != nil {
@@ -53,7 +62,7 @@ func (o *LinuxOrchestrator) Install(cfg InstallConfig) error {
 	}
 
 	// Step 2: Install the version-pinned Kubernetes and CRI-O package set.
-	k8sVersion, err := o.provisionKubernetes(cfg)
+	k8sVersion, err := o.provisionKubernetes(cfg, registryToken)
 	if err != nil {
 		return fmt.Errorf("package provisioning failed: %w", err)
 	}
@@ -72,10 +81,22 @@ func (o *LinuxOrchestrator) Install(cfg InstallConfig) error {
 	if err := o.deployFlannel(cfg); err != nil {
 		return fmt.Errorf("failed to deploy flannel: %w", err)
 	}
+	if err := o.deployClusterIPWebhook(cfg); err != nil {
+		return fmt.Errorf("failed to deploy ClusterIP allocation webhook: %w", err)
+	}
+	if err := o.installControlPlaneTools(cfg); err != nil {
+		return fmt.Errorf("failed to install native Linux control-plane tools: %w", err)
+	}
 
 	// Step 6: Wait for control plane node to be Ready.
 	if err := o.waitForNodeReady(120 * time.Second); err != nil {
 		slog.Warn("[Install] Control plane node not ready yet (may take a moment)", "error", err)
+	}
+	if err := o.removeControlPlaneTaints(); err != nil {
+		return fmt.Errorf("failed to make native Linux control-plane nodes schedulable: %w", err)
+	}
+	if err := o.configureHostDNS(cfg); err != nil {
+		return fmt.Errorf("failed to configure host Kubernetes DNS: %w", err)
 	}
 
 	// Step 7: Persist setup.json only after successful provisioning.
@@ -87,9 +108,12 @@ func (o *LinuxOrchestrator) Install(cfg InstallConfig) error {
 	if err := config.WriteRuntimeConfig(cfg.ConfigDir, "k2s", cfg.LinuxOnly, cfg.Version, clusterName, hostname, false); err != nil {
 		return fmt.Errorf("failed to write runtime config: %w", err)
 	}
+	if err := os.Chmod(filepath.Join(cfg.ConfigDir, "setup.json"), 0644); err != nil {
+		return fmt.Errorf("set runtime config permissions: %w", err)
+	}
 
 	if cfg.SkipStart {
-		if err := o.Stop(StopConfig{}); err != nil {
+		if err := o.Stop(StopConfig{LinuxOnly: cfg.LinuxOnly, ConfigDir: cfg.ConfigDir}); err != nil {
 			return fmt.Errorf("stop cluster after --skip-start: %w", err)
 		}
 	}
@@ -103,12 +127,14 @@ func (o *LinuxOrchestrator) Uninstall(cfg UninstallConfig) error {
 
 	// Reset kubeadm
 	if !cfg.SkipPurge {
+		o.removeClusterIPWebhook()
 		_ = runCommand("systemctl", "stop", "kubelet")
 		if err := runCommand("kubeadm", "reset", "-f"); err != nil {
 			slog.Warn("[Uninstall] kubeadm reset failed (may already be clean)", "error", err)
 		}
 
 		o.cleanupCriOMirrorDropIns()
+		removeKubeletFileLogging()
 		o.removeControlPlaneState()
 	}
 
@@ -116,7 +142,8 @@ func (o *LinuxOrchestrator) Uninstall(cfg UninstallConfig) error {
 	_ = runCommand("ip", "link", "delete", "cni0")
 	_ = runCommand("ip", "link", "delete", "flannel.1")
 
-	removeHTTPProxy()
+	removeDNSProxy(cfg.ConfigDir)
+	removeHTTPProxy(cfg.LinuxOnly, cfg.ConfigDir)
 
 	// Remove kubeconfig
 	if u, err := invokingUser(); err == nil {
@@ -205,6 +232,11 @@ func (o *LinuxOrchestrator) cleanupCriOMirrorDropIns() {
 func (o *LinuxOrchestrator) Start(cfg StartConfig) error {
 	slog.Info("[Start] Starting K2s cluster on Linux host")
 
+	if cfg.LinuxOnly {
+		if err := runCommand("systemctl", "start", proxyNetworkSvc); err != nil {
+			return fmt.Errorf("failed to start Linux-only proxy compatibility network: %w", err)
+		}
+	}
 	if err := runCommand("systemctl", "start", proxyService); err != nil {
 		return fmt.Errorf("failed to start local HTTP proxy: %w", err)
 	}
@@ -219,7 +251,10 @@ func (o *LinuxOrchestrator) Start(cfg StartConfig) error {
 
 	// Wait for API server to be reachable
 	if err := o.waitForAPIServer(60 * time.Second); err != nil {
-		slog.Warn("[Start] API server not reachable yet", "error", err)
+		return fmt.Errorf("API server not reachable after start: %w", err)
+	}
+	if err := o.configureHostDNS(InstallConfig{InstallDir: cfg.InstallDir, ConfigDir: cfg.ConfigDir}); err != nil {
+		return fmt.Errorf("configure host Kubernetes DNS after start: %w", err)
 	}
 
 	slog.Info("[Start] K2s cluster started")
@@ -228,6 +263,9 @@ func (o *LinuxOrchestrator) Start(cfg StartConfig) error {
 
 func (o *LinuxOrchestrator) Stop(cfg StopConfig) error {
 	slog.Info("[Stop] Stopping K2s cluster on Linux host")
+	if err := stopHostDNS(cfg.ConfigDir); err != nil {
+		return fmt.Errorf("restore host DNS before stopping K2s: %w", err)
+	}
 
 	// Stop kubelet
 	if err := runCommand("systemctl", "stop", "kubelet"); err != nil {
@@ -238,6 +276,11 @@ func (o *LinuxOrchestrator) Stop(cfg StopConfig) error {
 	}
 	if err := runCommand("systemctl", "stop", proxyService); err != nil {
 		slog.Warn("[Stop] Could not stop local HTTP proxy", "error", err)
+	}
+	if cfg.LinuxOnly {
+		if err := runCommand("systemctl", "stop", proxyNetworkSvc); err != nil {
+			slog.Warn("[Stop] Could not stop Linux-only proxy compatibility network", "error", err)
+		}
 	}
 
 	slog.Info("[Stop] K2s cluster stopped")
@@ -396,6 +439,96 @@ func (o *LinuxOrchestrator) deployFlannel(cfg InstallConfig) error {
 	return nil
 }
 
+// installControlPlaneTools keeps native Linux feature parity with the
+// Windows-host kubemaster flow, which installs Helm and yq after provisioning
+// the Linux control plane. The shared script uses K2s's persistent apt proxy
+// configuration and installs both tools into /usr/local/bin.
+func (o *LinuxOrchestrator) installControlPlaneTools(cfg InstallConfig) error {
+	scriptPath := filepath.Join(cfg.InstallDir, "lib", "modules", "k2s", "k2s.node.module", "linuxnode", "distros", "scripts", "install-helm-yq.sh")
+	if _, err := os.Stat(scriptPath); err != nil {
+		return fmt.Errorf("required control-plane tools installer is missing at %s: %w", scriptPath, err)
+	}
+
+	slog.Info("[Install] Installing Helm and yq on native Linux control plane")
+	if err := runCommandWithLogs(cfg.ShowLogs, "bash", scriptPath); err != nil {
+		return fmt.Errorf("run Helm and yq installer: %w", err)
+	}
+	for _, tool := range []string{"helm", "yq"} {
+		if _, err := exec.LookPath(tool); err != nil {
+			return fmt.Errorf("control-plane tool %q is unavailable after installation: %w", tool, err)
+		}
+	}
+	return nil
+}
+
+// deployClusterIPWebhook keeps native Linux aligned with the Windows-host
+// kubemaster topology: kubeadm allocates from the overall Service CIDR, while
+// the existing webhook assigns workload Services from OS-specific partitions.
+func (o *LinuxOrchestrator) deployClusterIPWebhook(cfg InstallConfig) error {
+	serviceCIDRs, err := config.ReadServiceCIDRConfig(cfg.InstallDir)
+	if err != nil {
+		return err
+	}
+	manifestDir := filepath.Join(cfg.InstallDir, "lib", "manifests", "clusterip-webhook")
+	for _, manifest := range []string{"namespace.yaml", "rbac.yaml", "webhook-config.yaml"} {
+		manifestPath := filepath.Join(manifestDir, manifest)
+		if err := runCommandWithLogs(cfg.ShowLogs, "kubectl", "--kubeconfig", kubeconfigSrc, "apply", "-f", manifestPath); err != nil {
+			return fmt.Errorf("apply ClusterIP webhook manifest %s: %w", manifest, err)
+		}
+	}
+
+	deploymentPath := filepath.Join(manifestDir, "deployment.yaml")
+	deployment, err := os.ReadFile(deploymentPath)
+	if err != nil {
+		return fmt.Errorf("read ClusterIP webhook deployment: %w", err)
+	}
+	renderedDeployment, err := renderClusterIPWebhookDeployment(string(deployment), serviceCIDRs)
+	if err != nil {
+		return err
+	}
+	renderedPath := filepath.Join("/tmp", "k2s-clusterip-webhook-deployment.yaml")
+	if err := os.WriteFile(renderedPath, []byte(renderedDeployment), 0600); err != nil {
+		return fmt.Errorf("write rendered ClusterIP webhook deployment: %w", err)
+	}
+	defer os.Remove(renderedPath)
+	if err := runCommandWithLogs(cfg.ShowLogs, "kubectl", "--kubeconfig", kubeconfigSrc, "apply", "-f", renderedPath); err != nil {
+		return fmt.Errorf("apply ClusterIP webhook deployment: %w", err)
+	}
+	if err := runCommand("kubectl", "--kubeconfig", kubeconfigSrc, "rollout", "status", "deployment/clusterip-webhook", "-n", "k2s-webhook", "--timeout=120s"); err != nil {
+		return fmt.Errorf("wait for ClusterIP webhook readiness: %w", err)
+	}
+	slog.Info("[Install] ClusterIP allocation webhook deployed", "linuxServiceCIDR", serviceCIDRs.LinuxCIDR, "windowsServiceCIDR", serviceCIDRs.WindowsCIDR)
+	return nil
+}
+
+func renderClusterIPWebhookDeployment(manifest string, serviceCIDRs config.ServiceCIDRConfig) (string, error) {
+	const defaultLinuxArgument = "--linux-subnet=172.21.0.0/24"
+	const defaultWindowsArgument = "--windows-subnet=172.21.1.0/24"
+	if strings.Count(manifest, defaultLinuxArgument) != 1 || strings.Count(manifest, defaultWindowsArgument) != 1 {
+		return "", fmt.Errorf("ClusterIP webhook deployment must contain exactly one Linux and one Windows subnet argument")
+	}
+
+	manifest = strings.Replace(manifest, defaultLinuxArgument, "--linux-subnet="+serviceCIDRs.LinuxCIDR, 1)
+	manifest = strings.Replace(manifest, defaultWindowsArgument, "--windows-subnet="+serviceCIDRs.WindowsCIDR, 1)
+	if !strings.Contains(manifest, "--linux-subnet="+serviceCIDRs.LinuxCIDR) || !strings.Contains(manifest, "--windows-subnet="+serviceCIDRs.WindowsCIDR) {
+		return "", fmt.Errorf("rendered ClusterIP webhook deployment does not contain configured service CIDRs")
+	}
+	return manifest, nil
+}
+
+func (o *LinuxOrchestrator) removeClusterIPWebhook() {
+	for _, resource := range []string{
+		"mutatingwebhookconfiguration/k2s-webhook",
+		"clusterrolebinding/k2s:clusterip-webhook",
+		"clusterrole/k2s:clusterip-webhook",
+		"namespace/k2s-webhook",
+	} {
+		if err := runCommand("kubectl", "--kubeconfig", kubeconfigSrc, "delete", resource, "--ignore-not-found=true", "--wait=false"); err != nil {
+			slog.Warn("[Uninstall] Could not remove ClusterIP webhook resource", "resource", resource, "error", err)
+		}
+	}
+}
+
 // ---------- readiness checks ----------
 
 func (o *LinuxOrchestrator) waitForNodeReady(timeout time.Duration) error {
@@ -424,6 +557,58 @@ func (o *LinuxOrchestrator) waitForAPIServer(timeout time.Duration) error {
 		time.Sleep(3 * time.Second)
 	}
 	return fmt.Errorf("API server not reachable after %s", timeout)
+}
+
+// removeControlPlaneTaints mirrors the Windows-host kubemaster setup: native
+// Linux control-plane nodes are also workload nodes. It removes only the
+// standard control-plane taint and verifies that it is absent afterwards.
+func (o *LinuxOrchestrator) removeControlPlaneTaints() error {
+	const controlPlaneTaint = "node-role.kubernetes.io/control-plane"
+
+	output, err := runCommandOutput("kubectl", "--kubeconfig", kubeconfigSrc, "get", "nodes", "-l", controlPlaneTaint, "-o", controlPlaneNodeNamesJSONPath)
+	if err != nil {
+		return fmt.Errorf("list control-plane nodes: %w", err)
+	}
+	nodeNames := nodeNamesFromKubectlOutput(output)
+	if len(nodeNames) == 0 {
+		return fmt.Errorf("no control-plane nodes found with label %q", controlPlaneTaint)
+	}
+
+	for _, nodeName := range nodeNames {
+		taints, err := runCommandOutput("kubectl", "--kubeconfig", kubeconfigSrc, "get", "node", nodeName, "-o", nodeTaintKeysJSONPath)
+		if err != nil {
+			return fmt.Errorf("verify taints on node %q: %w", nodeName, err)
+		}
+		if containsNodeTaint(taints, controlPlaneTaint) {
+			slog.Info("[Install] Removing control-plane taint to allow workloads", "node", nodeName)
+			if err := runCommand("kubectl", "--kubeconfig", kubeconfigSrc, "taint", "nodes", nodeName, controlPlaneTaint+"-"); err != nil {
+				return fmt.Errorf("remove control-plane taint from node %q: %w", nodeName, err)
+			}
+			taints, err = runCommandOutput("kubectl", "--kubeconfig", kubeconfigSrc, "get", "node", nodeName, "-o", nodeTaintKeysJSONPath)
+			if err != nil {
+				return fmt.Errorf("verify removed taints on node %q: %w", nodeName, err)
+			}
+		}
+		if containsNodeTaint(taints, controlPlaneTaint) {
+			return fmt.Errorf("control-plane taint remains on node %q", nodeName)
+		}
+	}
+
+	slog.Info("[Install] Native Linux control-plane nodes are schedulable", "count", len(nodeNames))
+	return nil
+}
+
+func nodeNamesFromKubectlOutput(output string) []string {
+	return strings.Fields(output)
+}
+
+func containsNodeTaint(output string, taint string) bool {
+	for _, value := range strings.Fields(output) {
+		if value == taint {
+			return true
+		}
+	}
+	return false
 }
 
 // ---------- Windows VM provisioning ----------
@@ -776,12 +961,14 @@ func runCommandWithLogs(showLogs bool, name string, args ...string) error {
 	return nil
 }
 
-// runCommandOutput executes a command and returns its stdout as a string.
+// runCommandOutput executes a command and returns its combined output. Keeping
+// stderr in the error is essential for kubectl failures, which otherwise lose
+// the API, selector, or JSONPath diagnostic emitted by kubectl.
 func runCommandOutput(name string, args ...string) (string, error) {
 	cmd := exec.Command(name, args...)
-	output, err := cmd.Output()
+	output, err := cmd.CombinedOutput()
 	if err != nil {
-		return "", fmt.Errorf("%s failed: %w", name, err)
+		return "", fmt.Errorf("%s failed: %w; output: %s", name, err, strings.TrimSpace(string(output)))
 	}
 	return string(output), nil
 }

@@ -106,11 +106,14 @@ kubectl create secret -n kube-system tls etcd-ca --cert=etcd/ca.crt --key=etcd/c
 kubectl create secret -n kube-system tls etcd-client-for-core-dns --cert=etcd/healthcheck-client.crt --key=etcd/healthcheck-client.key
 ```
 
-### Physical Network Adapter DNS Configuration
+### Windows Host Physical Network Adapter DNS Configuration
 
 At the end of `k2s start`, we change the DNS Server of all physical network interfaces
 to use the `dnsproxy` DNS service running on the host.
 At the end of `k2s stop` we reset the DNS Configuration of these adapters.
+
+Native Linux hosts use a separate, non-NIC-mutating DNS lifecycle. See
+[Native Linux Host DNS](native-linux-host-dns.md).
 
 ## Links
 

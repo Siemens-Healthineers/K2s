@@ -7,8 +7,12 @@ package setuporchestration
 
 import (
 	"bufio"
+	"encoding/base64"
+	"encoding/json"
+	"errors"
 	"fmt"
 	"log/slog"
+	"net"
 	"net/url"
 	"os"
 	"os/exec"
@@ -17,14 +21,36 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"time"
+
+	"github.com/siemens-healthineers/k2s/internal/core/config"
 )
 
 const (
-	crioServiceName = "crio"
-	crioSocket      = "unix:///var/run/crio/crio.sock"
-	localProxyURL   = "http://127.0.0.1:8181"
-	proxyService    = "k2s-httpproxy"
+	crioServiceName       = "crio"
+	crioSocket            = "unix:///var/run/crio/crio.sock"
+	proxyService          = "k2s-httpproxy"
+	proxyNetworkSvc       = "k2s-proxy-network"
+	proxyNetworkDev       = "k2s-proxy0"
+	proxyLogDir           = "/var/log/httpproxy"
+	proxyLogFile          = "/var/log/httpproxy/httpproxy.log"
+	kubeletLogDir         = "/var/log/kubelet"
+	kubeletLogFile        = "/var/log/kubelet/kubelet.log"
+	kubeletLogDropIn      = "/etc/systemd/system/kubelet.service.d/20-k2s-logging.conf"
+	aptProxyConfig        = "/etc/apt/apt.conf.d/proxy.conf"
+	criOProxyConfig       = "/etc/systemd/system/crio.service.d/http-proxy.conf"
+	containersProxyConfig = "/etc/containers/containers.conf.d/20-k2s-proxy.conf"
+	dnsProxyService       = "k2s-dnsproxy"
+	dnsProxyConfig        = "/etc/k2s/dnsproxy.yaml"
+	dnsProxyLogDir        = "/var/log/dnsproxy"
+	dnsProxyLogFile       = "/var/log/dnsproxy/dnsproxy.log"
+	systemdResolvedConfig = "/etc/systemd/resolved.conf.d/20-k2s-dns.conf"
+	resolverPath          = "/etc/resolv.conf"
+	resolverStateFile     = "dns-resolver-state.json"
 )
+
+const aptProxyConfigHeader = "# Managed by K2s native Linux installation"
+const resolverHeader = "# Managed by K2s native Linux installation; restored by k2s stop or uninstall"
 
 var k8sVersionPattern = regexp.MustCompile(`(?m)return\s+['\"](v[0-9]+\.[0-9]+\.[0-9]+)['\"]`)
 
@@ -39,7 +65,7 @@ func (o *LinuxOrchestrator) checkHostPrerequisites(_ InstallConfig) error {
 		return err
 	}
 
-	for _, bin := range []string{"systemctl", "apt-get", "dpkg", "modprobe", "sysctl"} {
+	for _, bin := range []string{"systemctl", "apt-get", "dpkg", "modprobe", "sysctl", "chattr", "lsattr"} {
 		if _, err := exec.LookPath(bin); err != nil {
 			return fmt.Errorf("required host tool %q was not found in PATH: %w", bin, err)
 		}
@@ -76,14 +102,29 @@ func (o *LinuxOrchestrator) checkHostPrerequisites(_ InstallConfig) error {
 	return nil
 }
 
-func (o *LinuxOrchestrator) provisionKubernetes(cfg InstallConfig) (string, error) {
+func (o *LinuxOrchestrator) provisionKubernetes(cfg InstallConfig, registryToken string) (string, error) {
 	k8sVersion, err := resolveKubernetesVersion(cfg.InstallDir)
 	if err != nil {
 		return "", err
 	}
-
+	proxyURL, err := kubeSwitchProxyURL(cfg.InstallDir)
+	if err != nil {
+		return "", err
+	}
 	if err := o.installHTTPProxy(cfg); err != nil {
 		return "", err
+	}
+	if err := configureAptProxy(proxyURL, cfg.ConfigDir); err != nil {
+		return "", err
+	}
+
+	// setup.json is read by regular users for commands such as `k2s status`.
+	// Keep the package cache private, but allow traversal of the state directory.
+	if err := os.MkdirAll(cfg.ConfigDir, 0755); err != nil {
+		return "", fmt.Errorf("create runtime config directory: %w", err)
+	}
+	if err := os.Chmod(cfg.ConfigDir, 0755); err != nil {
+		return "", fmt.Errorf("set runtime config directory permissions: %w", err)
 	}
 
 	stagingDir := filepath.Join(cfg.ConfigDir, "packages")
@@ -103,21 +144,19 @@ func (o *LinuxOrchestrator) provisionKubernetes(cfg InstallConfig) (string, erro
 	if cfg.ShowLogs {
 		slog.Info("[Install] Package staging directory", "path", stagingDir)
 	}
-	if err := runCommandWithLogs(cfg.ShowLogs, "bash", downloadScript, stagingDir, k8sVersion, localProxyURL); err != nil {
+	if err := runCommandWithLogs(cfg.ShowLogs, "bash", downloadScript, stagingDir, k8sVersion, proxyURL); err != nil {
 		return "", fmt.Errorf("download Kubernetes packages: %w", err)
 	}
 
-	registryToken, err := readRegistryToken(cfg.InstallDir)
-	if err != nil {
-		return "", err
-	}
-
 	slog.Info("[Install] Installing Kubernetes and CRI-O packages")
-	if err := runCommandWithLogs(cfg.ShowLogs, "bash", installScript, stagingDir, localProxyURL, registryToken, "false", mergeNoProxy(cfg.NoProxy)); err != nil {
+	if err := runCommandWithLogs(cfg.ShowLogs, "bash", installScript, stagingDir, proxyURL, registryToken, "false", mergeNoProxy(cfg.NoProxy)); err != nil {
 		return "", fmt.Errorf("install Kubernetes packages: %w", err)
 	}
 
 	if err := o.checkProvisionedRuntime(k8sVersion); err != nil {
+		return "", err
+	}
+	if err := configureKubeletFileLogging(); err != nil {
 		return "", err
 	}
 
@@ -152,9 +191,40 @@ func (o *LinuxOrchestrator) installHTTPProxy(cfg InstallConfig) error {
 	if _, err := os.Stat(proxyBinary); err != nil {
 		return fmt.Errorf("Linux httpproxy binary is missing at %s: %w", proxyBinary, err)
 	}
+	networkDependencies := ""
+	proxyAllowedCIDRs := []string{"127.0.0.0/8", podNetworkCIDR, servicesCIDR}
+	if cfg.LinuxOnly {
+		proxyNetwork, err := config.ReadKubeSwitchConfig(cfg.InstallDir)
+		if err != nil {
+			return fmt.Errorf("read KubeSwitch proxy configuration: %w", err)
+		}
+		if err := installLinuxOnlyProxyNetwork(proxyNetwork); err != nil {
+			return err
+		}
+		primaryHostIP, err := primaryHostIPv4()
+		if err != nil {
+			return fmt.Errorf("determine primary host address for local HTTP proxy access: %w", err)
+		}
+		networkDependencies = fmt.Sprintf("Requires=%s.service\nAfter=%s.service\n", proxyNetworkSvc, proxyNetworkSvc)
+		// Permit pods through the configured KubeSwitch compatibility network
+		// and this host only through its primary address. Do not allow the
+		// complete primary network, which would expose the proxy to peers.
+		proxyAllowedCIDRs = append(proxyAllowedCIDRs, proxyNetwork.CIDR)
+		proxyAllowedCIDRs = append(proxyAllowedCIDRs, primaryHostIP+"/32")
+		slog.Info("[Install] Permitting host access to KubeSwitch proxy endpoint", "address", primaryHostIP)
+	}
+	if err := ensureServiceLogFile(proxyLogDir, proxyLogFile); err != nil {
+		return fmt.Errorf("prepare local HTTP proxy log file: %w", err)
+	}
 
 	noProxy := mergeNoProxy(cfg.NoProxy)
-	args := []string{"--addr", "127.0.0.1:8181", "--allowed-cidr", "127.0.0.0/8", "--allowed-cidr", podNetworkCIDR, "--allowed-cidr", servicesCIDR}
+	// Listen on all host interfaces so pods can reach the proxy through the
+	// K2s-owned configured KubeSwitch compatibility gateway. Access remains
+	// restricted to loopback, pod, and service CIDRs; it is not open to peers.
+	args := []string{"--addr", ":8181"}
+	for _, cidr := range proxyAllowedCIDRs {
+		args = append(args, "--allowed-cidr", cidr)
+	}
 	if cfg.Proxy != "" {
 		if _, err := url.ParseRequestURI(cfg.Proxy); err != nil {
 			return fmt.Errorf("invalid --proxy value %q: %w", cfg.Proxy, err)
@@ -167,18 +237,21 @@ func (o *LinuxOrchestrator) installHTTPProxy(cfg InstallConfig) error {
 Description=K2s local HTTP proxy
 After=network-online.target
 Wants=network-online.target
+%s
 
 [Service]
 Type=simple
 ExecStart=%s %s
 Environment="NO_PROXY=%s"
 Environment="no_proxy=%s"
+StandardOutput=append:%s
+StandardError=append:%s
 Restart=on-failure
 RestartSec=5
 
 [Install]
 WantedBy=multi-user.target
-`, proxyBinary, strings.Join(args, " "), systemdValue(noProxy), systemdValue(noProxy))
+`, networkDependencies, proxyBinary, strings.Join(args, " "), systemdValue(noProxy), systemdValue(noProxy), proxyLogFile, proxyLogFile)
 	if err := os.WriteFile(unitPath, []byte(unit), 0644); err != nil {
 		return fmt.Errorf("write local HTTP proxy service: %w", err)
 	}
@@ -191,10 +264,701 @@ WantedBy=multi-user.target
 	return nil
 }
 
-func removeHTTPProxy() {
+func removeHTTPProxy(removeCompatibilityNetwork bool, configDir string) {
 	_ = runCommand("systemctl", "disable", "--now", proxyService)
 	_ = os.Remove(filepath.Join("/etc/systemd/system", proxyService+".service"))
+	removeCriOProxyConfiguration()
+	removeContainersProxyConfiguration()
+	removeAptProxy(configDir)
+	if removeCompatibilityNetwork {
+		removeLinuxOnlyProxyNetwork()
+	}
 	_ = runCommand("systemctl", "daemon-reload")
+}
+
+type resolverState struct {
+	Mode         os.FileMode `json:"mode"`
+	LinkTarget   string      `json:"linkTarget,omitempty"`
+	Content      []byte      `json:"content,omitempty"`
+	WasImmutable bool        `json:"wasImmutable"`
+}
+
+// configureHostDNS makes Kubernetes DNS records available to all host
+// applications. It only replaces /etc/resolv.conf while K2s is running and
+// preserves the exact original file or symlink for stop/uninstall restoration.
+func (o *LinuxOrchestrator) configureHostDNS(cfg InstallConfig) error {
+	currentResolver, err := os.ReadFile(resolverPath)
+	if err != nil {
+		return fmt.Errorf("read current resolver configuration: %w", err)
+	}
+	if isK2sManagedResolver(currentResolver) {
+		return fmt.Errorf("K2s already owns %s; stop K2s before starting it again", resolverPath)
+	}
+
+	proxyNetwork, err := config.ReadKubeSwitchConfig(cfg.InstallDir)
+	if err != nil {
+		return fmt.Errorf("read KubeSwitch DNS configuration: %w", err)
+	}
+	upstreams, err := readResolverUpstreams()
+	if err != nil {
+		return err
+	}
+	if err := saveResolverState(cfg.ConfigDir); err != nil {
+		return err
+	}
+
+	coreDNSIP, zones, err := discoverCoreDNS()
+	if err != nil {
+		removeDNSProxy(cfg.ConfigDir)
+		return err
+	}
+	if err := writeDNSProxyConfig(proxyNetwork.Address, coreDNSIP, zones, upstreams); err != nil {
+		removeDNSProxy(cfg.ConfigDir)
+		return err
+	}
+	if err := startDNSProxy(cfg); err != nil {
+		removeDNSProxy(cfg.ConfigDir)
+		return err
+	}
+	if err := activateK2sResolver(); err != nil {
+		removeDNSProxy(cfg.ConfigDir)
+		return err
+	}
+	if err := configureSystemdResolvedDNS(); err != nil {
+		removeDNSProxy(cfg.ConfigDir)
+		return err
+	}
+	if err := verifyHostDNS(coreDNSIP, zones); err != nil {
+		removeDNSProxy(cfg.ConfigDir)
+		return err
+	}
+	return nil
+}
+
+func startDNSProxy(cfg InstallConfig) error {
+	binary := filepath.Join(cfg.InstallDir, "bin", "dnsproxy")
+	if _, err := os.Stat(binary); err != nil {
+		return fmt.Errorf("Linux dnsproxy binary is missing at %s: %w", binary, err)
+	}
+	if err := ensureServiceLogFile(dnsProxyLogDir, dnsProxyLogFile); err != nil {
+		return fmt.Errorf("prepare DNS proxy log file: %w", err)
+	}
+	unit := fmt.Sprintf(`[Unit]
+Description=K2s DNS proxy
+After=network-online.target kubelet.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+ExecStart=%s --config-path=%s
+StandardOutput=append:%s
+StandardError=append:%s
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
+`, binary, dnsProxyConfig, dnsProxyLogFile, dnsProxyLogFile)
+	unitPath := filepath.Join("/etc/systemd/system", dnsProxyService+".service")
+	if err := os.WriteFile(unitPath, []byte(unit), 0644); err != nil {
+		return fmt.Errorf("write DNS proxy service: %w", err)
+	}
+	if err := runCommand("systemctl", "daemon-reload"); err != nil {
+		return fmt.Errorf("reload systemd after DNS proxy setup: %w", err)
+	}
+	if err := runCommand("systemctl", "enable", "--now", dnsProxyService); err != nil {
+		return fmt.Errorf("enable and start DNS proxy: %w", err)
+	}
+	if err := waitForDNSProxy(); err != nil {
+		return err
+	}
+	return nil
+}
+
+func waitForDNSProxy() error {
+	deadline := time.Now().Add(15 * time.Second)
+	for time.Now().Before(deadline) {
+		if err := runCommand("systemctl", "is-active", "--quiet", dnsProxyService); err == nil {
+			return nil
+		}
+		time.Sleep(500 * time.Millisecond)
+	}
+	status, statusErr := runCommandOutput("systemctl", "status", dnsProxyService, "--no-pager", "--full")
+	if statusErr != nil {
+		return fmt.Errorf("DNS proxy did not become active; systemd status: %s", statusErr)
+	}
+	return fmt.Errorf("DNS proxy did not become active; systemd status: %s", strings.TrimSpace(status))
+}
+
+func stopHostDNS(configDir string) error {
+	resolvedErr := removeSystemdResolvedDNS()
+	restoreErr := restoreResolverState(configDir)
+	stopErr := runCommand("systemctl", "stop", dnsProxyService)
+	if stopErr != nil {
+		stopErr = fmt.Errorf("stop DNS proxy: %w", stopErr)
+	}
+	return errors.Join(resolvedErr, restoreErr, stopErr)
+}
+
+func removeDNSProxy(configDir string) {
+	if err := removeSystemdResolvedDNS(); err != nil {
+		slog.Warn("[Uninstall] Could not restore systemd-resolved DNS configuration", "error", err)
+	}
+	if err := restoreResolverState(configDir); err != nil {
+		slog.Warn("[Uninstall] Could not restore host resolver", "error", err)
+	}
+	if _, err := os.Stat(filepath.Join("/etc/systemd/system", dnsProxyService+".service")); err == nil {
+		_ = runCommand("systemctl", "disable", "--now", dnsProxyService)
+	}
+	_ = os.Remove(filepath.Join("/etc/systemd/system", dnsProxyService+".service"))
+	_ = os.Remove(dnsProxyConfig)
+	_ = os.Remove(filepath.Join(configDir, resolverStateFile))
+	_ = runCommand("systemctl", "daemon-reload")
+}
+
+func configureSystemdResolvedDNS() error {
+	content := []byte(renderSystemdResolvedDNSConfig())
+	if err := os.MkdirAll(filepath.Dir(systemdResolvedConfig), 0755); err != nil {
+		return fmt.Errorf("create systemd-resolved configuration directory: %w", err)
+	}
+	if err := os.WriteFile(systemdResolvedConfig, content, 0644); err != nil {
+		return fmt.Errorf("write K2s systemd-resolved DNS configuration: %w", err)
+	}
+	if err := runCommand("systemctl", "restart", "systemd-resolved"); err != nil {
+		return fmt.Errorf("restart systemd-resolved with K2s DNS configuration: %w", err)
+	}
+	return nil
+}
+
+func renderSystemdResolvedDNSConfig() string {
+	return "# Managed by K2s native Linux installation; removed by k2s stop or uninstall\n[Resolve]\nDNS=127.0.0.1\nDomains=~.\n"
+}
+
+func removeSystemdResolvedDNS() error {
+	_, err := os.Stat(systemdResolvedConfig)
+	if os.IsNotExist(err) {
+		return nil
+	}
+	if err != nil {
+		return fmt.Errorf("inspect K2s systemd-resolved DNS configuration: %w", err)
+	}
+	if err := os.Remove(systemdResolvedConfig); err != nil {
+		return fmt.Errorf("remove K2s systemd-resolved DNS configuration: %w", err)
+	}
+	if err := runCommand("systemctl", "restart", "systemd-resolved"); err != nil {
+		return fmt.Errorf("restart systemd-resolved after removing K2s DNS configuration: %w", err)
+	}
+	return nil
+}
+
+func readResolverUpstreams() ([]string, error) {
+	if output, err := runCommandOutput("resolvectl", "dns"); err == nil {
+		if upstreams := resolverUpstreamsFromOutput(output); len(upstreams) > 0 {
+			slog.Info("[Install] Using systemd-resolved DNS servers for the K2s DNS proxy", "upstreams", upstreams)
+			return upstreams, nil
+		}
+	} else {
+		slog.Warn("[Install] Could not query systemd-resolved DNS servers; falling back to resolv.conf", "error", err)
+	}
+
+	data, err := os.ReadFile(resolverPath)
+	if err != nil {
+		return nil, fmt.Errorf("read existing resolver configuration: %w", err)
+	}
+	upstreams := resolverUpstreamsFromOutput(string(data))
+	if len(upstreams) == 0 {
+		return nil, fmt.Errorf("no non-loopback nameserver entries found in systemd-resolved or %s", resolverPath)
+	}
+	return upstreams, nil
+}
+
+func resolverUpstreamsFromOutput(output string) []string {
+	seen := map[string]bool{}
+	var upstreams []string
+	for _, field := range strings.Fields(output) {
+		address := strings.Trim(field, ",;[]")
+		ip := net.ParseIP(address)
+		if ip == nil || ip.IsLoopback() || seen[address] {
+			continue
+		}
+		seen[address] = true
+		upstreams = append(upstreams, address)
+	}
+	return upstreams
+}
+
+func saveResolverState(configDir string) error {
+	info, err := os.Lstat(resolverPath)
+	if err != nil {
+		return fmt.Errorf("inspect existing resolver configuration: %w", err)
+	}
+	immutable, err := resolverIsImmutable()
+	if err != nil {
+		return err
+	}
+	state := resolverState{Mode: info.Mode(), WasImmutable: immutable}
+	if info.Mode()&os.ModeSymlink != 0 {
+		state.LinkTarget, err = os.Readlink(resolverPath)
+		if err != nil {
+			return fmt.Errorf("read resolver symlink: %w", err)
+		}
+	} else {
+		state.Content, err = os.ReadFile(resolverPath)
+		if err != nil {
+			return fmt.Errorf("read resolver configuration: %w", err)
+		}
+	}
+	if isK2sManagedResolver(state.Content) {
+		return fmt.Errorf("K2s already owns %s; refusing to overwrite saved resolver state", resolverPath)
+	}
+	data, err := json.Marshal(state)
+	if err != nil {
+		return fmt.Errorf("serialize resolver state: %w", err)
+	}
+	if err := os.MkdirAll(configDir, 0700); err != nil {
+		return fmt.Errorf("create resolver state directory: %w", err)
+	}
+	if err := os.WriteFile(filepath.Join(configDir, resolverStateFile), data, 0600); err != nil {
+		return fmt.Errorf("save resolver state: %w", err)
+	}
+	return nil
+}
+
+func resolverIsImmutable() (bool, error) {
+	output, err := runCommandOutput("lsattr", "-d", resolverPath)
+	if err != nil {
+		if resolverAttributesUnsupported(err.Error()) {
+			slog.Info("[Install] Resolver filesystem does not support immutable attributes; continuing without them", "path", resolverPath)
+			return false, nil
+		}
+		return false, fmt.Errorf("inspect immutable attribute on %s: %w", resolverPath, err)
+	}
+	return resolverIsImmutableFromOutput(output)
+}
+
+func resolverAttributesUnsupported(message string) bool {
+	return strings.Contains(strings.ToLower(message), "operation not supported")
+}
+
+func resolverIsImmutableFromOutput(output string) (bool, error) {
+	fields := strings.Fields(output)
+	if len(fields) == 0 {
+		return false, fmt.Errorf("no immutable attribute output for %s", resolverPath)
+	}
+	return strings.Contains(fields[0], "i"), nil
+}
+
+func activateK2sResolver() error {
+	if err := setResolverImmutable(false); err != nil {
+		return err
+	}
+	if err := os.Remove(resolverPath); err != nil && !os.IsNotExist(err) {
+		return fmt.Errorf("remove existing resolver configuration: %w", err)
+	}
+	content := []byte(resolverHeader + "\nnameserver 127.0.0.1\n")
+	if err := os.WriteFile(resolverPath, content, 0644); err != nil {
+		return fmt.Errorf("write K2s resolver configuration: %w", err)
+	}
+	return nil
+}
+
+func restoreResolverState(configDir string) error {
+	data, err := os.ReadFile(filepath.Join(configDir, resolverStateFile))
+	if os.IsNotExist(err) {
+		return nil
+	}
+	if err != nil {
+		return fmt.Errorf("read saved resolver state: %w", err)
+	}
+	var state resolverState
+	if err := json.Unmarshal(data, &state); err != nil {
+		return fmt.Errorf("parse saved resolver state: %w", err)
+	}
+	current, err := os.ReadFile(resolverPath)
+	if err != nil {
+		return fmt.Errorf("read current resolver configuration: %w", err)
+	}
+	if !isK2sManagedResolver(current) {
+		// DNS setup can fail before K2s takes ownership of resolv.conf. In that
+		// case the original resolver is already intact and must not be touched.
+		return nil
+	}
+	if err := setResolverImmutable(false); err != nil {
+		return err
+	}
+	if err := os.Remove(resolverPath); err != nil && !os.IsNotExist(err) {
+		return fmt.Errorf("remove K2s resolver configuration: %w", err)
+	}
+	if state.LinkTarget != "" {
+		if err := os.Symlink(state.LinkTarget, resolverPath); err != nil {
+			return fmt.Errorf("restore resolver symlink: %w", err)
+		}
+	} else if err := os.WriteFile(resolverPath, state.Content, state.Mode.Perm()); err != nil {
+		return fmt.Errorf("restore resolver configuration: %w", err)
+	}
+	if state.WasImmutable {
+		if err := setResolverImmutable(true); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func isK2sManagedResolver(content []byte) bool {
+	return strings.HasPrefix(string(content), resolverHeader)
+}
+
+func setResolverImmutable(immutable bool) error {
+	current, err := resolverIsImmutable()
+	if err != nil {
+		return err
+	}
+	if current == immutable {
+		return nil
+	}
+	flag := "-i"
+	operation := "clear"
+	if immutable {
+		flag = "+i"
+		operation = "restore"
+	}
+	if err := runCommand("chattr", flag, resolverPath); err != nil {
+		return fmt.Errorf("%s immutable attribute on %s: %w", operation, resolverPath, err)
+	}
+	return nil
+}
+
+func discoverCoreDNS() (string, []string, error) {
+	serviceIP, err := runCommandOutput("kubectl", "--kubeconfig", kubeconfigSrc, "-n", "kube-system", "get", "service", "kube-dns", "-o", "jsonpath={.spec.clusterIP}")
+	if err != nil {
+		return "", nil, fmt.Errorf("discover kube-dns service: %w", err)
+	}
+	serviceIP = strings.TrimSpace(serviceIP)
+	if net.ParseIP(serviceIP) == nil {
+		return "", nil, fmt.Errorf("kube-dns service has invalid ClusterIP %q", serviceIP)
+	}
+	if err := runCommand("kubectl", "--kubeconfig", kubeconfigSrc, "-n", "kube-system", "rollout", "status", "deployment/coredns", "--timeout=120s"); err != nil {
+		return "", nil, fmt.Errorf("wait for CoreDNS: %w", err)
+	}
+	corefile, err := runCommandOutput("kubectl", "--kubeconfig", kubeconfigSrc, "-n", "kube-system", "get", "configmap", "coredns", "-o", "jsonpath={.data.Corefile}")
+	if err != nil {
+		return "", nil, fmt.Errorf("read CoreDNS configuration: %w", err)
+	}
+	zones := coreDNSZones(corefile)
+	if len(zones) == 0 {
+		return "", nil, fmt.Errorf("no Kubernetes zones found in CoreDNS configuration")
+	}
+	return serviceIP, zones, nil
+}
+
+func coreDNSZones(corefile string) []string {
+	seen := map[string]bool{}
+	var zones []string
+	for _, line := range strings.Split(corefile, "\n") {
+		fields := strings.Fields(line)
+		if len(fields) < 3 || fields[0] != "kubernetes" {
+			continue
+		}
+		for _, zone := range fields[1:] {
+			if zone == "{" || zone == "." || strings.Contains(zone, "{") {
+				break
+			}
+			zone = strings.TrimSuffix(zone, ".")
+			if zone != "" && !seen[zone] {
+				seen[zone] = true
+				zones = append(zones, zone)
+			}
+		}
+	}
+	return zones
+}
+
+func writeDNSProxyConfig(kubeSwitchAddress string, coreDNSIP string, zones []string, upstreams []string) error {
+	content, err := renderDNSProxyConfig(kubeSwitchAddress, coreDNSIP, zones, upstreams)
+	if err != nil {
+		return err
+	}
+	if err := os.MkdirAll(filepath.Dir(dnsProxyConfig), 0755); err != nil {
+		return fmt.Errorf("create DNS proxy configuration directory: %w", err)
+	}
+	if err := os.WriteFile(dnsProxyConfig, []byte(content), 0644); err != nil {
+		return fmt.Errorf("write DNS proxy configuration: %w", err)
+	}
+	return nil
+}
+
+func renderDNSProxyConfig(kubeSwitchAddress string, coreDNSIP string, zones []string, upstreams []string) (string, error) {
+	if net.ParseIP(kubeSwitchAddress) == nil || net.ParseIP(coreDNSIP) == nil || len(zones) == 0 || len(upstreams) == 0 {
+		return "", fmt.Errorf("invalid DNS proxy listener, CoreDNS address, Kubernetes zone, or external upstream configuration")
+	}
+	var builder strings.Builder
+	builder.WriteString("---\nlisten-addrs:\n  - \"127.0.0.1\"\n")
+	builder.WriteString(fmt.Sprintf("  - \"%s\"\n", kubeSwitchAddress))
+	builder.WriteString("listen-ports:\n  - 53\n")
+	builder.WriteString("upstream:\n")
+	for _, zone := range zones {
+		builder.WriteString(fmt.Sprintf("  - \"[/%s/]%s\"\n", zone, coreDNSIP))
+	}
+	for _, upstream := range upstreams {
+		builder.WriteString(fmt.Sprintf("  - \"%s\"\n", upstream))
+	}
+	return builder.String(), nil
+}
+
+func verifyHostDNS(coreDNSIP string, zones []string) error {
+	if len(zones) == 0 {
+		return fmt.Errorf("no CoreDNS zones available for verification")
+	}
+	queryName := "kubernetes.default.svc." + zones[0]
+	if _, err := net.LookupHost(queryName); err != nil {
+		return fmt.Errorf("verify host DNS query for %s through CoreDNS service %s: %w", queryName, coreDNSIP, err)
+	}
+	if _, err := net.LookupHost("kubernetes.io"); err != nil {
+		return fmt.Errorf("verify external host DNS through K2s DNS proxy: %w", err)
+	}
+	return nil
+}
+
+func configureAptProxy(proxyURL string, configDir string) error {
+	content := []byte(fmt.Sprintf("%s\nAcquire::http::Proxy \"%s\";\nAcquire::https::Proxy \"%s\";\n", aptProxyConfigHeader, proxyURL, proxyURL))
+	current, err := os.ReadFile(aptProxyConfig)
+	if err != nil && !os.IsNotExist(err) {
+		return fmt.Errorf("read existing apt proxy configuration: %w", err)
+	}
+
+	backupPath := filepath.Join(configDir, "apt-proxy.conf.pre-k2s")
+	if len(current) > 0 && !strings.Contains(string(current), aptProxyConfigHeader) {
+		if _, err := os.Stat(backupPath); err == nil {
+			return fmt.Errorf("refusing to overwrite apt proxy configuration because backup %s already exists", backupPath)
+		} else if !os.IsNotExist(err) {
+			return fmt.Errorf("inspect apt proxy backup: %w", err)
+		}
+		if err := os.MkdirAll(configDir, 0700); err != nil {
+			return fmt.Errorf("create apt proxy backup directory: %w", err)
+		}
+		if err := os.WriteFile(backupPath, current, 0600); err != nil {
+			return fmt.Errorf("back up existing apt proxy configuration: %w", err)
+		}
+	}
+
+	if err := os.WriteFile(aptProxyConfig, content, 0644); err != nil {
+		return fmt.Errorf("write K2s apt proxy configuration: %w", err)
+	}
+	slog.Info("[Install] Configured apt to use the KubeSwitch HTTP proxy", "proxy", proxyURL)
+	return nil
+}
+
+func removeAptProxy(configDir string) {
+	content, err := os.ReadFile(aptProxyConfig)
+	if err != nil {
+		if !os.IsNotExist(err) {
+			slog.Warn("[Uninstall] Could not read apt proxy configuration", "path", aptProxyConfig, "error", err)
+		}
+		return
+	}
+	if !strings.Contains(string(content), aptProxyConfigHeader) {
+		slog.Warn("[Uninstall] Leaving apt proxy configuration unchanged because it is not managed by K2s", "path", aptProxyConfig)
+		return
+	}
+
+	backupPath := filepath.Join(configDir, "apt-proxy.conf.pre-k2s")
+	backup, backupErr := os.ReadFile(backupPath)
+	if backupErr == nil {
+		if err := os.WriteFile(aptProxyConfig, backup, 0644); err != nil {
+			slog.Warn("[Uninstall] Could not restore pre-existing apt proxy configuration", "path", aptProxyConfig, "error", err)
+			return
+		}
+		if err := os.Remove(backupPath); err != nil && !os.IsNotExist(err) {
+			slog.Warn("[Uninstall] Could not remove apt proxy backup", "path", backupPath, "error", err)
+		}
+		return
+	}
+	if !os.IsNotExist(backupErr) {
+		slog.Warn("[Uninstall] Could not read apt proxy backup", "path", backupPath, "error", backupErr)
+		return
+	}
+	if err := os.Remove(aptProxyConfig); err != nil && !os.IsNotExist(err) {
+		slog.Warn("[Uninstall] Could not remove K2s apt proxy configuration", "path", aptProxyConfig, "error", err)
+	}
+}
+
+func removeCriOProxyConfiguration() {
+	if err := os.Remove(criOProxyConfig); err != nil && !os.IsNotExist(err) {
+		slog.Warn("[Uninstall] Could not remove K2s CRI-O proxy configuration", "path", criOProxyConfig, "error", err)
+		return
+	}
+	if err := runCommand("systemctl", "daemon-reload"); err != nil {
+		slog.Warn("[Uninstall] Could not reload systemd after CRI-O proxy cleanup", "error", err)
+		return
+	}
+	if err := runCommand("systemctl", "is-active", "--quiet", crioServiceName); err == nil {
+		if err := runCommand("systemctl", "restart", crioServiceName); err != nil {
+			slog.Warn("[Uninstall] Could not restart CRI-O after proxy cleanup", "error", err)
+		}
+	}
+}
+
+func removeContainersProxyConfiguration() {
+	if err := os.Remove(containersProxyConfig); err != nil && !os.IsNotExist(err) {
+		slog.Warn("[Uninstall] Could not remove K2s containers proxy configuration", "path", containersProxyConfig, "error", err)
+	}
+}
+
+func configureKubeletFileLogging() error {
+	if err := ensureServiceLogFile(kubeletLogDir, kubeletLogFile); err != nil {
+		return err
+	}
+	if err := os.MkdirAll(filepath.Dir(kubeletLogDropIn), 0755); err != nil {
+		return fmt.Errorf("create kubelet logging drop-in directory: %w", err)
+	}
+	dropIn := fmt.Sprintf(`[Service]
+StandardOutput=append:%s
+StandardError=append:%s
+`, kubeletLogFile, kubeletLogFile)
+	if err := os.WriteFile(kubeletLogDropIn, []byte(dropIn), 0644); err != nil {
+		return fmt.Errorf("write kubelet logging drop-in: %w", err)
+	}
+	if err := runCommand("systemctl", "daemon-reload"); err != nil {
+		return fmt.Errorf("reload systemd after kubelet logging setup: %w", err)
+	}
+	return nil
+}
+
+func removeKubeletFileLogging() {
+	if err := os.Remove(kubeletLogDropIn); err != nil && !os.IsNotExist(err) {
+		slog.Warn("[Uninstall] Could not remove K2s kubelet logging drop-in", "path", kubeletLogDropIn, "error", err)
+	}
+	_ = runCommand("systemctl", "daemon-reload")
+}
+
+func ensureServiceLogFile(logDir string, logFile string) error {
+	if err := os.MkdirAll(logDir, 0755); err != nil {
+		return fmt.Errorf("create log directory %s: %w", logDir, err)
+	}
+	file, err := os.OpenFile(logFile, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	if err != nil {
+		return fmt.Errorf("open log file %s: %w", logFile, err)
+	}
+	return file.Close()
+}
+
+// installLinuxOnlyProxyNetwork publishes the established Windows-host proxy
+// gateway address to pods on a native Linux-only host. The dedicated dummy
+// interface avoids changing Flannel-owned cni0 while preserving the common
+// workload-proxy endpoint from cfg/config.json across topologies.
+func installLinuxOnlyProxyNetwork(proxyNetwork config.KubeSwitchConfig) error {
+	exists, err := linuxProxyNetworkExists(proxyNetwork)
+	if err != nil {
+		return err
+	}
+	if !exists {
+		if err := ensureProxyNetworkIsAvailable(proxyNetwork); err != nil {
+			return err
+		}
+	}
+
+	unitPath := filepath.Join("/etc/systemd/system", proxyNetworkSvc+".service")
+	unit := fmt.Sprintf(`[Unit]
+Description=K2s Linux-only proxy compatibility network
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/bin/sh -ec '/usr/sbin/ip link show %s >/dev/null 2>&1 || /usr/sbin/ip link add %s type dummy; /usr/sbin/ip addr replace %s dev %s; /usr/sbin/ip link set %s up'
+ExecStop=/usr/sbin/ip link delete %s
+
+[Install]
+WantedBy=multi-user.target
+`, proxyNetworkDev, proxyNetworkDev, proxyNetwork.AddressCIDR, proxyNetworkDev, proxyNetworkDev, proxyNetworkDev)
+	if err := os.WriteFile(unitPath, []byte(unit), 0644); err != nil {
+		return fmt.Errorf("write proxy compatibility network service: %w", err)
+	}
+	if err := runCommand("systemctl", "daemon-reload"); err != nil {
+		return fmt.Errorf("reload systemd after proxy compatibility network setup: %w", err)
+	}
+	if err := runCommand("systemctl", "enable", "--now", proxyNetworkSvc); err != nil {
+		return fmt.Errorf("enable and start proxy compatibility network: %w", err)
+	}
+	slog.Info("[Install] Linux-only pod proxy gateway configured", "address", proxyNetwork.Address, "interface", proxyNetworkDev)
+	return nil
+}
+
+func removeLinuxOnlyProxyNetwork() {
+	_ = runCommand("systemctl", "disable", "--now", proxyNetworkSvc)
+	_ = os.Remove(filepath.Join("/etc/systemd/system", proxyNetworkSvc+".service"))
+	_ = runCommand("ip", "link", "delete", proxyNetworkDev)
+}
+
+func linuxProxyNetworkExists(proxyNetwork config.KubeSwitchConfig) (bool, error) {
+	output, err := runCommandOutput("ip", "-o", "-4", "addr", "show", "dev", proxyNetworkDev)
+	if err != nil {
+		return false, nil // Interface not found is the normal first-install state.
+	}
+	if !strings.Contains(output, proxyNetwork.AddressCIDR) {
+		return false, fmt.Errorf("existing interface %q does not own required configured KubeSwitch address %s; remove or correct it before installing K2s", proxyNetworkDev, proxyNetwork.AddressCIDR)
+	}
+	return true, nil
+}
+
+func ensureProxyNetworkIsAvailable(proxyNetwork config.KubeSwitchConfig) error {
+	addresses, err := runCommandOutput("ip", "-o", "-4", "addr", "show")
+	if err != nil {
+		return fmt.Errorf("inspect host addresses for proxy compatibility network: %w", err)
+	}
+	if strings.Contains(addresses, proxyNetwork.Address+"/") {
+		return fmt.Errorf("configured KubeSwitch proxy address %s is already used by the host; remove the conflict before installing K2s", proxyNetwork.Address)
+	}
+
+	route, err := runCommandOutput("ip", "route", "show", proxyNetwork.CIDR)
+	if err != nil {
+		return fmt.Errorf("inspect host routes for proxy compatibility network: %w", err)
+	}
+	if strings.TrimSpace(route) != "" {
+		return fmt.Errorf("configured KubeSwitch proxy network %s conflicts with existing route %q; remove the conflict before installing K2s", proxyNetwork.CIDR, strings.TrimSpace(route))
+	}
+	return nil
+}
+
+// primaryHostIPv4 returns the IPv4 source address selected by the host's
+// default route. The local proxy needs this exact /32 allow-list entry so
+// host processes can reach the KubeSwitch endpoint without exposing it to
+// other hosts on the primary network.
+func primaryHostIPv4() (string, error) {
+	route, err := runCommandOutput("ip", "-4", "route", "get", "1.1.1.1")
+	if err != nil {
+		return "", fmt.Errorf("inspect IPv4 default route: %w", err)
+	}
+	return primaryHostIPv4FromRoute(route)
+}
+
+func primaryHostIPv4FromRoute(route string) (string, error) {
+	fields := strings.Fields(route)
+	for index, field := range fields {
+		if field != "src" || index+1 >= len(fields) {
+			continue
+		}
+
+		address := net.ParseIP(fields[index+1])
+		if address == nil || address.To4() == nil || address.IsLoopback() || address.IsUnspecified() || address.IsLinkLocalUnicast() {
+			return "", fmt.Errorf("default route returned invalid primary IPv4 address %q", fields[index+1])
+		}
+		return address.String(), nil
+	}
+	return "", fmt.Errorf("could not find source address in IPv4 route %q", strings.TrimSpace(route))
+}
+
+// kubeSwitchProxyURL returns the stable K2s proxy endpoint used by Linux
+// control-plane VMs on Windows hosts and by the native Linux host. The native
+// proxy is deliberately accessed through this address rather than loopback so
+// APT and CRI-O use the same configuration in both topologies.
+func kubeSwitchProxyURL(installDir string) (string, error) {
+	proxyNetwork, err := config.ReadKubeSwitchConfig(installDir)
+	if err != nil {
+		return "", fmt.Errorf("read KubeSwitch proxy configuration: %w", err)
+	}
+	return "http://" + proxyNetwork.Address + ":8181", nil
 }
 
 func resolveKubernetesVersion(installDir string) (string, error) {
@@ -216,9 +980,21 @@ func readRegistryToken(installDir string) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("read packaged registry credentials from %s: %w", path, err)
 	}
-	value := strings.TrimSpace(string(data))
+	value, err := normalizeRegistryToken(string(data))
+	if err != nil {
+		return "", fmt.Errorf("invalid packaged registry credentials at %s: %w", path, err)
+	}
+	return value, nil
+}
+
+func normalizeRegistryToken(value string) (string, error) {
+	value = strings.TrimPrefix(strings.TrimSpace(value), "\uFEFF")
+	value = strings.TrimSpace(value)
 	if value == "" {
-		return "", fmt.Errorf("packaged registry credentials at %s are empty", path)
+		return "", fmt.Errorf("credential is empty")
+	}
+	if _, err := base64.StdEncoding.DecodeString(value); err != nil {
+		return "", fmt.Errorf("credential is not valid base64")
 	}
 	return value, nil
 }
