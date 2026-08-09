@@ -285,6 +285,7 @@ spec:
                               prefix of 'From'. Patterns without a separator (e.g. "*.md") match
                               the file name at any depth.
                             items:
+                              maxLength: 1024
                               type: string
                             maxItems: 100
                             type: array
@@ -319,7 +320,7 @@ spec:
                               is set, the path may use capture placeholders such as "{app}".
                             maxLength: 1024
                             minLength: 1
-                            pattern: ^@(artifact)/(.*)$
+                            pattern: ^@artifact/([^/]{0,1}|[^./][^/]|[.][^./]|[^/]{3,})(/([^/]{0,1}|[^./][^/]|[.][^./]|[^/]{3,}))*$
                             type: string
                         required:
                         - from
@@ -4664,8 +4665,10 @@ spec:
                           Refspec specifies the Git Refspec to use for a push operation.
                           If both Branch and Refspec are provided, then the commit is pushed
                           to the branch and also using the specified refspec.
+                          Deletion refspecs and refspecs prefixed with '+' are not supported.
                           For more details about Git Refspecs, see:
                           https://git-scm.com/book/en/v2/Git-Internals-The-Refspec
+                        pattern: ^$|^[^+:]
                         type: string
                     type: object
                 required:
@@ -7224,7 +7227,7 @@ spec:
             resourceFieldRef:
               containerName: manager
               resource: limits.memory
-        image: ghcr.io/fluxcd/image-automation-controller:v1.2.3
+        image: ghcr.io/fluxcd/image-automation-controller:v1.2.4
         imagePullPolicy: IfNotPresent
         livenessProbe:
           httpGet:
@@ -7312,7 +7315,7 @@ spec:
             resourceFieldRef:
               containerName: manager
               resource: limits.memory
-        image: ghcr.io/fluxcd/image-reflector-controller:v1.2.3
+        image: ghcr.io/fluxcd/image-reflector-controller:v1.2.4
         imagePullPolicy: IfNotPresent
         livenessProbe:
           httpGet:
@@ -7492,7 +7495,7 @@ spec:
             resourceFieldRef:
               containerName: manager
               resource: limits.memory
-        image: ghcr.io/fluxcd/notification-controller:v1.9.2
+        image: ghcr.io/fluxcd/notification-controller:v1.9.3
         imagePullPolicy: IfNotPresent
         livenessProbe:
           httpGet:
@@ -7592,7 +7595,7 @@ spec:
             resourceFieldRef:
               containerName: manager
               resource: limits.memory
-        image: ghcr.io/fluxcd/source-controller:v1.9.3
+        image: ghcr.io/fluxcd/source-controller:v1.9.4
         imagePullPolicy: IfNotPresent
         livenessProbe:
           httpGet:
@@ -7692,7 +7695,7 @@ spec:
             resourceFieldRef:
               containerName: manager
               resource: limits.memory
-        image: ghcr.io/fluxcd/source-watcher:v2.2.2
+        image: ghcr.io/fluxcd/source-watcher:v2.2.3
         imagePullPolicy: IfNotPresent
         livenessProbe:
           httpGet:
@@ -7795,6 +7798,9 @@ spec:
   ingress:
   - from:
     - namespaceSelector: {}
+    ports:
+    - port: 9292
+      protocol: TCP
   podSelector:
     matchLabels:
       app: notification-controller
