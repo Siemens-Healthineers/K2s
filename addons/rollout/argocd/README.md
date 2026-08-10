@@ -165,7 +165,39 @@ The `addon-sync-config` ConfigMap controls core addon-sync behavior:
 
 - `REGISTRY_URL`: Registry base URL watched by addon-sync.
 - `K2S_INSTALL_DIR`: Windows host K2s installation path.
-- `INSECURE`: HTTP/plain mode (`true` or `false`).
+- `INSECURE`: HTTP/plain mode (`true` or `false`). Current default is `true`.
+
+Current host-plane poller defaults (`k2s-addon-sync/addon-sync-poller`):
+
+- Schedule: every 5 minutes (`*/5 * * * *`)
+- Concurrency: `Forbid`
+- Job timeout (`activeDeadlineSeconds`): 300 seconds
+- Retry (`backoffLimit`): 1
+
+State and lifecycle semantics:
+
+- Split-plane model: this Argo flow is the default host-plane path; optional native cluster-plane reconciliation can be added with per-addon Argo templates.
+- State paths on host under `K2S_INSTALL_DIR\\addons`: digest cache at `.addon-sync-digests/<addon>` and failure/backoff state at `.addon-sync-state/<addon>.failure`.
+- `ApplyIfEnabled` scope: backup/restore protects addon lifecycle data paths only. OCI-managed layers 0-3 files can still be overwritten by sync extraction.
+- Script-level failure backoff is digest-keyed and exponential (`min(2^attemptCount, 60)` minutes).
+
+### Optional native deploy path (cluster-plane self-heal)
+
+The default ArgoCD addon-sync path is host-plane delivery (copy addon files to Windows host). If you also want Argo to reconcile addon Kubernetes resources directly from OCI, register per-addon native resources:
+
+- `addons/common/manifests/addon-sync/argocd/per-addon/application-template.yaml`
+- `addons/common/manifests/addon-sync/argocd/per-addon/repo-server-oci-media-types.yaml`
+
+Important defaults in `application-template.yaml`:
+
+- `selfHeal: true`
+- `retry.limit: 5`
+- `retry.backoff.duration: 30s`
+- `retry.backoff.factor: 2`
+- `retry.backoff.maxDuration: 5m`
+- `prune: false` by default (enable only for stateless addons with explicit prune policy)
+
+Native Argo `oci://` Application sources do not verify OCI signatures. For signature verification, use Flux `OCIRepository.spec.verify`.
 
 For TLS and authentication, configure the registry and ORAS/runtime credentials according to your chosen registry product.
 
@@ -207,6 +239,8 @@ kubectl get cronjob -n k2s-addon-sync
 kubectl get jobs -n k2s-addon-sync --sort-by=.metadata.creationTimestamp
 kubectl logs -n k2s-addon-sync -l app.kubernetes.io/component=poller --tail=100
 ```
+
+Architecture reference: [GitOps Addon Delivery — Architecture Design](../../../gitops-addon-delivery-architecture.md).
 
 
 ## Backup and Restore

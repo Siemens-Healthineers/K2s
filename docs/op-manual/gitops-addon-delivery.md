@@ -18,6 +18,13 @@ The GitOps addon delivery flow:
 4. **Sync runs** on the Windows node to extract addon layers into the K2s addons directory
 5. **Addons appear** in `k2s addons ls` and can be enabled normally
 
+The implementation uses a split-plane model:
+
+- **Host-plane sync (default):** keeps addon files on the Windows host in sync (scripts, manifests, config) so addons are discoverable and maintainable via `k2s addons ...`.
+- **Native cluster-plane path (optional):** lets FluxCD/ArgoCD reconcile addon Kubernetes resources directly from OCI deploy layers for self-heal/prune behavior where appropriate.
+
+Architecture reference: [GitOps Addon Delivery — Architecture Design](../../gitops-addon-delivery-architecture.md).
+
 !!! important "Sync updates the addon catalog -- it does not auto-enable addon workloads"
     Addon-sync extracts definition files (manifests, scripts, config) into the local addon catalog on the Windows host. Container workloads are **not** started automatically. After sync completes, run `k2s addons enable <ADDON_NAME>` to deploy the addon's Kubernetes workloads.
 
@@ -81,8 +88,8 @@ Per-addon FluxCD resources (`OCIRepository addon-sync-<ADDON_NAME>` and `Kustomi
     Pushing a new versioned tag only triggers reconciliation for that specific addon, not all addons at once.
     FluxCD polls every 5 minutes (`interval: 5m` on `OCIRepository`). The ArgoCD poller CronJob runs every 5 minutes.
 
-!!! info "The export timestamp"
-    `Export.ps1` replaces a timestamp placeholder in the Job annotation on each export. Combined with Flux's `force: true` setting, this ensures the Job is recreated every time the artifact changes.
+!!! info "Exported version trigger annotation"
+    `Export.ps1` replaces `k2s.io/addon-version: ADDON_VERSION_PLACEHOLDER` with the current exported K2s version value and embeds the addon name. Combined with Flux's `force: true`, this ensures the processor Job template changes when the selected exported version changes.
 
 ### Using ArgoCD
 
@@ -129,6 +136,23 @@ ArgoCD cannot natively watch raw OCI artifact layers (unlike FluxCD's `OCIReposi
 6. After the sync completes, the addon appears in `k2s addons ls`
 7. The **consumer manually enables** the addon with `k2s addons enable <ADDON_NAME>` to deploy its workloads
 
+Argo host-plane poller runtime values:
+
+- Schedule: every 5 minutes (`*/5 * * * *`)
+- `concurrencyPolicy: Forbid`
+- `activeDeadlineSeconds: 300`
+- `backoffLimit: 1`
+- Native Argo `Application` retry (optional cluster-plane path): `limit: 5`, backoff `30s`, factor `2`, `maxDuration: 5m`
+
+### Optional native cluster-plane path
+
+Addon-sync host-plane delivery can be combined with native GitOps reconciliation of Kubernetes resources:
+
+- **FluxCD native path:** per-addon deploy `OCIRepository` + deploy `Kustomization` consume the deploy layer media type.
+- **ArgoCD native path:** per-addon `Application` uses `oci://.../addons/<ADDON_NAME>` with repo-server OCI media type configuration.
+
+This optional path does not replace host-plane addon catalog sync. It complements it for cluster resource reconciliation.
+
 ### ApplyIfEnabled safety behavior
 
 When addon-sync runs with `-ApplyIfEnabled true` for an already-enabled addon:
@@ -137,7 +161,11 @@ When addon-sync runs with `-ApplyIfEnabled true` for an already-enabled addon:
     running `Update.ps1` (safe-fail, no unprotected update).
 - If `Update.ps1` fails and no `Restore.ps1` is available, backup content is retained
     under `.addon-sync-backups/<addon>/<timestamp>/` for manual recovery.
-- Failures are recorded in digest-keyed backoff state so retries are visible and bounded.
+- Successful sync digest state is persisted in `addons/.addon-sync-digests/<addon>`.
+- Failure/backoff state is tracked separately in `addons/.addon-sync-state/<addon>.failure`
+    (`CurrentDigest`, `AttemptCount`, `LastAttemptUtc`), with exponential backoff capped at 60 minutes.
+- If digest is unchanged but host addon content is missing, addon-sync forces a re-sync.
+- Backup/restore protects addon lifecycle data paths only; OCI-managed files (layers 0-3 content) are still overwritten by sync extraction.
 
 !!! important "Push and enable are manual consumer steps"
     The poller automates the download and extraction of addon artifacts. Pushing artifacts to the registry **and** enabling addons are both deliberate actions taken by the consumer.
@@ -145,8 +173,8 @@ When addon-sync runs with `-ApplyIfEnabled true` for an already-enabled addon:
 ### Hardening defaults and authority boundaries
 
 - `INSECURE` default is `true` — K2s ships with a local HTTP NodePort registry.
-- When using a TLS-protected registry, set `INSECURE` to `false` in the ConfigMap, or
-  patch it via `--insecure-registry` if you need to switch back to HTTP:
+- When using a TLS-protected registry, set `INSECURE` to `false` in the `addon-sync-config` ConfigMap.
+- `--insecure-registry` explicitly confirms HTTP behavior (sets `INSECURE=true`) when enabling rollout:
 
 ```console
 k2s addons enable rollout fluxcd --insecure-registry
@@ -188,6 +216,12 @@ k2s addons enable rollout fluxcd --signing-public-key <cosign.pub>
 
 For local HTTP registries, include `--allow-insecure-registry` when signing.
 `--tlog-upload=false` is required for offline/no-Rekor environments.
+
+Scope and limitation summary:
+
+- Flux native OCI source supports opt-in signature verification at `OCIRepository.spec.verify`.
+- Argo native OCI source currently has no built-in OCI signature verification in this flow.
+- Host-plane `Sync-Addons.ps1` does not perform artifact signature verification itself.
 
 Known limitation: ArgoCD native `oci://` source cannot verify OCI signatures. Use FluxCD `OCIRepository.verify` for verified supply chain.
 
@@ -447,9 +481,9 @@ addons/common/manifests/addon-sync/
 Key details:
 
 - `Export.ps1` injects a `gitops-sync/` directory into every addon's manifests layer containing a Job template (`sync-job.yaml`) and a `kustomization.yaml`
-- The export timestamp annotation in the Job ensures Flux (with `force: true`) recreates the Job on each new artifact revision
+- The Job annotation uses `k2s.io/addon-version`; export replaces the placeholder with the current exported K2s version value
 - The Flux `Kustomization` uses `path: ./gitops-sync` to apply only the sync Job, not the addon's own K8s manifests
-- `prune: true` cleans up old completed Jobs; `wait: true` reports Job completion status
+- Flux cadence is 5 minutes for both `OCIRepository` and per-addon `Kustomization`; processor CronJobs run every 5 minutes with `backoffLimit: 1` and `activeDeadlineSeconds: 300`
 
 ### ArgoCD Flow
 
@@ -465,6 +499,7 @@ Key details:
 - Both **pushing an artifact** to the registry and **enabling an addon** are deliberate manual steps taken by the consumer
 - Polling interval is configured by the CronJob schedule (`*/5 * * * *` by default)
 - Digest state is stored on the host filesystem under `addons/.addon-sync-digests/`
+- Failure/backoff state is stored separately under `addons/.addon-sync-state/`
 
 ### Sync-Addons.ps1
 
@@ -483,6 +518,8 @@ Key details:
     - Layer 3 (scripts): `Enable.ps1`, `Disable.ps1`, etc. -> addon implementation directory
 6. **Merge manifests** -- for multi-implementation addons (e.g., ingress with nginx and traefik), merge `addon.manifest.yaml` implementations using `yq`
 7. (Optional) **Persist digest** -- when `-CheckDigest` is set, save the current digest for next run
+
+If registry manifest lookup fails, addon-sync records a synthetic digest marker (`sha256:registry-unreachable`) in failure-state for retry backoff keying; it is not persisted as a success digest.
 
 ### What Happens After Sync
 
@@ -604,7 +641,7 @@ Look for digest checks and sync decisions for changed addons.
 | Addon not appearing in `k2s addons ls` | Sync not complete or `addon.manifest.yaml` invalid | Check Job logs for `[AddonSync][ERROR]` |
 | ArgoCD poller not running | Addon-sync not deployed or CronJob suspended | Check `kubectl get cronjob addon-sync-poller -n k2s-addon-sync`; re-enable with `k2s addons enable rollout argocd` |
 | New addon not detected yet | Poll interval not elapsed or digest unchanged | Wait for next schedule, or trigger a manual Job from the CronJob for immediate sync |
-| FluxCD Job not recreated | Export timestamp unchanged | Re-export the addon to generate a new timestamp |
+| FluxCD Job not recreated | Selected exported version did not change or no newer matching semver tag was selected | Push a newer matching version tag and verify `OCIRepository` selected revision |
 | `yq.exe not found` in logs | Missing `yq` binary | Ensure `<K2S_INSTALL_DIR>\bin\windowsnode\yaml\yq.exe` exists |
 
 ## Common Use Cases
@@ -636,11 +673,12 @@ An existing addon is re-exported with a newer version and pushed to the registry
 2. For FluxCD: the per-addon `OCIRepository` detects the new highest semver tag and triggers sync automatically -- no extra push needed.
 3. Wait for the next sync cycle.
 4. The local addon directory is updated with the new scripts, manifests, and config.
-5. If the addon was already enabled, disable and re-enable it to apply the updated manifests:
-   ```console
+5. If the addon is already enabled, addon-sync runs `ApplyIfEnabled` lifecycle automatically (`Backup.ps1` -> `Update.ps1` -> optional `Restore.ps1` on failure).
+6. If the addon has no `Update.ps1` (or you require a full re-apply workflow), run a manual disable/enable cycle:
+    ```console
     k2s addons disable <ADDON_NAME>
     k2s addons enable <ADDON_NAME>
-   ```
+    ```
 
 ## Offline vs GitOps
 

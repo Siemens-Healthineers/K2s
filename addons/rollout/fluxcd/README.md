@@ -12,7 +12,7 @@ Flux CD is a GitOps operator that continuously reconciles cluster state with sou
 
 ## Enable Flux
 
-```cmd
+```console
 k2s addons enable rollout fluxcd
 ```
 
@@ -20,7 +20,7 @@ Enabling `rollout fluxcd` also installs the Flux CLI on the Windows host at `bin
 
 ### Optional: Enable Webhooks (for Git push notifications)
 
-```cmd
+```console
 k2s addons enable rollout fluxcd --ingress nginx
 ```
 
@@ -30,13 +30,13 @@ Most users don't need this — Flux polls its sources by default.
 
 By default, enabling Flux also deploys the **addon-sync** infrastructure that lets you deliver K2s addons from an OCI registry. To skip it:
 
-```cmd
+```console
 k2s addons enable rollout fluxcd --addon-sync=false
 ```
 
 ## Check Status
 
-```cmd
+```console
 k2s addons status rollout fluxcd
 ```
 
@@ -77,7 +77,7 @@ spec:
 
 ### 3. Apply
 
-```cmd
+```console
 kubectl apply -f gitrepository.yaml
 kubectl apply -f kustomization.yaml
 ```
@@ -139,6 +139,8 @@ In Flux mode, this registration is required per addon. For each addon, create bo
 - `OCIRepository` (watches the addon artifact in your registry)
 - `Kustomization` (applies synced addon content locally)
 
+This default path is host-plane delivery: Flux reconciles addon-sync resources that run the Windows HostProcess sync job for addon files.
+
 Use the templates from:
 
 `<K2S_INSTALL_DIR>\addons\common\manifests\addon-sync\fluxcd\per-addon`
@@ -162,7 +164,7 @@ kubectl -n k2s-addon-sync get ocirepository,kustomization
 
 ```console
 k2s addons export <ADDON_NAME> -d <export-dir> --omit-images --omit-packages
-oras copy --from-oci-layout <exported-oci-tar>:<tag> <REGISTRY_URL>/addons/<ADDON_NAME>:<tag>
+oras copy --from-oci-layout <exported-oci-tar>:<tag> --to-plain-http oci://<REGISTRY_HOST>/addons/<ADDON_NAME>:<tag>
 cosign sign --yes --key <cosign.key> --tlog-upload=false --allow-insecure-registry <REGISTRY_HOST>/addons/<ADDON_NAME>:<tag>
 k2s addons enable rollout fluxcd --signing-public-key <cosign.pub>
 # In per-addon OCIRepository template, uncomment verify:
@@ -183,7 +185,7 @@ Use your own registry host when publishing addon artifacts.
 
 ```console
 set REGISTRY_HOST=<REGISTRY_HOST>
-oras copy --from-oci-layout <exported-oci-tar>:<tag> oci://%REGISTRY_HOST%/addons/<ADDON_NAME>:<tag>
+oras copy --from-oci-layout <exported-oci-tar>:<tag> --to-plain-http oci://%REGISTRY_HOST%/addons/<ADDON_NAME>:<tag>
 ```
 
 Use the same registry host that your addon-sync configuration watches.
@@ -194,12 +196,38 @@ Use the same registry host that your addon-sync configuration watches.
 
 - `REGISTRY_URL`: `oci://<REGISTRY_HOST>` used by addon-sync
 - `K2S_INSTALL_DIR`: host install directory used by sync scripts
-- `INSECURE`: enable insecure registry access (`true`/`false`)
+- `INSECURE`: enable insecure registry access (`true`/`false`), default `true`
 
 Flux-specific tunables are set per addon resource:
 
-- `OCIRepository.spec.interval`: how often Flux checks for new addon tags
+- `OCIRepository.spec.interval`: how often Flux checks for new addon tags (default template value: `5m`)
 - Optional `OCIRepository.spec.ref.semver`: constrain which versions are selected
+- `Kustomization.spec.interval`: how often Flux re-applies host-plane sync resources (default template value: `5m`)
+
+State and lifecycle semantics:
+
+- Split-plane model: this Flux flow is the default host-plane path; optional native cluster-plane reconciliation can be added with deploy templates.
+- Host-plane cadence: per-addon `OCIRepository` and `Kustomization` both reconcile every 5 minutes (`interval: 5m`).
+- State paths on host under `K2S_INSTALL_DIR\\addons`: digest cache at `.addon-sync-digests/<addon>` and failure/backoff state at `.addon-sync-state/<addon>.failure`.
+- `ApplyIfEnabled` scope: backup/restore protects addon lifecycle data paths only. OCI-managed layers 0-3 files can still be overwritten by sync extraction.
+- Script-level failure backoff is digest-keyed and exponential (`min(2^attemptCount, 60)` minutes).
+
+### Optional native deploy path (cluster-plane self-heal)
+
+If you want Flux to reconcile addon Kubernetes resources directly from OCI (not only host-plane file sync), register these per-addon templates:
+
+- `addons/common/manifests/addon-sync/fluxcd/per-addon/deploy-ocirepository-template.yaml`
+- `addons/common/manifests/addon-sync/fluxcd/per-addon/deploy-kustomization-template.yaml`
+
+Default deploy-path behavior:
+
+- `OCIRepository.spec.interval: 5m`
+- `Kustomization.spec.interval: 5m`
+- `Kustomization.spec.retryInterval: 5m`
+- `wait: true`
+- `prune: false` by default (enable only for stateless addons with explicit prune policy)
+
+Flux supports OCI signature verification by enabling `verify:` in the `OCIRepository` templates (host-plane and deploy-path).
 
 ### Install directory behavior (auto-detected and patched)
 
@@ -217,10 +245,12 @@ Flux addon-sync registers and reconciles addons per addon, so publishing one add
 - Sync looks stale: check Flux source and kustomization status in `k2s-addon-sync`.
 - Addon listed but not running: run `k2s addons enable <ADDON_NAME>` (sync alone does not deploy).
 
+Architecture reference: [GitOps Addon Delivery — Architecture Design](../../../gitops-addon-delivery-architecture.md).
+
 
 ## Disable Flux
 
-```cmd
+```console
 k2s addons disable rollout fluxcd
 ```
 
@@ -246,7 +276,7 @@ Backup/restore is scoped to the `rollout` namespace only.
 
 ### Commands
 
-```cmd
+```console
 k2s addons backup rollout fluxcd
 k2s addons restore rollout fluxcd <path-to-backup-zip>
 ```
@@ -258,3 +288,5 @@ k2s addons restore rollout fluxcd <path-to-backup-zip>
 - [Flux Documentation](https://fluxcd.io/docs/)
 - [Flux Guides](https://fluxcd.io/flux/guides/)
 - [GitOps Addon Delivery — Full Operational Guide](../../../docs/op-manual/gitops-addon-delivery.md)
+
+

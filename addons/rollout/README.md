@@ -22,9 +22,10 @@ Both implementations are installed into the `rollout` namespace and share the sa
 | Web dashboard | Yes | No |
 | CLI management | Dedicated `argocd` CLI | Standard `kubectl` + Flux CRDs |
 | Ingress purpose | Expose the ArgoCD dashboard | Optional app ingress for workloads managed by Flux |
-| Default sync behavior | Real-time (watches Git) | Polling every 1 minute |
+| Default sync behavior | Real-time (watches Git) | Reconciliation cadence is resource-defined (`interval` on Flux CRs) |
 | Helm support | Via `Application` CRD | Native `HelmRelease` CRD |
-| Addon-sync mechanism | `addon-sync-poller` HostProcess CronJob polling every 5 minutes | Native `OCIRepository` + `Kustomization` |
+| Addon-sync mechanism (default) | `addon-sync-poller` HostProcess CronJob polling every 5 minutes | Per-addon `OCIRepository` + `Kustomization` polling every 5 minutes |
+| Native deploy path (optional) | Per-addon Argo `Application` templates (`selfHeal: true`, retry/backoff defaults) | Per-addon Flux deploy templates with direct deploy-layer reconciliation |
 
 **Pick ArgoCD** if you want a visual dashboard for managing deployments, reviewing diffs, and triggering syncs from a UI.
 
@@ -149,15 +150,32 @@ The rollout addon includes an **addon-sync** feature (enabled by default via `--
 
 | | ArgoCD | Flux CD |
 |---|---|---|
-| Detection mechanism | `addon-sync-poller` HostProcess CronJob polls registry every 5 minutes | Per-addon `OCIRepository` polls `addons/<name>` every 1 minute |
+| Detection mechanism | `addon-sync-poller` HostProcess CronJob polls registry every 5 minutes | Per-addon `OCIRepository` polls `addons/<name>` every 5 minutes |
 | Per-addon setup | **None required** — poller discovers all `addons/*` repos automatically | **One-time per addon** — apply `ocirepository-template.yaml` + `kustomization-template.yaml` |
+| Native deploy path | Optional: apply Argo per-addon native templates (`application-template.yaml` + repo-server media-type patch) for cluster-plane self-heal | Optional: apply Flux deploy templates (`deploy-ocirepository-template.yaml` + `deploy-kustomization-template.yaml`) for cluster-plane self-heal |
+| Signature verification capability | Addon-sync can store cosign public key, but Argo native `oci://` Application source cannot verify OCI signatures | Flux supports `OCIRepository.spec.verify` (cosign) in both host-plane and deploy-path templates |
 | Push required | Single versioned tag push | Single versioned tag push (no `latest` needed) |
 | Multi-addon | All registered repos checked in each poll cycle | Each addon has independent reconciliation |
 | Registry compatibility | Any OCI Distribution Spec registry | Any OCI Distribution Spec registry |
 
+### Split-plane model and lifecycle semantics
+
+- Split-plane model: host-plane sync is the default delivery path; native cluster-plane reconciliation is optional.
+- Cadence defaults: host sync runs every 5 minutes (`*/5 * * * *`) with `concurrencyPolicy: Forbid`, `backoffLimit: 1`, and `activeDeadlineSeconds: 300`; Flux per-addon source/reconcile uses `interval: 5m`; optional Argo native retry uses `limit: 5`, `30s` duration, factor `2`, max `5m`.
+- State paths on host under `K2S_INSTALL_DIR\\addons`: digest cache at `.addon-sync-digests/<addon>` and failure/backoff state at `.addon-sync-state/<addon>.failure` (`CurrentDigest`, `AttemptCount`, `LastAttemptUtc`).
+- `ApplyIfEnabled` scope: backup/restore protects addon lifecycle data paths (`Backup.ps1` / `Update.ps1` / `Restore.ps1`) after extraction, but OCI-managed layers 0-3 content can still be overwritten by sync extraction.
+
+Architecture reference: [GitOps Addon Delivery — Architecture Design](../../gitops-addon-delivery-architecture.md).
+
 ### Prerequisites
 
 - The **registry** addon must be enabled: `k2s addons enable registry`
+
+### Runtime defaults
+
+- `INSECURE` in `addon-sync-config` defaults to `true` (local K2s registry over HTTP).
+- `k2s addons enable rollout ... --insecure-registry` explicitly sets `INSECURE=true` during rollout enable.
+- If your registry is TLS-protected, set `INSECURE=false` in `k2s-addon-sync/addon-sync-config`.
 
 ### Opt out
 
