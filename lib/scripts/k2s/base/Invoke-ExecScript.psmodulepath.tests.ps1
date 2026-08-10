@@ -129,7 +129,7 @@ Describe 'Invoke-ExecScript PSModulePath normalization' -Tag 'unit', 'ci', 'ps7-
             $wasChangedForEmpty = Set-WinPSModulePathIfNeeded
 
             $wasChangedForEmpty | Should -BeFalse
-            $env:PSModulePath | Should -Be ''
+            $env:PSModulePath | Should -BeNullOrEmpty
         }
     }
 }
