@@ -34,9 +34,16 @@ function Invoke-DownloadKrewArtifacts($downloadsBaseDirectory, $Proxy, $windowsN
     Write-Log '  ...done'
 
     Write-Log "Extract downloaded file '$compressedFile'"
+    # Capture tar output and exit code so a failed extraction (missing tar.exe, corrupt archive,
+    # changed archive structure) is surfaced in the log instead of being silently swallowed.
     $ErrorActionPreference = 'SilentlyContinue'
-    tar C `"$krewDownloadsDirectory`" -xvf `"$compressedFile`" $windowsNode_KrewReleaseExe 2>&1 | % { "$_" }
+    $tarOutput = tar C `"$krewDownloadsDirectory`" -xvf `"$compressedFile`" $windowsNode_KrewReleaseExe 2>&1 | % { "$_" }
+    $tarExitCode = $LASTEXITCODE
     $ErrorActionPreference = 'Stop'
+    if ($tarExitCode -ne 0) {
+        Write-Log "tar extraction of '$compressedFile' failed (exit code $tarExitCode): $tarOutput"
+        throw "Extraction of krew archive '$compressedFile' failed (tar exit code $tarExitCode). See log for details."
+    }
     Write-Log '  ...done'
     Remove-Item -Path "$compressedFile" -Force -ErrorAction SilentlyContinue
 
