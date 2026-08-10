@@ -85,12 +85,12 @@ if ([string]::IsNullOrEmpty($StorageNode)) {
 Write-Log 'Creating authentication files and secrets' -Console
 $controlPlaneHostname = Get-ConfigControlPlaneNodeHostname
 if ($StorageNode -eq $controlPlaneHostname) {
-    (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute 'sudo mkdir -p /registry /registry/auth /registry/repository').Output | Write-Log
+    (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -Retries 3 -CmdToExecute 'sudo mkdir -p /registry /registry/auth /registry/repository').Output | Write-Log
 } else {
     $clusterDescriptor = Get-JsonContent -FilePath (Get-ClusterDescriptorFilePath)
     $workerNode = @($clusterDescriptor.nodes) | Where-Object { $_.Name -eq $StorageNode } | Select-Object -First 1
     if (-not $workerNode) { throw "Storage node '$StorageNode' not found in cluster descriptor" }
-    (Invoke-CmdOnVmViaSSHKey -IpAddress $workerNode.IpAddress -UserName $workerNode.Username -Timeout 2 -CmdToExecute 'sudo mkdir -p /registry /registry/auth /registry/repository').Output | Write-Log
+    (Invoke-CmdOnVmViaSSHKey -IpAddress $workerNode.IpAddress -UserName $workerNode.Username -Timeout 2 -Retries 3 -CmdToExecute 'sudo mkdir -p /registry /registry/auth /registry/repository').Output | Write-Log
 }
 
 # Create secrets
