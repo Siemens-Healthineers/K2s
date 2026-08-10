@@ -105,6 +105,7 @@ Write-Log 'Installing rollout addon' -Console
 $rolloutConfig = Get-RolloutConfig
 # Evidence: k2s dump logs show CRD apply failure "applicationsets.argoproj.io ... metadata.annotations: Too long"
 # followed by rollout timeout; use server-side apply and fail early on apply errors.
+Write-Log "[RolloutTiming] kubectl apply --server-side start: $(Get-Date -Format 'HH:mm:ss')" -Console
 $kubectlCmd = Invoke-Kubectl -Params 'apply', '--server-side', '-n', $rolloutNamespace, '-k', $rolloutConfig
 $kubectlCmd.Output | Write-Log
 if (-not $kubectlCmd.Success) {
@@ -119,6 +120,7 @@ if (-not $kubectlCmd.Success) {
     exit 1
 }
 
+Write-Log "[RolloutTiming] kubectl apply --server-side end / CRD wait start: $(Get-Date -Format 'HH:mm:ss')" -Console
 $kubectlCmd = Invoke-Kubectl -Params 'wait', '--for=condition=Established', '--timeout=180s', 'crd/applicationsets.argoproj.io'
 $kubectlCmd.Output | Write-Log
 if (-not $kubectlCmd.Success) {
@@ -133,6 +135,7 @@ if (-not $kubectlCmd.Success) {
     exit 1
 }
 
+Write-Log "[RolloutTiming] CRD wait end / deployment rollout start: $(Get-Date -Format 'HH:mm:ss')" -Console
 Write-Log 'Waiting for pods being ready...' -Console
 
 $kubectlCmd = (Invoke-Kubectl -Params 'rollout', 'status', 'deployments', '-n', $rolloutNamespace, '--timeout=600s')
@@ -149,6 +152,7 @@ if (!$kubectlCmd.Success) {
     exit 1
 }
 
+Write-Log "[RolloutTiming] deployment rollout end / statefulset rollout start: $(Get-Date -Format 'HH:mm:ss')" -Console
 $kubectlCmd = (Invoke-Kubectl -Params 'rollout', 'status', 'statefulsets', '-n', $rolloutNamespace, '--timeout=600s')
 Write-Log $kubectlCmd.Output
 if (!$kubectlCmd.Success) {
@@ -174,6 +178,7 @@ else {
     Write-Log '[AddonRestore] Skipping Update.ps1 in Enable.ps1 (restore flow will run update once in Restore.ps1).' -Console
 }
 
+Write-Log "[RolloutTiming] statefulset rollout end (Enable.ps1 done): $(Get-Date -Format 'HH:mm:ss')" -Console
 Write-Log 'Installation of rollout addon finished.' -Console
 
 Add-AddonToSetupJson -Addon ([pscustomobject] @{Name = 'rollout'; Implementation = 'argocd' })
