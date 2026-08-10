@@ -77,5 +77,39 @@ Describe 'Update-UserPath' -Tag 'unit', 'ci', 'update' {
 		($env:Path.Split([IO.Path]::PathSeparator) -contains 'C:\before') | Should -BeTrue
 		($env:Path.Split([IO.Path]::PathSeparator) -contains 'C:\after') | Should -BeTrue
 	}
+
+	It "remove does not create an HKCU PATH value when none existed (fresh profile / Server Core)" {
+		# Get-ItemProperty returns nothing when HKCU:\Environment has no PATH value yet.
+		Mock -ModuleName $moduleName Get-ItemProperty { $null }
+		$env:Path = 'C:\before'
+
+		Update-UserPath -Action 'remove' 'C:\Users\Test\.krew\bin'
+
+		# Set-ItemProperty must not be invoked, so no (empty) PATH registry value is created.
+		Should -Invoke -ModuleName $moduleName Set-ItemProperty -Times 0 -ParameterFilter { $Name -eq 'PATH' }
+		$script:capturedPath | Should -BeNullOrEmpty
+		# The current process PATH is still processed and left intact (the entry was not present anyway).
+		($env:Path.Split([IO.Path]::PathSeparator) -contains 'C:\before') | Should -BeTrue
+	}
+
+	It "remove writes back the PATH when the entry is present, preserving unrelated entries" {
+		Mock -ModuleName $moduleName Get-ItemProperty { [pscustomobject]@{ path = "C:\other$([IO.Path]::PathSeparator)C:\Users\Test\.krew\bin$([IO.Path]::PathSeparator)C:\more" } }
+
+		Update-UserPath -Action 'remove' 'C:\Users\Test\.krew\bin'
+
+		Should -Invoke -ModuleName $moduleName Set-ItemProperty -Times 1 -ParameterFilter { $Name -eq 'PATH' }
+		($script:capturedPath.Split([IO.Path]::PathSeparator) -contains 'C:\Users\Test\.krew\bin') | Should -BeFalse
+		($script:capturedPath.Split([IO.Path]::PathSeparator) -contains 'C:\other') | Should -BeTrue
+		($script:capturedPath.Split([IO.Path]::PathSeparator) -contains 'C:\more') | Should -BeTrue
+	}
+
+	It "remove preserves an existing HKCU PATH that does not contain the entry" {
+		Mock -ModuleName $moduleName Get-ItemProperty { [pscustomobject]@{ path = "C:\keep1$([IO.Path]::PathSeparator)C:\keep2" } }
+
+		Update-UserPath -Action 'remove' 'C:\Users\Test\.krew\bin'
+
+		# The value is still written back (it existed), but its contents are unchanged.
+		$script:capturedPath | Should -Be "C:\keep1$([IO.Path]::PathSeparator)C:\keep2"
+	}
 }
 

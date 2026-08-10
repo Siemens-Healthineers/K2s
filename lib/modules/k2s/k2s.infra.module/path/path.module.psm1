@@ -89,11 +89,10 @@ function Update-SystemPath ($Action, $Addendum) {
 
         # Also drop the entry from the current process PATH so an uninstall (and a subsequent reinstall to a
         # different USERPROFILE) does not leave a stale entry in the running session. Mirrors the 'add' branch,
-        # which updates $env:Path in-session too. (Update-SystemPath intentionally does not do this; here we keep
-        # Update-UserPath internally consistent between its own add/remove branches.)
+        # which updates $env:Path in-session too.
         $env:Path = ($env:Path.Split([IO.Path]::PathSeparator) | Where-Object { $_ -ine "$Addendum" }) -join [IO.Path]::PathSeparator
 
-        Write-Verbose "Removed $Addendum from user PATH variable"
+        Write-Verbose "Removed $Addendum from system PATH variable"
     }
 }
 
@@ -104,6 +103,9 @@ function Update-UserPath ($Action, $Addendum) {
     # to every account). The only intentional difference from Update-SystemPath is the registry scope.
     $regLocation = 'Registry::HKEY_CURRENT_USER\Environment'
     $path = (Get-ItemProperty -Path $regLocation -Name PATH -ErrorAction SilentlyContinue).path
+    # Track whether HKCU:\Environment already had a PATH value so the 'remove' branch does not create a
+    # spurious empty entry on hives that never had one (e.g. Server Core / fresh profile).
+    $pathExists = ($null -ne $path)
     if ($null -eq $path) {
         # Unlike the machine hive, HKCU:\Environment may not have a PATH value yet (e.g. Server Core / fresh profile).
         $path = ''
@@ -126,7 +128,11 @@ function Update-UserPath ($Action, $Addendum) {
         # Case-insensitive match: Windows paths are case-insensitive, so PATH entries that differ only in
         # casing (e.g. 'C:\K' vs 'C:\k') must still be removed (important for installation re-homing).
         $path = ($path.Split([IO.Path]::PathSeparator) | Where-Object { $_ -ine "$Addendum" }) -join [IO.Path]::PathSeparator
-        Set-ItemProperty -Path $regLocation -Name PATH -Value $path
+        # Only write the registry value back if HKCU:\Environment already had a PATH value; otherwise removing
+        # from a non-existent value would create a spurious empty PATH entry (fresh profile / Server Core).
+        if ($pathExists) {
+            Set-ItemProperty -Path $regLocation -Name PATH -Value $path
+        }
 
         # Also drop the entry from the current process PATH so an uninstall (and a subsequent reinstall to a
         # different USERPROFILE) does not leave a stale entry in the running session. Mirrors the 'add' branch,
