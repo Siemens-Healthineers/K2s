@@ -86,6 +86,14 @@ function Update-SystemPath ($Action, $Addendum) {
         # casing (e.g. 'C:\K' vs 'C:\k') must still be removed (important for installation re-homing).
         $path = ($path.Split([IO.Path]::PathSeparator) | Where-Object { $_ -ine "$Addendum" }) -join [IO.Path]::PathSeparator
         Set-ItemProperty -Path $regLocation -Name PATH -Value $path
+
+        # Also drop the entry from the current process PATH so an uninstall (and a subsequent reinstall to a
+        # different USERPROFILE) does not leave a stale entry in the running session. Mirrors the 'add' branch,
+        # which updates $env:Path in-session too. (Update-SystemPath intentionally does not do this; here we keep
+        # Update-UserPath internally consistent between its own add/remove branches.)
+        $env:Path = ($env:Path.Split([IO.Path]::PathSeparator) | Where-Object { $_ -ine "$Addendum" }) -join [IO.Path]::PathSeparator
+
+        Write-Verbose "Removed $Addendum from user PATH variable"
     }
 }
 
@@ -119,6 +127,14 @@ function Update-UserPath ($Action, $Addendum) {
         # casing (e.g. 'C:\K' vs 'C:\k') must still be removed (important for installation re-homing).
         $path = ($path.Split([IO.Path]::PathSeparator) | Where-Object { $_ -ine "$Addendum" }) -join [IO.Path]::PathSeparator
         Set-ItemProperty -Path $regLocation -Name PATH -Value $path
+
+        # Also drop the entry from the current process PATH so an uninstall (and a subsequent reinstall to a
+        # different USERPROFILE) does not leave a stale entry in the running session. Mirrors the 'add' branch,
+        # which updates $env:Path in-session too. (Update-SystemPath intentionally does not do this; here we keep
+        # Update-UserPath internally consistent between its own add/remove branches.)
+        $env:Path = ($env:Path.Split([IO.Path]::PathSeparator) | Where-Object { $_ -ine "$Addendum" }) -join [IO.Path]::PathSeparator
+
+        Write-Verbose "Removed $Addendum from user PATH variable"
     }
 }
 
