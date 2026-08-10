@@ -44,7 +44,7 @@ if ($runningFromDelta) {
 	}
 	
 	if (-not (Test-Path -LiteralPath $targetInstallPath)) {
-		Write-Host "[Invoke-ExecScript][Error] Target installation not found at: $targetInstallPath" -ForegroundColor Red
+        Write-Error "[Invoke-ExecScript][Error] Target installation not found at: $targetInstallPath"
 		exit 1
 	}
 	
@@ -54,14 +54,51 @@ if ($runningFromDelta) {
 	$infraModule = "$PSScriptRoot\..\..\..\modules\k2s\k2s.infra.module\k2s.infra.module.psm1"
 }
 
+function Get-WinPSCanonicalModulePath {
+    return @(
+        "$env:USERPROFILE\Documents\WindowsPowerShell\Modules",
+        "$env:ProgramFiles\WindowsPowerShell\Modules",
+        "$env:SystemRoot\System32\WindowsPowerShell\v1.0\Modules"
+    ) -join ';'
+}
+
+function Test-NeedsWinPSModulePathNormalization {
+    param(
+        [string]$ModulePath
+    )
+
+    if ([string]::IsNullOrWhiteSpace($ModulePath)) {
+        return $false
+    }
+
+    $pathEntries = $ModulePath -split ';' | Where-Object { -not [string]::IsNullOrWhiteSpace($_) }
+    foreach ($pathEntry in $pathEntries) {
+        if ($pathEntry -match '(^|[/\\])PowerShell[/\\]7($|[/\\])' -or
+            $pathEntry -match '(^|[/\\])Documents[/\\]PowerShell[/\\]Modules($|[/\\])') {
+            return $true
+        }
+    }
+
+    return $false
+}
+
+function Set-WinPSModulePathIfNeeded {
+    if (-not (Test-NeedsWinPSModulePathNormalization -ModulePath $env:PSModulePath)) {
+        return $false
+    }
+
+    $canonicalWinPSModulePath = Get-WinPSCanonicalModulePath
+    if ($env:PSModulePath -eq $canonicalWinPSModulePath) {
+        return $false
+    }
+
+    $env:PSModulePath = $canonicalWinPSModulePath
+    return $true
+}
+
 # Normalize PSModulePath to WinPS 5.1 canonical paths when inherited from pwsh 7
-if ($env:PSModulePath -match 'PowerShell[/\\]7') {
-	$env:PSModulePath = @(
-		"$env:USERPROFILE\Documents\WindowsPowerShell\Modules",
-		"$env:ProgramFiles\WindowsPowerShell\Modules",
-		"$env:SystemRoot\System32\WindowsPowerShell\v1.0\Modules"
-	) -join ';'
-	Write-Host "[Invoke-ExecScript] PSModulePath normalized to WinPS 5.1 canonical paths (pwsh 7 environment detected)"
+if (Set-WinPSModulePathIfNeeded) {
+    Write-Information "[Invoke-ExecScript] PSModulePath normalized to WinPS 5.1 canonical paths (pwsh 7 environment detected)" -InformationAction Continue
 }
 
 Import-Module $infraModule
