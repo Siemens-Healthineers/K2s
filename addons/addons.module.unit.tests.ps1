@@ -570,10 +570,14 @@ Describe 'Backup-Addons' -Tag 'unit', 'ci', 'addon' {
                 )
             }
             Mock -ModuleName $moduleName Join-Path { return 'path' } -ParameterFilter { $Path[0] -eq 'dir' -and $Path[1] -eq $backupFileName }
-            Mock -ModuleName $moduleName ConvertTo-Json { return 'json' } -ParameterFilter { $InputObject.Config -eq @(
-                [pscustomobject]@{ Name = 'Addon1' },
-                [pscustomobject]@{ Name = $null }
-            ) }
+            Mock -ModuleName $moduleName ConvertTo-Json { return 'json' } -ParameterFilter {
+                $Depth -eq 100 -and
+                $null -ne $InputObject -and
+                $null -ne $InputObject.Config -and
+                $InputObject.Config.Count -eq 2 -and
+                $InputObject.Config[0].Name -eq 'Addon1' -and
+                $null -eq $InputObject.Config[1].Name
+            }
             Mock -ModuleName $moduleName Set-Content {  }
             Mock -ModuleName $moduleName Get-ScriptRoot { return 'C:\Scripts' }
             Mock -ModuleName $moduleName Test-Path { return $true } -ParameterFilter { $Path -eq 'C:\Scripts\Addon1\hooks' }
@@ -868,7 +872,7 @@ Describe 'Get-AddonStatus' -Tag 'unit', 'ci', 'addon' {
     Context 'addon not existing' {
         BeforeAll {
             $addonDirectory = 'test-addon-dir'
-            Mock -ModuleName $moduleName Test-Path { return $false } -ParameterFilter { $Path -match "\\$addonDirectory" }
+            Mock -ModuleName $moduleName Test-Path { return $false } -ParameterFilter { $Path -eq $addonDirectory }
         }
 
         It 'returns addon-not-found error' {
@@ -1106,9 +1110,15 @@ Describe 'Install-CmctlCli' -Tag 'unit', 'ci', 'addon' {
             Mock -ModuleName $moduleName Get-FromYamlFile { return $manifest }
             Mock -ModuleName $moduleName Test-Path { return $false }
             Mock -ModuleName $moduleName Invoke-DownloadFile {
-                $script:downloadArgs = $args
-                $script:downloadedUrls += $args[1]
-                $script:downloadProxy = $PSBoundParameters['ProxyToUse']
+                param(
+                    [string]$destination,
+                    [string]$source,
+                    [bool]$forceDownload,
+                    [string]$ProxyToUse
+                )
+                $script:downloadArgs = @($destination, $source, $forceDownload, $ProxyToUse)
+                $script:downloadedUrls += $source
+                $script:downloadProxy = $ProxyToUse
             }
         }
 
@@ -1118,12 +1128,14 @@ Describe 'Install-CmctlCli' -Tag 'unit', 'ci', 'addon' {
             }
 
             $script:downloadArgs | Should -Not -BeNullOrEmpty
-            ($script:downloadArgs | Where-Object { $_ -match 'cmctl\.exe$' }).Count | Should -BeGreaterThan 0
-            ($script:downloadArgs | Where-Object { $_ -eq 'http://example/cmctl.exe' }).Count | Should -BeGreaterThan 0
-            ($script:downloadArgs | Where-Object { $_ -eq 'http://proxy:8080' }).Count | Should -BeGreaterThan 0
             $script:downloadedUrls | Should -Contain 'http://example/cmctl.exe'
             $script:downloadedUrls | Should -Not -Contain 'http://example/linkerd.exe'
             Should -Invoke -ModuleName $moduleName Invoke-DownloadFile -Times 1 -Scope It
+            Should -Invoke -ModuleName $moduleName Invoke-DownloadFile -Times 1 -Scope It -ParameterFilter {
+                $destination -match 'cmctl\.exe$' -and
+                $source -eq 'http://example/cmctl.exe' -and
+                $ProxyToUse -eq 'http://proxy:8080'
+            }
         }
     }
 
@@ -1187,7 +1199,13 @@ Describe 'Install-CmctlCli' -Tag 'unit', 'ci', 'addon' {
             Mock -ModuleName $moduleName Get-FromYamlFile { return $manifest }
             Mock -ModuleName $moduleName Test-Path { return $false }
             Mock -ModuleName $moduleName Invoke-DownloadFile {
-                $script:downloadedUrls += $args[1]
+                param(
+                    [string]$destination,
+                    [string]$source,
+                    [bool]$forceDownload,
+                    [string]$ProxyToUse
+                )
+                $script:downloadedUrls += $source
             }
         }
 
@@ -1199,7 +1217,10 @@ Describe 'Install-CmctlCli' -Tag 'unit', 'ci', 'addon' {
             # Only cmctl.exe should be downloaded; the kyverno ZIP is handled by Install-KyvernoCli
             $script:downloadedUrls | Should -Contain 'http://example/cmctl.exe'
             $script:downloadedUrls | Should -Not -Contain 'http://example/kyverno-cli_v1.18.2_windows_x86_64.zip'
-            Should -Invoke -ModuleName $moduleName Invoke-DownloadFile -Times 1 -Scope Context
+            Should -Invoke -ModuleName $moduleName Invoke-DownloadFile -Times 1 -Scope It
+            Should -Invoke -ModuleName $moduleName Invoke-DownloadFile -Times 1 -Scope It -ParameterFilter {
+                $destination -match 'cmctl\.exe$' -and $source -eq 'http://example/cmctl.exe'
+            }
         }
     }
 }
