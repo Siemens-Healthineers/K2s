@@ -1737,6 +1737,27 @@ function Install-CertManagerControllers {
     [CmdletBinding()]
     param()
 
+    # Pre-pull cert-manager images on the control-plane node before applying
+    # manifests so all pods start from cache and never race against a 3-minute
+    # readiness deadline waiting for a cold network pull from quay.io.
+    $certManagerImages = @(
+        'quay.io/jetstack/cert-manager-cainjector:v1.21.1',
+        'quay.io/jetstack/cert-manager-controller:v1.21.1',
+        'quay.io/jetstack/cert-manager-webhook:v1.21.1',
+        'quay.io/jetstack/cert-manager-acmesolver:v1.21.1'
+    )
+    Write-Log '[CertManager] Pre-pulling cert-manager images on control-plane node' -Console
+    foreach ($image in $certManagerImages) {
+        Write-Log "[CertManager] Pre-pulling image: $image" -Console
+        $pullResult = Invoke-CmdOnControlPlaneViaSSHKey -Timeout 10 -CmdToExecute "sudo crictl pull '$image' 2>&1"
+        if ($pullResult.Success -eq $true) {
+            Write-Log "[CertManager] Pre-pull succeeded: $image"
+        }
+        else {
+            Write-Log "[CertManager] WARNING: Pre-pull of '$image' failed (will fall back to runtime pull): $($pullResult.Output)" -Console
+        }
+    }
+
     Write-Log 'Installing cert-manager' -Console
     $certManagerConfig = Get-CertManagerConfig
     (Invoke-Kubectl -Params 'apply', '-f', $certManagerConfig).Output | Write-Log
@@ -1834,7 +1855,7 @@ function Initialize-CACertificateIssuer {
 Waits for the cert-manager API to be available.
 #>
 function Wait-ForCertManagerAvailable {
-    $out = &$cmctlExe check api --wait=3m
+    $out = &$cmctlExe check api --wait=10m
     if ($out -match 'The cert-manager API is ready') {
         return $true
     }
