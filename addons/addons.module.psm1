@@ -1738,15 +1738,12 @@ function Install-CertManagerControllers {
     param()
 
     # Pre-pull cert-manager images on the control-plane node before applying
-    # manifests so all pods start from cache and never race against a 3-minute
-    # readiness deadline waiting for a cold network pull from quay.io.
-    $certManagerImages = @(
-        'quay.io/jetstack/cert-manager-cainjector:v1.21.1',
-        'quay.io/jetstack/cert-manager-controller:v1.21.1',
-        'quay.io/jetstack/cert-manager-webhook:v1.21.1',
-        'quay.io/jetstack/cert-manager-acmesolver:v1.21.1'
-    )
+    # manifests so all pods start from cache and never race against a readiness
+    # deadline waiting for a cold network pull from quay.io.
     Write-Log '[CertManager] Pre-pulling cert-manager images on control-plane node' -Console
+    $certManagerConfig = Get-CertManagerConfig
+    $certManagerImages = Get-ImagesFromYaml -YamlContent (Get-Content -Path $certManagerConfig -Raw)
+    
     foreach ($image in $certManagerImages) {
         Write-Log "[CertManager] Pre-pulling image: $image" -Console
         $pullResult = Invoke-CmdOnControlPlaneViaSSHKey -Timeout 10 -CmdToExecute "sudo crictl pull '$image' 2>&1"
@@ -1759,7 +1756,6 @@ function Install-CertManagerControllers {
     }
 
     Write-Log 'Installing cert-manager' -Console
-    $certManagerConfig = Get-CertManagerConfig
     (Invoke-Kubectl -Params 'apply', '-f', $certManagerConfig).Output | Write-Log
 
     Write-Log 'Waiting for cert-manager APIs to be ready, be patient!' -Console
