@@ -696,6 +696,24 @@ You're not viewing the latest release version.
         
       
       
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    CLI Shortcuts
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
       <a href="./" class="md-nav__link md-nav__link--active">
         
   
@@ -712,6 +730,36 @@ You're not viewing the latest release version.
   
 
       </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#krew-support" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Krew support
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
       
     </li>
   
@@ -2602,6 +2650,25 @@ You're not viewing the latest release version.
     
   
   
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#krew-support" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Krew support
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
 </nav>
                   </div>
                 </div>
@@ -2718,6 +2785,22 @@ SPDX-License-Identifier: MIT
 </tr>
 </tbody>
 </table>
+<h2 id="krew-support">Krew support</h2>
+<p><em>K2s</em> bundles <a href="https://krew.sigs.k8s.io/" target="_blank" rel="noopener">Krew</a>, the official <em>kubectl</em> plugin
+manager, together with <em>kubectl</em>. Krew is included in the offline package, so no additional download
+is required — after installing <em>K2s</em> you can immediately run:</p>
+<div class="highlight"><span class="filename">PowerShell</span><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="n">kubectl</span> <span class="n">krew</span> <span class="n">version</span>
+</code></pre></div>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Installing plugins (for example <code>kubectl krew install ctx</code>) fetches the plugin index and packages
+from the internet and is therefore an online, user-initiated action. It is never performed during
+<em>K2s</em> installation, preserving <em>K2s</em>'s offline guarantees.</p>
+</div>
+<p>Krew installs plugins into the per-user directory <code>%USERPROFILE%\.krew\bin</code>. For the user who installed
+<em>K2s</em>, this directory is added to <code>PATH</code> automatically, so installed plugins are discoverable right away.
+Any additional Windows user follows Krew's standard <a href="https://krew.sigs.k8s.io/docs/user-guide/setup/install/" target="_blank" rel="noopener">one-time PATH setup</a>
+to expose their own plugins.</p>
 <!--
 SPDX-FileCopyrightText: © 2024 Siemens Healthineers AG
 SPDX-License-Identifier: MIT
