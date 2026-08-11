@@ -1746,7 +1746,7 @@ function Install-CertManagerControllers {
     
     foreach ($image in $certManagerImages) {
         Write-Log "[CertManager] Pre-pulling image: $image" -Console
-        $pullResult = Invoke-CmdOnControlPlaneViaSSHKey -Timeout 10 -CmdToExecute "sudo crictl pull '$image' 2>&1"
+        $pullResult = Invoke-CmdOnControlPlaneViaSSHKey -CmdToExecute "sudo timeout 300 crictl pull '$image' 2>&1"
         if ($pullResult.Success -eq $true) {
             Write-Log "[CertManager] Pre-pull succeeded: $image"
         }
