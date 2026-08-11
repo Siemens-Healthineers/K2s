@@ -101,7 +101,9 @@ Write-Log 'Creating rollout namespace'
 
 Write-Log 'Installing rollout addon' -Console
 $rolloutConfig = Get-RolloutConfig
-(Invoke-Kubectl -Params 'apply' , '-n', $rolloutNamespace, '-k', $rolloutConfig).Output | Write-Log
+# Use --server-side to avoid the 256KB annotation size limit that client-side
+# apply hits on large CRDs (e.g. applicationsets.argoproj.io).
+(Invoke-Kubectl -Params 'apply', '--server-side', '--force-conflicts', '-n', $rolloutNamespace, '-k', $rolloutConfig).Output | Write-Log
 
 Write-Log 'Waiting for pods being ready...' -Console
 
