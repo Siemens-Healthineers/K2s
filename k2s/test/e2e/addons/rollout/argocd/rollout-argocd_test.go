@@ -25,6 +25,11 @@ import (
 
 const testClusterTimeout = time.Minute * 20
 
+const (
+	statusCheckRetryTimeout = 3 * time.Minute
+	statusCheckRetryPolling = 10 * time.Second
+)
+
 var (
 	suite                 *framework.K2sTestSuite
 	portForwardingSession *gexec.Session
@@ -344,9 +349,9 @@ func expectListToDisplayImplementation(ctx context.Context) {
 }
 
 func expectStatusToBePrinted(ctx context.Context) {
-	output := suite.K2sCli().MustExec(ctx, "addons", "status", "rollout", "argocd")
-
-	Expect(output).To(SatisfyAll(
+	Eventually(func() string {
+		return suite.K2sCli().MustExec(ctx, "addons", "status", "rollout", "argocd")
+	}).WithTimeout(statusCheckRetryTimeout).WithPolling(statusCheckRetryPolling).Should(SatisfyAll(
 		MatchRegexp("ADDON STATUS"),
 		MatchRegexp(`Implementation .+argocd.+ of Addon .+rollout.+ is .+enabled.+`),
 		MatchRegexp("ArgoCD Application Set Controller is working"),
@@ -358,53 +363,55 @@ func expectStatusToBePrinted(ctx context.Context) {
 		MatchRegexp("ArgoCD Application Server is working"),
 	))
 
-	output = suite.K2sCli().MustExec(ctx, "addons", "status", "rollout", "argocd", "-o", "json")
+	Eventually(func(g Gomega) {
+		output := suite.K2sCli().MustExec(ctx, "addons", "status", "rollout", "argocd", "-o", "json")
 
-	var status status.AddonPrintStatus
+		var status status.AddonPrintStatus
 
-	Expect(json.Unmarshal([]byte(output), &status)).To(Succeed())
+		g.Expect(json.Unmarshal([]byte(output), &status)).To(Succeed())
 
-	Expect(status.Name).To(Equal("rollout"))
-	Expect(status.Implementation).To(Equal("argocd"))
-	Expect(status.Error).To(BeNil())
-	Expect(status.Enabled).NotTo(BeNil())
-	Expect(*status.Enabled).To(BeTrue())
-	Expect(status.Props).NotTo(BeNil())
-	Expect(status.Props).To(ContainElements(
-		SatisfyAll(
-			HaveField("Name", "IsArgoCDApplicationsetControllerRunning"),
-			HaveField("Value", true),
-			HaveField("Okay", gstruct.PointTo(BeTrue())),
-			HaveField("Message", gstruct.PointTo(ContainSubstring("ArgoCD Application Set Controller is working")))),
-		SatisfyAll(
-			HaveField("Name", "IsArgoCDDexServerRunning"),
-			HaveField("Value", true),
-			HaveField("Okay", gstruct.PointTo(BeTrue())),
-			HaveField("Message", gstruct.PointTo(MatchRegexp("ArgoCD Dex Server is working")))),
-		SatisfyAll(
-			HaveField("Name", "IsArgoCDNotificationControllerRunning"),
-			HaveField("Value", true),
-			HaveField("Okay", gstruct.PointTo(BeTrue())),
-			HaveField("Message", gstruct.PointTo(MatchRegexp("ArgoCD Notification Controller is working")))),
-		SatisfyAll(
-			HaveField("Name", "IsArgoCDRedisRunning"),
-			HaveField("Value", true),
-			HaveField("Okay", gstruct.PointTo(BeTrue())),
-			HaveField("Message", gstruct.PointTo(MatchRegexp("ArgoCD Redis DB is working")))),
-		SatisfyAll(
-			HaveField("Name", "IsArgoCDRepoServerRunning"),
-			HaveField("Value", true),
-			HaveField("Okay", gstruct.PointTo(BeTrue())),
-			HaveField("Message", gstruct.PointTo(MatchRegexp("ArgoCD Repo Server is working")))),
-		SatisfyAll(
-			HaveField("Name", "IsArgoCDServerRunning"),
-			HaveField("Value", true),
-			HaveField("Okay", gstruct.PointTo(BeTrue())),
-			HaveField("Message", gstruct.PointTo(MatchRegexp("ArgoCD Server is working")))),
-		SatisfyAll(
-			HaveField("Name", "AreStatefulsetsRunning"),
-			HaveField("Value", true),
-			HaveField("Okay", gstruct.PointTo(BeTrue())),
-			HaveField("Message", gstruct.PointTo(MatchRegexp("ArgoCD Application Server is working")))),
-	))
+		g.Expect(status.Name).To(Equal("rollout"))
+		g.Expect(status.Implementation).To(Equal("argocd"))
+		g.Expect(status.Error).To(BeNil())
+		g.Expect(status.Enabled).NotTo(BeNil())
+		g.Expect(*status.Enabled).To(BeTrue())
+		g.Expect(status.Props).NotTo(BeNil())
+		g.Expect(status.Props).To(ContainElements(
+			SatisfyAll(
+				HaveField("Name", "IsArgoCDApplicationsetControllerRunning"),
+				HaveField("Value", true),
+				HaveField("Okay", gstruct.PointTo(BeTrue())),
+				HaveField("Message", gstruct.PointTo(ContainSubstring("ArgoCD Application Set Controller is working")))),
+			SatisfyAll(
+				HaveField("Name", "IsArgoCDDexServerRunning"),
+				HaveField("Value", true),
+				HaveField("Okay", gstruct.PointTo(BeTrue())),
+				HaveField("Message", gstruct.PointTo(MatchRegexp("ArgoCD Dex Server is working")))),
+			SatisfyAll(
+				HaveField("Name", "IsArgoCDNotificationControllerRunning"),
+				HaveField("Value", true),
+				HaveField("Okay", gstruct.PointTo(BeTrue())),
+				HaveField("Message", gstruct.PointTo(MatchRegexp("ArgoCD Notification Controller is working")))),
+			SatisfyAll(
+				HaveField("Name", "IsArgoCDRedisRunning"),
+				HaveField("Value", true),
+				HaveField("Okay", gstruct.PointTo(BeTrue())),
+				HaveField("Message", gstruct.PointTo(MatchRegexp("ArgoCD Redis DB is working")))),
+			SatisfyAll(
+				HaveField("Name", "IsArgoCDRepoServerRunning"),
+				HaveField("Value", true),
+				HaveField("Okay", gstruct.PointTo(BeTrue())),
+				HaveField("Message", gstruct.PointTo(MatchRegexp("ArgoCD Repo Server is working")))),
+			SatisfyAll(
+				HaveField("Name", "IsArgoCDServerRunning"),
+				HaveField("Value", true),
+				HaveField("Okay", gstruct.PointTo(BeTrue())),
+				HaveField("Message", gstruct.PointTo(MatchRegexp("ArgoCD Server is working")))),
+			SatisfyAll(
+				HaveField("Name", "AreStatefulsetsRunning"),
+				HaveField("Value", true),
+				HaveField("Okay", gstruct.PointTo(BeTrue())),
+				HaveField("Message", gstruct.PointTo(MatchRegexp("ArgoCD Application Server is working")))),
+		))
+	}).WithTimeout(statusCheckRetryTimeout).WithPolling(statusCheckRetryPolling).Should(Succeed())
 }
