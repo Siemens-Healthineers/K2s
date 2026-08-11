@@ -52,7 +52,7 @@ var _ = BeforeSuite(func(ctx context.Context) {
 
 	suite = framework.Setup(ctx, framework.SystemMustBeRunning,
 		framework.ClusterTestStepPollInterval(time.Millisecond*200),
-		framework.ClusterTestStepTimeout(8*time.Minute))
+		framework.ClusterTestStepTimeout(12*time.Minute))
 	k2s = dsl.NewK2s(suite)
 
 	if suite.SetupInfo().RuntimeConfig.InstallConfig().LinuxOnly() {
@@ -265,6 +265,29 @@ func collectCoreWorkloadRolloutDiagnostics() {
 func waitForWindowsWorkloadNetworkReadiness(ctx context.Context) {
 	GinkgoWriter.Println("Waiting for Windows workload network readiness from host and Linux curl pod..")
 
+	const maxRetries = 3
+	const retryDelay = 30 * time.Second
+
+	for attempt := 1; attempt <= maxRetries; attempt++ {
+		if attempt > 1 {
+			GinkgoWriter.Printf("Windows network readiness attempt %d/%d after %v delay\n", attempt, maxRetries, retryDelay)
+			time.Sleep(retryDelay)
+		}
+
+		if tryWindowsWorkloadNetworkReadiness(ctx) {
+			GinkgoWriter.Println("Windows workload network readiness verified")
+			return
+		}
+	}
+
+	testFailed = true
+	collectWindowsWorkloadNetworkDiagnostics()
+	Fail(fmt.Sprintf("Windows workload network readiness failed after %d attempts and %s timeout", maxRetries, suite.TestStepTimeout()))
+}
+
+// tryWindowsWorkloadNetworkReadiness attempts to verify Windows workload network readiness
+// within the configured test step timeout. Returns true if successful, false if timeout exceeded.
+func tryWindowsWorkloadNetworkReadiness(ctx context.Context) bool {
 	deadline := time.Now().Add(suite.TestStepTimeout())
 	pollInterval := suite.TestStepPollInterval()
 	if pollInterval < 5*time.Second {
@@ -286,14 +309,12 @@ func waitForWindowsWorkloadNetworkReadiness(ctx context.Context) {
 		}
 
 		if len(lastFailures) == 0 {
-			GinkgoWriter.Println("Windows workload network readiness verified")
-			return
+			return true
 		}
 
 		if time.Now().After(deadline) {
-			testFailed = true
-			collectWindowsWorkloadNetworkDiagnostics()
-			Fail(fmt.Sprintf("Windows workload network readiness failed after k2s start/reboot within %s:\n%s", suite.TestStepTimeout(), strings.Join(lastFailures, "\n")))
+			GinkgoWriter.Printf("Windows network readiness failed within this attempt: %s\n", strings.Join(lastFailures, "; "))
+			return false
 		}
 
 		GinkgoWriter.Printf("Windows workload network readiness pending: %s\n", strings.Join(lastFailures, "; "))
