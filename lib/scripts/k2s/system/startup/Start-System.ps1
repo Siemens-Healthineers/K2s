@@ -364,7 +364,7 @@ function Start-K8sNetworkingServices {
     Write-Log "[$logUseCase] Waiting for API server before restarting system DaemonSets (kubeconfig: $kubeConfigPath)..."
     try {
         $apiReady = $false
-        for ($attempt = 1; $attempt -le 15; $attempt++) {
+        for ($attempt = 1; $attempt -le 20; $attempt++) {
             $ErrorActionPreference = 'Continue'
             $waitResult = &"$kubeBinPathTools\kubectl.exe" --kubeconfig="$kubeConfigPath" wait --timeout=30s --for=condition=Ready -n kube-system "pod/kube-apiserver-$($controlPlaneHostname.ToLower())" 2>&1
             $ErrorActionPreference = 'Stop'
@@ -372,17 +372,17 @@ function Start-K8sNetworkingServices {
                 $apiReady = $true
                 break
             }
-            Write-Log "[$logUseCase] API server not ready yet (attempt $attempt/15): $waitResult"
+            Write-Log "[$logUseCase] API server not ready yet (attempt $attempt/20): $waitResult"
             Start-Sleep -Seconds 2
         }
         if ($apiReady) {
             Write-Log "[$logUseCase] Restarting Linux-side system DaemonSets to refresh service account tokens..."
             (Invoke-KubectlWithKubeConfig -KubeConfigPath $kubeConfigPath -Params @('rollout', 'restart', 'daemonset/kube-proxy', '-n', 'kube-system')).Output | Write-Log
-            Restart-FlannelDaemonSetWithWindowsRouteRepair -KubeConfigPath $kubeConfigPath -MaxAttempts 3
+            Restart-FlannelDaemonSetWithWindowsRouteRepair -KubeConfigPath $kubeConfigPath -MaxAttempts 6
             (Invoke-KubectlWithKubeConfig -KubeConfigPath $kubeConfigPath -Params @('rollout', 'restart', 'deployment/coredns', '-n', 'kube-system')).Output | Write-Log
             Write-Log "[$logUseCase] Linux-side system DaemonSet restart completed"
         } else {
-            Write-Log "[$logUseCase] WARNING: API server not ready after 15 attempts, skipping DaemonSet restart"
+            Write-Log "[$logUseCase] WARNING: API server not ready after 20 attempts, skipping DaemonSet restart"
         }
     } catch {
         Write-Log "[$logUseCase] WARNING: Failed to restart Linux-side DaemonSets: $_"
