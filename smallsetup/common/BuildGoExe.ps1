@@ -79,7 +79,7 @@ if ($ExeOutDir -eq '') {
 Set-Location $ProjectDir
 
 $env:GOEXPERIMENT = $null  # ensure stale boringcrypto value doesn't linger
-$env:GOFIPS140 = 'certified' # use latest NIST-certified FIPS 140-3 compliant GO std crypto library
+$env:GOFIPS140 = 'certified' # use latest NIST-certified FIPS 140-3 compliant Go std crypto library
 
 # Set proxy environment variables if Proxy parameter is provided
 if ($Proxy) {
@@ -167,7 +167,7 @@ for ($i = 0; $i -lt $goExecutables.Count; $i++) {
     -X github.com/siemens-healthineers/k2s/internal/version.gitCommit=$($GIT_COMMIT)  `
     -X github.com/siemens-healthineers/k2s/internal/version.gitTag=$($GIT_TAG) `
     -X github.com/siemens-healthineers/k2s/internal/version.gitTreeState=$($GIT_TREE_STATE)" `
-        -gcflags=all="-l -B" `
+        -trimpath `
         -o "$outPath" `
 
     if (!$?) {
