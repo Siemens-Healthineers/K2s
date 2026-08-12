@@ -19,7 +19,7 @@ $windowsNode_KrewExe = 'kubectl-krew.exe'
 # Name of the executable inside the upstream release archive.
 $windowsNode_KrewReleaseExe = 'krew-windows_amd64.exe'
 # Pinned krew version (follows the same version-pinning pattern as helm).
-$windowsNode_KrewVersion = 'v0.4.5'
+$windowsNode_KrewVersion = 'v0.5.0'
 
 function Invoke-DownloadKrewArtifacts($downloadsBaseDirectory, $Proxy, $windowsNodeArtifactsDirectory) {
     $krewDownloadsDirectory = "$downloadsBaseDirectory\$windowsNode_KrewDirectory"
