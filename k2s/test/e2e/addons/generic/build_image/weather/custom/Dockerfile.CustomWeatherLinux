@@ -19,7 +19,7 @@ WORKDIR /go/src/weather
 
 RUN go install -v ./...
 
-RUN GOOS=linux GOARCH=amd64 go build -ldflags="-w -s" -o /go/bin/weather
+RUN GOOS=linux GOARCH=amd64 go build -ldflags="-w -s" -trimpath -o /go/bin/weather
 
 ##########################
 # STEP 2 build small image

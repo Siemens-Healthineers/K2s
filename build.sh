@@ -143,7 +143,7 @@ for target in "${BUILD_TARGETS[@]}"; do
     echo "Building GO executable: $app -> $out_path ..."
     go build \
         -ldflags "$LDFLAGS" \
-        -gcflags=all="-l -B" \
+        -trimpath \
         -o "$out_path" \
         "./cmd/${app}"
     echo "Built: \"$out_path\""
