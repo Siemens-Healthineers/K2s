@@ -238,6 +238,7 @@ function Write-StagingSummary {
     - yaml/            -> bin/            (jq.exe, yq.exe)
     - helm/            -> bin/            (helm.exe)
     - oras/            -> bin/            (oras.exe)
+    - krew/            -> bin/kube/       (kubectl-krew.exe)
     - windowsexporter/ -> bin/            (windows_exporter.exe)
 
 .PARAMETER Context
@@ -335,6 +336,7 @@ function Copy-WindowsNodeArtifactsToStaging {
     # - yaml/             -> bin/            (jq.exe, yq.exe)
     # - helm/             -> bin/            (helm.exe)
     # - oras/             -> bin/            (oras.exe)
+    # - krew/             -> bin/kube/       (kubectl-krew.exe)
     # - windowsexporter/  -> bin/            (windows_exporter.exe)
     #
     $folderMappings = @{
@@ -352,6 +354,7 @@ function Copy-WindowsNodeArtifactsToStaging {
         'yaml'            = @{ Target = 'bin' }                          # jq.exe, yq.exe
         'helm'            = @{ Target = 'bin' }                          # helm.exe
         'oras'            = @{ Target = 'bin' }                          # oras.exe
+        'krew'            = @{ Target = 'bin/kube' }                     # kubectl-krew.exe (kubectl plugin, next to kubectl)
         'windowsexporter' = @{ Target = 'bin' }                          # windows_exporter.exe
     }
 

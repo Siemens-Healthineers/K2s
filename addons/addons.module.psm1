@@ -1736,8 +1736,25 @@ function Install-CertManagerControllers {
     [CmdletBinding()]
     param()
 
-    Write-Log 'Installing cert-manager' -Console
+    # Pre-pull cert-manager images on the control-plane node before applying
+    # manifests so all pods start from cache and never race against a readiness
+    # deadline waiting for a cold network pull from quay.io.
+    Write-Log '[CertManager] Pre-pulling cert-manager images on control-plane node' -Console
     $certManagerConfig = Get-CertManagerConfig
+    $certManagerImages = Get-ImagesFromYaml -YamlContent (Get-Content -Path $certManagerConfig -Raw)
+    
+    foreach ($image in $certManagerImages) {
+        Write-Log "[CertManager] Pre-pulling image: $image" -Console
+        $pullResult = Invoke-CmdOnControlPlaneViaSSHKey -CmdToExecute "sudo timeout 300 crictl pull '$image' 2>&1"
+        if ($pullResult.Success -eq $true) {
+            Write-Log "[CertManager] Pre-pull succeeded: $image"
+        }
+        else {
+            Write-Log "[CertManager] WARNING: Pre-pull of '$image' failed (will fall back to runtime pull): $($pullResult.Output)" -Console
+        }
+    }
+
+    Write-Log 'Installing cert-manager' -Console
     (Invoke-Kubectl -Params 'apply', '-f', $certManagerConfig).Output | Write-Log
 
     Write-Log 'Waiting for cert-manager APIs to be ready, be patient!' -Console
@@ -1833,18 +1850,11 @@ function Initialize-CACertificateIssuer {
 Waits for the cert-manager API to be available.
 #>
 function Wait-ForCertManagerAvailable {
-	$out = (&$cmctlExe check api --wait=5m 2>&1 | Out-String).Trim()
-	if ($out -match 'The cert-manager API is ready') {
-		return $true
-	}
-
-	$exitCode = if ($null -ne $LASTEXITCODE) { [int]$LASTEXITCODE } else { 0 }
-	if ([string]::IsNullOrWhiteSpace($out)) {
-		$out = '<no output>'
-	}
-
-	Write-Log "[CertManager] cmctl check api failed (exit code: $exitCode). Output: $out" -Console
-	return $false
+    $out = &$cmctlExe check api --wait=10m
+    if ($out -match 'The cert-manager API is ready') {
+        return $true
+    }
+    return $false
 }
 
 <#

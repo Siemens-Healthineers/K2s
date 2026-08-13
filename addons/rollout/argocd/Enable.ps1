@@ -103,39 +103,10 @@ Write-Log 'Creating rollout namespace'
 
 Write-Log 'Installing rollout addon' -Console
 $rolloutConfig = Get-RolloutConfig
-# Evidence: k2s dump logs show CRD apply failure "applicationsets.argoproj.io ... metadata.annotations: Too long"
-# followed by rollout timeout; use server-side apply and fail early on apply errors.
-Write-Log "[RolloutTiming] kubectl apply --server-side start: $(Get-Date -Format 'HH:mm:ss')" -Console
-$kubectlCmd = Invoke-Kubectl -Params 'apply', '--server-side', '-n', $rolloutNamespace, '-k', $rolloutConfig
-$kubectlCmd.Output | Write-Log
-if (-not $kubectlCmd.Success) {
-    $errMsg = 'rollout addon manifests could not be applied successfully!'
-    if ($EncodeStructuredOutput -eq $true) {
-        $err = New-Error -Code (Get-ErrCodeAddonEnableFailed) -Message $errMsg
-        Send-ToCli -MessageType $MessageType -Message @{Error = $err }
-        return
-    }
+# Use --server-side to avoid the 256KB annotation size limit that client-side
+# apply hits on large CRDs (e.g. applicationsets.argoproj.io).
+(Invoke-Kubectl -Params 'apply', '--server-side', '--force-conflicts', '-n', $rolloutNamespace, '-k', $rolloutConfig).Output | Write-Log
 
-    Write-Log $errMsg -Error
-    exit 1
-}
-
-Write-Log "[RolloutTiming] kubectl apply --server-side end / CRD wait start: $(Get-Date -Format 'HH:mm:ss')" -Console
-$kubectlCmd = Invoke-Kubectl -Params 'wait', '--for=condition=Established', '--timeout=180s', 'crd/applicationsets.argoproj.io'
-$kubectlCmd.Output | Write-Log
-if (-not $kubectlCmd.Success) {
-    $errMsg = 'ApplicationSet CRD was not established successfully during rollout addon enablement.'
-    if ($EncodeStructuredOutput -eq $true) {
-        $err = New-Error -Code (Get-ErrCodeAddonEnableFailed) -Message $errMsg
-        Send-ToCli -MessageType $MessageType -Message @{Error = $err }
-        return
-    }
-
-    Write-Log $errMsg -Error
-    exit 1
-}
-
-Write-Log "[RolloutTiming] CRD wait end / deployment rollout start: $(Get-Date -Format 'HH:mm:ss')" -Console
 Write-Log 'Waiting for pods being ready...' -Console
 
 $kubectlCmd = (Invoke-Kubectl -Params 'rollout', 'status', 'deployments', '-n', $rolloutNamespace, '--timeout=600s')
@@ -152,7 +123,6 @@ if (!$kubectlCmd.Success) {
     exit 1
 }
 
-Write-Log "[RolloutTiming] deployment rollout end / statefulset rollout start: $(Get-Date -Format 'HH:mm:ss')" -Console
 $kubectlCmd = (Invoke-Kubectl -Params 'rollout', 'status', 'statefulsets', '-n', $rolloutNamespace, '--timeout=600s')
 Write-Log $kubectlCmd.Output
 if (!$kubectlCmd.Success) {

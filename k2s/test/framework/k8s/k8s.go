@@ -1011,6 +1011,24 @@ func (c *Cluster) waitOptions() []wait.Option {
 	return []wait.Option{wait.WithTimeout(c.testStepTimeout), wait.WithInterval(c.testStepPollInterval), wait.WithImmediate()}
 }
 
+// WaitForAPIServerReady retries connecting to the Kubernetes API server until it
+// responds successfully or the testStepTimeout is exceeded. This is needed after
+// operations that may transiently disrupt API server connectivity (e.g., security
+// addon enable/disable which installs cert-manager and restarts control-plane components).
+func (c *Cluster) WaitForAPIServerReady(ctx context.Context) {
+	GinkgoWriter.Println("Waiting for API server to be ready..")
+
+	clientSet, err := kubernetes.NewForConfig(c.Client().Resources().GetConfig())
+	Expect(err).ToNot(HaveOccurred())
+
+	Eventually(func() error {
+		_, err := clientSet.ServerGroups()
+		return err
+	}, c.testStepTimeout, 5*time.Second, ctx).Should(Succeed(), "API server should become reachable within %s", c.testStepTimeout)
+
+	GinkgoWriter.Println("API server is ready")
+}
+
 func determineFirstPodOfDeployment(deploymentName string, namespace string, client klient.Client, ctx context.Context) (*corev1.Pod, error) {
 	pods := &corev1.PodList{}
 
