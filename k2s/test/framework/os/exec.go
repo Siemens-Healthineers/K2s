@@ -43,7 +43,7 @@ func NewCli(cliPath string, proxy string, timeout time.Duration, pollInterval ti
 }
 
 func (c *CliExecutor) ExpectedExitCode(exitCode cli.ExitCode) *CliExecutor {
-	c.expectedExitCode = func() *int { i := int(exitCode); return &i }()
+	c.expectedExitCode = new(int(exitCode))
 	return c
 }
 
