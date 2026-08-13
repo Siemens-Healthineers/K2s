@@ -606,22 +606,34 @@ if ($SetupWindowsNode -eq $true) {
     $smbPlacementLabel  = if ($Config -and $Config.PSObject.Properties.Name -contains 'smb' -and -not [string]::IsNullOrWhiteSpace($Config.smb.placementLabel)) { "$($Config.smb.placementLabel)" } else { 'smb' }
     $smbSubvolume       = if ($Config -and $Config.PSObject.Properties.Name -contains 'smb' -and -not [string]::IsNullOrWhiteSpace($Config.smb.subvolume)) { "$($Config.smb.subvolume)" } else { 'cross-os' }
     $smbSubvolumeSizeGb = if ($Config -and $Config.PSObject.Properties.Name -contains 'smb' -and $null -ne $Config.smb -and ($Config.smb.PSObject.Properties.Name -contains 'subvolumeSizeInGb') -and [int]$Config.smb.subvolumeSizeInGb -gt 0) { [int]$Config.smb.subvolumeSizeInGb } else { 500 }
+    $smbNamespace       = if ($Config -and $Config.PSObject.Properties.Name -contains 'smb' -and -not [string]::IsNullOrWhiteSpace($Config.smb.namespace)) { "$($Config.smb.namespace)" } else { 'storage-smb-ceph' }
 
     # ---- Part 1: Configure the SMB CSI driver (reuse the storage/smb addon manifests) ----
     Write-Log '[CephSMB] Deploying SMB CSI driver' -Console
 
-    $smbNsExists = (Invoke-Kubectl -Params 'get', 'namespace', 'storage-smb', '--ignore-not-found', '--no-headers').Output
+    $smbNsExists = (Invoke-Kubectl -Params 'get', 'namespace', $smbNamespace, '--ignore-not-found', '--no-headers').Output
     if ([string]::IsNullOrWhiteSpace($smbNsExists)) {
-      Write-Log "[CephSMB] Creating namespace 'storage-smb'" -Console
-      (Invoke-Kubectl -Params 'create', 'namespace', 'storage-smb').Output | Write-Log
+      Write-Log "[CephSMB] Creating namespace '$smbNamespace'" -Console
+      (Invoke-Kubectl -Params 'create', 'namespace', $smbNamespace).Output | Write-Log
     }
 
-    # The windows overlay includes the Linux base (RBAC, CSIDriver, controller, Linux node DaemonSet)
-    # plus the Windows HostProcess node DaemonSet required for Windows pods.
+    # Reuse the existing SMB addon manifests and render them for a Ceph-specific namespace by
+    # replacing the default 'storage-smb' token. This keeps one canonical manifest source while
+    # preventing collisions with the standalone SMB addon.
     $smbManifestsDir = "$PSScriptRoot\..\smb\manifests\windows"
-    Write-Log "[CephSMB] Applying SMB CSI driver manifests from '$smbManifestsDir'" -Console
-    $smbApply = Invoke-Kubectl -Params 'apply', '-k', $smbManifestsDir
+    $renderedSmbManifestsDir = Join-Path ([System.IO.Path]::GetTempPath()) "k2s-ceph-smb-manifests-$([guid]::NewGuid().ToString())"
+    New-Item -ItemType Directory -Path $renderedSmbManifestsDir -Force | Out-Null
+    Copy-Item -Path (Join-Path $smbManifestsDir '*') -Destination $renderedSmbManifestsDir -Recurse -Force
+    Get-ChildItem -Path $renderedSmbManifestsDir -Recurse -File | ForEach-Object {
+      $manifestContent = Get-Content -Path $_.FullName -Raw
+      $manifestContent = $manifestContent.Replace('storage-smb', $smbNamespace)
+      Set-Content -Path $_.FullName -Value $manifestContent -Encoding utf8
+    }
+
+    Write-Log "[CephSMB] Applying SMB CSI driver manifests from '$renderedSmbManifestsDir' (namespace '$smbNamespace')" -Console
+    $smbApply = Invoke-Kubectl -Params 'apply', '-k', $renderedSmbManifestsDir
     $smbApply.Output | Write-Log
+    Remove-Item -Path $renderedSmbManifestsDir -Recurse -Force -ErrorAction SilentlyContinue
     if (-not $smbApply.Success) {
       Write-Log '[CephSMB] ERROR: Failed to deploy SMB CSI driver manifests.' -Console -Error
       if ($EncodeStructuredOutput -eq $true) {
@@ -631,9 +643,9 @@ if ($SetupWindowsNode -eq $true) {
     }
 
     Write-Log '[CephSMB] Waiting for SMB CSI controller and node pods to become Ready' -Console
-    Wait-ForPodCondition -Condition Ready -Label 'app=csi-smb-controller' -Namespace 'storage-smb' -TimeoutSeconds 300 | Out-Null
-    Wait-ForPodCondition -Condition Ready -Label 'app=csi-smb-node'       -Namespace 'storage-smb' -TimeoutSeconds 300 | Out-Null
-    Wait-ForPodCondition -Condition Ready -Label 'app=csi-smb-node-win'   -Namespace 'storage-smb' -TimeoutSeconds 300 | Out-Null
+    Wait-ForPodCondition -Condition Ready -Label 'app=csi-smb-controller' -Namespace $smbNamespace -TimeoutSeconds 300 | Out-Null
+    Wait-ForPodCondition -Condition Ready -Label 'app=csi-smb-node'       -Namespace $smbNamespace -TimeoutSeconds 300 | Out-Null
+    Wait-ForPodCondition -Condition Ready -Label 'app=csi-smb-node-win'   -Namespace $smbNamespace -TimeoutSeconds 300 | Out-Null
     Write-Log '[CephSMB] SMB CSI driver is Ready' -Console
 
     # ---- Part 2: Configure the Ceph mgr/smb cluster + share on the existing Ceph cluster ----
@@ -668,13 +680,13 @@ if ($SetupWindowsNode -eq $true) {
     Write-Log '[CephSMB] Ceph mgr/smb cluster and share configured successfully' -Console
 
     # Create (or update) the smbcreds Secret with the user the mgr/smb cluster was created for.
-    Write-Log "[CephSMB] Creating 'smbcreds' Secret in namespace 'storage-smb'" -Console
+    Write-Log "[CephSMB] Creating 'smbcreds' Secret in namespace '$smbNamespace'" -Console
     $smbCredsYaml = @"
 apiVersion: v1
 kind: Secret
 metadata:
   name: smbcreds
-  namespace: storage-smb
+  namespace: $smbNamespace
 type: Opaque
 stringData:
   username: $($smbClusterResult.SmbUser)
@@ -697,6 +709,7 @@ stringData:
       -replace 'SC_SOURCE',        $smbSource `
       -replace 'SC_RECLAIM_POLICY',$smbReclaimPolicy `
       -replace '(?m)^# mount options.*\r?\nMOUNT_OPTIONS\s*$', ''
+    $scContent = $scContent.Replace('storage-smb', $smbNamespace)
     # Insert the dynamic sub-directory parameter right after the 'source:' line. Use the literal
     # String.Replace (not -replace) so the '${pvc.metadata.*}' tokens are not treated as regex
     # backreferences and are passed verbatim to the SMB CSI driver.

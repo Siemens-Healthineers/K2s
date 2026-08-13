@@ -5,10 +5,11 @@
   "storageClassName": "ceph-cephfs",
   "storageClassReclaimPolicy": "Delete",
   "smb": {
-    "comment": "Ceph native SMB (mgr/smb module, https://docs.ceph.com/en/latest/mgr/smb/). Activated by the -w / setupWindowsNode flag on enable. cephadm deploys managed Samba containers on the Ceph cluster host that export a dedicated CephFS subvolume as an SMB share; the SMB CSI driver then provisions PVCs from it so Windows pods can consume CephFS. Linux pods keep using the native cephfs.csi.ceph.com StorageClass. 'clusterId'/'shareId' identify the mgr/smb cluster and share; 'shareName' is the SMB share name exposed to clients; 'placementLabel' is the cephadm host label used to place the Samba daemons. 'subvolume' is the shared CephFS subvolume created and exported (sized via 'subvolumeSizeInGb'); the SMB StorageClass places each PVC in an isolated '${pvc.metadata.namespace}/${pvc.metadata.name}' sub-directory so Windows and Linux resolve the same path.",
+    "comment": "Ceph native SMB (mgr/smb module, https://docs.ceph.com/en/latest/mgr/smb/). Activated by the -w / setupWindowsNode flag on enable. cephadm deploys managed Samba containers on the Ceph cluster host that export a dedicated CephFS subvolume as an SMB share; the SMB CSI driver then provisions PVCs from it so Windows pods can consume CephFS. Linux pods keep using the native cephfs.csi.ceph.com StorageClass. 'namespace' defines where the reused SMB CSI manifests are deployed for Ceph (default 'storage-smb-ceph', isolated from the standalone SMB addon). 'clusterId'/'shareId' identify the mgr/smb cluster and share; 'shareName' is the SMB share name exposed to clients; 'placementLabel' is the cephadm host label used to place the Samba daemons. 'subvolume' is the shared CephFS subvolume created and exported (sized via 'subvolumeSizeInGb'); the SMB StorageClass places each PVC in an isolated '${pvc.metadata.namespace}/${pvc.metadata.name}' sub-directory so Windows and Linux resolve the same path.",
     "clusterId": "k2ssmb",
     "shareId": "cephfs",
     "shareName": "cephfs",
+    "namespace": "storage-smb-ceph",
     "placementLabel": "smb",
     "subvolume": "cross-os",
     "subvolumeSizeInGb": 500,

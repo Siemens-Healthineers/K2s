@@ -562,11 +562,12 @@ $smbConfig = if ($Config -and $Config.PSObject.Properties.Name -contains 'smb') 
 $smbStorageClassName = if ($null -ne $smbConfig -and ($smbConfig.PSObject.Properties.Name -contains 'storageClassName') -and -not [string]::IsNullOrWhiteSpace($smbConfig.storageClassName)) { "$($smbConfig.storageClassName)" } else { 'ceph-smb' }
 $smbClusterId = if ($null -ne $smbConfig -and ($smbConfig.PSObject.Properties.Name -contains 'clusterId') -and -not [string]::IsNullOrWhiteSpace($smbConfig.clusterId)) { "$($smbConfig.clusterId)" } else { 'k2ssmb' }
 $smbPlacementLabel = if ($null -ne $smbConfig -and ($smbConfig.PSObject.Properties.Name -contains 'placementLabel') -and -not [string]::IsNullOrWhiteSpace($smbConfig.placementLabel)) { "$($smbConfig.placementLabel)" } else { 'smb' }
+$smbNamespace = if ($null -ne $smbConfig -and ($smbConfig.PSObject.Properties.Name -contains 'namespace') -and -not [string]::IsNullOrWhiteSpace($smbConfig.namespace)) { "$($smbConfig.namespace)" } else { 'storage-smb-ceph' }
 
 Write-Log "[CephSMB] Deleting PersistentVolumeClaims bound to StorageClass $smbStorageClassName" -Console
 Remove-PersistentVolumeClaimsForStorageClass -StorageClass $smbStorageClassName | Write-Log
 
-$smbNsExists = (Invoke-Kubectl -Params 'get', 'namespace', 'storage-smb', '--ignore-not-found', '--no-headers').Output
+$smbNsExists = (Invoke-Kubectl -Params 'get', 'namespace', $smbNamespace, '--ignore-not-found', '--no-headers').Output
 $smbScExists = (Invoke-Kubectl -Params 'get', 'storageclass', $smbStorageClassName, '--ignore-not-found', '--no-headers').Output
 if (-not [string]::IsNullOrWhiteSpace($smbNsExists) -or -not [string]::IsNullOrWhiteSpace($smbScExists)) {
     Write-Log '[CephSMB] Removing Ceph SMB StorageClass, credentials and SMB CSI driver' -Console
@@ -575,16 +576,27 @@ if (-not [string]::IsNullOrWhiteSpace($smbNsExists) -or -not [string]::IsNullOrW
     (Invoke-Kubectl -Params 'delete', 'storageclass', $smbStorageClassName, '--ignore-not-found').Output | Write-Log
 
     # Delete the smbcreds Secret.
-    (Invoke-Kubectl -Params 'delete', 'secret', 'smbcreds', '-n', 'storage-smb', '--ignore-not-found').Output | Write-Log
+    (Invoke-Kubectl -Params 'delete', 'secret', 'smbcreds', '-n', $smbNamespace, '--ignore-not-found').Output | Write-Log
 
-    # Remove the SMB CSI driver resources (reusing the same manifests used on enable).
+    # Remove the SMB CSI driver resources by rendering the shared SMB addon manifests for this
+    # namespace (same approach as Enable.ps1).
     $smbManifestsDir = "$PSScriptRoot\..\smb\manifests\windows"
     if (Test-Path $smbManifestsDir) {
-        (Invoke-Kubectl -Params 'delete', '-k', $smbManifestsDir, '--ignore-not-found', '--wait=false').Output | Write-Log
+        $renderedSmbManifestsDir = Join-Path ([System.IO.Path]::GetTempPath()) "k2s-ceph-smb-manifests-delete-$([guid]::NewGuid().ToString())"
+        New-Item -ItemType Directory -Path $renderedSmbManifestsDir -Force | Out-Null
+        Copy-Item -Path (Join-Path $smbManifestsDir '*') -Destination $renderedSmbManifestsDir -Recurse -Force
+        Get-ChildItem -Path $renderedSmbManifestsDir -Recurse -File | ForEach-Object {
+            $manifestContent = Get-Content -Path $_.FullName -Raw
+            $manifestContent = $manifestContent.Replace('storage-smb', $smbNamespace)
+            Set-Content -Path $_.FullName -Value $manifestContent -Encoding utf8
+        }
+
+        (Invoke-Kubectl -Params 'delete', '-k', $renderedSmbManifestsDir, '--ignore-not-found', '--wait=false').Output | Write-Log
+        Remove-Item -Path $renderedSmbManifestsDir -Recurse -Force -ErrorAction SilentlyContinue
     }
 
-    # Delete the storage-smb namespace (let it terminate in background).
-    (Invoke-Kubectl -Params 'delete', 'namespace', 'storage-smb', '--ignore-not-found', '--wait=false').Output | Write-Log
+    # Delete the Ceph SMB namespace (let it terminate in background).
+    (Invoke-Kubectl -Params 'delete', 'namespace', $smbNamespace, '--ignore-not-found', '--wait=false').Output | Write-Log
 }
 
 # Remove the native Ceph mgr/smb cluster + share on the Ceph cluster host.

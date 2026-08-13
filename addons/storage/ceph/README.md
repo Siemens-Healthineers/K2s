@@ -73,7 +73,8 @@ When the addon is enabled with `-w` / `--setupWindowsNode`, `Enable.ps1`:
 
 1. **configures the SMB CSI driver first** by applying the existing SMB CSI manifests
    ([`../smb/manifests/windows`](../smb/manifests/windows), which include the Linux base plus the
-   Windows HostProcess node DaemonSet) into the `storage-smb` namespace and waiting for the
+  Windows HostProcess node DaemonSet) into the `smb.namespace` namespace (default `storage-smb-ceph`)
+  and waiting for the
    controller and node pods to become `Ready`,
 2. **configures the Ceph `mgr/smb` module** on the already-running Ceph cluster by dispatching to
    [`scripts/linux/debian/New-CephSmbCluster.ps1`](scripts/linux/debian/New-CephSmbCluster.ps1), which
@@ -93,7 +94,8 @@ When the addon is enabled with `-w` / `--setupWindowsNode`, `Enable.ps1`:
 
 Windows pods then request volumes from the `ceph-smb` StorageClass (`smb.storageClassName`); the SMB
 CSI Windows node plugin maps the share with `New-SmbGlobalMapping`. On disable, `Disable.ps1` removes
-the `ceph-smb` StorageClass, its PVCs, the `smbcreds` Secret, the SMB CSI driver and the `storage-smb`
+the `ceph-smb` StorageClass, its PVCs, the `smbcreds` Secret, the SMB CSI driver and the Ceph SMB
+namespace (`smb.namespace`)
 namespace, tears down the `mgr/smb` cluster/share and removes the shared subvolume via
 [`scripts/linux/debian/Remove-CephSmbCluster.ps1`](scripts/linux/debian/Remove-CephSmbCluster.ps1).
 
@@ -102,7 +104,7 @@ namespace, tears down the `mgr/smb` cluster/share and removes the shared subvolu
 > registry access.
 
 SMB configuration lives under the `smb` block of [`config/ceph-config.json`](config/ceph-config.json):
-`clusterId`, `shareId`, `shareName`, `placementLabel`, `subvolume`, `subvolumeSizeInGb`,
+`namespace`, `clusterId`, `shareId`, `shareName`, `placementLabel`, `subvolume`, `subvolumeSizeInGb`,
 `storageClassName` and `storageClassReclaimPolicy`.
 
 
@@ -147,6 +149,7 @@ bootstrap node for the Ceph cluster, then list every OSD node under `osdHosts`.
     "clusterId": "k2ssmb",
     "shareId": "cephfs",
     "shareName": "cephfs",
+    "namespace": "storage-smb-ceph",
     "placementLabel": "smb",
     "subvolume": "cross-os",
     "subvolumeSizeInGb": 500,
@@ -418,7 +421,7 @@ physical directory**, giving cross-OS shared access. The subvolume is exported w
 ### 1. Verify the SMB integration is up
 
 ```powershell
-kubectl get pods -n storage-smb
+kubectl get pods -n storage-smb-ceph
 kubectl get storageclass ceph-smb
 ```
 
@@ -524,7 +527,7 @@ Skips the confirmation, deletes the `ceph-cephfs` PVCs/PVs, and removes the clus
 
 When the addon was enabled with `-w`, disabling also removes the SMB integration: it deletes PVCs
 bound to the `ceph-smb` StorageClass, the StorageClass itself, the `smbcreds` Secret, the SMB CSI
-driver and the `storage-smb` namespace, then tears down the Ceph `mgr/smb` cluster and share and
+driver and the `smb.namespace` namespace (default `storage-smb-ceph`), then tears down the Ceph `mgr/smb` cluster and share and
 drops the placement label on the Ceph host. No native Windows client packages are installed or need
 to be removed.
 
@@ -544,9 +547,11 @@ k2s addons backup storage ceph
 k2s addons restore storage ceph
 ```
 
-`backup` snapshots the ceph connection configuration into a zip archive. `restore` re-applies the
-snapshot and re-enables the addon using the restored configuration. No user data is copied, since it
-resides on the external Ceph cluster.
+`backup` snapshots the ceph connection configuration into a zip archive. When SMB integration is
+configured (`-w` path), it also exports the rendered SMB CSI manifest set (namespace-adjusted for
+`smb.namespace`) and best-effort snapshots of namespace/secret/StorageClass resources so restore can
+re-import them consistently. `restore` re-applies these snapshots and re-enables the addon using the
+restored configuration. No user data is copied, since it resides on the external Ceph cluster.
 
 ### System backup, restore and upgrade
 
@@ -613,6 +618,7 @@ File: `addons/storage/ceph/config/ceph-config.json`
     "clusterId": "k2ssmb",
     "shareId": "cephfs",
     "shareName": "cephfs",
+    "namespace": "storage-smb-ceph",
     "placementLabel": "smb",
     "subvolume": "cross-os",
     "subvolumeSizeInGb": 500,
@@ -657,6 +663,7 @@ File: `addons/storage/ceph/config/ceph-config.json`
 | `osdHosts[].osdSizeInGb` | No | Common size in GiB applied to all OSDs on that host when `osdSizesInGb` is not provided. |
 | `cephfsPool` | No | CephFS **data pool** name (default `cephfs.cephfs.data`). Refreshed with the value read back from the freshly provisioned cluster. |
 | `cephfsFilesystem` | No | CephFS filesystem name (default `cephfs`). |
+| `smb.namespace` | No | Namespace where Ceph deploys the reused SMB CSI manifests (default `storage-smb-ceph`). This keeps Ceph's SMB wiring isolated from the standalone SMB addon namespace. |
 | `smb.clusterId` | No | ID of the Ceph `mgr/smb` cluster created for Windows access (default `k2ssmb`), used only with `-w`. |
 | `smb.shareId` | No | ID of the Ceph SMB share for the CephFS volume (default `cephfs`). |
 | `smb.shareName` | No | SMB share name clients connect to as `//<clusterHostIp>/<shareName>` (default `cephfs`). |

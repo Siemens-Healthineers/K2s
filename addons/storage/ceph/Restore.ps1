@@ -13,9 +13,9 @@ Completes the restore of the storage ceph addon.
 
 Ceph is backed by an EXTERNAL Ceph cluster, so there is no addon-owned persistent data to copy
 back. The connection configuration (ceph-config.json) is already restored and the addon is already
-(re)enabled by the CLI via EnableForRestore.ps1 before this script runs. This script therefore only
-validates the backup metadata and reports completion. The config snapshot is (idempotently)
-re-applied as a safety net for restore paths that do not run EnableForRestore.ps1.
+(re)enabled by the CLI via EnableForRestore.ps1 before this script runs. This script re-applies the
+config snapshot and, when present, re-imports the Ceph SMB manifests/resources captured by Backup.ps1
+to restore the expected SMB CSI wiring for Windows access.
 
 .PARAMETER BackupDir
 Directory containing extracted backup artifacts (staging folder).
@@ -81,6 +81,28 @@ try {
     }
     else {
         Write-Log "[StorageCephRestore] No config snapshot found (ceph-config.json); using current config." -Console
+    }
+
+    # Re-apply Ceph SMB manifests/resources if they were exported by Backup.ps1.
+    $smbNamespaceSnapshot = Join-Path $BackupDir 'ceph-smb-namespace.yaml'
+    if (Test-Path -LiteralPath $smbNamespaceSnapshot) {
+        (Invoke-Kubectl -Params 'apply', '-f', $smbNamespaceSnapshot).Output | Write-Log
+    }
+
+    $smbManifestsDir = Join-Path $BackupDir 'smb-csi-manifests'
+    if (Test-Path -LiteralPath $smbManifestsDir) {
+        Write-Log "[StorageCephRestore] Re-applying Ceph SMB CSI manifests from '$smbManifestsDir'" -Console
+        (Invoke-Kubectl -Params 'apply', '-k', $smbManifestsDir).Output | Write-Log
+    }
+
+    $smbCredsSnapshot = Join-Path $BackupDir 'ceph-smb-smbcreds-secret.yaml'
+    if (Test-Path -LiteralPath $smbCredsSnapshot) {
+        (Invoke-Kubectl -Params 'apply', '-f', $smbCredsSnapshot).Output | Write-Log
+    }
+
+    $smbScSnapshot = Join-Path $BackupDir 'ceph-smb-storageclass.yaml'
+    if (Test-Path -LiteralPath $smbScSnapshot) {
+        (Invoke-Kubectl -Params 'apply', '-f', $smbScSnapshot).Output | Write-Log
     }
 
     Write-Log "[StorageCephRestore] Ceph is backed by an external cluster; no addon-owned data to restore." -Console
