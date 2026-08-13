@@ -44,10 +44,10 @@ type Cluster struct {
 const clusterReadinessTimeout = 10 * time.Minute
 
 const (
-	internetReachabilityCurlMaxTime       = "60"
-	internetReachabilityCurlRetryCount    = "5"
-	internetReachabilityCheckTimeout      = 3 * time.Minute
-	internetReachabilityCheckPollInterval = 10 * time.Second
+	internetReachabilityCurlMaxTime       = "20"
+	internetReachabilityCurlRetryCount    = "0"
+	internetReachabilityCheckTimeout      = 15 * time.Minute
+	internetReachabilityCheckPollInterval = 15 * time.Second
 )
 
 type podExecParam struct {
