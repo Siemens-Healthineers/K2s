@@ -1854,6 +1854,7 @@ function Wait-ForCertManagerAvailable {
     if ($out -match 'The cert-manager API is ready') {
         return $true
     }
+	Write-Log "cmctl check api failed: $out"
     return $false
 }
 
