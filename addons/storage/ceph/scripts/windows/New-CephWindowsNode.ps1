@@ -257,7 +257,7 @@ function Resolve-WindowsMsiSettings {
                             $entryDestination = "$($_.destination)".Trim()
                             $urlLeaf = [System.IO.Path]::GetFileName($entryUrl)
                             $destinationLeaf = [System.IO.Path]::GetFileName($entryDestination)
-                            ($urlLeaf -match '(?i)^dokan.*\.msi$') -or ($destinationLeaf -match '(?i)^dokan.*\.msi$')
+                            ($urlLeaf -match '(?i)^dokan.*\.exe$') -or ($destinationLeaf -match '(?i)^dokan.*\.exe$')
                         } |
                         Select-Object -First 1)
                 if ($dokanyEntry.Count -gt 0) {
@@ -275,14 +275,15 @@ function Resolve-WindowsMsiSettings {
     }
 
     if (-not [string]::IsNullOrWhiteSpace($dokanyMsiUrl)) {
-        Write-Log "[CephWin] Using Dokany MSI URL from storage addon manifest: $dokanyMsiUrl" -Console
+        Write-Log "[CephWin] Using Dokany installer URL from storage addon manifest: $dokanyMsiUrl" -Console
     }
     if (-not [string]::IsNullOrWhiteSpace($cephMsiUrl)) {
         Write-Log "[CephWin] Using Ceph MSI URL from storage addon manifest: $cephMsiUrl" -Console
     }
 
     $cephMsiPath = Resolve-StagedMsiPath -DisplayName 'Ceph' -ManifestDestination $cephMsiDestination -FallbackPattern 'ceph*.msi'
-    $dokanyMsiPath = Resolve-StagedMsiPath -DisplayName 'Dokany' -ManifestDestination $dokanyMsiDestination -FallbackPattern '*okan*.msi'
+    # Dokany is supported only via .exe installer in K2s.
+    $dokanyMsiPath = Resolve-StagedMsiPath -DisplayName 'Dokany' -ManifestDestination $dokanyMsiDestination -FallbackPattern '*okan*.exe'
 
     return [pscustomobject]@{
         CephMsiPath   = "$cephMsiPath"

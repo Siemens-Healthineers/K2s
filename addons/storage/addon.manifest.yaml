@@ -108,8 +108,8 @@ spec:
             # Dokany user-mode file-system driver required by ceph-dokan on Windows nodes. Downloaded
             # during export and staged into the ceph addon 'bin/windows' folder so the native Ceph
             # Windows client can be installed fully offline.
-            - url: https://github.com/dokan-dev/dokany/releases/download/v2.1.0.1000/Dokan_x64.msi
-              destination: ceph/bin/windows/Dokan_x64.msi
+            - url: https://github.com/dokan-dev/dokany/releases/download/v2.3.1.1000/DokanSetup.exe
+              destination: ceph/bin/windows/DokanSetup.exe
       commands:
         enable:
           cli:

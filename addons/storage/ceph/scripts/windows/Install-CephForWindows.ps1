@@ -40,10 +40,10 @@ Path to a locally staged Ceph for Windows MSI. Used for offline installations.
 URL to download the Ceph for Windows MSI from when no local MSI is staged.
 
 .PARAMETER DokanyMsiPath
-Path to a locally staged Dokany MSI. Used for offline installations.
+Path to a locally staged Dokany installer EXE. Used for offline installations.
 
 .PARAMETER DokanyMsiUrl
-URL to download the Dokany MSI from when no local MSI is staged.
+URL to download the Dokany installer EXE from when no local installer is staged.
 
 .PARAMETER Proxy
 Optional HTTP proxy used for downloading the MSIs when they are not staged locally.
@@ -61,9 +61,9 @@ Param(
     [string] $CephMsiPath = '',
     [parameter(Mandatory = $false, HelpMessage = 'URL of the Ceph for Windows MSI')]
     [string] $CephMsiUrl = '',
-    [parameter(Mandatory = $false, HelpMessage = 'Path to a locally staged Dokany MSI')]
+    [parameter(Mandatory = $false, HelpMessage = 'Path to a locally staged Dokany installer EXE')]
     [string] $DokanyMsiPath = '',
-    [parameter(Mandatory = $false, HelpMessage = 'URL of the Dokany MSI')]
+    [parameter(Mandatory = $false, HelpMessage = 'URL of the Dokany installer EXE')]
     [string] $DokanyMsiUrl = '',
     [parameter(Mandatory = $false, HelpMessage = 'Optional HTTP proxy for downloading MSIs')]
     [string] $Proxy = '',
@@ -193,10 +193,54 @@ function Test-CephWindowsClientInstalled {
 }
 
 function Test-DokanyInstalled {
-    $dokanDriver = Get-Service -Name 'dokan2' -ErrorAction SilentlyContinue
-    if ($null -ne $dokanDriver) { return $true }
-    if (Test-Path "$env:windir\System32\drivers\dokan2.sys") { return $true }
+    # Avoid false positives from stale/partial service registrations.
+    $driverPath = Join-Path $env:windir 'System32\drivers\dokan2.sys'
+    $driverExists = Test-Path -Path $driverPath
+
+    $service = Get-Service -Name 'dokan2' -ErrorAction SilentlyContinue
+    $serviceExists = $null -ne $service
+
+    $uninstallPaths = @(
+        'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\*',
+        'HKLM:\SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\*'
+    )
+    $hasUninstallEntry = $false
+    try {
+        $hasUninstallEntry = $null -ne (
+            Get-ItemProperty -Path $uninstallPaths -ErrorAction SilentlyContinue |
+                Where-Object { "$($_.DisplayName)" -match 'Dokan|Dokany' } |
+                Select-Object -First 1
+        )
+    }
+    catch {
+        $hasUninstallEntry = $false
+    }
+
+    if ($driverExists) { return $true }
+    if ($serviceExists -and $hasUninstallEntry) { return $true }
     return $false
+}
+
+function Test-PendingReboot {
+    # The Dokany MSI (wrapped inside the DokanSetup.exe Wix Burn bundle) runs a 'CheckForRebootPending'
+    # custom action that hard-fails with exit code 1603 whenever Windows has ANY pending reboot -
+    # typically left behind by a previous Dokan driver uninstall (dokan2 service in StopPending) or by
+    # unrelated updates queuing PendingFileRenameOperations. Detect this up front so we can surface a
+    # clear, actionable message instead of a cryptic installer failure.
+    $reasons = @()
+
+    if (Get-Item 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Component Based Servicing\RebootPending' -ErrorAction SilentlyContinue) {
+        $reasons += 'Component Based Servicing (RebootPending)'
+    }
+    if (Get-ItemProperty 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\WindowsUpdate\Auto Update\RebootRequired' -ErrorAction SilentlyContinue) {
+        $reasons += 'Windows Update (RebootRequired)'
+    }
+    $pfro = (Get-ItemProperty 'HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager' -Name 'PendingFileRenameOperations' -ErrorAction SilentlyContinue).PendingFileRenameOperations
+    if ($pfro) {
+        $reasons += 'PendingFileRenameOperations'
+    }
+
+    return , $reasons
 }
 
 function Resolve-MsiSource {
@@ -216,7 +260,9 @@ function Resolve-MsiSource {
         throw "No locally staged MSI and no download URL provided for $DisplayName. Stage the MSI for offline installation or configure a download URL."
     }
 
-    $tempMsi = Join-Path ([System.IO.Path]::GetTempPath()) ("k2s-ceph-win-" + [guid]::NewGuid().ToString() + ".msi")
+    $srcExt = [System.IO.Path]::GetExtension($Url).ToLower()
+    if ($srcExt -notin @('.msi', '.exe')) { $srcExt = '.msi' }
+    $tempMsi = Join-Path ([System.IO.Path]::GetTempPath()) ("k2s-ceph-win-" + [guid]::NewGuid().ToString() + $srcExt)
     Write-Log "[CephWin] Downloading $DisplayName MSI from $Url" -Console
     try {
         if (-not [string]::IsNullOrWhiteSpace($Proxy)) {
@@ -240,16 +286,37 @@ function Install-MsiPackage {
     )
 
     Write-Log "[CephWin] Installing $DisplayName from $MsiPath" -Console
-    $logFile = Join-Path ([System.IO.Path]::GetTempPath()) ("k2s-ceph-win-" + [guid]::NewGuid().ToString() + ".log")
-    $msiArgs = @('/i', "`"$MsiPath`"", '/qn', '/norestart', '/l*v', "`"$logFile`"")
-    if ($ExtraProperties.Count -gt 0) {
-        $msiArgs += $ExtraProperties
-    }
-    $process = Start-Process -FilePath 'msiexec.exe' -ArgumentList $msiArgs -Wait -PassThru -NoNewWindow
 
-    # 0 = success, 3010 = success but reboot required (WNBD driver install typically requests reboot).
-    if ($process.ExitCode -ne 0 -and $process.ExitCode -ne 3010) {
-        throw "$DisplayName installation failed (msiexec exit code $($process.ExitCode)). See log: $logFile"
+    $extension = [System.IO.Path]::GetExtension($MsiPath).ToLower()
+    if ($extension -eq '.exe') {
+        # DokanSetup.exe is a WiX Burn bundle wrapping Dokan_x64.msi (NOT plain NSIS). Use the documented
+        # Burn switches: /quiet = silent, /norestart = do not reboot, /log = write a bundle log we can
+        # parse for diagnostics. The bundle's inner MSI aborts with 1603 if a reboot is pending, so give
+        # a clear message for that case rather than dumping the raw log.
+        $burnLog = Join-Path ([System.IO.Path]::GetTempPath()) ("k2s-ceph-win-" + [guid]::NewGuid().ToString() + ".log")
+        $exeArgs = @('/quiet', '/norestart', '/log', "`"$burnLog`"")
+        $process = Start-Process -FilePath $MsiPath -ArgumentList $exeArgs -Wait -PassThru -NoNewWindow
+        # 0 = success, 3010 = success but reboot required.
+        if ($process.ExitCode -ne 0 -and $process.ExitCode -ne 3010) {
+            $logText = ''
+            if (Test-Path $burnLog) { $logText = (Get-Content $burnLog -Raw -ErrorAction SilentlyContinue) }
+            if ($logText -match 'reboot is still pending' -or $process.ExitCode -eq 1603) {
+                throw "$DisplayName installation failed (setup exit code $($process.ExitCode)) because a Windows reboot is pending (usually from a previous Dokan driver uninstall). Reboot this Windows node and re-run the addon enable. Bundle log: $burnLog"
+            }
+            throw "$DisplayName installation failed (setup exit code $($process.ExitCode)). Bundle log: $burnLog"
+        }
+    }
+    else {
+        $logFile = Join-Path ([System.IO.Path]::GetTempPath()) ("k2s-ceph-win-" + [guid]::NewGuid().ToString() + ".log")
+        $msiArgs = @('/i', "`"$MsiPath`"", '/qn', '/norestart', '/l*v', "`"$logFile`"")
+        if ($ExtraProperties.Count -gt 0) {
+            $msiArgs += $ExtraProperties
+        }
+        $process = Start-Process -FilePath 'msiexec.exe' -ArgumentList $msiArgs -Wait -PassThru -NoNewWindow
+        # 0 = success, 3010 = success but reboot required (WNBD driver install typically requests reboot).
+        if ($process.ExitCode -ne 0 -and $process.ExitCode -ne 3010) {
+            throw "$DisplayName installation failed (msiexec exit code $($process.ExitCode)). See log: $logFile"
+        }
     }
 
     if ($process.ExitCode -eq 3010) {
@@ -365,7 +432,17 @@ try {
         $dokanyInstalledByK2s = $false
     }
     else {
+        # The Dokany bundle refuses to install while a Windows reboot is pending and fails with a
+        # cryptic 1603. Detect that here and stop with an actionable message before downloading.
+        $rebootReasons = Test-PendingReboot
+        if ($rebootReasons.Count -gt 0) {
+            throw "Cannot install Dokany: a Windows reboot is pending ($($rebootReasons -join ', ')). The Dokany installer aborts with error 1603 while a reboot is pending (commonly left by a previous Dokan driver uninstall). Reboot this Windows node and re-run the addon enable."
+        }
         $dokanySource = Resolve-MsiSource -DisplayName 'Dokany' -LocalPath $DokanyMsiPath -Url $DokanyMsiUrl -Proxy $effectiveProxy
+        $dokanyExtension = [System.IO.Path]::GetExtension($dokanySource).ToLower()
+        if ($dokanyExtension -ne '.exe') {
+            throw "Dokany installer must be an .exe file. Resolved source '$dokanySource' is not supported."
+        }
         Install-MsiPackage -DisplayName 'Dokany' -MsiPath $dokanySource
         $dokanyInstalledByK2s = $true
     }
