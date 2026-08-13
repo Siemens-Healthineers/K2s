@@ -36,6 +36,5 @@ spec:
           mountPath: 'C:\data'
   volumes:
     - name: ceph-data
-      hostPath:
-        path: 'C:\k8s-ceph-share'
-        type: Directory
+      persistentVolumeClaim:
+        claimName: ceph-share-win-pvc

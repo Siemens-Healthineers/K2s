@@ -96,20 +96,16 @@ spec:
             - registry.k8s.io/sig-storage/csi-resizer:v2.1.0
             - registry.k8s.io/sig-storage/csi-snapshotter:v8.5.0
             - registry.k8s.io/sig-storage/livenessprobe:v2.18.0
+            # SMB CSI driver images used by the '-w' flow to let Windows pods consume CephFS over
+            # SMB (Ceph mgr/smb export). Reused from the storage/smb addon manifests.
+            - registry.k8s.io/sig-storage/smbplugin:v1.20.1
+            - registry.k8s.io/sig-storage/csi-provisioner:v6.1.1
+            - registry.k8s.io/sig-storage/csi-node-driver-registrar:v2.16.0
           additionalImagesFiles:
             - manifests/operator.yaml
             - manifests/csi-rbac.yaml
         windows:
-          curl:
-            # Ceph for Windows MSI (includes WNBD driver, rbd-wnbd and ceph-dokan). Downloaded
-            # during export and staged into the ceph addon 'bin/windows' folder for offline installs.
-            - url: https://cloudbase.it/downloads/ceph_squid.msi
-              destination: ceph/bin/windows/ceph_squid.msi
-            # Dokany user-mode file-system driver required by ceph-dokan on Windows nodes. Downloaded
-            # during export and staged into the ceph addon 'bin/windows' folder so the native Ceph
-            # Windows client can be installed fully offline.
-            - url: https://github.com/dokan-dev/dokany/releases/download/v2.3.1.1000/DokanSetup.exe
-              destination: ceph/bin/windows/DokanSetup.exe
+          curl: []
       commands:
         enable:
           cli:
@@ -117,12 +113,12 @@ spec:
               - name: setupWindowsNode
                 shorthand: w
                 default: false
-                description: Configure native Ceph client and host mount on Windows worker node(s)
+                description: Configure Ceph SMB access (mgr/smb + SMB CSI) so Windows pods can consume CephFS
             examples:
               - cmd: k2s addons enable storage ceph
                 comment: Enables experimental Ceph CSI CephFS storage provisioning using config in 'addons/storage/ceph/config'
               - cmd: k2s addons enable storage ceph -w
-                comment: Enables Ceph CSI and additionally configures native Ceph client and host mount on Windows worker node(s)
+                comment: Enables Ceph CSI and additionally exports CephFS over SMB (Ceph mgr/smb) with the SMB CSI driver so Windows pods can consume CephFS
           script:
             subPath: ceph/Enable.ps1
             parameterMappings:

@@ -38,48 +38,73 @@ This implementation provides:
 
 > All addon resources are deployed into the **`ceph-csi-operator-system`** namespace.
 
-## Windows native node setup
+## Windows access via SMB
 
-On Linux nodes the `ceph-csi-operator` reconciles the CephFS node plugin automatically. Windows
-worker nodes are **not** managed by the operator. Because Ceph is
-[supported natively on Windows](https://docs.ceph.com/en/latest/install/windows-install/), the
-addon configures and mounts CephFS through the host-installed Ceph client rather than a Linux
-container.
+On Linux nodes the `ceph-csi-operator` reconciles the CephFS node plugin automatically, so Linux
+pods consume CephFS through the `cephfs.csi.ceph.com` StorageClass. Windows pods **cannot** use that
+CSI driver. Instead, CephFS is exposed to Windows through SMB using Ceph's built-in
+[`mgr/smb` module](https://docs.ceph.com/en/latest/mgr/smb/): `cephadm` deploys managed Samba
+containers on the Ceph cluster host that export a dedicated CephFS **subvolume** as an SMB share, and
+the [SMB CSI driver](https://github.com/kubernetes-csi/csi-driver-smb) (`smb.csi.k8s.io`, reused from
+the `storage/smb` addon manifests) provisions PVCs from that share.
 
-When the addon is enabled with `-w` / `--setupWindowsNode` on a K2s cluster that has a Windows
-worker node, `Enable.ps1`:
+**Provisioner split (per OS):**
 
-1. discovers the Windows worker node(s) from the Kubernetes API (`kubectl get nodes`, label
-   `kubernetes.io/os=windows`) and cross-references them with the cluster descriptor (`cluster.json`):
-   the local K2s host is the Windows worker node (`HOST`); an added external node (`VM-EXISTING`) is a
-   Hyper-V worker VM reached over a PowerShell remoting session,
-2. dispatches to [`scripts/windows/New-CephWindowsNode.ps1`](scripts/windows/New-CephWindowsNode.ps1), which
-   installs and configures the native Ceph Windows client via
-   [`scripts/windows/Install-CephForWindows.ps1`](scripts/windows/Install-CephForWindows.ps1) — locally on
-   the `HOST` node and remotely on `VM-EXISTING` nodes:
-   - the **Ceph for Windows** MSI (bundles the **WNBD** RBD driver, `rbd-wnbd` and **`ceph-dokan`**),
-   - **Dokany** 2.0.5+ (required by `ceph-dokan` to mount CephFS),
-   - `C:\ProgramData\ceph\ceph.conf` and the admin `keyring` built from the provisioned cluster's
-    connection details,
-  3. dispatches to [`scripts/windows/Mount-CephForWindows.ps1`](scripts/windows/Mount-CephForWindows.ps1)
-     (locally and remotely) to:
-    - mount CephFS with `ceph-dokan` at the configured Windows mount path (`winMountPath`, default `C:\k8s-ceph-share`),
-     - register the startup scheduled task `K2s-CephFS-Mount` so the mount is re-established after
-    reboot.
+- **Linux** pods use the native CephFS CSI provisioner (`cephfs.csi.ceph.com`) via the `ceph-cephfs`
+  StorageClass.
+- **Windows** pods use the SMB CSI provisioner (`smb.csi.k8s.io`) via the `ceph-smb` StorageClass.
 
-  There is no upstream Windows `cephcsi` image and no Windows CSI node plugin DaemonSet. The native
-  host mount (`winMountPath`, `C:\k8s-ceph-share`) provides access to CephFS on the Windows node and
-  is consumed by Windows pods through a `hostPath` volume (see
-  [Testing Windows CephFS Access](#testing-windows-cephfs-access)).
+**Dynamic, cross-OS-aligned sub-directories.** Instead of a single hard-coded share folder, the
+`ceph-smb` StorageClass sets the SMB CSI `subDir` parameter to the native Kubernetes metadata
+templates:
 
-> **Secure Boot must be disabled** on the Windows node for RBD (block) mapping, because the WNBD
-> driver is not signed by Microsoft. CephFS mounting via `ceph-dokan` is unaffected.
+```yaml
+subDir: ${pvc.metadata.namespace}/${pvc.metadata.name}
+```
 
-The Ceph for Windows MSI is distributed from <https://cloudbase.it/ceph-for-windows/>. MSI URL
-defaults are resolved from `addons/storage/addon.manifest.yaml` (for example, Dokany). For
-**offline** installs stage the MSIs under `ceph/bin/windows` (Dokany is staged automatically during
-addon export). When `-w` / `--setupWindowsNode` is used, the installer is dispatched to all
-discovered Windows worker nodes: local `HOST` and added external `VM-EXISTING` nodes.
+Every time a PVC is provisioned, the driver creates an isolated `<namespace>/<name>` folder inside
+the shared CephFS subvolume. Because Linux (CephFS CSI) and Windows (SMB CSI) both address the **same**
+underlying subvolume and follow the **same** `<namespace>/<name>` naming rule, a Linux pod and a
+Windows pod can calculate and reach the exact same path. The subvolume is created with `--extra-config
+"force create mode = 0777, force directory mode = 0777"` so files created by one OS remain fully
+readable/writable from the other.
+
+When the addon is enabled with `-w` / `--setupWindowsNode`, `Enable.ps1`:
+
+1. **configures the SMB CSI driver first** by applying the existing SMB CSI manifests
+   ([`../smb/manifests/windows`](../smb/manifests/windows), which include the Linux base plus the
+   Windows HostProcess node DaemonSet) into the `storage-smb` namespace and waiting for the
+   controller and node pods to become `Ready`,
+2. **configures the Ceph `mgr/smb` module** on the already-running Ceph cluster by dispatching to
+   [`scripts/linux/debian/New-CephSmbCluster.ps1`](scripts/linux/debian/New-CephSmbCluster.ps1), which
+   runs [`scripts/linux/debian/create-ceph-cluster-smb.sh`](scripts/linux/debian/create-ceph-cluster-smb.sh)
+   remotely on the cluster host (`clusterHost.node`) to:
+   - `ceph mgr module enable smb`,
+   - add the placement label (`smb.placementLabel`, default `smb`) to the cephadm host so the Samba
+     daemons are scheduled,
+   - `ceph smb cluster create <clusterId> user --define-user-pass=<user>%<password> --placement="label:smb"`
+     (standalone `user` auth mode; the user and a freshly generated password are returned to `Enable.ps1`),
+   - `ceph fs subvolume create <cephfsFilesystem> <smb.subvolume> --size=<smb.subvolumeSizeInGb> --mode=0777`
+     to create the shared subvolume,
+   - `ceph smb share create <clusterId> <shareId> <cephfsFilesystem> / --subvolume=<smb.subvolume> --name=<shareName> --extra-config="force create mode = 0777, force directory mode = 0777"`,
+3. creates the `smbcreds` Secret (the generated Samba user/password) and generates the `ceph-smb`
+   StorageClass from [`../smb/manifests/base/storage-classes/template_StorageClass.yaml`](../smb/manifests/base/storage-classes/template_StorageClass.yaml)
+   with source `//<clusterHostIp>/<shareName>` and `subDir: ${pvc.metadata.namespace}/${pvc.metadata.name}`.
+
+Windows pods then request volumes from the `ceph-smb` StorageClass (`smb.storageClassName`); the SMB
+CSI Windows node plugin maps the share with `New-SmbGlobalMapping`. On disable, `Disable.ps1` removes
+the `ceph-smb` StorageClass, its PVCs, the `smbcreds` Secret, the SMB CSI driver and the `storage-smb`
+namespace, tears down the `mgr/smb` cluster/share and removes the shared subvolume via
+[`scripts/linux/debian/Remove-CephSmbCluster.ps1`](scripts/linux/debian/Remove-CephSmbCluster.ps1).
+
+> The Samba service deployed by `mgr/smb` supports SMB2/SMB3 only. Offline/air-gapped installs pin the
+> `container_image` to the Ceph image loaded during addon import so the Samba daemons start without
+> registry access.
+
+SMB configuration lives under the `smb` block of [`config/ceph-config.json`](config/ceph-config.json):
+`clusterId`, `shareId`, `shareName`, `placementLabel`, `subvolume`, `subvolumeSizeInGb`,
+`storageClassName` and `storageClassReclaimPolicy`.
+
 
 ## Prerequisites
 
@@ -115,10 +140,19 @@ bootstrap node for the Ceph cluster, then list every OSD node under `osdHosts`.
 
 ```json
 {
-  "comment": "Ceph CSI storage config. 'clusterHost.node' bootstraps only the Ceph cluster control plane and MUST be a Debian 13 K2s node listed in cluster.json (or the control plane node). OSD provisioning is driven exclusively by 'osdHosts' and supports only Hyper-V worker nodes (cluster.json NodeType 'VM-EXISTING'). Each entry in 'osdHosts' is prepared as a Ceph OSD host (via prepare-ceph-osd-host.sh) and contributes OSDs. Use 'osdSizesInGb' to set per-OSD sizes (one value per OSD) or 'osdSizeInGb' for one common size. Native Windows client MSI URL defaults are resolved from addons/storage/addon.manifest.yaml; for offline installs stage MSIs under 'bin/windows'.",
+  "comment": "Ceph CSI storage config. 'clusterHost.node' bootstraps only the Ceph cluster control plane and MUST be a Debian 13 K2s node listed in cluster.json (or the control plane node). OSD provisioning is driven exclusively by 'osdHosts' and supports only Hyper-V worker nodes (cluster.json NodeType 'VM-EXISTING'). Each entry in 'osdHosts' is prepared as a Ceph OSD host (via prepare-ceph-osd-host.sh) and contributes OSDs. Use 'osdSizesInGb' to set per-OSD sizes (one value per OSD) or 'osdSizeInGb' for one common size. The 'smb' block configures Ceph native SMB access for Windows pods (mgr/smb module) when the addon is enabled with -w.",
   "cephfsFilesystem": "cephfs",
   "cephfsPool": "cephfs.cephfs.data",
-  "winMountPath": "C:\\k8s-ceph-share",
+  "smb": {
+    "clusterId": "k2ssmb",
+    "shareId": "cephfs",
+    "shareName": "cephfs",
+    "placementLabel": "smb",
+    "subvolume": "cross-os",
+    "subvolumeSizeInGb": 500,
+    "storageClassName": "ceph-smb",
+    "storageClassReclaimPolicy": "Delete"
+  },
   "clusterHost": {
     "node": "kubemaster",
     "os": "linux",
@@ -162,7 +196,7 @@ bootstrap node for the Ceph cluster, then list every OSD node under `osdHosts`.
 k2s addons enable storage ceph
 ```
 
-Enable with native Windows client setup (only when explicitly requested):
+Enable with SMB access for Windows pods (only when explicitly requested):
 
 ```console
 k2s addons enable storage ceph -w
@@ -174,6 +208,9 @@ On enable the addon:
 3. Provisions a fresh single-node Ceph cluster on that node.
 4. Reads `osdHosts`, validates Hyper-V worker node type, and provisions the requested OSDs.
 5. Deploys the Ceph CSI operator and the `ceph-cephfs` StorageClass.
+
+With `-w` it additionally exports CephFS over SMB (Ceph `mgr/smb`) and deploys the SMB CSI driver so
+Windows pods can consume CephFS via the `ceph-smb` StorageClass.
 
 ### 3. Verify Installation
 
@@ -362,53 +399,48 @@ kubectl delete pvc ceph-test-pvc --ignore-not-found
 
 ## Testing Windows CephFS Access
 
-Linux workloads should keep using dynamic PVCs (`storageClassName: ceph-cephfs`). On Windows the
-CephFS backend is mounted natively on the host by `ceph-dokan` at `winMountPath`
-(`C:\k8s-ceph-share`) for **host-side** access only (host processes, scripts, tooling).
+Linux workloads use the native CephFS CSI provisioner (`storageClassName: ceph-cephfs`). Windows pods
+consume CephFS over SMB: when the addon is enabled with `-w`, Ceph's `mgr/smb` module exports a shared
+CephFS subvolume as an SMB share and the SMB CSI provisioner provisions PVCs from it. Windows pods
+request volumes from the `ceph-smb` StorageClass (`smb.storageClassName`).
 
-> [!IMPORTANT]
-> **Windows *pods* cannot consume the native `ceph-dokan` mount through a `hostPath` volume. This is a
-> hard limitation of the Windows container runtime and _cannot_ be fixed by changing `winMountPath`.**
->
-> `containerd` / `hcsshim` resolve every `hostPath` source with Go's `filepath.EvalSymlinks` before
-> bind-mounting it into the container, and a `ceph-dokan` (Dokany) volume cannot be resolved that way.
-> Container creation fails no matter how CephFS is mounted:
->
-> - **directory** mount (e.g. `C:\k8s-ceph-share`) — Dokany creates a reparse point and the runtime
->   aborts with `hostPath type check failed: C:\k8s-ceph-share is not a directory` or
->   `failed to resolve symlink "C:\k8s-ceph-share": The parameter is incorrect.`
-> - **drive-letter** mount (e.g. `X:`) — the Dokany volume root still cannot be resolved and the
->   runtime aborts with `failed to resolve symlink "X:\": The parameter is incorrect.`
->
-> There is no upstream Windows CephFS CSI node plugin, so there is currently **no supported way to
-> mount CephFS directly into a Windows pod**. If a Windows pod must consume the data, expose it over
-> SMB and use the `storage smb` addon (or an SMB/NFS gateway that re-exports CephFS): the Windows
-> container runtime supports SMB volumes via `New-SmbGlobalMapping`, unlike Dokany host mounts.
+The `ceph-smb` StorageClass sets `subDir: ${pvc.metadata.namespace}/${pvc.metadata.name}`, so each PVC
+gets its own isolated folder inside the shared subvolume. A Linux pod (via `ceph-cephfs`) and a Windows
+pod (via `ceph-smb`) that reference PVCs with the **same namespace and name** land on the **same
+physical directory**, giving cross-OS shared access. The subvolume is exported with `force create mode
+= 0777, force directory mode = 0777` so files created by one OS stay accessible from the other.
 
-### 1. Validate the Windows host mount path
+> [!NOTE]
+> There is no upstream Windows CephFS CSI node plugin, so CephFS **cannot** be mounted directly into a
+> Windows pod. SMB is the supported path: the Windows container runtime mounts SMB shares via
+> `New-SmbGlobalMapping`, which is exactly what the SMB CSI Windows node plugin uses.
 
-On each Windows worker node:
+### 1. Verify the SMB integration is up
 
 ```powershell
-Get-ScheduledTask -TaskName K2s-CephFS-Mount
-Get-Process ceph-dokan -ErrorAction SilentlyContinue
-Get-ChildItem C:\k8s-ceph-share
+kubectl get pods -n storage-smb
+kubectl get storageclass ceph-smb
 ```
 
 Expected:
-- scheduled task exists,
-- `ceph-dokan` process is running,
-- `C:\k8s-ceph-share` is accessible.
+- `csi-smb-controller`, `csi-smb-node` and `csi-smb-node-win` pods are `Running`/`Ready`,
+- the `ceph-smb` StorageClass exists with provisioner `smb.csi.k8s.io`.
 
-This confirms host-side access. Host processes and tooling on the Windows node can read and write
-`C:\k8s-ceph-share` directly.
+On the Ceph cluster host you can confirm the Samba service and share:
 
-### 2. Windows pod consumption is not supported
+```bash
+sudo cephadm shell -- ceph smb cluster ls
+sudo cephadm shell -- ceph smb share ls <clusterId>
+sudo cephadm shell -- ceph orch ls --service_type smb
+```
 
-A Windows pod that mounts the `ceph-dokan` host path via `hostPath` will fail to start with
-`hostPath type check failed: C:\k8s-ceph-share is not a directory` (see the note above). There is no
-supported way to mount CephFS directly into a Windows pod. To consume the data from a Windows pod,
-expose it over SMB and use the `storage smb` addon.
+### 2. Consume the share from a Windows pod
+
+Create a PVC against the `ceph-smb` StorageClass and mount it in a Windows pod. The SMB CSI Windows
+node plugin maps `//<clusterHostIp>/<shareName>` into the pod with `New-SmbGlobalMapping` using the
+`smbcreds` Secret created during enable. The CephFS-backed data is then readable and writable from the
+Windows container.
+
 
 ## Add Another OSD Host to the Ceph Cluster
 
@@ -488,14 +520,13 @@ k2s addons disable storage ceph -f
 
 Skips the confirmation, deletes the `ceph-cephfs` PVCs/PVs, and removes the cluster (data lost).
 
-### Native Windows client packages
+### SMB access teardown (`-w` enables)
 
-> [!IMPORTANT]
-> `k2s addons disable storage ceph` never auto-uninstalls `Ceph for Windows` or `Dokany`. These
-> packages include shared, host-wide components (Visual C++ runtime and `dokan2.sys`) used by the
-> Windows shell and other software. Auto-uninstall can break the host desktop. Disable removes only
-> Ceph mount/configuration state. If you are certain nothing else needs the packages, uninstall them
-> manually via Windows **Apps & features** and reboot.
+When the addon was enabled with `-w`, disabling also removes the SMB integration: it deletes PVCs
+bound to the `ceph-smb` StorageClass, the StorageClass itself, the `smbcreds` Secret, the SMB CSI
+driver and the `storage-smb` namespace, then tears down the Ceph `mgr/smb` cluster and share and
+drops the placement label on the Ceph host. No native Windows client packages are installed or need
+to be removed.
 
 
 ## Backup, Restore & Upgrade
@@ -575,10 +606,19 @@ File: `addons/storage/ceph/config/ceph-config.json`
 
 ```json
 {
-  "comment": "Ceph CSI storage config. clusterHost boots the Ceph cluster; osdHosts defines Hyper-V OSD nodes.",
+  "comment": "Ceph CSI storage config. clusterHost boots the Ceph cluster; osdHosts defines Hyper-V OSD nodes; smb configures native SMB access for Windows pods.",
   "cephfsFilesystem": "cephfs",
   "cephfsPool": "cephfs.cephfs.data",
-  "winMountPath": "C:\\k8s-ceph-share",
+  "smb": {
+    "clusterId": "k2ssmb",
+    "shareId": "cephfs",
+    "shareName": "cephfs",
+    "placementLabel": "smb",
+    "subvolume": "cross-os",
+    "subvolumeSizeInGb": 500,
+    "storageClassName": "ceph-smb",
+    "storageClassReclaimPolicy": "Delete"
+  },
   "clusterHost": {
     "node": "kubemaster",
     "os": "linux",
@@ -617,7 +657,14 @@ File: `addons/storage/ceph/config/ceph-config.json`
 | `osdHosts[].osdSizeInGb` | No | Common size in GiB applied to all OSDs on that host when `osdSizesInGb` is not provided. |
 | `cephfsPool` | No | CephFS **data pool** name (default `cephfs.cephfs.data`). Refreshed with the value read back from the freshly provisioned cluster. |
 | `cephfsFilesystem` | No | CephFS filesystem name (default `cephfs`). |
-| `winMountPath` | No | Local directory (default `C:\k8s-ceph-share`) where `ceph-dokan` mounts CephFS on the Windows node for **host-side** access. Note: this mount **cannot** be consumed by Windows pods via `hostPath` (Windows container runtime limitation — see [Testing Windows CephFS Access](#testing-windows-cephfs-access)). |
+| `smb.clusterId` | No | ID of the Ceph `mgr/smb` cluster created for Windows access (default `k2ssmb`), used only with `-w`. |
+| `smb.shareId` | No | ID of the Ceph SMB share for the CephFS volume (default `cephfs`). |
+| `smb.shareName` | No | SMB share name clients connect to as `//<clusterHostIp>/<shareName>` (default `cephfs`). |
+| `smb.placementLabel` | No | Orchestrator host label used to place the managed Samba daemons (default `smb`). |
+| `smb.subvolume` | No | Name of the shared CephFS subvolume created and exported over SMB (default `cross-os`). Each PVC is placed in an isolated `${pvc.metadata.namespace}/${pvc.metadata.name}` sub-directory inside it so Windows (SMB CSI) and Linux (CephFS CSI) resolve the same path. |
+| `smb.subvolumeSizeInGb` | No | Quota (size) of the shared CephFS subvolume in GiB (default `500`). |
+| `smb.storageClassName` | No | Name of the SMB CSI StorageClass created for Windows pods (default `ceph-smb`). |
+| `smb.storageClassReclaimPolicy` | No | Reclaim policy for the `ceph-smb` StorageClass (default `Delete`). |
 | `comment` | No | Free-text note; ignored by the addon. |
 
 `clusterHost.*`, `osdHosts[].osdCount`, `osdHosts[].osdSizeInGb`, and `osdHosts[].osdSizesInGb` are

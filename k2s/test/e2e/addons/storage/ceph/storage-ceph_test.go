@@ -187,7 +187,7 @@ var _ = Describe("storage ceph addon", Ordered, func() {
 			suite.Kubectl().MustExec(ctx, "delete", "-k", rwxManifestDir)
 		})
 
-		It("deploys the Windows Ceph host-mount workload", func(ctx context.Context) {
+		It("deploys the Windows Ceph SMB workload", func(ctx context.Context) {
 			skipIfLinuxOnly()
 			suite.Kubectl().MustExec(ctx, "apply", "-k", windowsManifestDir)
 		})
@@ -198,7 +198,7 @@ var _ = Describe("storage ceph addon", Ordered, func() {
 			suite.Kubectl().MustExec(ctx, "wait", "--for=condition=Ready", "pod/"+winReaderPod, "-n", namespace, "--timeout=300s")
 		})
 
-		It("shares data across Windows pods through the CephFS host mount", func(ctx context.Context) {
+		It("shares data across Windows pods through the CephFS SMB share", func(ctx context.Context) {
 			skipIfLinuxOnly()
 			Eventually(func() string {
 				out, exitCode := suite.Kubectl().Exec(ctx, "exec", "-n", namespace, winReaderPod, "--", "cmd", "/c", "type", winTestFile)
@@ -231,7 +231,7 @@ var _ = Describe("storage ceph addon", Ordered, func() {
 
 func skipIfLinuxOnly() {
 	if suite.SetupInfo().RuntimeConfig.InstallConfig().LinuxOnly() {
-		Skip("Linux-only setup: no Windows worker node to validate the native CephFS host mount")
+		Skip("Linux-only setup: no Windows worker node to validate CephFS access over SMB")
 	}
 }
 

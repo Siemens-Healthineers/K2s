@@ -23,14 +23,14 @@ If log output shall be streamed also to CLI output.
 CephFS data pool name (default: cephfs_data)
 
 .PARAMETER SetupWindowsNode
-If set, configures native Ceph client and host mount on Windows worker node(s).
+If set, exports CephFS over SMB (Ceph mgr/smb) and deploys the SMB CSI driver so Windows pods can consume CephFS.
 #>
 Param(
     [parameter(Mandatory = $false, HelpMessage = 'Show all logs in terminal')]
     [switch] $ShowLogs = $false,
     [parameter(Mandatory = $false, HelpMessage = 'CephFS data pool name')]
     [string] $CephfsPool = 'cephfs_data',
-    [parameter(Mandatory = $false, HelpMessage = 'Configure native Ceph client and host mount on Windows worker node(s)')]
+    [parameter(Mandatory = $false, HelpMessage = 'Export CephFS over SMB (Ceph mgr/smb) and deploy the SMB CSI driver so Windows pods can consume CephFS')]
     [switch] $SetupWindowsNode = $false,
     [parameter(Mandatory = $false, HelpMessage = 'JSON config object to override preceding parameters')]
     [pscustomobject] $Config,
@@ -576,37 +576,143 @@ catch {
 
 Write-Log "[Ceph] Ceph CSI pods are Ready" -Console
 
-# Deploy the Ceph node plugin to Windows worker node(s). The ceph-csi-operator only reconciles the
-# Linux node plugin; Windows nodes need the native Ceph client (WNBD + ceph-dokan) and a separate
-# Windows CSI node plugin DaemonSet. The Windows dispatch script resolves the Windows node details
-# from cluster.json and installs/configures the client using the freshly provisioned cluster's
-# connection details (already loaded into $Config by New-CephCluster.ps1). Only run this for a k2s
+# Enable SMB access to CephFS for Windows worker node(s). The ceph-csi-operator only reconciles the
+# Linux CephFS node plugin, and there is no Windows CephFS CSI node plugin. Windows pods therefore
+# consume CephFS over SMB: Ceph's native mgr/smb module (cephadm-managed Samba) exports the CephFS
+# volume as an SMB share and the SMB CSI driver provisions PVCs from it. Only run this for a k2s
 # cluster that actually has a Windows node.
 if ($SetupWindowsNode -eq $true) {
   if ($setupInfo.LinuxOnly -eq $true) {
-    Write-Log '[Ceph] setupWindowsNode flag was provided, but this is a Linux-only setup; skipping Windows Ceph native setup.' -Console
+    Write-Log '[Ceph] setupWindowsNode flag was provided, but this is a Linux-only setup; skipping Windows Ceph SMB setup.' -Console
   }
   else {
-    $windowsNodeScript = "$PSScriptRoot\scripts\windows\New-CephWindowsNode.ps1"
-    if (-not (Test-Path $windowsNodeScript)) {
-      Write-Log "[Ceph] WARNING: Windows Ceph native setup script not found at '$windowsNodeScript'; skipping Windows Ceph native setup." -Console
+    # Ceph SMB access for Windows pods.
+    #
+    # Windows pods cannot consume CephFS through the native cephfs.csi.ceph.com nodeplugin. Instead
+    # the CephFS filesystem is exported over SMB using Ceph's built-in 'mgr/smb' module
+    # (https://docs.ceph.com/en/latest/mgr/smb/): cephadm deploys managed Samba containers on the
+    # existing Ceph cluster host that serve the CephFS volume as an SMB share. The SMB CSI driver
+    # (smb.csi.k8s.io, reused from the storage/smb addon manifests) then provisions PVCs from that
+    # share so both Windows and Linux pods can mount CephFS-backed volumes via a standard PVC.
+    #
+    # Order (per design): (1) configure the SMB CSI driver, then (2) configure the Ceph mgr/smb
+    # cluster + share on the already-running Ceph cluster.
+
+    $smbClusterId       = if ($Config -and $Config.PSObject.Properties.Name -contains 'smb' -and -not [string]::IsNullOrWhiteSpace($Config.smb.clusterId)) { "$($Config.smb.clusterId)" } else { 'k2ssmb' }
+    $smbShareId         = if ($Config -and $Config.PSObject.Properties.Name -contains 'smb' -and -not [string]::IsNullOrWhiteSpace($Config.smb.shareId)) { "$($Config.smb.shareId)" } else { 'cephfs' }
+    $smbShareName       = if ($Config -and $Config.PSObject.Properties.Name -contains 'smb' -and -not [string]::IsNullOrWhiteSpace($Config.smb.shareName)) { "$($Config.smb.shareName)" } else { $smbShareId }
+    $smbStorageClassName = if ($Config -and $Config.PSObject.Properties.Name -contains 'smb' -and -not [string]::IsNullOrWhiteSpace($Config.smb.storageClassName)) { "$($Config.smb.storageClassName)" } else { 'ceph-smb' }
+    $smbReclaimPolicy   = if ($Config -and $Config.PSObject.Properties.Name -contains 'smb' -and -not [string]::IsNullOrWhiteSpace($Config.smb.storageClassReclaimPolicy)) { "$($Config.smb.storageClassReclaimPolicy)" } else { 'Delete' }
+    $smbPlacementLabel  = if ($Config -and $Config.PSObject.Properties.Name -contains 'smb' -and -not [string]::IsNullOrWhiteSpace($Config.smb.placementLabel)) { "$($Config.smb.placementLabel)" } else { 'smb' }
+    $smbSubvolume       = if ($Config -and $Config.PSObject.Properties.Name -contains 'smb' -and -not [string]::IsNullOrWhiteSpace($Config.smb.subvolume)) { "$($Config.smb.subvolume)" } else { 'cross-os' }
+    $smbSubvolumeSizeGb = if ($Config -and $Config.PSObject.Properties.Name -contains 'smb' -and $null -ne $Config.smb -and ($Config.smb.PSObject.Properties.Name -contains 'subvolumeSizeInGb') -and [int]$Config.smb.subvolumeSizeInGb -gt 0) { [int]$Config.smb.subvolumeSizeInGb } else { 500 }
+
+    # ---- Part 1: Configure the SMB CSI driver (reuse the storage/smb addon manifests) ----
+    Write-Log '[CephSMB] Deploying SMB CSI driver' -Console
+
+    $smbNsExists = (Invoke-Kubectl -Params 'get', 'namespace', 'storage-smb', '--ignore-not-found', '--no-headers').Output
+    if ([string]::IsNullOrWhiteSpace($smbNsExists)) {
+      Write-Log "[CephSMB] Creating namespace 'storage-smb'" -Console
+      (Invoke-Kubectl -Params 'create', 'namespace', 'storage-smb').Output | Write-Log
     }
-    else {
-      Write-Log "[Ceph] Configuring native Ceph client and host mount on Windows worker node(s)" -Console
-      & $windowsNodeScript -Config $Config -ShowLogs:$ShowLogs
-      if ($LASTEXITCODE -ne 0) {
-        Write-Log "[Ceph] ERROR: Windows Ceph native setup failed (exit code $LASTEXITCODE)." -Console -Error
-        if ($EncodeStructuredOutput -eq $true) {
-          Send-ToCli -MessageType $MessageType -Message @{Error = (New-CephStructuredError -Message 'Windows Ceph native setup failed') }
-        }
-        exit 1
+
+    # The windows overlay includes the Linux base (RBAC, CSIDriver, controller, Linux node DaemonSet)
+    # plus the Windows HostProcess node DaemonSet required for Windows pods.
+    $smbManifestsDir = "$PSScriptRoot\..\smb\manifests\windows"
+    Write-Log "[CephSMB] Applying SMB CSI driver manifests from '$smbManifestsDir'" -Console
+    $smbApply = Invoke-Kubectl -Params 'apply', '-k', $smbManifestsDir
+    $smbApply.Output | Write-Log
+    if (-not $smbApply.Success) {
+      Write-Log '[CephSMB] ERROR: Failed to deploy SMB CSI driver manifests.' -Console -Error
+      if ($EncodeStructuredOutput -eq $true) {
+        Send-ToCli -MessageType $MessageType -Message @{Error = (New-CephStructuredError -Message 'SMB CSI driver deployment failed') }
       }
-      Write-Log "[Ceph] Windows Ceph native setup completed successfully" -Console
+      exit 1
     }
+
+    Write-Log '[CephSMB] Waiting for SMB CSI controller and node pods to become Ready' -Console
+    Wait-ForPodCondition -Condition Ready -Label 'app=csi-smb-controller' -Namespace 'storage-smb' -TimeoutSeconds 300 | Out-Null
+    Wait-ForPodCondition -Condition Ready -Label 'app=csi-smb-node'       -Namespace 'storage-smb' -TimeoutSeconds 300 | Out-Null
+    Wait-ForPodCondition -Condition Ready -Label 'app=csi-smb-node-win'   -Namespace 'storage-smb' -TimeoutSeconds 300 | Out-Null
+    Write-Log '[CephSMB] SMB CSI driver is Ready' -Console
+
+    # ---- Part 2: Configure the Ceph mgr/smb cluster + share on the existing Ceph cluster ----
+    Write-Log '[CephSMB] Configuring Ceph mgr/smb cluster and share on the existing Ceph cluster' -Console
+
+    $newSmbClusterScript = "$PSScriptRoot\scripts\linux\debian\New-CephSmbCluster.ps1"
+    if (-not (Test-Path $newSmbClusterScript)) {
+      Write-Log "[CephSMB] ERROR: Ceph SMB cluster script not found at '$newSmbClusterScript'." -Console -Error
+      if ($EncodeStructuredOutput -eq $true) {
+        Send-ToCli -MessageType $MessageType -Message @{Error = (New-CephStructuredError -Message 'Ceph SMB cluster script missing') }
+      }
+      exit 1
+    }
+
+    $smbClusterResult = & $newSmbClusterScript -NodeIp $clusterHostNodeIp `
+      -Config $Config `
+      -CephfsVolume $script:cephfsFilesystem `
+      -SmbClusterId $smbClusterId `
+      -SmbShareId $smbShareId `
+      -SmbShareName $smbShareName `
+      -PlacementLabel $smbPlacementLabel `
+      -CephfsSubvolume $smbSubvolume `
+      -CephfsSubvolumeSizeInGb $smbSubvolumeSizeGb `
+      -ShowLogs:$ShowLogs
+    if ($LASTEXITCODE -ne 0 -or $null -eq $smbClusterResult) {
+      Write-Log '[CephSMB] ERROR: Ceph mgr/smb cluster configuration failed.' -Console -Error
+      if ($EncodeStructuredOutput -eq $true) {
+        Send-ToCli -MessageType $MessageType -Message @{Error = (New-CephStructuredError -Message 'Ceph mgr/smb cluster configuration failed') }
+      }
+      exit 1
+    }
+    Write-Log '[CephSMB] Ceph mgr/smb cluster and share configured successfully' -Console
+
+    # Create (or update) the smbcreds Secret with the user the mgr/smb cluster was created for.
+    Write-Log "[CephSMB] Creating 'smbcreds' Secret in namespace 'storage-smb'" -Console
+    $smbCredsYaml = @"
+apiVersion: v1
+kind: Secret
+metadata:
+  name: smbcreds
+  namespace: storage-smb
+type: Opaque
+stringData:
+  username: $($smbClusterResult.SmbUser)
+  password: $($smbClusterResult.SmbPassword)
+"@
+    $smbCredsTemp = Join-Path ([System.IO.Path]::GetTempPath()) "k2s-ceph-smbcreds-$([guid]::NewGuid().ToString()).yaml"
+    Set-Content -Path $smbCredsTemp -Value $smbCredsYaml -Encoding utf8
+    (Invoke-Kubectl -Params 'apply', '-f', $smbCredsTemp).Output | Write-Log
+    Remove-Item -Path $smbCredsTemp -Force -ErrorAction SilentlyContinue
+
+    # Generate the ceph-smb StorageClass from the SMB addon template. The Samba service runs on the
+    # Ceph cluster host, so the SMB source is //<cephHostIp>/<shareName>. A 'subDir' using the PVC's
+    # namespace/name is injected so every PVC lands in a deterministic, isolated sub-directory of the
+    # shared CephFS subvolume - the same naming convention lets Windows (SMB CSI) and Linux (CephFS
+    # CSI) resolve the exact same path for cross-OS access.
+    $templatePath = "$PSScriptRoot\..\smb\manifests\base\storage-classes\template_StorageClass.yaml"
+    $smbSource    = "//$clusterHostNodeIp/$smbShareName"
+    $scContent = (Get-Content -Path $templatePath -Raw) `
+      -replace 'SC_NAME',          $smbStorageClassName `
+      -replace 'SC_SOURCE',        $smbSource `
+      -replace 'SC_RECLAIM_POLICY',$smbReclaimPolicy `
+      -replace '(?m)^# mount options.*\r?\nMOUNT_OPTIONS\s*$', ''
+    # Insert the dynamic sub-directory parameter right after the 'source:' line. Use the literal
+    # String.Replace (not -replace) so the '${pvc.metadata.*}' tokens are not treated as regex
+    # backreferences and are passed verbatim to the SMB CSI driver.
+    $subDirLine = '  subDir: ${pvc.metadata.namespace}/${pvc.metadata.name}'
+    $scContent = $scContent.Replace("  source: $smbSource", "  source: $smbSource`n$subDirLine")
+    $scTempFile = Join-Path ([System.IO.Path]::GetTempPath()) "k2s-ceph-smb-sc-$([guid]::NewGuid().ToString()).yaml"
+    Set-Content -Path $scTempFile -Value $scContent -Encoding utf8
+    Write-Log "[CephSMB] Applying StorageClass '$smbStorageClassName' (source: $smbSource)" -Console
+    (Invoke-Kubectl -Params 'apply', '-f', $scTempFile).Output | Write-Log
+    Remove-Item -Path $scTempFile -Force -ErrorAction SilentlyContinue
+
+    Write-Log "[CephSMB] Ceph SMB ready. Use StorageClass '$smbStorageClassName' for CephFS-backed volumes on Windows pods." -Console
   }
 }
 else {
-  Write-Log '[Ceph] Skipping native Windows Ceph setup (setupWindowsNode flag not set).' -Console
+  Write-Log '[Ceph] Skipping Ceph SMB setup (setupWindowsNode flag not set).' -Console
 }
 
 Update-StorageImplementationRegistry -Implementation 'ceph' -Enabled $true
@@ -640,11 +746,13 @@ Write-CephUsageForUser -CephfsFilesystem $script:cephfsFilesystem `
                        -DashboardPassword $dashboardPassword
 
 if ($EncodeStructuredOutput -eq $true) {
+    $allStorageClasses = @($script:storageClassName)
+    if (-not [string]::IsNullOrWhiteSpace($smbStorageClassName)) { $allStorageClasses += $smbStorageClassName }
     Send-ToCli -MessageType $MessageType -Message @{
         Error = $null
         Status = "Ceph CSI addon enabled successfully"
         AddonName = $addonName
-      StorageClasses = @($script:storageClassName)
+      StorageClasses = $allStorageClasses
     }
 }
 

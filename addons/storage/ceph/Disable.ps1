@@ -154,21 +154,6 @@ function Get-CephClusterHostNode {
     return [pscustomobject]@{ Name = $clusterHostNode; Ip = $clusterHostNodeIp }
 }
 
-function Get-CephWindowsMountPoint {
-    param([pscustomobject]$Config)
-
-    $defaultMountPoint = 'C:\k8s-ceph-share'
-    if ($null -eq $Config) {
-        return $defaultMountPoint
-    }
-
-    if (($Config.PSObject.Properties.Name -contains 'winMountPath') -and -not [string]::IsNullOrWhiteSpace("$($Config.winMountPath)")) {
-        return "$($Config.winMountPath)".Trim()
-    }
-
-    return $defaultMountPoint
-}
-
 <#
 .SYNOPSIS
 Tears down the Ceph cluster that the addon provisioned on the host node.
@@ -569,22 +554,54 @@ Write-Log 'Uninstalling storage ceph' -Console
 Write-Log "[Ceph] Deleting PersistentVolumeClaims bound to StorageClass $storageClassName" -Console
 Remove-PersistentVolumeClaimsForStorageClass -StorageClass $storageClassName | Write-Log
 
-Remove-CephCsiKubernetesResources -ManifestsDir "$PSScriptRoot\manifests" -StorageClassName $storageClassName
+# Also clean up the Ceph SMB (mgr/smb) integration created by the -w / setupWindowsNode enable path:
+# the ceph-smb StorageClass + PVCs, the smbcreds Secret, the SMB CSI driver, and the native mgr/smb
+# cluster/share on the Ceph cluster host. All best-effort; errors are non-fatal because the whole
+# Ceph cluster is removed afterwards regardless.
+$smbConfig = if ($Config -and $Config.PSObject.Properties.Name -contains 'smb') { $Config.smb } else { $null }
+$smbStorageClassName = if ($null -ne $smbConfig -and ($smbConfig.PSObject.Properties.Name -contains 'storageClassName') -and -not [string]::IsNullOrWhiteSpace($smbConfig.storageClassName)) { "$($smbConfig.storageClassName)" } else { 'ceph-smb' }
+$smbClusterId = if ($null -ne $smbConfig -and ($smbConfig.PSObject.Properties.Name -contains 'clusterId') -and -not [string]::IsNullOrWhiteSpace($smbConfig.clusterId)) { "$($smbConfig.clusterId)" } else { 'k2ssmb' }
+$smbPlacementLabel = if ($null -ne $smbConfig -and ($smbConfig.PSObject.Properties.Name -contains 'placementLabel') -and -not [string]::IsNullOrWhiteSpace($smbConfig.placementLabel)) { "$($smbConfig.placementLabel)" } else { 'smb' }
 
-# Remove the native Ceph client setup from Windows worker node(s): unmount CephFS, remove the
-# startup task and delete the native client configuration.
-$setupInfo = Get-SetupInfo
-if ($setupInfo.LinuxOnly -ne $true) {
-    $removeWindowsScript = "$PSScriptRoot\scripts\windows\Remove-CephFromWindows.ps1"
-    if (Test-Path $removeWindowsScript) {
-        $windowsMountPoint = Get-CephWindowsMountPoint -Config $Config
-        Write-Log '[Ceph] Removing native Ceph setup from Windows worker node(s)' -Console
-        & $removeWindowsScript -MountPoint $windowsMountPoint -ShowLogs:$ShowLogs
-        if ($LASTEXITCODE -ne 0) {
-            Write-Log "[Ceph] WARNING: Windows Ceph native setup removal returned exit code $LASTEXITCODE." -Console
-        }
+Write-Log "[CephSMB] Deleting PersistentVolumeClaims bound to StorageClass $smbStorageClassName" -Console
+Remove-PersistentVolumeClaimsForStorageClass -StorageClass $smbStorageClassName | Write-Log
+
+$smbNsExists = (Invoke-Kubectl -Params 'get', 'namespace', 'storage-smb', '--ignore-not-found', '--no-headers').Output
+$smbScExists = (Invoke-Kubectl -Params 'get', 'storageclass', $smbStorageClassName, '--ignore-not-found', '--no-headers').Output
+if (-not [string]::IsNullOrWhiteSpace($smbNsExists) -or -not [string]::IsNullOrWhiteSpace($smbScExists)) {
+    Write-Log '[CephSMB] Removing Ceph SMB StorageClass, credentials and SMB CSI driver' -Console
+
+    # Delete the ceph-smb StorageClass.
+    (Invoke-Kubectl -Params 'delete', 'storageclass', $smbStorageClassName, '--ignore-not-found').Output | Write-Log
+
+    # Delete the smbcreds Secret.
+    (Invoke-Kubectl -Params 'delete', 'secret', 'smbcreds', '-n', 'storage-smb', '--ignore-not-found').Output | Write-Log
+
+    # Remove the SMB CSI driver resources (reusing the same manifests used on enable).
+    $smbManifestsDir = "$PSScriptRoot\..\smb\manifests\windows"
+    if (Test-Path $smbManifestsDir) {
+        (Invoke-Kubectl -Params 'delete', '-k', $smbManifestsDir, '--ignore-not-found', '--wait=false').Output | Write-Log
+    }
+
+    # Delete the storage-smb namespace (let it terminate in background).
+    (Invoke-Kubectl -Params 'delete', 'namespace', 'storage-smb', '--ignore-not-found', '--wait=false').Output | Write-Log
+}
+
+# Remove the native Ceph mgr/smb cluster + share on the Ceph cluster host.
+$cephHostNodeForSmb = Get-CephClusterHostNode -Config $Config
+if (-not [string]::IsNullOrWhiteSpace($cephHostNodeForSmb.Ip)) {
+    $removeSmbScript = "$PSScriptRoot\scripts\linux\debian\Remove-CephSmbCluster.ps1"
+    if (Test-Path $removeSmbScript) {
+        Write-Log "[CephSMB] Removing native Ceph mgr/smb cluster '$smbClusterId'" -Console
+        & $removeSmbScript -NodeIp $cephHostNodeForSmb.Ip `
+            -Config $Config `
+            -SmbClusterId $smbClusterId `
+            -PlacementLabel $smbPlacementLabel `
+            -ShowLogs:$ShowLogs
     }
 }
+
+Remove-CephCsiKubernetesResources -ManifestsDir "$PSScriptRoot\manifests" -StorageClassName $storageClassName
 
 $cephHostNode = Get-CephClusterHostNode -Config $Config
 if (-not [string]::IsNullOrWhiteSpace($cephHostNode.Ip)) {
