@@ -83,8 +83,7 @@ func run(cmd *cobra.Command, args []string) error {
 		err = addUserIntegration.AddById(userId)
 	}
 	if err != nil {
-		var userNotFoundErr users_contract.ErrUserNotFound
-		if errors.As(err, &userNotFoundErr) {
+		if userNotFoundErr, ok := errors.AsType[users_contract.ErrUserNotFound](err); ok {
 			return newUserNotFoundFailure(userNotFoundErr)
 		}
 		return fmt.Errorf("failed to add user: %w", err)

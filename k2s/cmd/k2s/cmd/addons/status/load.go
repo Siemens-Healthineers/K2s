@@ -33,9 +33,8 @@ func LoadAddonStatus(addonProv provider.AddonProvider, addonName string, addonDi
 	// Map provider result to LoadedAddonStatus
 	for _, a := range result.Addons {
 		if a.Name == addonName {
-			enabled := a.Enabled
 			loaded := &LoadedAddonStatus{
-				Enabled: &enabled,
+				Enabled: new(a.Enabled),
 			}
 			for _, p := range a.Props {
 				loaded.Props = append(loaded.Props, AddonStatusProp{
@@ -50,6 +49,5 @@ func LoadAddonStatus(addonProv provider.AddonProvider, addonName string, addonDi
 	}
 
 	// Addon not found in status result
-	enabled := false
-	return &LoadedAddonStatus{Enabled: &enabled}, nil
+	return &LoadedAddonStatus{Enabled: new(false)}, nil
 }

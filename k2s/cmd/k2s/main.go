@@ -50,14 +50,12 @@ func main() {
 
 	exitCode = cli.ExitCodeFailure
 
-	var cmdFailure *common.CmdFailure
-	if errors.As(err, &cmdFailure) {
+	if cmdFailure, ok := errors.AsType[*common.CmdFailure](err); ok {
 		handleCmdFailure(cmdFailure.Severity, cmdFailure.Code, cmdFailure.Message, cmdFailure.SuppressCliOutput)
 		return
 	}
 
-	var providerFailure *provider.ProviderFailure
-	if errors.As(err, &providerFailure) {
+	if providerFailure, ok := errors.AsType[*provider.ProviderFailure](err); ok {
 		handleCmdFailure(common.FailureSeverity(providerFailure.Severity), providerFailure.Code, providerFailure.Message, providerFailure.SuppressCliOutput)
 		return
 	}
