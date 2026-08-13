@@ -7,7 +7,6 @@ import (
 	"log/slog"
 
 	"github.com/samber/lo"
-	slogmulti "github.com/samber/slog-multi"
 	base "github.com/siemens-healthineers/k2s/internal/logging"
 )
 
@@ -54,7 +53,7 @@ func (l *Slogger) SetHandlers(handlerBuilders ...HandlerBuilder) *Slogger {
 		return h.(slog.Handler)
 	})
 
-	l.Logger = slog.New(slogmulti.Fanout(slogHandlers...))
+	l.Logger = slog.New(slog.NewMultiHandler(slogHandlers...))
 
 	return l
 }
