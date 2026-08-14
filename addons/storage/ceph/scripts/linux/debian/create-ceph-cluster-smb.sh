@@ -32,7 +32,7 @@
 #           same underlying storage is shared cross-OS; the SMB CSI StorageClass then places each PVC
 #           in an isolated '<namespace>/<name>' sub-directory inside it.
 #   $11 - Optional subvolume size in bytes (from ceph-config.json 'smb.subvolumeSizeInGb' * GiB)
-#   $12 - Optional subvolume group name (default '_nogroup')
+#   $12 - Optional subvolume group name (default 'csi')
 
 CEPH_IMAGE_INPUT="${1:-}"
 CEPH_FS_NAME="${2:-cephfs}"
@@ -46,6 +46,7 @@ PLACEMENT_LABEL="${9:-smb}"
 SMB_SUBVOLUME="${10:-}"
 SMB_SUBVOLUME_SIZE_BYTES="${11:-}"
 SMB_SUBVOLUME_GROUP="${12:-}"
+
 
 log_info() {
     echo "[CephSMB] $1"
@@ -93,8 +94,10 @@ ceph_cmd() {
 }
 
 # Ensure the Ceph command interface is reachable before doing anything.
+# NOTE: 'timeout' is an external binary and cannot invoke shell functions, so the readiness
+# check must use the full command inline (matching the pattern in create-ceph-cluster.sh).
 for attempt in $(seq 1 18); do
-    if timeout 30 ceph_cmd -s >/dev/null 2>&1; then
+    if timeout 30 sudo "$CEPHADM_BIN" shell -- ceph -s >/dev/null 2>&1; then
         break
     fi
     if [ "$attempt" -eq 18 ]; then
@@ -171,6 +174,14 @@ if ! ceph_cmd smb cluster create "$SMB_CLUSTER_ID" user \
     exit 1
 fi
 
+# The smb module initializes an internal libcephfs/RADOS client on the first 'share create'
+# that requires CephFS access. This client is not ready immediately after module enable +
+# cluster create and returns 'rados_initialize failed with error code: -22' (EINVAL) if called
+# too soon. Wait for the mgr/smb module's RADOS client to settle; the share create retry loop
+# will catch any remaining issues.
+log_info "Waiting for smb module RADOS client to settle before share creation..."
+sleep 5
+
 # Cross-OS shared storage: create a dedicated CephFS subvolume and export THAT as the SMB share.
 # Both operating systems then address the same physical storage - Linux pods via the CephFS CSI
 # driver and Windows pods via the SMB CSI driver - and the SMB CSI StorageClass places every PVC in
@@ -194,16 +205,45 @@ if [ -n "$SMB_SUBVOLUME" ]; then
         exit 1
     fi
 
-    SMB_SHARE_ARGS+=("$SMB_PATH" "--subvolume=$SMB_SUBVOLUME")
-    SMB_SHARE_ARGS+=("--name=$SMB_SHARE_NAME")
-    SMB_SHARE_ARGS+=("--extra-config=force create mode = 0777, force directory mode = 0777")
-    log_info "Creating SMB share '$SMB_SHARE_ID' (name '$SMB_SHARE_NAME') exporting subvolume '$SMB_SUBVOLUME' of CephFS volume '$CEPH_FS_NAME'"
+    # Resolve the subvolume's absolute CephFS path explicitly. Using --subvolume in
+    # 'ceph smb share create' triggers an internal RADOS/libcephfs path lookup inside the
+    # mgr/smb module that fails with 'rados_initialize failed with error code: -22' (EINVAL)
+    # when the module was just enabled and its internal RADOS client is not yet fully settled.
+    # Passing the resolved path as a positional argument avoids that lookup entirely.
+    GETPATH_ARGS=(fs subvolume getpath "$CEPH_FS_NAME" "$SMB_SUBVOLUME")
+    if [ -n "$SMB_SUBVOLUME_GROUP" ]; then
+        GETPATH_ARGS+=("--group_name=$SMB_SUBVOLUME_GROUP")
+    fi
+    SUBVOL_PATH="$(ceph_cmd "${GETPATH_ARGS[@]}" 2>/dev/null | tr -d '\n')"
+    if [ -z "$SUBVOL_PATH" ]; then
+        log_error "Failed to resolve path for subvolume '$SMB_SUBVOLUME' on volume '$CEPH_FS_NAME'"
+        exit 1
+    fi
+    log_info "Resolved subvolume path: $SUBVOL_PATH"
+
+    # Positional arguments: <cluster_id> <share_id> <cephfs_volume> <path> [<share_name>]
+    # NOTE: the resolved absolute CephFS path is passed as <path> without the optional <subvolume>
+    # positional arg. When <subvolume> is present the module validates <path> relative to the
+    # subvolume root, which conflicts with the absolute internal path returned by getpath.
+    SMB_SHARE_ARGS+=("$SUBVOL_PATH" "$SMB_SHARE_NAME")
+    log_info "Creating SMB share '$SMB_SHARE_ID' (name '$SMB_SHARE_NAME') exporting subvolume '$SMB_SUBVOLUME' (path '$SUBVOL_PATH') of CephFS volume '$CEPH_FS_NAME'"
 else
-    SMB_SHARE_ARGS+=("--path=$SMB_PATH" "--name=$SMB_SHARE_NAME")
+    SMB_SHARE_ARGS+=("$SMB_PATH" "$SMB_SHARE_NAME")
     log_info "Creating SMB share '$SMB_SHARE_ID' (name '$SMB_SHARE_NAME') exporting CephFS volume '$CEPH_FS_NAME' path '$SMB_PATH'"
 fi
 
-if ! ceph_cmd "${SMB_SHARE_ARGS[@]}"; then
+SMB_SHARE_CREATE_OK=0
+for attempt in $(seq 1 6); do
+    if ceph_cmd "${SMB_SHARE_ARGS[@]}"; then
+        SMB_SHARE_CREATE_OK=1
+        break
+    fi
+    if [ "$attempt" -lt 6 ]; then
+        log_info "SMB share create attempt $attempt/6 failed (smb module RADOS client may not be ready), retrying in 20s..."
+        sleep 20
+    fi
+done
+if [ "$SMB_SHARE_CREATE_OK" -eq 0 ]; then
     log_error "Failed to create SMB share '$SMB_SHARE_ID' on cluster '$SMB_CLUSTER_ID'"
     exit 1
 fi

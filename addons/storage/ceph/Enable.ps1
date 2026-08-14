@@ -620,18 +620,34 @@ if ($SetupWindowsNode -eq $true) {
     # Reuse the existing SMB addon manifests and render them for a Ceph-specific namespace by
     # replacing the default 'storage-smb' token. This keeps one canonical manifest source while
     # preventing collisions with the standalone SMB addon.
-    $smbManifestsDir = "$PSScriptRoot\..\smb\manifests\windows"
+    # NOTE: The windows/kustomization.yaml references '../base', so the entire 'manifests' tree
+    # (both 'windows' and 'base') must be copied to preserve the relative path.
+    # The 'base/storage-classes' resource is omitted: its kustomization.yaml is generated at
+    # runtime by the standalone SMB addon and is not present in source control. Ceph manages its
+    # own StorageClass separately, so the storage-classes overlay is not needed here.
+    $smbManifestsSrcDir = "$PSScriptRoot\..\smb\manifests"
     $renderedSmbManifestsDir = Join-Path ([System.IO.Path]::GetTempPath()) "k2s-ceph-smb-manifests-$([guid]::NewGuid().ToString())"
     New-Item -ItemType Directory -Path $renderedSmbManifestsDir -Force | Out-Null
-    Copy-Item -Path (Join-Path $smbManifestsDir '*') -Destination $renderedSmbManifestsDir -Recurse -Force
+    Copy-Item -Path (Join-Path $smbManifestsSrcDir '*') -Destination $renderedSmbManifestsDir -Recurse -Force
+    # Remove the storage-classes directory — it relies on a generated kustomization.yaml that
+    # is not present here, and Ceph creates its own StorageClass independently.
+    $renderedStorageClassesDir = Join-Path $renderedSmbManifestsDir 'base\storage-classes'
+    Remove-Item -Path $renderedStorageClassesDir -Recurse -Force -ErrorAction SilentlyContinue
+    # Remove the 'storage-classes' resource entry from base/kustomization.yaml so kustomize
+    # does not attempt to load the now-absent directory.
+    $baseKustomizationPath = Join-Path $renderedSmbManifestsDir 'base\kustomization.yaml'
+    $baseKustomization = Get-Content -Path $baseKustomizationPath -Raw
+    $baseKustomization = $baseKustomization -replace '(?m)^\s*-\s*storage-classes\r?\n', ''
+    Set-Content -Path $baseKustomizationPath -Value $baseKustomization -Encoding utf8
     Get-ChildItem -Path $renderedSmbManifestsDir -Recurse -File | ForEach-Object {
       $manifestContent = Get-Content -Path $_.FullName -Raw
       $manifestContent = $manifestContent.Replace('storage-smb', $smbNamespace)
       Set-Content -Path $_.FullName -Value $manifestContent -Encoding utf8
     }
 
-    Write-Log "[CephSMB] Applying SMB CSI driver manifests from '$renderedSmbManifestsDir' (namespace '$smbNamespace')" -Console
-    $smbApply = Invoke-Kubectl -Params 'apply', '-k', $renderedSmbManifestsDir
+    $renderedSmbWindowsDir = Join-Path $renderedSmbManifestsDir 'windows'
+    Write-Log "[CephSMB] Applying SMB CSI driver manifests from '$renderedSmbWindowsDir' (namespace '$smbNamespace')" -Console
+    $smbApply = Invoke-Kubectl -Params 'apply', '-k', $renderedSmbWindowsDir
     $smbApply.Output | Write-Log
     Remove-Item -Path $renderedSmbManifestsDir -Recurse -Force -ErrorAction SilentlyContinue
     if (-not $smbApply.Success) {

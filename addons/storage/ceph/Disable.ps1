@@ -580,18 +580,30 @@ if (-not [string]::IsNullOrWhiteSpace($smbNsExists) -or -not [string]::IsNullOrW
 
     # Remove the SMB CSI driver resources by rendering the shared SMB addon manifests for this
     # namespace (same approach as Enable.ps1).
-    $smbManifestsDir = "$PSScriptRoot\..\smb\manifests\windows"
-    if (Test-Path $smbManifestsDir) {
+    # NOTE: The windows/kustomization.yaml references '../base', so the entire 'manifests' tree
+    # (both 'windows' and 'base') must be copied to preserve the relative path.
+    $smbManifestsSrcDir = "$PSScriptRoot\..\smb\manifests"
+    if (Test-Path $smbManifestsSrcDir) {
         $renderedSmbManifestsDir = Join-Path ([System.IO.Path]::GetTempPath()) "k2s-ceph-smb-manifests-delete-$([guid]::NewGuid().ToString())"
         New-Item -ItemType Directory -Path $renderedSmbManifestsDir -Force | Out-Null
-        Copy-Item -Path (Join-Path $smbManifestsDir '*') -Destination $renderedSmbManifestsDir -Recurse -Force
+        Copy-Item -Path (Join-Path $smbManifestsSrcDir '*') -Destination $renderedSmbManifestsDir -Recurse -Force
+        # Remove the storage-classes directory and its reference from base/kustomization.yaml.
+        # Its kustomization.yaml is generated at runtime by the standalone SMB addon and is not
+        # present in source control; Ceph manages its own StorageClass independently.
+        $renderedStorageClassesDir = Join-Path $renderedSmbManifestsDir 'base\storage-classes'
+        Remove-Item -Path $renderedStorageClassesDir -Recurse -Force -ErrorAction SilentlyContinue
+        $baseKustomizationPath = Join-Path $renderedSmbManifestsDir 'base\kustomization.yaml'
+        $baseKustomization = Get-Content -Path $baseKustomizationPath -Raw
+        $baseKustomization = $baseKustomization -replace '(?m)^\s*-\s*storage-classes\r?\n', ''
+        Set-Content -Path $baseKustomizationPath -Value $baseKustomization -Encoding utf8
         Get-ChildItem -Path $renderedSmbManifestsDir -Recurse -File | ForEach-Object {
             $manifestContent = Get-Content -Path $_.FullName -Raw
             $manifestContent = $manifestContent.Replace('storage-smb', $smbNamespace)
             Set-Content -Path $_.FullName -Value $manifestContent -Encoding utf8
         }
 
-        (Invoke-Kubectl -Params 'delete', '-k', $renderedSmbManifestsDir, '--ignore-not-found', '--wait=false').Output | Write-Log
+        $renderedSmbWindowsDir = Join-Path $renderedSmbManifestsDir 'windows'
+        (Invoke-Kubectl -Params 'delete', '-k', $renderedSmbWindowsDir, '--ignore-not-found', '--wait=false').Output | Write-Log
         Remove-Item -Path $renderedSmbManifestsDir -Recurse -Force -ErrorAction SilentlyContinue
     }
 

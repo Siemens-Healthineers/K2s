@@ -18,7 +18,7 @@
 #   $2 - Optional cephadm host placement label to drop (default 'smb')
 #   $3 - Optional CephFS volume name (needed to remove the shared subvolume)
 #   $4 - Optional shared CephFS subvolume to remove (from ceph-config.json 'smb.subvolume')
-#   $5 - Optional subvolume group name (default '_nogroup')
+#   $5 - Optional subvolume group name (default 'csi')
 
 SMB_CLUSTER_ID="${1:-k2ssmb}"
 PLACEMENT_LABEL="${2:-smb}"
