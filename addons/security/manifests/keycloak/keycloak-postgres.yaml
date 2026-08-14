@@ -81,7 +81,7 @@ spec:
             claimName: postgressql-pvc
       containers:
         - name: postgres
-          image: docker.io/library/postgres:18.4
+          image: docker.io/library/postgres:18.6
           imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 5432
