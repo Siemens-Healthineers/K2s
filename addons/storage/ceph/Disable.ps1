@@ -561,6 +561,7 @@ Remove-PersistentVolumeClaimsForStorageClass -StorageClass $storageClassName | W
 $smbConfig = if ($Config -and $Config.PSObject.Properties.Name -contains 'smb') { $Config.smb } else { $null }
 $smbStorageClassName = if ($null -ne $smbConfig -and ($smbConfig.PSObject.Properties.Name -contains 'storageClassName') -and -not [string]::IsNullOrWhiteSpace($smbConfig.storageClassName)) { "$($smbConfig.storageClassName)" } else { 'ceph-smb' }
 $smbClusterId = if ($null -ne $smbConfig -and ($smbConfig.PSObject.Properties.Name -contains 'clusterId') -and -not [string]::IsNullOrWhiteSpace($smbConfig.clusterId)) { "$($smbConfig.clusterId)" } else { 'k2ssmb' }
+$smbShareName = if ($null -ne $smbConfig -and ($smbConfig.PSObject.Properties.Name -contains 'shareName') -and -not [string]::IsNullOrWhiteSpace($smbConfig.shareName)) { "$($smbConfig.shareName)" } else { 'cephfs' }
 $smbPlacementLabel = if ($null -ne $smbConfig -and ($smbConfig.PSObject.Properties.Name -contains 'placementLabel') -and -not [string]::IsNullOrWhiteSpace($smbConfig.placementLabel)) { "$($smbConfig.placementLabel)" } else { 'smb' }
 $smbNamespace = if ($null -ne $smbConfig -and ($smbConfig.PSObject.Properties.Name -contains 'namespace') -and -not [string]::IsNullOrWhiteSpace($smbConfig.namespace)) { "$($smbConfig.namespace)" } else { 'storage-smb-ceph' }
 $smbWinMountPath = if ($null -ne $smbConfig -and ($smbConfig.PSObject.Properties.Name -contains 'winMountPath') -and -not [string]::IsNullOrWhiteSpace($smbConfig.winMountPath)) { "$($smbConfig.winMountPath)" } else { 'C:\k8s-ceph-share' }
@@ -625,7 +626,9 @@ if (-not [string]::IsNullOrWhiteSpace($cephHostNodeForSmb.Ip)) {
             -ShowLogs:$ShowLogs
     }
 
-    # Remove host-side convenience shortcut and cached credential created during enable.
+    $cephSmbSharePath = "\\$($cephHostNodeForSmb.Ip)\$smbShareName"
+
+    # Remove the host shortcut first (before disconnecting so the reparse point removal works).
     if (Test-Path -LiteralPath $smbWinMountPath) {
         $shortcutItem = Get-Item -LiteralPath $smbWinMountPath -ErrorAction SilentlyContinue
         if ($null -ne $shortcutItem -and ($shortcutItem.Attributes -band [IO.FileAttributes]::ReparsePoint)) {
@@ -633,6 +636,17 @@ if (-not [string]::IsNullOrWhiteSpace($cephHostNodeForSmb.Ip)) {
             Remove-Item -LiteralPath $smbWinMountPath -Force -ErrorAction SilentlyContinue
         }
     }
+
+    # Remove all SMB mappings/sessions to this server so nothing lingers after disable.
+    Get-SmbGlobalMapping -ErrorAction SilentlyContinue |
+        Where-Object { $_.RemotePath -like "\\$($cephHostNodeForSmb.Ip)\*" } |
+        Remove-SmbGlobalMapping -Force -ErrorAction SilentlyContinue
+    Get-SmbMapping -ErrorAction SilentlyContinue |
+        Where-Object { $_.RemotePath -like "\\$($cephHostNodeForSmb.Ip)\*" } |
+        Remove-SmbMapping -Force -ErrorAction SilentlyContinue
+    net use "\\$($cephHostNodeForSmb.Ip)" /delete /y 2>&1 | Write-Log
+
+    # Remove the Credential Manager entry created during enable.
     cmdkey /delete:$($cephHostNodeForSmb.Ip) 2>&1 | Write-Log
 }
 

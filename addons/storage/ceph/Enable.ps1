@@ -123,9 +123,31 @@ function New-CephSmbHostShortcut {
   $sharePath = "\\$ClusterHostIp\$ShareName"
   Write-Log "[CephSMB] Creating host shortcut '$WinMountPath' -> '$sharePath'" -Console
 
-  # Cache credentials in Windows Credential Manager so Explorer can resolve the UNC path without
-  # prompting for credentials on every access.
+  # Step 1: Disconnect ALL existing Windows SMB sessions to this server.
+  # Windows multiplexes all shares over a single authenticated session per server. Once any
+  # prior connection (even anonymous/null) is open, subsequent 'net use' calls reuse that
+  # session and silently ignore new credentials — causing every auth attempt to fail even
+  # with correct credentials. Clean-slate disconnect avoids this session-reuse trap.
+  Write-Log "[CephSMB] Disconnecting any existing SMB sessions to '$ClusterHostIp'"
+  net use "\\$ClusterHostIp" /delete /y 2>&1 | Out-Null
+  Get-SmbGlobalMapping -ErrorAction SilentlyContinue |
+    Where-Object { $_.RemotePath -like "\\$ClusterHostIp\*" } |
+    Remove-SmbGlobalMapping -Force -ErrorAction SilentlyContinue
+  Get-SmbMapping -ErrorAction SilentlyContinue |
+    Where-Object { $_.RemotePath -like "\\$ClusterHostIp\*" } |
+    Remove-SmbMapping -Force -ErrorAction SilentlyContinue
+
+  # Step 2: Cache credentials in Windows Credential Manager now, BEFORE authenticating.
+  # This ensures Explorer can open the UNC path with the right creds on first access even
+  # if the SmbGlobalMapping step below fails.
   cmdkey /add:$ClusterHostIp /user:$SmbUser /pass:$SmbPassword 2>&1 | Write-Log
+  Write-Log "[CephSMB] Credentials cached for '$ClusterHostIp' in Windows Credential Manager" -Console
+
+  # Step 3: Do NOT create a host-level SMB mapping here.
+  # The SMB CSI node plugin creates and owns New-SmbGlobalMapping sessions itself for pod mounts.
+  # Pre-establishing an extra mapping from the addon can trigger Windows error 1219 when CSI
+  # resolves the username in a different form (for example 'smbuser' vs 'SERVER\smbuser').
+  # Keep only the cached credential + symlink so host Explorer access remains convenient.
 
   if (Test-Path -LiteralPath $WinMountPath) {
     $existingItem = Get-Item -LiteralPath $WinMountPath -ErrorAction SilentlyContinue
@@ -138,7 +160,13 @@ function New-CephSmbHostShortcut {
     }
   }
 
-  New-Item -Path $WinMountPath -ItemType SymbolicLink -Target $sharePath -Force | Out-Null
+  # New-Item -ItemType SymbolicLink validates UNC target existence and can fail before
+  # credentials are fully applied. mklink creates the link without that upfront UNC check.
+  $mklinkCmd = "mklink /D `"$WinMountPath`" `"$sharePath`""
+  cmd /c $mklinkCmd 2>&1 | Write-Log
+  if ($LASTEXITCODE -ne 0) {
+    throw "Failed to create host shortcut '$WinMountPath' with mklink (exit code $LASTEXITCODE)."
+  }
   Write-Log "[CephSMB] Host shortcut ready: '$WinMountPath'" -Console
 }
 
