@@ -45,7 +45,10 @@ SMB_PATH="${8:-/}"
 PLACEMENT_LABEL="${9:-smb}"
 SMB_SUBVOLUME="${10:-}"
 SMB_SUBVOLUME_SIZE_BYTES="${11:-}"
-SMB_SUBVOLUME_GROUP="${12:-}"
+SMB_SUBVOLUME_GROUP="${12:-csi}"
+if [ -z "$SMB_SUBVOLUME_GROUP" ]; then
+    SMB_SUBVOLUME_GROUP="csi"
+fi
 
 
 log_info() {
@@ -190,6 +193,16 @@ sleep 5
 # accessible from the other.
 SMB_SHARE_ARGS=(smb share create "$SMB_CLUSTER_ID" "$SMB_SHARE_ID" "$CEPH_FS_NAME")
 if [ -n "$SMB_SUBVOLUME" ]; then
+    if ! ceph_cmd fs subvolumegroup ls "$CEPH_FS_NAME" --format json 2>/dev/null | grep -q "\"name\":[[:space:]]*\"${SMB_SUBVOLUME_GROUP}\""; then
+        log_info "CephFS subvolume group '$SMB_SUBVOLUME_GROUP' does not exist on volume '$CEPH_FS_NAME'; creating it now"
+        if ! ceph_cmd fs subvolumegroup create "$CEPH_FS_NAME" "$SMB_SUBVOLUME_GROUP" >/dev/null 2>&1; then
+            log_error "Failed to create CephFS subvolume group '$SMB_SUBVOLUME_GROUP' on volume '$CEPH_FS_NAME'"
+            exit 1
+        fi
+    else
+        log_info "CephFS subvolume group '$SMB_SUBVOLUME_GROUP' already exists on volume '$CEPH_FS_NAME'"
+    fi
+
     SUBVOL_CREATE_ARGS=(fs subvolume create "$CEPH_FS_NAME" "$SMB_SUBVOLUME")
     if [ -n "$SMB_SUBVOLUME_SIZE_BYTES" ] && [ "$SMB_SUBVOLUME_SIZE_BYTES" -gt 0 ] 2>/dev/null; then
         SUBVOL_CREATE_ARGS+=("--size=$SMB_SUBVOLUME_SIZE_BYTES")
@@ -199,9 +212,9 @@ if [ -n "$SMB_SUBVOLUME" ]; then
     if [ -n "$SMB_SUBVOLUME_GROUP" ]; then
         SUBVOL_CREATE_ARGS+=("--group_name=$SMB_SUBVOLUME_GROUP")
     fi
-    log_info "Creating shared CephFS subvolume '$SMB_SUBVOLUME' on volume '$CEPH_FS_NAME'"
+    log_info "Creating shared CephFS subvolume '$SMB_SUBVOLUME' on volume '$CEPH_FS_NAME' in group '$SMB_SUBVOLUME_GROUP'"
     if ! ceph_cmd "${SUBVOL_CREATE_ARGS[@]}"; then
-        log_error "Failed to create CephFS subvolume '$SMB_SUBVOLUME'"
+        log_error "Failed to create CephFS subvolume '$SMB_SUBVOLUME' in group '$SMB_SUBVOLUME_GROUP'"
         exit 1
     fi
 

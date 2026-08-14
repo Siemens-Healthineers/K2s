@@ -106,6 +106,42 @@ function New-CephStructuredError {
   return (New-Error -Code 'addon-enable-failed' -Message $Message)
 }
 
+function New-CephSmbHostShortcut {
+  param(
+    [Parameter(Mandatory = $true)]
+    [string]$ClusterHostIp,
+    [Parameter(Mandatory = $true)]
+    [string]$ShareName,
+    [Parameter(Mandatory = $true)]
+    [string]$SmbUser,
+    [Parameter(Mandatory = $true)]
+    [string]$SmbPassword,
+    [Parameter(Mandatory = $true)]
+    [string]$WinMountPath
+  )
+
+  $sharePath = "\\$ClusterHostIp\$ShareName"
+  Write-Log "[CephSMB] Creating host shortcut '$WinMountPath' -> '$sharePath'" -Console
+
+  # Cache credentials in Windows Credential Manager so Explorer can resolve the UNC path without
+  # prompting for credentials on every access.
+  cmdkey /add:$ClusterHostIp /user:$SmbUser /pass:$SmbPassword 2>&1 | Write-Log
+
+  if (Test-Path -LiteralPath $WinMountPath) {
+    $existingItem = Get-Item -LiteralPath $WinMountPath -ErrorAction SilentlyContinue
+    if ($null -ne $existingItem -and ($existingItem.Attributes -band [IO.FileAttributes]::ReparsePoint)) {
+      Remove-Item -LiteralPath $WinMountPath -Force -ErrorAction SilentlyContinue
+    }
+    else {
+      Write-Log "[CephSMB] Host shortcut path '$WinMountPath' already exists and is not a symlink; leaving it unchanged." -Console
+      return
+    }
+  }
+
+  New-Item -Path $WinMountPath -ItemType SymbolicLink -Target $sharePath -Force | Out-Null
+  Write-Log "[CephSMB] Host shortcut ready: '$WinMountPath'" -Console
+}
+
 function Write-CephUsageForUser {
   param(
     [Parameter(Mandatory = $false)]
@@ -127,28 +163,8 @@ function Write-CephUsageForUser {
   @"
 
                                         USAGE NOTES
- The Ceph CSI storage addon is enabled. Dynamic CephFS provisioning is available
- through the following Kubernetes StorageClass:
-
-     StorageClass:      $StorageClassName
-     Provisioner:       cephfs.csi.ceph.com
-     CephFS filesystem: $CephfsFilesystem
-     CephFS pool:       $CephfsPool
-     Cluster ID:        $ClusterId
-
- To use it, reference the StorageClass in a PersistentVolumeClaim, for example:
-
-     apiVersion: v1
-     kind: PersistentVolumeClaim
-     metadata:
-       name: my-cephfs-pvc
-     spec:
-       accessModes:
-         - ReadWriteMany
-       storageClassName: $StorageClassName
-       resources:
-         requests:
-           storage: 1Gi
+(see
+ https://docs.ceph.com/en/latest/):
 
  Inspect the provisioner workloads with:
      kubectl get pods -n $cephOperatorNamespace
@@ -607,6 +623,7 @@ if ($SetupWindowsNode -eq $true) {
     $smbSubvolume       = if ($Config -and $Config.PSObject.Properties.Name -contains 'smb' -and -not [string]::IsNullOrWhiteSpace($Config.smb.subvolume)) { "$($Config.smb.subvolume)" } else { 'cross-os' }
     $smbSubvolumeSizeGb = if ($Config -and $Config.PSObject.Properties.Name -contains 'smb' -and $null -ne $Config.smb -and ($Config.smb.PSObject.Properties.Name -contains 'subvolumeSizeInGb') -and [int]$Config.smb.subvolumeSizeInGb -gt 0) { [int]$Config.smb.subvolumeSizeInGb } else { 500 }
     $smbNamespace       = if ($Config -and $Config.PSObject.Properties.Name -contains 'smb' -and -not [string]::IsNullOrWhiteSpace($Config.smb.namespace)) { "$($Config.smb.namespace)" } else { 'storage-smb-ceph' }
+    $smbWinMountPath    = if ($Config -and $Config.PSObject.Properties.Name -contains 'smb' -and -not [string]::IsNullOrWhiteSpace($Config.smb.winMountPath)) { "$($Config.smb.winMountPath)" } else { 'C:\k8s-ceph-share' }
 
     # ---- Part 1: Configure the SMB CSI driver (reuse the storage/smb addon manifests) ----
     Write-Log '[CephSMB] Deploying SMB CSI driver' -Console
@@ -736,6 +753,22 @@ stringData:
     Write-Log "[CephSMB] Applying StorageClass '$smbStorageClassName' (source: $smbSource)" -Console
     (Invoke-Kubectl -Params 'apply', '-f', $scTempFile).Output | Write-Log
     Remove-Item -Path $scTempFile -Force -ErrorAction SilentlyContinue
+
+    # Create a host-local convenience path to the Ceph SMB share (similar to the standalone SMB
+    # addon UX) so users can browse share data from Windows Explorer without entering credentials
+    # repeatedly.
+    try {
+      New-CephSmbHostShortcut -ClusterHostIp $clusterHostNodeIp `
+                              -ShareName $smbShareName `
+                              -SmbUser $smbClusterResult.SmbUser `
+                              -SmbPassword $smbClusterResult.SmbPassword `
+                              -WinMountPath $smbWinMountPath
+      Set-AddonSetupJsonProperty -Addon ([pscustomobject] @{Name = $addonName; Implementation = 'ceph' }) -PropertyName 'CephSmbWinMountPath' -PropertyValue $smbWinMountPath
+      Set-AddonSetupJsonProperty -Addon ([pscustomobject] @{Name = $addonName; Implementation = 'ceph' }) -PropertyName 'CephSmbSource' -PropertyValue "\\$clusterHostNodeIp\$smbShareName"
+    }
+    catch {
+      Write-Log "[CephSMB] WARNING: Failed to create host shortcut '$smbWinMountPath': $($_.Exception.Message)" -Console
+    }
 
     Write-Log "[CephSMB] Ceph SMB ready. Use StorageClass '$smbStorageClassName' for CephFS-backed volumes on Windows pods." -Console
   }

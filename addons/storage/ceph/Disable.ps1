@@ -563,6 +563,7 @@ $smbStorageClassName = if ($null -ne $smbConfig -and ($smbConfig.PSObject.Proper
 $smbClusterId = if ($null -ne $smbConfig -and ($smbConfig.PSObject.Properties.Name -contains 'clusterId') -and -not [string]::IsNullOrWhiteSpace($smbConfig.clusterId)) { "$($smbConfig.clusterId)" } else { 'k2ssmb' }
 $smbPlacementLabel = if ($null -ne $smbConfig -and ($smbConfig.PSObject.Properties.Name -contains 'placementLabel') -and -not [string]::IsNullOrWhiteSpace($smbConfig.placementLabel)) { "$($smbConfig.placementLabel)" } else { 'smb' }
 $smbNamespace = if ($null -ne $smbConfig -and ($smbConfig.PSObject.Properties.Name -contains 'namespace') -and -not [string]::IsNullOrWhiteSpace($smbConfig.namespace)) { "$($smbConfig.namespace)" } else { 'storage-smb-ceph' }
+$smbWinMountPath = if ($null -ne $smbConfig -and ($smbConfig.PSObject.Properties.Name -contains 'winMountPath') -and -not [string]::IsNullOrWhiteSpace($smbConfig.winMountPath)) { "$($smbConfig.winMountPath)" } else { 'C:\k8s-ceph-share' }
 
 Write-Log "[CephSMB] Deleting PersistentVolumeClaims bound to StorageClass $smbStorageClassName" -Console
 Remove-PersistentVolumeClaimsForStorageClass -StorageClass $smbStorageClassName | Write-Log
@@ -623,6 +624,16 @@ if (-not [string]::IsNullOrWhiteSpace($cephHostNodeForSmb.Ip)) {
             -PlacementLabel $smbPlacementLabel `
             -ShowLogs:$ShowLogs
     }
+
+    # Remove host-side convenience shortcut and cached credential created during enable.
+    if (Test-Path -LiteralPath $smbWinMountPath) {
+        $shortcutItem = Get-Item -LiteralPath $smbWinMountPath -ErrorAction SilentlyContinue
+        if ($null -ne $shortcutItem -and ($shortcutItem.Attributes -band [IO.FileAttributes]::ReparsePoint)) {
+            Write-Log "[CephSMB] Removing host shortcut '$smbWinMountPath'" -Console
+            Remove-Item -LiteralPath $smbWinMountPath -Force -ErrorAction SilentlyContinue
+        }
+    }
+    cmdkey /delete:$($cephHostNodeForSmb.Ip) 2>&1 | Write-Log
 }
 
 Remove-CephCsiKubernetesResources -ManifestsDir "$PSScriptRoot\manifests" -StorageClassName $storageClassName
