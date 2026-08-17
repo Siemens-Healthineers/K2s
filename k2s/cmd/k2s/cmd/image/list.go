@@ -13,12 +13,10 @@ import (
 
 	cconfig "github.com/siemens-healthineers/k2s/internal/contracts/config"
 	"github.com/siemens-healthineers/k2s/internal/core/config"
-	"github.com/siemens-healthineers/k2s/internal/powershell"
 	"github.com/siemens-healthineers/k2s/internal/provider"
 	"github.com/siemens-healthineers/k2s/internal/terminal"
 
 	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/common"
-	"github.com/siemens-healthineers/k2s/cmd/k2s/utils"
 
 	"github.com/siemens-healthineers/k2s/internal/json"
 )
@@ -155,8 +153,7 @@ func listImages(cmd *cobra.Command, args []string) error {
 		}
 		loaded := &LoadedImages{}
 		if result.ContainerRegistry != "" {
-			reg := result.ContainerRegistry
-			loaded.ContainerRegistry = &reg
+			loaded.ContainerRegistry = new(result.ContainerRegistry)
 		}
 		for _, img := range result.ContainerImages {
 			loaded.ContainerImages = append(loaded.ContainerImages, containerImage{
@@ -214,7 +211,7 @@ func printImagesAsJson(getImagesFunc func() (*LoadedImages, error), printlnFunc 
 
 	var deferredErr error
 	if loadedImages.Failure != nil {
-		printImages.Error = &loadedImages.Failure.Code
+		printImages.Error = new(loadedImages.Failure.Code)
 		loadedImages.Failure.SuppressCliOutput = true
 		deferredErr = loadedImages.Failure
 	}
@@ -230,9 +227,8 @@ func printImagesAsJson(getImagesFunc func() (*LoadedImages, error), printlnFunc 
 }
 
 func printSystemErrJson(printlnFunc func(m ...any), systemError error, systemCmdFailureFunc func() *common.CmdFailure) error {
-	errCode := systemError.Error()
 	printImages := PrintImages{
-		Error: &errCode,
+		Error: new(systemError.Error()),
 	}
 
 	bytes, err := json.MarshalIndent(printImages)
@@ -281,21 +277,6 @@ func printImagesToUser(getImagesFunc func() (*LoadedImages, error), printer term
 	}
 
 	return nil
-}
-
-func getImages(includeK8sImages bool, nodes string) (*LoadedImages, error) {
-	cmd := utils.FormatScriptFilePath(utils.InstallDir() + "\\lib\\scripts\\k2s\\image\\Get-Images.ps1")
-
-	var params []string
-	if includeK8sImages {
-		params = []string{"-IncludeK8sImages"}
-	}
-
-	if strings.TrimSpace(nodes) != "" {
-		params = append(params, "-Nodes "+utils.EscapeWithSingleQuotes(nodes))
-	}
-
-	return powershell.ExecutePsWithStructuredResult[*LoadedImages](cmd, "StoredImages", common.NewPtermWriter(), params...)
 }
 
 func printAvailableImages(terminalPrinter terminal.TerminalPrinter, containerImages []containerImage) {

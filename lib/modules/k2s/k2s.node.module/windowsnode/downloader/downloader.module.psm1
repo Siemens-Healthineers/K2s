@@ -279,6 +279,9 @@ function Invoke-DownloadWindowsNodeArtifacts {
     #HELM TOOLS
     Invoke-DownloadHelmArtifacts $downloadsBaseDirectory $Proxy $windowsNodeArtifactsDirectory
 
+    #KREW TOOLS
+    Invoke-DownloadKrewArtifacts $downloadsBaseDirectory $Proxy $windowsNodeArtifactsDirectory
+
     # ORAS
     Invoke-DownloadOrasArtifacts $downloadsBaseDirectory $Proxy $windowsNodeArtifactsDirectory
 
@@ -288,6 +291,9 @@ function Invoke-DownloadWindowsNodeArtifacts {
 
     # HELM
     Invoke-DeployHelmArtifacts $windowsNodeArtifactsDirectory
+
+    # KREW
+    Invoke-DeployKrewArtifacts $windowsNodeArtifactsDirectory
 
     # ORAS
     Invoke-DeployOrasArtifacts $windowsNodeArtifactsDirectory
@@ -389,6 +395,8 @@ function Invoke-DeployWinArtifacts {
         Invoke-DeployNssmArtifacts $windowsNodeArtifactsDirectory
         # Deploy Helm when the artifacts are already present
         Invoke-DeployHelmArtifacts $windowsNodeArtifactsDirectory
+        # Deploy Krew when the artifacts are already present
+        Invoke-DeployKrewArtifacts $windowsNodeArtifactsDirectory
     }
 }
 

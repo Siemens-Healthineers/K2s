@@ -155,10 +155,9 @@ func (s *UserFriendlyPrinter) PrintStatus(addonName string, implementation strin
 }
 
 func (s *JsonPrinter) PrintSystemError(addon string, systemError error, systemCmdFailureFunc func() *common.CmdFailure) error {
-	errCode := systemError.Error()
 	printStatus := AddonPrintStatus{
 		Name:  addon,
-		Error: &errCode,
+		Error: new(systemError.Error()),
 	}
 
 	slog.Info("Marhalling", "status", printStatus)

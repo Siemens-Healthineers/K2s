@@ -378,8 +378,7 @@ var _ = Describe("status pkg", func() {
 						addonName := "test-addon"
 						implementation := "test-implementation"
 						state := "disabled"
-						enabled := false
-						loadedStatus := &LoadedAddonStatus{Enabled: &enabled}
+						loadedStatus := &LoadedAddonStatus{Enabled: new(false)}
 
 						spinnerMock := &mockObject{}
 						spinnerMock.On(r.GetFunctionName(spinnerMock.Stop)).Return(nil).Once()
@@ -410,8 +409,7 @@ var _ = Describe("status pkg", func() {
 						addonName := "test-addon"
 						implementation := ""
 						state := "disabled"
-						enabled := false
-						loadedStatus := &LoadedAddonStatus{Enabled: &enabled}
+						loadedStatus := &LoadedAddonStatus{Enabled: new(false)}
 
 						spinnerMock := &mockObject{}
 						spinnerMock.On(r.GetFunctionName(spinnerMock.Stop)).Return(nil).Once()
@@ -443,8 +441,7 @@ var _ = Describe("status pkg", func() {
 						addonName := "test-addon"
 						implementation := "test-implementation"
 						state := "enabled"
-						enabled := true
-						loadedStatus := &LoadedAddonStatus{Enabled: &enabled}
+						loadedStatus := &LoadedAddonStatus{Enabled: new(true)}
 
 						spinnerMock := &mockObject{}
 						spinnerMock.On(r.GetFunctionName(spinnerMock.Stop)).Return(nil).Once()
@@ -475,8 +472,7 @@ var _ = Describe("status pkg", func() {
 						addonName := "test-addon"
 						implementation := ""
 						state := "enabled"
-						enabled := true
-						loadedStatus := &LoadedAddonStatus{Enabled: &enabled}
+						loadedStatus := &LoadedAddonStatus{Enabled: new(true)}
 
 						spinnerMock := &mockObject{}
 						spinnerMock.On(r.GetFunctionName(spinnerMock.Stop)).Return(nil).Once()
@@ -504,9 +500,8 @@ var _ = Describe("status pkg", func() {
 				It("prints the addon-specific props", func() {
 					addonName := "test-addon"
 					implementation := "test-implementation"
-					enabled := true
 					loadedStatus := &LoadedAddonStatus{
-						Enabled: &enabled,
+						Enabled: new(true),
 						Props: []AddonStatusProp{
 							{Name: "p1"},
 							{Name: "p2"},
@@ -574,9 +569,8 @@ var _ = Describe("status pkg", func() {
 	Describe("propPrint", func() {
 		Describe("PrintProp", func() {
 			It("orchestrates text colorization and printing", func() {
-				okay := false
 				message := "my-msg"
-				prop := AddonStatusProp{Okay: &okay, Message: &message}
+				prop := AddonStatusProp{Okay: new(false), Message: &message}
 
 				printerMock := &mockObject{}
 				printerMock.On(r.GetFunctionName(printerMock.PrintWarning), message).Once()

@@ -778,7 +778,7 @@ function Get-FlannelImages {
     Write-Log 'Get images used by flannel'
 
     &$executeRemoteCommand 'sudo crictl pull docker.io/flannel/flannel-cni-plugin:v1.9.1-flannel3'
-    &$executeRemoteCommand 'sudo crictl pull docker.io/flannel/flannel:0.28.8'
+    &$executeRemoteCommand 'sudo crictl pull docker.io/flannel/flannel:0.28.9'
 }
 
 <#
@@ -948,7 +948,7 @@ function Get-ClusterIPWebhookImages {
 
     Write-Log 'Get images used by clusterip-webhook'
 
-    &$executeRemoteCommand 'sudo crictl pull shsk2s.azurecr.io/clusterip-webhook:v1.3.5'
+    &$executeRemoteCommand 'sudo crictl pull shsk2s.azurecr.io/clusterip-webhook:v1.3.6'
 }
 
 function AddRegistryMirrors {

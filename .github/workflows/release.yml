@@ -19,7 +19,7 @@ on:
 #      - 'v1.*'
 
 env:
-  GOVERSION: "1.26.5"
+  GOVERSION: "1.26.6"
 
 permissions:
   contents: write

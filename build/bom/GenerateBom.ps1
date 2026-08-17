@@ -49,7 +49,7 @@ function EnsureTrivy() {
     }
 
     $compressedFile = "$global:BinPath\trivy.zip"
-    DownloadFile $compressedFile 'https://github.com/aquasecurity/trivy/releases/download/v0.73.0/trivy_0.73.0_windows-64bit.zip' $true -ProxyToUse $Proxy
+    DownloadFile $compressedFile 'https://github.com/aquasecurity/trivy/releases/download/v0.74.0/trivy_0.74.0_windows-64bit.zip' $true -ProxyToUse $Proxy
 
     # Extract the archive.
     Write-Output "Extract archive to '$global:BinPath"
@@ -186,7 +186,7 @@ function GenerateBomDebian() {
     Write-Output 'Generate bom for debian packages'
 
     $hostname = Get-ControlPlaneNodeHostname
-    $trivyVersion = '0.73.0'
+    $trivyVersion = '0.74.0'
     $kubemasterProxy = 'http://172.19.1.1:8181'
     $trivyUrl = "https://github.com/aquasecurity/trivy/releases/download/v${trivyVersion}/trivy_${trivyVersion}_Linux-64bit.tar.gz"
 

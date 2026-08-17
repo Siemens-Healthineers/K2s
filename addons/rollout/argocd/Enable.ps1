@@ -94,18 +94,20 @@ if ((Test-IsAddonEnabled -Addon ([pscustomobject] @{Name = 'rollout'; Implementa
 
 $rolloutNamespace = 'rollout'
 
-$VERSION_ARGOCD = 'v3.4.6'
+$VERSION_ARGOCD = 'v3.5.1'
 
 Write-Log 'Creating rollout namespace'
 (Invoke-Kubectl -Params 'create', 'namespace', $rolloutNamespace).Output | Write-Log
 
 Write-Log 'Installing rollout addon' -Console
 $rolloutConfig = Get-RolloutConfig
-(Invoke-Kubectl -Params 'apply' , '-n', $rolloutNamespace, '-k', $rolloutConfig).Output | Write-Log
+# Use --server-side to avoid the 256KB annotation size limit that client-side
+# apply hits on large CRDs (e.g. applicationsets.argoproj.io).
+(Invoke-Kubectl -Params 'apply', '--server-side', '--force-conflicts', '-n', $rolloutNamespace, '-k', $rolloutConfig).Output | Write-Log
 
 Write-Log 'Waiting for pods being ready...' -Console
 
-$kubectlCmd = (Invoke-Kubectl -Params 'rollout', 'status', 'deployments', '-n', $rolloutNamespace, '--timeout=300s')
+$kubectlCmd = (Invoke-Kubectl -Params 'rollout', 'status', 'deployments', '-n', $rolloutNamespace, '--timeout=600s')
 Write-Log $kubectlCmd.Output
 if (!$kubectlCmd.Success) {
     $errMsg = 'rollout addon could not be deployed successfully!'
@@ -119,7 +121,7 @@ if (!$kubectlCmd.Success) {
     exit 1
 }
 
-$kubectlCmd = (Invoke-Kubectl -Params 'rollout', 'status', 'statefulsets', '-n', $rolloutNamespace, '--timeout=300s')
+$kubectlCmd = (Invoke-Kubectl -Params 'rollout', 'status', 'statefulsets', '-n', $rolloutNamespace, '--timeout=600s')
 Write-Log $kubectlCmd.Output
 if (!$kubectlCmd.Success) {
     $errMsg = 'rollout addon (ArgoCD application controller) could not be deployed successfully'
