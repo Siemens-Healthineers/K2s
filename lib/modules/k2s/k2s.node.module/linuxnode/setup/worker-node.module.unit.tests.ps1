@@ -17,7 +17,7 @@ Describe 'Add-LinuxWorkerNode failure cleanup' -Tag 'unit', 'ci', 'worker-node' 
     Context 'When a step after Add-NodeConfig fails' {
         It 'preserves the node config entry (for upgrade/restore) and re-throws the original error' {
             InModuleScope $moduleName {
-                function Add-NodeConfig { param([Parameter(ValueFromRemainingArguments)]$Rest) }
+                function Add-NodeConfig { param([string]$Name, [Parameter(ValueFromRemainingArguments)]$Rest) }
                 function Set-UpComputerBeforeProvisioning { param([Parameter(ValueFromRemainingArguments)]$Rest) }
                 function Install-LinuxPackagesAndAddContainerImagesIntoRemoteComputer { param([Parameter(ValueFromRemainingArguments)]$Rest) }
                 function Repair-LinuxWorkerNodeRegistriesConfig { param([Parameter(ValueFromRemainingArguments)]$Rest) }
@@ -38,6 +38,8 @@ Describe 'Add-LinuxWorkerNode failure cleanup' -Tag 'unit', 'ci', 'worker-node' 
                 # Act + Assert: original error is preserved (AC1)
                 { Add-LinuxWorkerNode -NodeName 'scaleoutbox' -UserName 'remote' -IpAddress '172.19.1.100' -WindowsHostIpAddress '172.19.1.1' -installedDistributionOnRemoteComputer 'debian' } |
                     Should -Throw '*join failed*'
+
+                Should -Invoke Add-NodeConfig -Times 1 -Exactly -ParameterFilter { $Name -eq 'scaleoutbox' }
 
                 # Assert: config entry is NOT deleted - it must survive for a system
                 # upgrade to restore the node; 'k2s node remove' cleans it up later (AC1)
@@ -98,6 +100,31 @@ Describe 'Remove-LinuxWorkerNode robustness' -Tag 'unit', 'ci', 'worker-node' {
                 # Assert: normal path unchanged (AC4)
                 Should -Invoke Remove-LinuxNode -Times 1 -Exactly
                 Should -Invoke Remove-NodeConfig -Times 1 -Exactly -ParameterFilter { $Name -eq 'scaleoutbox' }
+            }
+        }
+    }
+
+    Context 'When cluster removal fails for a registered node' {
+        It 'preserves the node config and re-throws the removal error' {
+            InModuleScope $moduleName {
+                function Get-NodeConfig { param([Parameter(ValueFromRemainingArguments)]$Rest) }
+                function Invoke-Kubectl { param([Parameter(ValueFromRemainingArguments)]$Rest) }
+                function Remove-LinuxNode { param([Parameter(ValueFromRemainingArguments)]$Rest) }
+                function Remove-KubernetesArtifacts { param([Parameter(ValueFromRemainingArguments)]$Rest) }
+                function Remove-NodeConfig { param([string]$Name, [Parameter(ValueFromRemainingArguments)]$Rest) }
+
+                Mock Write-Log {}
+                Mock Get-NodeConfig { $null }
+                Mock Invoke-Kubectl { [pscustomobject]@{ Output = "controlplane   Ready`nscaleoutbox   Ready   worker" } }
+                Mock Remove-LinuxNode { throw 'cluster removal failed' }
+                Mock Remove-KubernetesArtifacts {}
+                Mock Remove-NodeConfig {}
+
+                { Remove-LinuxWorkerNode -NodeName 'scaleoutbox' -UserName 'remote' -IpAddress '172.19.1.100' } |
+                    Should -Throw '*cluster removal failed*'
+
+                Should -Invoke Remove-NodeConfig -Times 0 -Exactly
+                Should -Invoke Remove-KubernetesArtifacts -Times 0 -Exactly
             }
         }
     }
