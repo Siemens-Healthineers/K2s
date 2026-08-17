@@ -264,12 +264,15 @@ Describe 'Control-plane artifact disk-size precheck' -Tag 'unit', 'ci', 'vm' {
             }
         }
 
-        It 'fails when packaged control-plane artifact is missing' {
+        It 'skips package guard when packaged control-plane artifact is missing' {
             InModuleScope $moduleName {
                 Mock Get-ControlPlaneVMBaseImagePath { 'C:\pkg\Kubemaster-Base.vhdx' }
                 Mock Test-Path { $false }
 
-                { Assert-ControlPlaneArtifactDiskSizeCompatibility -MasterDiskSize 60GB } | Should -Throw '*Precheck failed*missing*'
+                { Assert-ControlPlaneArtifactDiskSizeCompatibility -MasterDiskSize 60GB } | Should -Not -Throw
+
+                Should -Invoke Get-ControlPlaneVMBaseImagePath -Times 1 -Exactly
+                Should -Invoke Test-Path -Times 1 -Exactly
             }
         }
 
