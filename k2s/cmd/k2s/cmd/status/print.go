@@ -114,12 +114,12 @@ func (p *JsonPrinter) Print() error {
 
 	var deferredErr error
 	if loadedStatus.Failure != nil {
-		printStatus.Error = &loadedStatus.Failure.Code
+		printStatus.Error = new(loadedStatus.Failure.Code)
 		loadedStatus.Failure.SuppressCliOutput = true
 		deferredErr = loadedStatus.Failure
 	}
 
-	slog.Info("Marhalling", "status", printStatus)
+	slog.Info("Marshalling", "status", printStatus)
 
 	bytes, err := p.marshalIndentFunc(printStatus)
 	if err != nil {

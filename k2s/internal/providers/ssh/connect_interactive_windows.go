@@ -33,13 +33,12 @@ func ConnectInteractively(options contracts.ConnectionOptions) error {
 	}
 
 	if err := cmd.Wait(); err != nil {
-		var exitErr *exec.ExitError
-		if errors.As(err, &exitErr) {
+		if exitErr, ok := errors.AsType[*exec.ExitError](err); ok {
 			exitCode := exitErr.ExitCode()
 			if exitCode == 255 {
 				return fmt.Errorf("failed to execute ssh.exe: %w", err)
 			}
-			slog.Debug("failed to execute ssh.exe", "exit-code", exitErr.ExitCode())
+			slog.Debug("failed to execute ssh.exe", "exit-code", exitCode)
 			return nil
 		}
 		return fmt.Errorf("failed to wait for ssh.exe execution: %w", err)

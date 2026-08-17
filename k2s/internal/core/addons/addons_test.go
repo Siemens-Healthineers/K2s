@@ -114,8 +114,7 @@ var _ = Describe("addons", func() {
 
 		When("only description exists", func() {
 			It("returns description only", func() {
-				description := "test"
-				input := CliFlag{Description: &description}
+				input := CliFlag{Description: new("test")}
 
 				result, err := input.FullDescription()
 
@@ -139,9 +138,8 @@ var _ = Describe("addons", func() {
 
 		When("both description and constraints exist", func() {
 			It("returns text with description and constraints", func() {
-				description := "test"
 				input := CliFlag{
-					Description: &description,
+					Description: new("test"),
 					Constraints: &Constraints{
 						Kind:          ValidationSetConstraintsType,
 						ValidationSet: &ValidationSet{"v1", "v2"}}}
@@ -202,8 +200,7 @@ var _ = Describe("addons", func() {
 
 		When("comment exists", func() {
 			It("returns comment and command", func() {
-				comment := "test-comment"
-				input := CliExample{Cmd: "c1", Comment: &comment}
+				input := CliExample{Cmd: "c1", Comment: new("test-comment")}
 
 				result := input.String()
 

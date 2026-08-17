@@ -292,7 +292,6 @@ var _ = Describe("generic pkg", func() {
 			When("addon name and implementation name are the same", func() {
 				It("returns command with examples", func() {
 					command := "do-this"
-					comment := "this is a comment"
 					addon := addons.Addon{
 						Metadata: addons.AddonMetadata{
 							Name: "a1",
@@ -304,7 +303,7 @@ var _ = Describe("generic pkg", func() {
 										Examples: addons.CliExamples{
 											addons.CliExample{
 												Cmd:     command,
-												Comment: &comment,
+												Comment: new("this is a comment"),
 											},
 										},
 									},
@@ -330,7 +329,6 @@ var _ = Describe("generic pkg", func() {
 			When("addon name and implementation name are different", func() {
 				It("returns command with examples", func() {
 					command := "do-this"
-					comment := "this is a comment"
 					addon := addons.Addon{
 						Metadata: addons.AddonMetadata{
 							Name: "a1",
@@ -342,7 +340,7 @@ var _ = Describe("generic pkg", func() {
 										Examples: addons.CliExamples{
 											addons.CliExample{
 												Cmd:     command,
-												Comment: &comment,
+												Comment: new("this is a comment"),
 											},
 										},
 									},
@@ -527,7 +525,7 @@ var _ = Describe("generic pkg", func() {
 					{
 						Name:           "test-flag-1",
 						Default:        false,
-						ExclusionGroup: func(s string) *string { return &s }("group"),
+						ExclusionGroup: new("group"),
 					},
 					{
 						Name:    "test-flag-2",
@@ -549,17 +547,16 @@ var _ = Describe("generic pkg", func() {
 
 		When("flags have same exclusion group", func() {
 			It("marks flags as mutually exclusive", func() {
-				group := func(s string) *string { return &s }("group")
 				flags := []addons.CliFlag{
 					{
 						Name:           "test-flag-1",
 						Default:        false,
-						ExclusionGroup: group,
+						ExclusionGroup: new("group"),
 					},
 					{
 						Name:           "test-flag-2",
 						Default:        false,
-						ExclusionGroup: group,
+						ExclusionGroup: new("group"),
 					},
 				}
 				cmd := &cobra.Command{}
