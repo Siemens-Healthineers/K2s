@@ -83,8 +83,7 @@ func (p *linuxSystemProvider) CertificateRenew(_ SystemCertRenewConfig) error {
 	checkCmd := exec.Command("kubectl", "get", "deployment", "clusterip-webhook",
 		"-n", "k2s-webhook", "--no-headers")
 	if out, err := checkCmd.CombinedOutput(); err != nil {
-		var exitErr *exec.ExitError
-		if errors.As(err, &exitErr) && exitErr.ExitCode() == 1 {
+		if exitErr, ok := errors.AsType[*exec.ExitError](err); ok && exitErr.ExitCode() == 1 {
 			slog.Info("[System] clusterip-webhook deployment not found - skipping webhook cert renewal")
 			return nil
 		}
@@ -171,4 +170,3 @@ fi
 	slog.Info("[System] " + string(out))
 	return nil
 }
-
