@@ -713,9 +713,6 @@ func verifyHostDNS(coreDNSIP string, zones []string) error {
 	if _, err := net.LookupHost(queryName); err != nil {
 		return fmt.Errorf("verify host DNS query for %s through CoreDNS service %s: %w", queryName, coreDNSIP, err)
 	}
-	if _, err := net.LookupHost("kubernetes.io"); err != nil {
-		return fmt.Errorf("verify external host DNS through K2s DNS proxy: %w", err)
-	}
 	return nil
 }
 
