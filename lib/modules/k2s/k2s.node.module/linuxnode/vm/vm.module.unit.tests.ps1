@@ -247,3 +247,98 @@ Describe 'Invoke-ExeWithAsciiEncoding' -Tag 'unit','ci','vm'  {
         }
     }
 }
+
+Describe 'Control-plane artifact disk-size precheck' -Tag 'unit', 'ci', 'vm' {
+    Context 'Assert-ControlPlaneArtifactDiskSizeCompatibility' {
+        It 'skips package guard in force-online mode' {
+            InModuleScope $moduleName {
+                Mock Get-ControlPlaneVMBaseImagePath { 'C:\pkg\Kubemaster-Base.vhdx' }
+                Mock Test-Path { $true }
+                Mock Get-VHD { [pscustomobject]@{ Size = 60GB } }
+
+                { Assert-ControlPlaneArtifactDiskSizeCompatibility -MasterDiskSize 50GB -ForceOnlineInstallation } | Should -Not -Throw
+
+                Should -Invoke Get-ControlPlaneVMBaseImagePath -Times 0 -Exactly
+                Should -Invoke Test-Path -Times 0 -Exactly
+                Should -Invoke Get-VHD -Times 0 -Exactly
+            }
+        }
+
+        It 'fails when packaged control-plane artifact is missing' {
+            InModuleScope $moduleName {
+                Mock Get-ControlPlaneVMBaseImagePath { 'C:\pkg\Kubemaster-Base.vhdx' }
+                Mock Test-Path { $false }
+
+                { Assert-ControlPlaneArtifactDiskSizeCompatibility -MasterDiskSize 60GB } | Should -Throw '*Precheck failed*missing*'
+            }
+        }
+
+        It 'fails when requested disk size is smaller than packaged provisioned size' {
+            InModuleScope $moduleName {
+                Mock Get-ControlPlaneVMBaseImagePath { 'C:\pkg\Kubemaster-Base.vhdx' }
+                Mock Test-Path { $true }
+                Mock Get-VHD { [pscustomobject]@{ Size = 60GB } }
+
+                { Assert-ControlPlaneArtifactDiskSizeCompatibility -MasterDiskSize 50GB } | Should -Throw '*Precheck failed*smaller than packaged*'
+            }
+        }
+
+        It 'fails with prereq contract when packaged VHDX cannot be read' {
+            InModuleScope $moduleName {
+                Mock Get-ControlPlaneVMBaseImagePath { 'C:\pkg\Kubemaster-Base.vhdx' }
+                Mock Test-Path { $true }
+                Mock Get-VHD { throw 'Hyper-V service unavailable' }
+
+                { Assert-ControlPlaneArtifactDiskSizeCompatibility -MasterDiskSize 60GB } | Should -Throw '*Precheck failed*could not read packaged control-plane VHDX*'
+            }
+        }
+
+        It 'passes when requested disk size equals packaged provisioned size' {
+            InModuleScope $moduleName {
+                Mock Get-ControlPlaneVMBaseImagePath { 'C:\pkg\Kubemaster-Base.vhdx' }
+                Mock Test-Path { $true }
+                Mock Get-VHD { [pscustomobject]@{ Size = 60GB } }
+
+                { Assert-ControlPlaneArtifactDiskSizeCompatibility -MasterDiskSize 60GB } | Should -Not -Throw
+            }
+        }
+
+        It 'passes when requested disk size is greater than packaged provisioned size' {
+            InModuleScope $moduleName {
+                Mock Get-ControlPlaneVMBaseImagePath { 'C:\pkg\Kubemaster-Base.vhdx' }
+                Mock Test-Path { $true }
+                Mock Get-VHD { [pscustomobject]@{ Size = 60GB } }
+
+                { Assert-ControlPlaneArtifactDiskSizeCompatibility -MasterDiskSize 80GB } | Should -Not -Throw
+            }
+        }
+
+        It 'applies the same behavior in WSL mode' {
+            InModuleScope $moduleName {
+                Mock Get-ControlPlaneVMBaseImagePath { 'C:\pkg\Kubemaster-Base.vhdx' }
+                Mock Test-Path { $true }
+                Mock Get-VHD { [pscustomobject]@{ Size = 60GB } }
+
+                { Assert-ControlPlaneArtifactDiskSizeCompatibility -MasterDiskSize 50GB -WSL } | Should -Throw '*Precheck failed*smaller than packaged*'
+            }
+        }
+    }
+
+    Context 'Test-ControlPlanePrerequisites integration' {
+        It 'passes WSL and force-online context into shared artifact guard' {
+            InModuleScope $moduleName {
+                Mock Get-MinimalProvisioningBaseMemorySize { 4GB }
+                Mock Get-MinimalProvisioningBaseImageDiskSize { 20GB }
+                Mock Assert-ControlPlaneArtifactDiskSizeCompatibility {}
+                Mock Get-VM { @() }
+                Mock Test-ExistingExternalSwitch {}
+
+                { Test-ControlPlanePrerequisites -MasterVMProcessorCount 6 -MasterVMMemory 8GB -MasterDiskSize 60GB -WSL -ForceOnlineInstallation } | Should -Not -Throw
+
+                Should -Invoke Assert-ControlPlaneArtifactDiskSizeCompatibility -Times 1 -Exactly -ParameterFilter {
+                    $MasterDiskSize -eq 60GB -and $WSL -eq $true -and $ForceOnlineInstallation -eq $true
+                }
+            }
+        }
+    }
+}
