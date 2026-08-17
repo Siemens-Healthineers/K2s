@@ -10,10 +10,10 @@ metadata:
   name: fluent-bit
   namespace: logging
   labels:
-    helm.sh/chart: fluent-bit-0.57.9
+    helm.sh/chart: fluent-bit-0.58.0
     app.kubernetes.io/name: fluent-bit
     app.kubernetes.io/instance: fluent-bit
-    app.kubernetes.io/version: "5.1.0"
+    app.kubernetes.io/version: "5.1.1"
     app.kubernetes.io/managed-by: Helm
 data:
   custom_parsers.conf: |
