@@ -6,6 +6,8 @@
 package setuporchestration
 
 import (
+	"errors"
+	"io/fs"
 	"reflect"
 	"strings"
 	"testing"
@@ -133,6 +135,23 @@ func TestIsK2sManagedResolver(t *testing.T) {
 	}
 	if isK2sManagedResolver([]byte("nameserver 8.8.8.8\n")) {
 		t.Fatal("external resolver content was incorrectly detected as K2s-managed")
+	}
+}
+
+func TestShouldRestoreResolver(t *testing.T) {
+	t.Parallel()
+
+	if !shouldRestoreResolver(nil, fs.ErrNotExist) {
+		t.Fatal("missing resolver should be restored from saved state")
+	}
+	if !shouldRestoreResolver([]byte(resolverHeader+"\nnameserver 127.0.0.1\n"), nil) {
+		t.Fatal("K2s-managed resolver should be restored")
+	}
+	if shouldRestoreResolver([]byte("nameserver 10.81.32.10\n"), nil) {
+		t.Fatal("existing unmanaged resolver should not be overwritten")
+	}
+	if shouldRestoreResolver(nil, errors.New("permission denied")) {
+		t.Fatal("unreadable resolver should not be restored")
 	}
 }
 

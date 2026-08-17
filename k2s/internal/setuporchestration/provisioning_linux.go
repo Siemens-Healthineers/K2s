@@ -575,10 +575,10 @@ func restoreResolverState(configDir string) error {
 		return fmt.Errorf("parse saved resolver state: %w", err)
 	}
 	current, err := os.ReadFile(resolverPath)
-	if err != nil {
+	if err != nil && !os.IsNotExist(err) {
 		return fmt.Errorf("read current resolver configuration: %w", err)
 	}
-	if !isK2sManagedResolver(current) {
+	if !shouldRestoreResolver(current, err) {
 		// DNS setup can fail before K2s takes ownership of resolv.conf. In that
 		// case the original resolver is already intact and must not be touched.
 		return nil
@@ -602,6 +602,10 @@ func restoreResolverState(configDir string) error {
 		}
 	}
 	return nil
+}
+
+func shouldRestoreResolver(current []byte, readErr error) bool {
+	return os.IsNotExist(readErr) || isK2sManagedResolver(current)
 }
 
 func isK2sManagedResolver(content []byte) bool {
