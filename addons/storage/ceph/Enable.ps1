@@ -759,10 +759,9 @@ stringData:
     Remove-Item -Path $smbCredsTemp -Force -ErrorAction SilentlyContinue
 
     # Generate the ceph-smb StorageClass from the SMB addon template. The Samba service runs on the
-    # Ceph cluster host, so the SMB source is //<cephHostIp>/<shareName>. A 'subDir' using the PVC's
-    # namespace/name is injected so every PVC lands in a deterministic, isolated sub-directory of the
-    # shared CephFS subvolume - the same naming convention lets Windows (SMB CSI) and Linux (CephFS
-    # CSI) resolve the exact same path for cross-OS access.
+    # Ceph cluster host, so the SMB source is //<cephHostIp>/<shareName>. Keep the default volume
+    # folder layout so each provisioned volume uses the SMB CSI driver's standard subdirectory naming
+    # instead of the old namespace/name override.
     $templatePath = "$PSScriptRoot\..\smb\manifests\base\storage-classes\template_StorageClass.yaml"
     $smbSource    = "//$clusterHostNodeIp/$smbShareName"
     $scContent = (Get-Content -Path $templatePath -Raw) `
@@ -771,11 +770,6 @@ stringData:
       -replace 'SC_RECLAIM_POLICY',$smbReclaimPolicy `
       -replace '(?m)^# mount options.*\r?\nMOUNT_OPTIONS\s*$', ''
     $scContent = $scContent.Replace('storage-smb', $smbNamespace)
-    # Insert the dynamic sub-directory parameter right after the 'source:' line. Use the literal
-    # String.Replace (not -replace) so the '${pvc.metadata.*}' tokens are not treated as regex
-    # backreferences and are passed verbatim to the SMB CSI driver.
-    $subDirLine = '  subDir: ${pvc.metadata.namespace}/${pvc.metadata.name}'
-    $scContent = $scContent.Replace("  source: $smbSource", "  source: $smbSource`n$subDirLine")
     $scTempFile = Join-Path ([System.IO.Path]::GetTempPath()) "k2s-ceph-smb-sc-$([guid]::NewGuid().ToString()).yaml"
     Set-Content -Path $scTempFile -Value $scContent -Encoding utf8
     Write-Log "[CephSMB] Applying StorageClass '$smbStorageClassName' (source: $smbSource)" -Console
