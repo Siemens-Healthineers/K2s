@@ -69,6 +69,14 @@ Set-Location $installationPath
 $script:SetupType = 'k2s'
 Set-ConfigSetupType -Value $script:SetupType
 
+Write-Log '[Precheck] Running control-plane prerequisites at install start'
+Test-ControlPlanePrerequisites `
+    -MasterVMProcessorCount $MasterVMProcessorCount `
+    -MasterVMMemory $MasterVMMemory `
+    -MasterDiskSize $MasterDiskSize `
+    -WSL:$WSL `
+    -ForceOnlineInstallation:$ForceOnlineInstallation
+
 # Initialize the proxy settings before starting installation.
 Test-ProxyEnvVarsConfiguration
 
