@@ -6,6 +6,7 @@
 package setuporchestration
 
 import (
+	"bytes"
 	"fmt"
 	"log/slog"
 	"net"
@@ -961,14 +962,15 @@ func runCommandWithLogs(showLogs bool, name string, args ...string) error {
 	return nil
 }
 
-// runCommandOutput executes a command and returns its combined output. Keeping
-// stderr in the error is essential for kubectl failures, which otherwise lose
-// the API, selector, or JSONPath diagnostic emitted by kubectl.
+// runCommandOutput executes a command and returns only stdout. Stderr is kept
+// in failures so kubectl diagnostics do not corrupt parsed successful output.
 func runCommandOutput(name string, args ...string) (string, error) {
 	cmd := exec.Command(name, args...)
-	output, err := cmd.CombinedOutput()
-	if err != nil {
-		return "", fmt.Errorf("%s failed: %w; output: %s", name, err, strings.TrimSpace(string(output)))
+	var stdout, stderr bytes.Buffer
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
+	if err := cmd.Run(); err != nil {
+		return "", fmt.Errorf("%s failed: %w; stderr: %s", name, err, strings.TrimSpace(stderr.String()))
 	}
-	return string(output), nil
+	return stdout.String(), nil
 }
