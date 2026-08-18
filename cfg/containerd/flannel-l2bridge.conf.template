@@ -13,6 +13,10 @@
                                 "NAME.SERVERS"
                             ]
         },
+        "ipam": {
+            "type": "host-local",
+            "rangeStart": "IPAM.RANGE_START"
+        },
         "optionalFlags" : {
             "forceBridgeGateway" : true,
             "loopbackDSR": false
