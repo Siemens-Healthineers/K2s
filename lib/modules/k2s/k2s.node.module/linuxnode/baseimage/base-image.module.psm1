@@ -273,7 +273,7 @@ Function Get-QemuExecutable {
     )
 
     # download and make qemu-img.exe available
-    $zipFileName = 'qemu-img-win-x64-2_3_0.zip'
+    $zipFileName = 'qemu-img-win-x64.2.4_0.zip'
     $zipFilePath = Join-Path $OutputDirectory "$zipFileName"
     $url = "https://cloudbase.it/downloads/$zipFileName"
     if (!(Test-Path $zipFilePath)) {
