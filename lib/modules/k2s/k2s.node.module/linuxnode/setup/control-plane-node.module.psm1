@@ -46,7 +46,7 @@ function New-ControlPlaneNodeOnNewVM {
 
     Test-PathPrerequisites
     Test-WindowsPrerequisites -WSL:$WSL
-    Test-ControlPlanePrerequisites -MasterVMProcessorCount $MasterVMProcessorCount -MasterVMMemory $MasterVMMemory -MasterDiskSize $MasterDiskSize
+    Test-ControlPlanePrerequisites -MasterVMProcessorCount $MasterVMProcessorCount -MasterVMMemory $MasterVMMemory -MasterDiskSize $MasterDiskSize -WSL:$WSL -ForceOnlineInstallation:$ForceOnlineInstallation
     Stop-InstallationIfRequiredCurlVersionNotInstalled
     Write-WarningIfRequiredSshVersionNotInstalled
 
