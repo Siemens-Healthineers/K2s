@@ -601,6 +601,29 @@
       ],
       "purl": "pkg:github/helm/helm@v4.2.3",
       "type": "application"
+    },
+    {
+      "group": "https://github.com/kubernetes-sigs/krew/releases/download/v0.5.0/krew-windows_amd64.tar.gz",
+      "name": "krew",
+      "version": "v0.5.0",
+      "description": "",
+      "scope": "required",
+      "licenses": [
+        {
+          "license": {
+            "id": "Apache-2.0",
+            "url": "https://github.com/kubernetes-sigs/krew/blob/master/LICENSE"
+          }
+        }
+      ],
+      "properties": [
+        {
+          "name": "sw360:projectName",
+          "value": "k2s:core:pkg:executables"
+        }
+      ],
+      "purl": "pkg:github/kubernetes-sigs/krew@v0.5.0",
+      "type": "application"
     }
   ],
   "dependencies": [],
