@@ -7,7 +7,6 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/siemens-healthineers/k2s/internal/contracts/ssh"
 	"github.com/siemens-healthineers/k2s/internal/core/users/controlplane/keyauth"
 	"github.com/siemens-healthineers/k2s/internal/reflection"
 	"github.com/stretchr/testify/mock"
@@ -22,8 +21,8 @@ func (m *mockSshProvider) Exec(command string) error {
 	return args.Error(0)
 }
 
-func (m *mockSshProvider) Copy(copyOptions ssh.CopyOptions) error {
-	args := m.Called(copyOptions)
+func (m *mockSshProvider) CopyToNode(source, target string) error {
+	args := m.Called(source, target)
 	return args.Error(0)
 }
 
@@ -54,11 +53,7 @@ var _ = Describe("KeyAuthorizer", func() {
 			It("returns error", func() {
 				sshMock := &mockSshProvider{}
 				sshMock.On(reflection.GetFunctionName(sshMock.Exec), mock.Anything).Return(nil).Once()
-				sshMock.On(reflection.GetFunctionName(sshMock.Copy), ssh.CopyOptions{
-					Source:    "/my-dir/my.key",
-					Target:    "/tmp/my.key",
-					Direction: ssh.CopyToNode,
-				}).Return(errors.New("oops")).Once()
+				sshMock.On(reflection.GetFunctionName(sshMock.CopyToNode), "/my-dir/my.key", "/tmp/my.key").Return(errors.New("oops")).Once()
 
 				sut := keyauth.NewKeyAuthorizer(sshMock)
 
@@ -73,7 +68,7 @@ var _ = Describe("KeyAuthorizer", func() {
 			It("returns a wrapped error", func() {
 				sshMock := &mockSshProvider{}
 				sshMock.On(reflection.GetFunctionName(sshMock.Exec), mock.Anything).Return(nil).Once()
-				sshMock.On(reflection.GetFunctionName(sshMock.Copy), mock.Anything).Return(nil).Once()
+				sshMock.On(reflection.GetFunctionName(sshMock.CopyToNode), mock.Anything, mock.Anything).Return(nil).Once()
 				sshMock.On(reflection.GetFunctionName(sshMock.Exec), mock.Anything).Return(errors.New("oops")).Once()
 
 				sut := keyauth.NewKeyAuthorizer(sshMock)
@@ -89,7 +84,7 @@ var _ = Describe("KeyAuthorizer", func() {
 			It("successfully authorizes key on remote", func() {
 				sshMock := &mockSshProvider{}
 				sshMock.On(reflection.GetFunctionName(sshMock.Exec), "rm -f /tmp/my.key").Return(nil).Once()
-				sshMock.On(reflection.GetFunctionName(sshMock.Copy), mock.Anything).Return(nil).Once()
+				sshMock.On(reflection.GetFunctionName(sshMock.CopyToNode), mock.Anything, mock.Anything).Return(nil).Once()
 				sshMock.On(reflection.GetFunctionName(sshMock.Exec), mock.MatchedBy(func(cmd string) bool {
 					return strings.Contains(cmd, "sed") &&
 						strings.Contains(cmd, "my-comment") &&

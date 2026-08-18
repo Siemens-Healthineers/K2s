@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText:  © 2025 Siemens Healthineers AG
+// SPDX-FileCopyrightText:  © 2026 Siemens Healthineers AG
 // SPDX-License-Identifier:   MIT
 
 package ssh
@@ -15,7 +15,6 @@ import (
 	"strings"
 
 	"github.com/pkg/sftp"
-	contracts "github.com/siemens-healthineers/k2s/internal/contracts/ssh"
 	"github.com/siemens-healthineers/k2s/internal/host"
 )
 
@@ -47,27 +46,33 @@ type targetInfo struct {
 	isExisting bool
 }
 
-func (s *SSH) Copy(copyOptions contracts.CopyOptions) error {
-	return copyWithOptions(copyOptions, s.connectionOptions, false)
+func (s *SSH) CopyToNode(source, target string) error {
+	return copyToRemote(source, target, s.connectionOptions, false)
+}
+func (s *SSH) CopyFromNode(source, target string) error {
+	return copyFromRemote(source, target, s.connectionOptions, false)
 }
 
-func (s *SSH) Move(copyOptions contracts.CopyOptions) error {
-	return copyWithOptions(copyOptions, s.connectionOptions, true)
+func (s *SSH) MoveToNode(source, target string) error {
+	return copyToRemote(source, target, s.connectionOptions, true)
+}
+func (s *SSH) MoveFromNode(source, target string) error {
+	return copyFromRemote(source, target, s.connectionOptions, true)
 }
 
-func (c toRemoteCopier) CopyFile(source, target string) error {
+func (c *toRemoteCopier) CopyFile(source, target string) error {
 	return c.copyFileToRemote(source, target)
 }
 
-func (c toRemoteCopier) CopyDir(source, target string) error {
+func (c *toRemoteCopier) CopyDir(source, target string) error {
 	return c.copyDirToRemote(source, target)
 }
 
-func (c fromRemoteCopier) CopyFile(source, target string) error {
+func (c *fromRemoteCopier) CopyFile(source, target string) error {
 	return c.copyFileFromRemote(source, target)
 }
 
-func (c fromRemoteCopier) CopyDir(source, target string) error {
+func (c *fromRemoteCopier) CopyDir(source, target string) error {
 	return c.copyDirFromRemote(source, target)
 }
 
@@ -242,12 +247,51 @@ func (c *fromRemoteCopier) copyDirFromRemote(remoteDir, localDir string) error {
 	return nil
 }
 
-func copyWithOptions(copyOptions contracts.CopyOptions, connectionOptions ConnectionOptions, deleteSource bool) error {
-	copyFunc, err := determineCopyFunc(copyOptions, deleteSource)
+func copyToRemote(source, target string, connectionOptions ConnectionOptions, deleteSource bool) error {
+	sourceInfo, err := analyzeLocalSource(source)
 	if err != nil {
-		return fmt.Errorf("failed to determine copy function: %w", err)
+		return fmt.Errorf("failed to analyze local source '%s': %w", source, err)
 	}
 
+	return withSftpClient(connectionOptions, func(sftpClient *sftp.Client) error {
+		targetInfo, err := analyzeRemoteTarget(target, sftpClient)
+		if err != nil {
+			return fmt.Errorf("failed to analyze remote target '%s': %w", target, err)
+		}
+		fileCopier := &toRemoteCopier{
+			basicCopier: basicCopier{
+				client:       sftpClient,
+				deleteSource: deleteSource,
+			},
+		}
+
+		return copySourceToTarget(*sourceInfo, *targetInfo, fileCopier)
+	})
+}
+
+func copyFromRemote(source, target string, connectionOptions ConnectionOptions, deleteSource bool) error {
+	targetInfo, err := analyzeLocalTarget(target)
+	if err != nil {
+		return fmt.Errorf("failed to analyze local target '%s': %w", target, err)
+	}
+
+	return withSftpClient(connectionOptions, func(sftpClient *sftp.Client) error {
+		sourceInfo, err := analyzeRemoteSource(source, sftpClient)
+		if err != nil {
+			return fmt.Errorf("failed to analyze remote source '%s': %w", source, err)
+		}
+		fileCopier := &fromRemoteCopier{
+			basicCopier: basicCopier{
+				client:       sftpClient,
+				deleteSource: deleteSource,
+			},
+		}
+
+		return copySourceToTarget(*sourceInfo, *targetInfo, fileCopier)
+	})
+}
+
+func withSftpClient(connectionOptions ConnectionOptions, fn func(*sftp.Client) error) error {
 	sshClient, err := Connect(connectionOptions)
 	if err != nil {
 		return fmt.Errorf("failed to dial SSH: %w", err)
@@ -271,56 +315,7 @@ func copyWithOptions(copyOptions contracts.CopyOptions, connectionOptions Connec
 		}
 	}()
 
-	return copyFunc(sftpClient)
-}
-
-func determineCopyFunc(copyOptions contracts.CopyOptions, deleteSource bool) (func(*sftp.Client) error, error) {
-	slog.Debug("Determining copy function", "copy-direction", copyOptions.Direction)
-
-	switch copyOptions.Direction {
-	case contracts.CopyToNode:
-		source, err := analyzeLocalSource(copyOptions.Source)
-		if err != nil {
-			return nil, fmt.Errorf("failed to analyze local source '%s': %w", copyOptions.Source, err)
-		}
-
-		return func(sftpClient *sftp.Client) error {
-			target, err := analyzeRemoteTarget(copyOptions.Target, sftpClient)
-			if err != nil {
-				return fmt.Errorf("failed to analyze remote target '%s': %w", copyOptions.Target, err)
-			}
-			copier := &toRemoteCopier{
-				basicCopier: basicCopier{
-					client:       sftpClient,
-					deleteSource: deleteSource,
-				},
-			}
-
-			return copySourceToTarget(*source, *target, copier)
-		}, nil
-	case contracts.CopyFromNode:
-		target, err := analyzeLocalTarget(copyOptions.Target)
-		if err != nil {
-			return nil, fmt.Errorf("failed to analyze local target '%s': %w", copyOptions.Target, err)
-		}
-
-		return func(sftpClient *sftp.Client) error {
-			source, err := analyzeRemoteSource(copyOptions.Source, sftpClient)
-			if err != nil {
-				return fmt.Errorf("failed to analyze remote source '%s': %w", copyOptions.Source, err)
-			}
-			copier := &fromRemoteCopier{
-				basicCopier: basicCopier{
-					client:       sftpClient,
-					deleteSource: deleteSource,
-				},
-			}
-
-			return copySourceToTarget(*source, *target, copier)
-		}, nil
-	default:
-		return nil, fmt.Errorf("invalid copy direction: %v", copyOptions.Direction)
-	}
+	return fn(sftpClient)
 }
 
 func analyzeLocalSource(path string) (*pathInfo, error) {
@@ -338,7 +333,7 @@ func analyzeLocalSource(path string) (*pathInfo, error) {
 		if errors.Is(err, fs.ErrNotExist) {
 			return nil, fmt.Errorf("source '%s' does not exist", localPath)
 		}
-		return nil, fmt.Errorf("failed to retreive information about source '%s': %w", localPath, err)
+		return nil, fmt.Errorf("failed to retrieve information about source '%s': %w", localPath, err)
 	}
 	return &pathInfo{
 		path:  localPath,
@@ -449,7 +444,7 @@ func analyzeRemoteSource(remotePath string, sftpClient *sftp.Client) (*pathInfo,
 		if errors.Is(err, fs.ErrNotExist) {
 			return nil, fmt.Errorf("source '%s' does not exist", remotePath)
 		}
-		return nil, fmt.Errorf("failed to retreive information about source '%s': %w", remotePath, err)
+		return nil, fmt.Errorf("failed to retrieve information about source '%s': %w", remotePath, err)
 	}
 	return &pathInfo{
 		path:  remotePath,

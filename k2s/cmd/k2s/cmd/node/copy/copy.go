@@ -9,8 +9,7 @@ import (
 	"time"
 
 	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/common"
-	cconfig "github.com/siemens-healthineers/k2s/internal/contracts/config"
-	cssh "github.com/siemens-healthineers/k2s/internal/contracts/ssh"
+	contracts_config "github.com/siemens-healthineers/k2s/internal/contracts/config"
 	"github.com/siemens-healthineers/k2s/internal/core/config"
 	"github.com/siemens-healthineers/k2s/internal/definitions"
 	"github.com/siemens-healthineers/k2s/internal/providers/ssh"
@@ -90,28 +89,37 @@ func NewCmd() *cobra.Command {
 
 func copy(cmd *cobra.Command, args []string) error {
 	cmdSession := common.StartCmdSession(cmd.CommandPath())
-	copyOptions, connectionOptions, err := extractOptions(cmd.Flags())
-	if err != nil {
-		return fmt.Errorf("failed to extract copy options: %w", err)
-	}
 
 	k2sConfig := cmd.Context().Value(common.ContextKeyCmdContext).(*common.CmdContext).Config()
-	_, err = config.ReadRuntimeConfig(k2sConfig.Host().K2sSetupConfigDir())
+	_, err := config.ReadRuntimeConfig(k2sConfig.Host().K2sSetupConfigDir())
 	if err != nil {
-		if errors.Is(err, cconfig.ErrSystemNotInstalled) {
+		if errors.Is(err, contracts_config.ErrSystemNotInstalled) {
 			return common.CreateSystemNotInstalledCmdFailure()
 		}
-		if errors.Is(err, cconfig.ErrSystemInCorruptedState) {
+		if errors.Is(err, contracts_config.ErrSystemInCorruptedState) {
 			return common.CreateSystemInCorruptedStateCmdFailure()
 		}
 		return fmt.Errorf("failed to read setup config: %w", err)
 	}
 
-	connectionOptions.SshPrivateKeyPath = k2sConfig.Host().SshConfig().CurrentPrivateKeyPath()
-
-	err = ssh.NewSSH(*connectionOptions).Copy(*copyOptions)
+	connectionOptions, err := extractConnectionOptions(cmd.Flags(), k2sConfig.Host().SshConfig().CurrentPrivateKeyPath())
 	if err != nil {
-		return fmt.Errorf("failed to copy: %w", err)
+		return fmt.Errorf("failed to extract connection options: %w", err)
+	}
+	source, target, reverse, err := extractCopyOptions(cmd.Flags())
+	if err != nil {
+		return fmt.Errorf("failed to extract copy options: %w", err)
+	}
+
+	sshProvider := ssh.NewSSH(*connectionOptions)
+
+	if reverse {
+		err = sshProvider.CopyFromNode(source, target)
+	} else {
+		err = sshProvider.CopyToNode(source, target)
+	}
+	if err != nil {
+		return fmt.Errorf("failed to copy from '%s' to '%s' (reverse=%t): %w", source, target, reverse, err)
 	}
 
 	cmdSession.Finish()
@@ -119,60 +127,54 @@ func copy(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
-func extractOptions(flags *pflag.FlagSet) (*cssh.CopyOptions, *ssh.ConnectionOptions, error) {
+func extractConnectionOptions(flags *pflag.FlagSet, sshPrivateKeyPath string) (*ssh.ConnectionOptions, error) {
 	ipAddress, err := flags.GetString(ipAddressFlag)
 	if err != nil {
-		return nil, nil, err
-	}
-
-	source, err := flags.GetString(sourceFlag)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	target, err := flags.GetString(targetFlag)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	reverse, err := flags.GetBool(reverseFlag)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	direction := cssh.CopyToNode
-	if reverse {
-		direction = cssh.CopyFromNode
+		return nil, err
 	}
 
 	username, err := flags.GetString(usernameFlag)
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 
 	port, err := flags.GetUint16(portFlag)
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 
 	timeoutValue, err := flags.GetString(timeoutFlag)
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 
 	timeout, err := time.ParseDuration(timeoutValue)
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 
-	return &cssh.CopyOptions{
-			Source:    source,
-			Target:    target,
-			Direction: direction,
-		}, &ssh.ConnectionOptions{
-			IpAddress:  ipAddress,
-			RemoteUser: username,
-			Timeout:    timeout,
-			Port:       port,
-		}, nil
+	return &ssh.ConnectionOptions{
+		IpAddress:         ipAddress,
+		RemoteUser:        username,
+		Timeout:           timeout,
+		Port:              port,
+		SshPrivateKeyPath: sshPrivateKeyPath,
+	}, nil
+}
+func extractCopyOptions(flags *pflag.FlagSet) (source, target string, reverse bool, err error) {
+	source, err = flags.GetString(sourceFlag)
+	if err != nil {
+		return "", "", false, err
+	}
+
+	target, err = flags.GetString(targetFlag)
+	if err != nil {
+		return "", "", false, err
+	}
+
+	reverse, err = flags.GetBool(reverseFlag)
+	if err != nil {
+		return "", "", false, err
+	}
+	return
 }

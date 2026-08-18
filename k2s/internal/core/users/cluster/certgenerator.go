@@ -7,13 +7,12 @@ import (
 	"fmt"
 	"log/slog"
 
-	"github.com/siemens-healthineers/k2s/internal/contracts/ssh"
 	"github.com/siemens-healthineers/k2s/internal/core/users/cluster/cert"
 )
 
 type sshProvider interface {
 	Exec(command string) error
-	Move(copyOptions ssh.CopyOptions) error
+	MoveFromNode(source, target string) error
 }
 
 type CertGenerator struct {
@@ -35,13 +34,7 @@ func (c *CertGenerator) GenerateUserCert(userName string, targetDir string) (cer
 		return "", "", fmt.Errorf("failed to create user certificate on remote machine for user '%s': %w", userName, err)
 	}
 
-	options := ssh.CopyOptions{
-		Source:    remoteCmd.TempDir,
-		Target:    targetDir,
-		Direction: ssh.CopyFromNode,
-	}
-
-	err = c.sshProvider.Move(options)
+	err = c.sshProvider.MoveFromNode(remoteCmd.TempDir, targetDir)
 	if err != nil {
 		return "", "", fmt.Errorf("failed to move user certificate files from remote machine for user '%s': %w", userName, err)
 	}
