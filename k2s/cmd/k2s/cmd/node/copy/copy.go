@@ -109,7 +109,7 @@ func copy(cmd *cobra.Command, args []string) error {
 
 	connectionOptions.SshPrivateKeyPath = k2sConfig.Host().SshConfig().CurrentPrivateKeyPath()
 
-	err = ssh.Copy(*copyOptions, *connectionOptions)
+	err = ssh.NewSSH(*connectionOptions).Copy(*copyOptions)
 	if err != nil {
 		return fmt.Errorf("failed to copy: %w", err)
 	}
@@ -119,7 +119,7 @@ func copy(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
-func extractOptions(flags *pflag.FlagSet) (*cssh.CopyOptions, *cssh.ConnectionOptions, error) {
+func extractOptions(flags *pflag.FlagSet) (*cssh.CopyOptions, *ssh.ConnectionOptions, error) {
 	ipAddress, err := flags.GetString(ipAddressFlag)
 	if err != nil {
 		return nil, nil, err
@@ -169,7 +169,7 @@ func extractOptions(flags *pflag.FlagSet) (*cssh.CopyOptions, *cssh.ConnectionOp
 			Source:    source,
 			Target:    target,
 			Direction: direction,
-		}, &cssh.ConnectionOptions{
+		}, &ssh.ConnectionOptions{
 			IpAddress:  ipAddress,
 			RemoteUser: username,
 			Timeout:    timeout,

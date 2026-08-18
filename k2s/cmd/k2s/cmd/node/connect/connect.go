@@ -10,7 +10,6 @@ import (
 
 	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/common"
 	cconfig "github.com/siemens-healthineers/k2s/internal/contracts/config"
-	cssh "github.com/siemens-healthineers/k2s/internal/contracts/ssh"
 	"github.com/siemens-healthineers/k2s/internal/core/config"
 	"github.com/siemens-healthineers/k2s/internal/definitions"
 	"github.com/siemens-healthineers/k2s/internal/providers/ssh"
@@ -94,7 +93,7 @@ func connect(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
-func extractOptions(flags *pflag.FlagSet) (*cssh.ConnectionOptions, error) {
+func extractOptions(flags *pflag.FlagSet) (*ssh.ConnectionOptions, error) {
 	ipAddress, err := flags.GetString(ipAddressFlag)
 	if err != nil {
 		return nil, err
@@ -120,7 +119,7 @@ func extractOptions(flags *pflag.FlagSet) (*cssh.ConnectionOptions, error) {
 		return nil, err
 	}
 
-	return &cssh.ConnectionOptions{
+	return &ssh.ConnectionOptions{
 		IpAddress:  ipAddress,
 		RemoteUser: username,
 		Timeout:    timeout,

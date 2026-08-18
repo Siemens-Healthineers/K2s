@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText:  © 2024 Siemens Healthineers AG
+// SPDX-FileCopyrightText:  © 2026 Siemens Healthineers AG
 // SPDX-License-Identifier:   MIT
 
 package common
@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -15,7 +16,7 @@ import (
 	bl "github.com/siemens-healthineers/k2s/internal/logging"
 	"github.com/siemens-healthineers/k2s/internal/os"
 	"github.com/siemens-healthineers/k2s/internal/provider"
-	"github.com/siemens-healthineers/k2s/internal/providers/k8s"
+	"github.com/siemens-healthineers/k2s/internal/providers/kubeconfig"
 
 	"github.com/pterm/pterm"
 )
@@ -282,18 +283,22 @@ func (c *CmdContext) Providers() *provider.Registry { return c.providers }
 func (c *CmdContext) EnsureK2sK8sContext(clusterName string) error {
 	slog.Debug("Ensuring correct K8s context", "cluster-name", clusterName)
 
-	k8sContext, err := k8s.ReadContext(c.config.Host().KubeConfig().CurrentDir(), clusterName)
+	kubeConfig, err := kubeconfig.FromFile(filepath.Join(c.config.Host().KubeConfig().CurrentDir(), kubeconfig.DefaultFileName))
 	if err != nil {
-		return fmt.Errorf("could not read K8s context: %w", err)
+		return fmt.Errorf("could not read kubeconfig: %w", err)
 	}
 
-	if k8sContext.IsK2sContext() {
+	context, err := kubeConfig.FindContextByCluster(clusterName)
+	if err != nil {
+		return fmt.Errorf("could not find context for cluster '%s': %w", clusterName, err)
+	}
+
+	if context.Name == kubeConfig.CurrentContext {
+		slog.Debug("K2s K8s context set as current context")
 		return nil
 	}
 
-	k2sContextName := k8sContext.K2sContextName()
-
-	message := fmt.Sprintf("This operation requires the K8s context '%s' to be set as current context.\nTo set the required context, run 'kubectl config use-context %s' and try again.", k2sContextName, k2sContextName)
+	message := fmt.Sprintf("This operation requires the K8s context '%s' to be set as current context.\nTo set the required context, run 'kubectl config use-context %s' and try again.", context.Name, context.Name)
 
 	return &CmdFailure{
 		Severity: SeverityWarning,

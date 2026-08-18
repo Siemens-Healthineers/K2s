@@ -32,7 +32,7 @@ func CreateKeyPair(privateKeyPath, publicKeyComment string) (publicKeyPath strin
 
 	pemBlock, err := ssh.MarshalPrivateKey(privatekey, "created-by-K2s")
 	if err != nil {
-		panic(err)
+		return "", fmt.Errorf("failed to marshal private SSH key: %w", err)
 	}
 
 	privateKeyFile, err := os.Create(privateKeyPath)

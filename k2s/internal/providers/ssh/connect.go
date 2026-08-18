@@ -8,11 +8,10 @@ import (
 	"log/slog"
 	"os"
 
-	contracts "github.com/siemens-healthineers/k2s/internal/contracts/ssh"
 	"golang.org/x/crypto/ssh"
 )
 
-func Connect(options contracts.ConnectionOptions) (*ssh.Client, error) {
+func Connect(options ConnectionOptions) (*ssh.Client, error) {
 	slog.Debug("Connecting via SSH", "ip", options.IpAddress, "user", options.RemoteUser, "key", options.SshPrivateKeyPath, "timeout", options.Timeout)
 
 	key, err := os.ReadFile(options.SshPrivateKeyPath)

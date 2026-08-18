@@ -21,9 +21,11 @@ import (
 
 	"github.com/siemens-healthineers/k2s/internal/cli"
 	contracts "github.com/siemens-healthineers/k2s/internal/contracts/users"
+	"github.com/siemens-healthineers/k2s/internal/core/users"
+	"github.com/siemens-healthineers/k2s/internal/definitions"
 	"github.com/siemens-healthineers/k2s/internal/providers/kubeconfig"
-	"github.com/siemens-healthineers/k2s/internal/providers/winusers"
-	integration "github.com/siemens-healthineers/k2s/internal/users"
+	"github.com/siemens-healthineers/k2s/internal/providers/osusers"
+	"github.com/siemens-healthineers/k2s/internal/providers/ssh"
 	"github.com/siemens-healthineers/k2s/test/framework"
 )
 
@@ -66,11 +68,11 @@ var _ = AfterSuite(func(ctx context.Context) {
 
 var _ = Describe("system users add", Ordered, func() {
 	When("user is SYSTEM user", func() {
-		var userProvider integration.UsersProvider
+		var userProvider users.OSUserProvider
 		var expectedKeyPath string
 		var expectedRemoteUser string
 		var kubeconfigPath string
-		var sut *integration.AddUserIntegration
+		var sut *users.UserAdmission
 
 		When("user has no previous kubeconfig with current context set", func() {
 			BeforeAll(func() {
@@ -85,10 +87,18 @@ var _ = Describe("system users add", Ordered, func() {
 
 				userProvider = &winUserProvider{
 					findByName: func(_ string) (*contracts.OSUser, error) { return systemUserWithFakeHomeDir, nil },
-					getCurrent: winusers.Current,
+					getCurrent: osusers.CurrentUser,
 				}
 
-				sut = integration.NewAddUserIntegration(&suite.SetupInfo().Config, &suite.SetupInfo().RuntimeConfig, userProvider, integration.PlatformACLProvider())
+				connectionOptions := ssh.ConnectionOptions{
+					RemoteUser:        definitions.SSHRemoteUser,
+					IpAddress:         suite.SetupInfo().Config.ControlPlane().IpAddress(),
+					Port:              definitions.SSHDefaultPort,
+					SshPrivateKeyPath: suite.SetupInfo().Config.Host().SshConfig().CurrentPrivateKeyPath(),
+					Timeout:           definitions.SSHDefaultTimeout,
+				}
+
+				sut = users.NewUserAdmission(&suite.SetupInfo().Config, suite.SetupInfo().RuntimeConfig.ClusterConfig().Name(), connectionOptions, userProvider)
 
 				Expect(sut.AddByName(systemUserName)).To(Succeed())
 			})
@@ -100,7 +110,7 @@ var _ = Describe("system users add", Ordered, func() {
 			})
 
 			It("sets Windows SYSTEM user's current context to K2s", func(ctx context.Context) {
-				kubeconfig, err := kubeconfig.ReadFile(kubeconfigPath)
+				kubeconfig, err := kubeconfig.FromFile(kubeconfigPath)
 
 				Expect(err).ToNot(HaveOccurred())
 				Expect(kubeconfig.CurrentContext).To(Equal("k2s-NT-AUTHORITY-SYSTEM@" + suite.SetupInfo().RuntimeConfig.ClusterConfig().Name()))
@@ -143,10 +153,18 @@ users:
 
 				userProvider = &winUserProvider{
 					findByName: func(_ string) (*contracts.OSUser, error) { return systemUserWithFakeHomeDir, nil },
-					getCurrent: winusers.Current,
+					getCurrent: osusers.CurrentUser,
 				}
 
-				sut = integration.NewAddUserIntegration(&suite.SetupInfo().Config, &suite.SetupInfo().RuntimeConfig, userProvider, integration.PlatformACLProvider())
+				connectionOptions := ssh.ConnectionOptions{
+					RemoteUser:        definitions.SSHRemoteUser,
+					IpAddress:         suite.SetupInfo().Config.ControlPlane().IpAddress(),
+					Port:              definitions.SSHDefaultPort,
+					SshPrivateKeyPath: suite.SetupInfo().Config.Host().SshConfig().CurrentPrivateKeyPath(),
+					Timeout:           definitions.SSHDefaultTimeout,
+				}
+
+				sut = users.NewUserAdmission(&suite.SetupInfo().Config, suite.SetupInfo().RuntimeConfig.ClusterConfig().Name(), connectionOptions, userProvider)
 
 				Expect(os.MkdirAll(kubeconfigDir, os.ModePerm)).To(Succeed())
 				Expect(os.WriteFile(kubeconfigPath, []byte(kubeconfig), os.ModePerm)).To(Succeed())
@@ -160,7 +178,7 @@ users:
 			})
 
 			It("keeps Windows SYSTEM user's previous context as current context", func(ctx context.Context) {
-				kubeconfig, err := kubeconfig.ReadFile(kubeconfigPath)
+				kubeconfig, err := kubeconfig.FromFile(kubeconfigPath)
 
 				Expect(err).ToNot(HaveOccurred())
 				Expect(kubeconfig.CurrentContext).To(Equal("other-user@other-cluster"))

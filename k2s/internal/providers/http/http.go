@@ -43,6 +43,8 @@ func (rc *restClient) SetTLSConfig(caCert, userCert, userKey []byte) error {
 	return nil
 }
 
+// Post sends a POST request with the given payload to the specified URL and decodes the response into the provided result variable.
+// It fails on http status codes other than 201 Created and returns an error if the request or response processing fails.
 func (rc *restClient) Post(url string, payload any, result any) error {
 	jsonBody, err := json.Marshal(payload)
 	if err != nil {

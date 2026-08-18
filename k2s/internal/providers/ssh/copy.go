@@ -47,12 +47,12 @@ type targetInfo struct {
 	isExisting bool
 }
 
-func Copy(copyOptions contracts.CopyOptions, connectionOptions contracts.ConnectionOptions) error {
-	return copyWithOptions(copyOptions, connectionOptions, false)
+func (s *SSH) Copy(copyOptions contracts.CopyOptions) error {
+	return copyWithOptions(copyOptions, s.connectionOptions, false)
 }
 
-func Move(copyOptions contracts.CopyOptions, connectionOptions contracts.ConnectionOptions) error {
-	return copyWithOptions(copyOptions, connectionOptions, true)
+func (s *SSH) Move(copyOptions contracts.CopyOptions) error {
+	return copyWithOptions(copyOptions, s.connectionOptions, true)
 }
 
 func (c toRemoteCopier) CopyFile(source, target string) error {
@@ -242,7 +242,7 @@ func (c *fromRemoteCopier) copyDirFromRemote(remoteDir, localDir string) error {
 	return nil
 }
 
-func copyWithOptions(copyOptions contracts.CopyOptions, connectionOptions contracts.ConnectionOptions, deleteSource bool) error {
+func copyWithOptions(copyOptions contracts.CopyOptions, connectionOptions ConnectionOptions, deleteSource bool) error {
 	copyFunc, err := determineCopyFunc(copyOptions, deleteSource)
 	if err != nil {
 		return fmt.Errorf("failed to determine copy function: %w", err)

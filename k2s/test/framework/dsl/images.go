@@ -13,7 +13,6 @@ import (
 	"strings"
 	"time"
 
-	contracts "github.com/siemens-healthineers/k2s/internal/contracts/ssh"
 	"github.com/siemens-healthineers/k2s/internal/definitions"
 	k2s_json "github.com/siemens-healthineers/k2s/internal/json"
 	"github.com/siemens-healthineers/k2s/internal/providers/ssh"
@@ -178,7 +177,7 @@ func (k2s *K2s) getImagesFromWindowsNode(ctx context.Context) (images []string) 
 func (k2s *K2s) getImagesFromLinuxNode() (images []string) {
 	output := new(bytes.Buffer)
 
-	connectionOptions := contracts.ConnectionOptions{
+	connectionOptions := ssh.ConnectionOptions{
 		IpAddress:         k2s.suite.SetupInfo().Config.ControlPlane().IpAddress(),
 		Port:              definitions.SSHDefaultPort,
 		RemoteUser:        definitions.SSHRemoteUser,
@@ -187,7 +186,7 @@ func (k2s *K2s) getImagesFromLinuxNode() (images []string) {
 		StdOutWriter:      output,
 	}
 
-	err := ssh.Exec("sudo buildah images --json", connectionOptions)
+	err := ssh.NewSSH(connectionOptions).Exec("sudo buildah images --json")
 	Expect(err).ToNot(HaveOccurred())
 
 	var imageList []buildahImage

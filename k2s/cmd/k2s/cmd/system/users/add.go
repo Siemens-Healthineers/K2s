@@ -12,7 +12,9 @@ import (
 	config_contract "github.com/siemens-healthineers/k2s/internal/contracts/config"
 	users_contract "github.com/siemens-healthineers/k2s/internal/contracts/users"
 	"github.com/siemens-healthineers/k2s/internal/core/config"
-	"github.com/siemens-healthineers/k2s/internal/users"
+	"github.com/siemens-healthineers/k2s/internal/core/users"
+	"github.com/siemens-healthineers/k2s/internal/definitions"
+	"github.com/siemens-healthineers/k2s/internal/providers/ssh"
 	"github.com/spf13/cobra"
 )
 
@@ -33,7 +35,7 @@ func newAddCommand() *cobra.Command {
 		RunE:  run,
 	}
 
-	cmd.Flags().StringP(userNameFlag, "u", "", "Windows user name, e.g. 'johndoe' or 'johnsdomain\\johndoe'")
+	cmd.Flags().StringP(userNameFlag, "u", "", "Windows user name, e.g. 'john-doe' or 'john-does-domain\\john-doe'")
 	cmd.Flags().StringP(userIdFlag, "i", "", "Windows user id, e.g. 'S-1-2-34-567898765-4321234567-8987654321-234567'")
 
 	cmd.MarkFlagsMutuallyExclusive(userNameFlag, userIdFlag)
@@ -75,12 +77,20 @@ func run(cmd *cobra.Command, args []string) error {
 		return common.CreateSystemNotRunningCmdFailure()
 	}
 
-	addUserIntegration := users.NewAddUserIntegration(k2sConfig, runtimeConfig, users.PlatformUsersProvider(), users.PlatformACLProvider())
+	connectionOptions := ssh.ConnectionOptions{
+		RemoteUser:        definitions.SSHRemoteUser,
+		IpAddress:         k2sConfig.ControlPlane().IpAddress(),
+		Port:              definitions.SSHDefaultPort,
+		SshPrivateKeyPath: k2sConfig.Host().SshConfig().CurrentPrivateKeyPath(),
+		Timeout:           definitions.SSHDefaultTimeout,
+	}
+
+	userAdmission := users.NewUserAdmission(k2sConfig, runtimeConfig.ClusterConfig().Name(), connectionOptions)
 
 	if userName != "" {
-		err = addUserIntegration.AddByName(userName)
+		err = userAdmission.AddByName(userName)
 	} else {
-		err = addUserIntegration.AddById(userId)
+		err = userAdmission.AddById(userId)
 	}
 	if err != nil {
 		if userNotFoundErr, ok := errors.AsType[users_contract.ErrUserNotFound](err); ok {

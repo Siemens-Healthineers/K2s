@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText:  © 2025 Siemens Healthineers AG
+// SPDX-FileCopyrightText:  © 2026 Siemens Healthineers AG
 // SPDX-License-Identifier:   MIT
 
 package knownhosts
@@ -13,8 +13,8 @@ import (
 
 	"github.com/siemens-healthineers/k2s/internal/contracts/config"
 	"github.com/siemens-healthineers/k2s/internal/contracts/users"
-	khost "github.com/siemens-healthineers/k2s/internal/host"
-	kos "github.com/siemens-healthineers/k2s/internal/os"
+	k_host "github.com/siemens-healthineers/k2s/internal/host"
+	k_os "github.com/siemens-healthineers/k2s/internal/os"
 )
 
 type KnownHostsCopier struct {
@@ -45,10 +45,10 @@ func (k *KnownHostsCopier) CopyHostEntries(host string, user *users.OSUser) erro
 		return fmt.Errorf("no host entries found for host '%s' in '%s'", host, sourcePath)
 	}
 
-	targetDir := khost.ResolveTildePrefix(k.sshConfig.RelativeDir(), user.HomeDir())
+	targetDir := k_host.ResolveTildePrefix(k.sshConfig.RelativeDir(), user.HomeDir())
 	targetPath := filepath.Join(targetDir, knownHostsFileName)
 
-	if kos.PathExists(targetPath) {
+	if k_os.PathExists(targetPath) {
 		slog.Debug("Target file already existing, adding host entries", "path", targetPath)
 		if err := updateFile(targetPath, host, hostEntries); err != nil {
 			return fmt.Errorf("failed to add host entries to target file '%s': %w", targetPath, err)

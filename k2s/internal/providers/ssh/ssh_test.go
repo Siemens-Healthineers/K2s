@@ -17,7 +17,8 @@ import (
 	"github.com/go-logr/logr"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	ssh_contracts "github.com/siemens-healthineers/k2s/internal/contracts/ssh"
+	"github.com/siemens-healthineers/k2s/internal/contracts/config"
+	"github.com/siemens-healthineers/k2s/internal/contracts/users"
 	"github.com/siemens-healthineers/k2s/internal/definitions"
 	"github.com/siemens-healthineers/k2s/internal/providers/ssh"
 	bssh "golang.org/x/crypto/ssh"
@@ -57,7 +58,7 @@ var _ = Describe("ssh pkg", func() {
 
 		When("no SSH server is reachable", func() {
 			It("times out within given period", func() {
-				clientOptions := ssh_contracts.ConnectionOptions{
+				clientOptions := ssh.ConnectionOptions{
 					IpAddress:         "192.168.1.111",
 					Port:              definitions.SSHDefaultPort,
 					RemoteUser:        "test-user",
@@ -121,7 +122,7 @@ var _ = Describe("ssh pkg", func() {
 			})
 
 			It("it creates an SSH session", func(ctx context.Context) {
-				clientOptions := ssh_contracts.ConnectionOptions{
+				clientOptions := ssh.ConnectionOptions{
 					IpAddress:         ipAddress,
 					Port:              port,
 					RemoteUser:        "test-user",
@@ -138,6 +139,19 @@ var _ = Describe("ssh pkg", func() {
 				Expect(session.Close()).To(Succeed())
 				Expect(client.Close()).To(Succeed())
 			})
+		})
+	})
+
+	Describe("DeterminePrivateKeyPath", Label("unit"), func() {
+		It("returns the correct path for the private key", func() {
+			config := config.NewSshConfig("", "~/relative/dir", "")
+			user := users.NewOSUser("", "", "/home/dir")
+
+			sut := ssh.NewKeyPathResolver(config)
+
+			actual := sut.ResolvePrivateKeyPath(user)
+
+			Expect(actual).To(Equal(filepath.Clean("/home/dir/relative/dir/k2s/id_rsa")))
 		})
 	})
 })

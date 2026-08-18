@@ -1,73 +1,83 @@
-// SPDX-FileCopyrightText:  © 2025 Siemens Healthineers AG
+// SPDX-FileCopyrightText:  © 2026 Siemens Healthineers AG
 // SPDX-License-Identifier:   MIT
 
 package users
 
 import (
-	"errors"
 	"fmt"
 	"log/slog"
-	"sync"
 
+	"github.com/siemens-healthineers/k2s/internal/contracts/config"
 	"github.com/siemens-healthineers/k2s/internal/contracts/users"
+	"github.com/siemens-healthineers/k2s/internal/core/users/cluster"
+	"github.com/siemens-healthineers/k2s/internal/core/users/controlplane"
+	"github.com/siemens-healthineers/k2s/internal/core/users/naming"
+	"github.com/siemens-healthineers/k2s/internal/core/users/validation"
+	"github.com/siemens-healthineers/k2s/internal/primitives/concurrency"
+	"github.com/siemens-healthineers/k2s/internal/providers/osusers"
+	"github.com/siemens-healthineers/k2s/internal/providers/ssh"
 )
 
-type userValidator interface {
-	ValidateUser(user *users.OSUser) error
-}
-
-type k2sUserNameProvider interface {
-	DetermineK2sUserName(user *users.OSUser) string
-}
-
-type admission interface {
-	GrantAccess(user *users.OSUser, k2sUserName string) error
+type OSUserProvider interface {
+	CurrentUser() (*users.OSUser, error)
+	FindByName(name string) (*users.OSUser, error)
+	FindById(id string) (*users.OSUser, error)
 }
 
 type UserAdmission struct {
-	userValidator         userValidator
-	k2sUserNameProvider   k2sUserNameProvider
-	controlPlaneAdmission admission
-	clusterAdmission      admission
+	userProvider          OSUserProvider
+	controlPlaneAdmission *controlplane.ControlPlaneAdmission
+	clusterAdmission      *cluster.ClusterAdmission
 }
 
-func NewUserAdmission(userValidator userValidator, k2sUserNameProvider k2sUserNameProvider, controlPlaneAdmission, clusterAdmission admission) *UserAdmission {
+func NewUserAdmission(k2sConfig *config.K2sConfig, clusterName string, connectionOptions ssh.ConnectionOptions, userProviders ...OSUserProvider) *UserAdmission {
+	controlPlaneAdmission := controlplane.NewControlPlaneAdmission(k2sConfig, connectionOptions)
+	clusterAdmission := cluster.NewClusterAdmission(clusterName, k2sConfig.Host(), connectionOptions)
+
+	if len(userProviders) == 0 {
+		userProviders = []OSUserProvider{osusers.NewOSUserProvider()}
+	}
+
 	return &UserAdmission{
-		userValidator:         userValidator,
-		k2sUserNameProvider:   k2sUserNameProvider,
+		userProvider:          userProviders[0],
 		controlPlaneAdmission: controlPlaneAdmission,
 		clusterAdmission:      clusterAdmission,
 	}
 }
 
-func (u *UserAdmission) Add(user *users.OSUser) error {
+func (a *UserAdmission) AddById(userId string) error {
+	return a.add(func() (*users.OSUser, error) { return a.userProvider.FindById(userId) })
+}
+
+func (a *UserAdmission) AddByName(userName string) error {
+	return a.add(func() (*users.OSUser, error) { return a.userProvider.FindByName(userName) })
+}
+
+func (a *UserAdmission) add(findUserFunc func() (*users.OSUser, error)) error {
+	user, err := findUserFunc()
+	if err != nil {
+		return err
+	}
+
 	slog.Debug("Adding user to K2s", "name", user.Name(), "id", user.Id())
 
-	if err := u.userValidator.ValidateUser(user); err != nil {
+	currentUser, err := a.userProvider.CurrentUser()
+	if err != nil {
+		return fmt.Errorf("failed to determine current user: %w", err)
+	}
+
+	if err := validation.ValidateUser(currentUser, user); err != nil {
 		return fmt.Errorf("failed to validate user '%s': %w", user.Name(), err)
 	}
 
-	k2sUserName := u.k2sUserNameProvider.DetermineK2sUserName(user)
+	k2sUserName := naming.DetermineK2sUserName(user)
 
-	allErrors := []error{nil, nil}
-	tasks := sync.WaitGroup{}
-	tasks.Add(len(allErrors))
-
-	go func() {
-		defer tasks.Done()
-		if err := u.controlPlaneAdmission.GrantAccess(user, k2sUserName); err != nil {
-			allErrors[0] = fmt.Errorf("failed to grant user control-plane access: %w", err)
-		}
-	}()
-
-	go func() {
-		defer tasks.Done()
-		if err := u.clusterAdmission.GrantAccess(user, k2sUserName); err != nil {
-			allErrors[1] = fmt.Errorf("failed to grant user Kubernetes access: %w", err)
-		}
-	}()
-
-	tasks.Wait()
-
-	return errors.Join(allErrors...)
+	return concurrency.RunAll(
+		func() error {
+			return a.controlPlaneAdmission.GrantAccess(user, k2sUserName)
+		},
+		func() error {
+			return a.clusterAdmission.GrantAccess(user, k2sUserName)
+		},
+	)
 }

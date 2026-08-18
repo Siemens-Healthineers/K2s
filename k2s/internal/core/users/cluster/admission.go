@@ -1,133 +1,81 @@
-// SPDX-FileCopyrightText:  © 2025 Siemens Healthineers AG
+// SPDX-FileCopyrightText:  © 2026 Siemens Healthineers AG
 // SPDX-License-Identifier:   MIT
 
 package cluster
 
 import (
-	"errors"
 	"fmt"
 	"log/slog"
-	"os"
-	"sync"
 
 	"github.com/siemens-healthineers/k2s/internal/contracts/config"
 	"github.com/siemens-healthineers/k2s/internal/contracts/users"
-	"github.com/siemens-healthineers/k2s/internal/definitions"
+	"github.com/siemens-healthineers/k2s/internal/core/users/cluster/naming"
+	"github.com/siemens-healthineers/k2s/internal/core/users/cluster/tempdir"
+	"github.com/siemens-healthineers/k2s/internal/primitives/concurrency"
+	"github.com/siemens-healthineers/k2s/internal/providers/kubeconfig"
+	"github.com/siemens-healthineers/k2s/internal/providers/ssh"
 )
 
-type kubeconfigResolver interface {
-	ResolveKubeconfigPath(user *users.OSUser) string
-}
-
-type kubeconfigCopier interface {
-	CopyClusterConfig(targetPath string) error
-}
-
-type certGenerator interface {
-	GenerateUserCert(userName string, targetDir string) (certPath, keyPath string, err error)
-}
-
-type kubeconfigWriter interface {
-	SetUserCredentials(k8sUserName, certPath, keyPath, kubeconfigPath string) error
-	SetContext(context, k8sUserName, clusterName, kubeconfigPath string) error
-	SetCurrentContext(context, kubeconfigPath string) error
-}
-
-type accessVerifier interface {
-	VerifyAccess(context, kubeconfigPath string) error
-}
-
 type ClusterAdmission struct {
-	config             *config.K2sClusterConfig
-	kubeconfigResolver kubeconfigResolver
-	kubeconfigCopier   kubeconfigCopier
-	kubeconfigWriter   kubeconfigWriter
-	kubeconfigReader   kubeconfigReader
-	certGenerator      certGenerator
-	accessVerifier     accessVerifier
+	clusterName        string
+	kubeconfigResolver *kubeconfig.KubeconfigResolver
+	kubeconfigEditor   *KubeconfigEditor
+	certGenerator      *CertGenerator
+	accessVerifier     *ClusterAccessVerifier
 }
 
-func NewClusterAdmission(config *config.K2sClusterConfig, kubeconfigResolver kubeconfigResolver, kubeconfigCopier kubeconfigCopier, kubeconfigWriter kubeconfigWriter, kubeconfigReader kubeconfigReader, certGenerator certGenerator, accessVerifier accessVerifier) *ClusterAdmission {
+func NewClusterAdmission(clusterName string, hostConfig *config.HostConfig, connectionOptions ssh.ConnectionOptions) *ClusterAdmission {
 	return &ClusterAdmission{
-		config:             config,
-		kubeconfigResolver: kubeconfigResolver,
-		kubeconfigCopier:   kubeconfigCopier,
-		kubeconfigWriter:   kubeconfigWriter,
-		kubeconfigReader:   kubeconfigReader,
-		certGenerator:      certGenerator,
-		accessVerifier:     accessVerifier,
+		clusterName:        clusterName,
+		kubeconfigResolver: kubeconfig.NewKubeconfigResolver(hostConfig.KubeConfig()),
+		kubeconfigEditor:   NewKubeconfigEditor(hostConfig, clusterName),
+		certGenerator:      NewCertGenerator(ssh.NewSSH(connectionOptions)),
+		accessVerifier:     NewClusterAccessVerifier(),
 	}
 }
 
 func (c *ClusterAdmission) GrantAccess(user *users.OSUser, k8sUserName string) error {
 	slog.Debug("Granting user access to Kubernetes cluster", "name", user.Name(), "id", user.Id(), "k8s-user-name", k8sUserName)
 
-	kubeconfigPath := c.kubeconfigResolver.ResolveKubeconfigPath(user)
+	targetKubeconfigPath := c.kubeconfigResolver.ResolveKubeconfigPath(user)
 
-	allErrors := []error{nil, nil}
-	tasks := sync.WaitGroup{}
-	tasks.Add(len(allErrors))
-
-	go func() {
-		defer tasks.Done()
-		if err := c.kubeconfigCopier.CopyClusterConfig(kubeconfigPath); err != nil {
-			allErrors[0] = fmt.Errorf("failed to copy cluster config to '%s': %w", kubeconfigPath, err)
-		}
-	}()
-
-	var tempDir, certPath, keyPath string
-
-	go func() {
-		defer tasks.Done()
-		var err error
-		tempDir, err = os.MkdirTemp("", definitions.SetupNameK2s+"-*")
-		if err != nil {
-			allErrors[1] = fmt.Errorf("failed to create temporary directory for user certificate generation: %w", err)
-			return
-		}
-
-		certPath, keyPath, err = c.certGenerator.GenerateUserCert(k8sUserName, tempDir)
-		if err != nil {
-			allErrors[1] = fmt.Errorf("failed to generate user certificate for user '%s': %w", k8sUserName, err)
-		}
-	}()
+	tempDir, err := tempdir.CreateTempDir()
+	if err != nil {
+		return err
+	}
 	defer func() {
-		err := os.RemoveAll(tempDir)
+		err := tempdir.RemoveTempDir(tempDir)
 		if err != nil {
 			slog.Error("failed to remove temporary directory for user certificate generation", "path", tempDir, "error", err)
 		}
 	}()
 
-	tasks.Wait()
+	var certPath, keyPath string
 
-	err := errors.Join(allErrors...)
-	if err != nil {
-		return fmt.Errorf("failed to grant user access to Kubernetes cluster: %w", err)
+	allErrors := concurrency.RunAll(
+		func() error {
+			return c.kubeconfigEditor.CopyCurrentClusterConfig(targetKubeconfigPath)
+		},
+		func() error {
+			var err error
+
+			certPath, keyPath, err = c.certGenerator.GenerateUserCert(k8sUserName, tempDir)
+			return err
+		},
+	)
+
+	if allErrors != nil {
+		return fmt.Errorf("failed to grant user access to Kubernetes cluster: %w", allErrors)
 	}
 
-	k8sContext := k8sUserName + "@" + c.config.Name()
+	k8sContext := naming.DetermineK8sContext(k8sUserName, c.clusterName)
 
-	if err := c.kubeconfigWriter.SetUserCredentials(k8sUserName, certPath, keyPath, kubeconfigPath); err != nil {
-		return fmt.Errorf("failed to set user credentials in '%s': %w", kubeconfigPath, err)
+	if err := c.kubeconfigEditor.SetUserContext(k8sUserName, k8sContext, certPath, keyPath, targetKubeconfigPath); err != nil {
+		return err
 	}
 
-	if err := c.kubeconfigWriter.SetContext(k8sContext, k8sUserName, c.config.Name(), kubeconfigPath); err != nil {
-		return fmt.Errorf("failed to set user credentials in '%s': %w", kubeconfigPath, err)
-	}
-
-	if err := c.accessVerifier.VerifyAccess(k8sContext, kubeconfigPath); err != nil {
-		return fmt.Errorf("failed to verify cluster access for user '%s': %w", k8sUserName, err)
-	}
-
-	currentContext, err := c.kubeconfigReader.ReadCurrentContext(kubeconfigPath)
-	if err != nil {
-		return fmt.Errorf("failed to read current context from kubeconfig '%s': %w", kubeconfigPath, err)
-	}
-
-	if currentContext == "" {
-		if err := c.kubeconfigWriter.SetCurrentContext(k8sContext, kubeconfigPath); err != nil {
-			return fmt.Errorf("failed to set current context '%s': %w", kubeconfigPath, err)
-		}
+	if err := c.accessVerifier.VerifyAccess(k8sContext, targetKubeconfigPath); err != nil {
+		return fmt.Errorf("failed to verify cluster access for user '%s' in kubeconfig '%s': %w", k8sUserName, targetKubeconfigPath, err)
 	}
 	return nil
 }

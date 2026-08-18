@@ -14,7 +14,6 @@ import (
 	. "github.com/onsi/gomega"
 
 	"github.com/siemens-healthineers/k2s/internal/cli"
-	contracts "github.com/siemens-healthineers/k2s/internal/contracts/ssh"
 	"github.com/siemens-healthineers/k2s/internal/definitions"
 	"github.com/siemens-healthineers/k2s/internal/providers/ssh"
 	"github.com/siemens-healthineers/k2s/test/framework"
@@ -77,14 +76,14 @@ var _ = Describe("system proxy", func() {
 
 	Describe("round-trip", Ordered, Label("cli", "system", "proxy", "acceptance", "setup-required", "system-running", "invasive"), func() {
 		var savedProxy string
-		var connOpts contracts.ConnectionOptions
+		var connOpts ssh.ConnectionOptions
 
 		BeforeAll(func(ctx context.Context) {
 			if suite.SetupInfo().RuntimeConfig.InstallConfig().LinuxOnly() {
 				Skip("Linux-only setup, proxy round-trip tests not supported")
 			}
 
-			connOpts = contracts.ConnectionOptions{
+			connOpts = ssh.ConnectionOptions{
 				IpAddress:         suite.SetupInfo().Config.ControlPlane().IpAddress(),
 				Port:              definitions.SSHDefaultPort,
 				RemoteUser:        definitions.SSHRemoteUser,
@@ -116,15 +115,15 @@ var _ = Describe("system proxy", func() {
 			opts := connOpts
 			opts.StdOutWriter = buf
 
-			Expect(ssh.Exec("sudo cat /etc/apt/apt.conf.d/proxy.conf", opts)).To(Succeed())
+			Expect(ssh.NewSSH(opts).Exec("sudo cat /etc/apt/apt.conf.d/proxy.conf")).To(Succeed())
 			Expect(buf.String()).To(ContainSubstring(":8181"))
 
 			buf.Reset()
-			Expect(ssh.Exec("sudo cat /etc/systemd/system/crio.service.d/http-proxy.conf", opts)).To(Succeed())
+			Expect(ssh.NewSSH(opts).Exec("sudo cat /etc/systemd/system/crio.service.d/http-proxy.conf")).To(Succeed())
 			Expect(buf.String()).To(ContainSubstring(":8181"))
 
 			buf.Reset()
-			Expect(ssh.Exec("sudo cat /etc/containers/containers.conf", opts)).To(Succeed())
+			Expect(ssh.NewSSH(opts).Exec("sudo cat /etc/containers/containers.conf")).To(Succeed())
 			Expect(buf.String()).To(ContainSubstring(":8181"))
 
 			// use Eventually in case crio restart is briefly lagging
@@ -132,7 +131,7 @@ var _ = Describe("system proxy", func() {
 				crioEnvBuf := new(bytes.Buffer)
 				crioOpts := connOpts
 				crioOpts.StdOutWriter = crioEnvBuf
-				g.Expect(ssh.Exec("sudo systemctl show crio --property=Environment", crioOpts)).To(Succeed())
+				g.Expect(ssh.NewSSH(crioOpts).Exec("sudo systemctl show crio --property=Environment")).To(Succeed())
 				g.Expect(crioEnvBuf.String()).To(ContainSubstring(":8181"))
 			}, 30*time.Second, time.Second).Should(Succeed())
 		})
@@ -175,16 +174,16 @@ var _ = Describe("system proxy", func() {
 
 		It("reset removes Linux guest proxy files", func() {
 			// file deletion is synchronous — plain assertions are safe
-			Expect(ssh.Exec("sudo test ! -f /etc/apt/apt.conf.d/proxy.conf", connOpts)).To(Succeed())
-			Expect(ssh.Exec("sudo test ! -d /etc/systemd/system/crio.service.d", connOpts)).To(Succeed())
-			Expect(ssh.Exec("sudo test ! -f /etc/containers/containers.conf", connOpts)).To(Succeed())
+			Expect(ssh.NewSSH(connOpts).Exec("sudo test ! -f /etc/apt/apt.conf.d/proxy.conf")).To(Succeed())
+			Expect(ssh.NewSSH(connOpts).Exec("sudo test ! -d /etc/systemd/system/crio.service.d")).To(Succeed())
+			Expect(ssh.NewSSH(connOpts).Exec("sudo test ! -f /etc/containers/containers.conf")).To(Succeed())
 
 			// use Eventually in case crio restart is briefly lagging
 			Eventually(func(g Gomega) {
 				buf := new(bytes.Buffer)
 				opts := connOpts
 				opts.StdOutWriter = buf
-				g.Expect(ssh.Exec("sudo systemctl show crio --property=Environment", opts)).To(Succeed())
+				g.Expect(ssh.NewSSH(opts).Exec("sudo systemctl show crio --property=Environment")).To(Succeed())
 				g.Expect(buf.String()).NotTo(ContainSubstring("HTTP_PROXY"))
 				g.Expect(buf.String()).NotTo(ContainSubstring("HTTPS_PROXY"))
 			}, 30*time.Second, time.Second).Should(Succeed())

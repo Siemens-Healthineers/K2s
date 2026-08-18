@@ -3,19 +3,7 @@
 
 package ssh
 
-import (
-	"io"
-	"time"
-)
-
-type ConnectionOptions struct {
-	IpAddress         string
-	Port              uint16
-	RemoteUser        string
-	SshPrivateKeyPath string
-	Timeout           time.Duration
-	StdOutWriter      io.Writer
-}
+// TODO: back to ssh package?
 
 type CopyDirection bool
 

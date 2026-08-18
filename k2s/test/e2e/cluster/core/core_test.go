@@ -11,7 +11,6 @@ import (
 	"testing"
 	"time"
 
-	contracts "github.com/siemens-healthineers/k2s/internal/contracts/ssh"
 	"github.com/siemens-healthineers/k2s/internal/definitions"
 	"github.com/siemens-healthineers/k2s/internal/providers/ssh"
 	"github.com/siemens-healthineers/k2s/test/framework"
@@ -397,7 +396,7 @@ var _ = Describe("Cluster Core", func() {
 		Describe("Control Plane Tools", func() {
 			sshExec := func(cmd string) error {
 				var buf bytes.Buffer
-				opts := contracts.ConnectionOptions{
+				opts := ssh.ConnectionOptions{
 					IpAddress:         suite.SetupInfo().Config.ControlPlane().IpAddress(),
 					Port:              definitions.SSHDefaultPort,
 					RemoteUser:        definitions.SSHRemoteUser,
@@ -405,7 +404,7 @@ var _ = Describe("Cluster Core", func() {
 					Timeout:           time.Minute,
 					StdOutWriter:      &buf,
 				}
-				return ssh.Exec(cmd, opts)
+				return ssh.NewSSH(opts).Exec(cmd)
 			}
 
 			It("helm is installed on control-plane", func() {
