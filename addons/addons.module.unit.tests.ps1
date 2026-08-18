@@ -1484,6 +1484,7 @@ Describe 'Wait-ForCARootCertificateRotation' -Tag 'unit', 'ci', 'addon' {
 
             $result | Should -BeFalse
             Should -Invoke Get-CARootCertificateHash -Times 3 -Scope It
+            Should -Invoke Start-Sleep -Times 2 -Scope It
         }
     }
 }
