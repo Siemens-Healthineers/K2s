@@ -3,7 +3,7 @@
 
 package provider
 
-import k2sos "github.com/siemens-healthineers/k2s/internal/os"
+import "github.com/siemens-healthineers/k2s/internal/output"
 
 // ClusterProvider abstracts cluster lifecycle operations.
 // On Windows: delegates to PowerShell scripts.
@@ -27,33 +27,33 @@ type ClusterProvider interface {
 
 // ClusterInstallConfig holds parameters for cluster installation.
 type ClusterInstallConfig struct {
-	SetupName              string
-	MasterVMProcessorCount string
-	MasterVMMemory         string
-	MasterVMMemoryMin      string
-	MasterVMMemoryMax      string
-	MasterDiskSize         string
-	DynamicMemory          bool
-	LinuxOnly              bool
-	WSL                    bool
-	ShowLogs               bool
-	SkipStart              bool
-	ForceOnlineInstallation         bool
+	SetupName                         string
+	MasterVMProcessorCount            string
+	MasterVMMemory                    string
+	MasterVMMemoryMin                 string
+	MasterVMMemoryMax                 string
+	MasterDiskSize                    string
+	DynamicMemory                     bool
+	LinuxOnly                         bool
+	WSL                               bool
+	ShowLogs                          bool
+	SkipStart                         bool
+	ForceOnlineInstallation           bool
 	DeleteFilesForOfflineInstallation bool
-	AppendLog              bool
-	Proxy                  string
-	NoProxy                []string
-	AdditionalHooksDir     string
-	K8sBinsPath            string
-	RestartPostInstall     string
-	ConfigDir              string
-	InstallDir             string
-	Version                string
-	ClusterName            string
-	ControlPlaneHostname   string
+	AppendLog                         bool
+	Proxy                             string
+	NoProxy                           []string
+	AdditionalHooksDir                string
+	K8sBinsPath                       string
+	RestartPostInstall                string
+	ConfigDir                         string
+	InstallDir                        string
+	Version                           string
+	ClusterName                       string
+	ControlPlaneHostname              string
 	// StdWriter overrides the default writer for capturing PS output (Windows).
 	// Linux providers ignore this field.
-	StdWriter              k2sos.StdWriter
+	StdWriter output.Writer
 }
 
 // ClusterUninstallConfig holds parameters for cluster uninstallation.

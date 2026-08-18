@@ -10,13 +10,13 @@ import (
 	"path/filepath"
 
 	"github.com/siemens-healthineers/k2s/cmd/k2s/utils"
-	k2sos "github.com/siemens-healthineers/k2s/internal/os"
+	"github.com/siemens-healthineers/k2s/internal/output"
 	"github.com/siemens-healthineers/k2s/internal/powershell"
 )
 
 type windowsAddonProvider struct {
 	installDir string
-	stdWriter  k2sos.StdWriter
+	stdWriter  output.Writer
 }
 
 func newWindowsAddonProvider(cfg ProviderConfig) *windowsAddonProvider {

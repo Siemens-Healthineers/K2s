@@ -13,7 +13,7 @@ import (
 	cc "github.com/siemens-healthineers/k2s/cmd/k2s/cmd/common"
 
 	"github.com/siemens-healthineers/k2s/internal/contracts/config"
-	"github.com/siemens-healthineers/k2s/internal/os"
+	"github.com/siemens-healthineers/k2s/internal/output"
 	"github.com/siemens-healthineers/k2s/internal/version"
 
 	"github.com/spf13/cobra"
@@ -32,7 +32,7 @@ type Printer interface {
 type Installer struct {
 	InstallConfigAccess      InstallConfigAccess
 	Printer                  Printer
-	ExecutePsScript          func(script string, writer os.StdWriter) error
+	ExecutePsScript          func(script string, writer output.Writer) error
 	GetVersionFunc           func() version.Version
 	GetPlatformFunc          func() string
 	GetInstallDirFunc        func() string

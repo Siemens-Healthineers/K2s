@@ -7,9 +7,7 @@
 // eliminating the need for platform-specific dispatch logic in command handlers.
 package provider
 
-import (
-	k2sos "github.com/siemens-healthineers/k2s/internal/os"
-)
+import "github.com/siemens-healthineers/k2s/internal/output"
 
 // Registry holds all platform-specific providers.
 // It is created once during CLI initialization and passed to command handlers
@@ -29,5 +27,5 @@ type ProviderConfig struct {
 	// ConfigDir is the K2s setup config directory (e.g. C:\ProgramData\K2s or /var/lib/k2s).
 	ConfigDir string
 	// StdWriter is used for streaming output to the terminal.
-	StdWriter k2sos.StdWriter
+	StdWriter output.Writer
 }
