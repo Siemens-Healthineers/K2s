@@ -1927,8 +1927,10 @@ function Wait-ForCARootCertificateRotation(
             Write-Log '[CertManager] CA root certificate rotation detected; proceeding with import.'
             return $true
         }
-        Write-Log "Retry {$i}: CA root certificate not yet rotated. Will retry after $SleepDurationInSeconds Seconds" -Console
-        Start-Sleep -Seconds $SleepDurationInSeconds
+        if ($i -lt $NumberOfRetries) {
+            Write-Log "Retry {$i}: CA root certificate not yet rotated. Will retry after $SleepDurationInSeconds Seconds" -Console
+            Start-Sleep -Seconds $SleepDurationInSeconds
+        }
     }
 
     Write-Log '[CertManager] CA root certificate rotation was not detected within the retry budget. Proceeding with import anyway; the imported CA may be stale until the next renewal cycle completes.' -Console
