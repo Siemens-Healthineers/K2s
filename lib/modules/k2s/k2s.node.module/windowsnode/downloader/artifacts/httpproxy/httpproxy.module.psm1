@@ -119,6 +119,7 @@ function Set-ProxyConfigInHttpProxy {
         $allNoProxyHosts += $ProxyOverrides
     }
     $allNoProxyHosts += $k2sHosts
+    $allNoProxyHosts += Get-RegistryMirrorHosts
     
     $uniqueNoProxyHosts = $allNoProxyHosts | Sort-Object -Unique
     
@@ -136,4 +137,18 @@ function Set-ProxyConfigInHttpProxy {
     if ( $Proxy -ne '' ) {
         Write-Log "HTTP Proxy service configured with forward proxy: $Proxy"
     }
+}
+
+function Get-RegistryMirrorHosts {
+    $mirrorHosts = @()
+    foreach ($mirrorRegistry in @(Get-MirrorRegistries)) {
+        $mirror = $mirrorRegistry.mirror
+        if ([string]::IsNullOrWhiteSpace($mirror)) {
+            continue
+        }
+
+        $mirrorHosts += (($mirror -replace '^https?://', '') -replace '/.*$', '') -replace ':\d+$', ''
+    }
+
+    return $mirrorHosts | Where-Object { ![string]::IsNullOrWhiteSpace($_) } | Sort-Object -Unique
 }
