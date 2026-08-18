@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText:  © 2024 Siemens Healthineers AG
+// SPDX-FileCopyrightText:  © 2026 Siemens Healthineers AG
 // SPDX-License-Identifier:   MIT
 
 package reflection_test
@@ -8,12 +8,12 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/siemens-healthineers/k2s/internal/reflection"
+	"github.com/siemens-healthineers/k2s/internal/test/reflection"
 )
 
-func TestReflectionPkg(t *testing.T) {
+func TestPkg(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "reflection pkg Unit Tests", Label("unit", "ci", "reflection"))
+	RunSpecs(t, "reflection pkg Unit Tests", Label("unit", "ci", "test", "reflection"))
 }
 
 var _ = Describe("reflection pkg", func() {

@@ -10,7 +10,7 @@ import (
 
 	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/common"
 	"github.com/siemens-healthineers/k2s/internal/contracts/config"
-	r "github.com/siemens-healthineers/k2s/internal/reflection"
+	r "github.com/siemens-healthineers/k2s/internal/test/reflection"
 
 	"github.com/go-logr/logr"
 	. "github.com/onsi/ginkgo/v2"

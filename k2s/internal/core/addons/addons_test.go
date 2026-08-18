@@ -9,7 +9,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	r "github.com/siemens-healthineers/k2s/internal/reflection"
+	r "github.com/siemens-healthineers/k2s/internal/test/reflection"
 
 	"io/fs"
 

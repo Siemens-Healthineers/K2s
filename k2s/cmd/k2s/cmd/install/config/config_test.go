@@ -11,7 +11,7 @@ import (
 
 	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/common"
 
-	r "github.com/siemens-healthineers/k2s/internal/reflection"
+	r "github.com/siemens-healthineers/k2s/internal/test/reflection"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -297,11 +297,11 @@ var _ = Describe("config", func() {
 		When("successful", func() {
 			It("returns nil", func() {
 				kind := Kind("test-kind")
-				configFilePath := "path-to-user-test-config" 
+				configFilePath := "path-to-user-test-config"
 				config := viper.New()
 				config.Set(ConfigFileFlagName, configFilePath)
-				
-				config.SetConfigType("yaml") 
+
+				config.SetConfigType("yaml")
 
 				osReaderMock := &mockObject{}
 				// --- CHANGE THIS LINE ---
@@ -722,48 +722,48 @@ var _ = Describe("config", func() {
 					},
 				}
 
-			autoEnableDynamicMemory(config)
-			Expect(config.Nodes[0].Resources.DynamicMemory).To(BeTrue())
+				autoEnableDynamicMemory(config)
+				Expect(config.Nodes[0].Resources.DynamicMemory).To(BeTrue())
+			})
 		})
-	})
 
-	When("only memory (no min/max) is specified - static memory", func() {
-		It("does not enable dynamic memory", func() {
-			config := &InstallConfig{
-				Nodes: []NodeConfig{
-					{
-						Role: ControlPlaneRoleName,
-						Resources: ResourceConfig{
-							DynamicMemory: false,
-							Memory:        "4GB",
+		When("only memory (no min/max) is specified - static memory", func() {
+			It("does not enable dynamic memory", func() {
+				config := &InstallConfig{
+					Nodes: []NodeConfig{
+						{
+							Role: ControlPlaneRoleName,
+							Resources: ResourceConfig{
+								DynamicMemory: false,
+								Memory:        "4GB",
+							},
 						},
 					},
-				},
-			}
+				}
 
-			autoEnableDynamicMemory(config)
-			Expect(config.Nodes[0].Resources.DynamicMemory).To(BeFalse())
+				autoEnableDynamicMemory(config)
+				Expect(config.Nodes[0].Resources.DynamicMemory).To(BeFalse())
+			})
 		})
-	})
 
-	When("no memory configuration specified - defaults", func() {
-		It("does not enable dynamic memory", func() {
-			config := &InstallConfig{
-				Nodes: []NodeConfig{
-					{
-						Role: ControlPlaneRoleName,
-						Resources: ResourceConfig{
-							DynamicMemory: false,
+		When("no memory configuration specified - defaults", func() {
+			It("does not enable dynamic memory", func() {
+				config := &InstallConfig{
+					Nodes: []NodeConfig{
+						{
+							Role: ControlPlaneRoleName,
+							Resources: ResourceConfig{
+								DynamicMemory: false,
+							},
 						},
 					},
-				},
-			}
+				}
 
-			autoEnableDynamicMemory(config)
-			Expect(config.Nodes[0].Resources.DynamicMemory).To(BeFalse())
+				autoEnableDynamicMemory(config)
+				Expect(config.Nodes[0].Resources.DynamicMemory).To(BeFalse())
+			})
 		})
 	})
-})
 
 	Describe("validateDynamicMemoryConfiguration", func() {
 		When("dynamic memory is disabled", func() {
