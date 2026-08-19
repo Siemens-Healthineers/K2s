@@ -17,6 +17,7 @@ $clusterCIDRHost = $setupConfigRoot.psobject.properties['podNetworkWorkerCIDR'].
 $clusterCIDRNatExceptions = $setupConfigRoot.psobject.properties['clusterCIDRNatExceptions'].value
 
 $global:HNSRestarted = $false
+$hostLocalIpamStateDir = 'C:\var\lib\cni\networks'
 
 function Set-IndexForDefaultSwitch {
     # Change index for default switch (on some computers the index is lower as for the main interface Ethernet)
@@ -753,7 +754,7 @@ function Add-HostBridgeIpReservation {
     # Reserve the host bridge endpoint IP in the host-local IPAM state directory
     # so that the CNI IPAM plugin does not allocate it to pods, avoiding HCN error 0x803b002f
     $l2BridgeName = Get-L2BridgeSwitchName
-    $stateDir = "C:\var\lib\cni\networks\$l2BridgeName"
+    $stateDir = Join-Path $hostLocalIpamStateDir $l2BridgeName
     $bridgeIp = Get-ConfiguredClusterCIDRNextHop -PodSubnetworkNumber $PodSubnetworkNumber
 
     if (-not (Test-Path $stateDir)) {
@@ -777,7 +778,7 @@ function Remove-HostBridgeIpReservation {
         [string] $PodSubnetworkNumber = $(throw 'Argument missing: PodSubnetworkNumber')
     )
     $l2BridgeName = Get-L2BridgeSwitchName
-    $stateDir = "C:\var\lib\cni\networks\$l2BridgeName"
+    $stateDir = Join-Path $hostLocalIpamStateDir $l2BridgeName
     $bridgeIp = Get-ConfiguredClusterCIDRNextHop -PodSubnetworkNumber $PodSubnetworkNumber
     $reservationFile = Join-Path $stateDir $bridgeIp
 
