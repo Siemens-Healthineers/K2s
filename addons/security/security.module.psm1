@@ -6,8 +6,10 @@
 
 $infraModule = "$PSScriptRoot/../../lib/modules/k2s/k2s.infra.module/k2s.infra.module.psm1"
 $k8sApiModule = "$PSScriptRoot/../../lib/modules/k2s/k2s.cluster.module/k8s-api/k8s-api.module.psm1"
+$nodeModule = "$PSScriptRoot/../../lib/modules/k2s/k2s.node.module/k2s.node.module.psm1"
+$addonsModule = "$PSScriptRoot/../addons.module.psm1"
 
-Import-Module $infraModule, $k8sApiModule
+Import-Module $infraModule, $k8sApiModule, $nodeModule, $addonsModule
 
 function Get-KeyCloakConfig {
     return "$PSScriptRoot\manifests\keycloak\keycloak.yaml"
@@ -383,13 +385,134 @@ function Get-LinkerdConfigCNI {
 
 <#
 .DESCRIPTION
+Invokes the linkerd CLI, captures stdout/stderr separately, fails fast on a non-zero exit code
+or empty output and writes the sanitized manifest to the given output file.
+#>
+function Invoke-LinkerdCliRender {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$LinkerdExe,
+        [Parameter(Mandatory = $true)]
+        [string[]]$Arguments,
+        [Parameter(Mandatory = $true)]
+        [string]$OutputFile,
+        [Parameter(Mandatory = $true)]
+        [string]$Description
+    )
+
+    $stdoutFile = [System.IO.Path]::GetTempFileName()
+    $stderrFile = [System.IO.Path]::GetTempFileName()
+
+    try {
+        & $LinkerdExe @Arguments 1>$stdoutFile 2>$stderrFile
+        $exitCode = $LASTEXITCODE
+
+        if ($exitCode -ne 0) {
+            $stderrContent = if (Test-Path $stderrFile) { (Get-Content -Path $stderrFile -Raw) } else { '' }
+            Write-Log "[Linkerd] $Description failed with exit code $exitCode : $stderrContent"
+            throw "[Linkerd] $Description failed with exit code $exitCode.`n$stderrContent"
+        }
+
+        $stdoutContent = if (Test-Path $stdoutFile) { (Get-Content -Path $stdoutFile -Raw) } else { '' }
+        if ([string]::IsNullOrWhiteSpace($stdoutContent)) {
+            throw "[Linkerd] $Description produced no output although the CLI exited successfully. Expected manifest content for '$OutputFile'."
+        }
+
+        (Get-Content $stdoutFile) -replace '[^\x20-\x7E\r\n]', '' | Set-Content $OutputFile
+        Write-Log "[Linkerd] $Description succeeded, manifest written to '$OutputFile'"
+    }
+    finally {
+        Remove-Item -Path $stdoutFile -Force -ErrorAction SilentlyContinue
+        Remove-Item -Path $stderrFile -Force -ErrorAction SilentlyContinue
+    }
+}
+
+<#
+.DESCRIPTION
+Renders the linkerd CRD manifest.
+#>
+function New-LinkerdCrdsManifest {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$LinkerdExe,
+        [Parameter(Mandatory = $true)]
+        [string]$OutputDirectory
+    )
+
+    Invoke-LinkerdCliRender -LinkerdExe $LinkerdExe `
+        -Arguments @('install', '--ignore-cluster', '--crds') `
+        -OutputFile "$OutputDirectory\linkerd-crds.yaml" `
+        -Description 'CRD manifest generation'
+}
+
+<#
+.DESCRIPTION
+Renders the linkerd control plane manifest.
+#>
+# No --ignore-cluster here: the CLI must read the cert-manager issued identity issuer from the cluster.
+function New-LinkerdControlPlaneManifest {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$LinkerdExe,
+        [Parameter(Mandatory = $true)]
+        [string]$OutputDirectory
+    )
+
+    $arguments = @(
+        'install',
+        '--disable-heartbeat',
+        '--proxy-memory-limit', '100Mi',
+        '--proxy-cpu-request', '100m',
+        '--proxy-cpu-limit', '100m',
+        '--default-inbound-policy', 'all-authenticated',
+        '--set', 'identity.externalCA=true',
+        '--set', 'identity.issuer.scheme=kubernetes.io/tls',
+        '--set', 'proxy.await=false',
+        '--set', 'proxy.image.name=shsk2s.azurecr.io/linkerd/proxy'
+    )
+
+    Invoke-LinkerdCliRender -LinkerdExe $LinkerdExe `
+        -Arguments $arguments `
+        -OutputFile "$OutputDirectory\linkerd.yaml" `
+        -Description 'Control plane manifest generation'
+}
+
+<#
+.DESCRIPTION
+Pre-pulls the linkerd images referenced by the rendered manifest on the control-plane node.
+Failures are non-fatal, the runtime pull remains a valid fallback.
+#>
+function Invoke-LinkerdImagePrePull {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory = $true)]
+        [string] $ManifestPath
+    )
+
+    Write-Log '[Linkerd] Pre-pulling linkerd images on control-plane node' -Console
+    $images = Get-ImagesFromYaml -YamlContent (Get-Content -Path $ManifestPath -Raw)
+
+    foreach ($image in $images) {
+        Write-Log "[Linkerd] Pre-pulling image: $image" -Console
+        $pullResult = Invoke-CmdOnControlPlaneViaSSHKey -CmdToExecute "sudo timeout 300 crictl pull '$image' 2>&1"
+        if ($pullResult.Success -eq $true) {
+            Write-Log "[Linkerd] Pre-pull succeeded: $image"
+        }
+        else {
+            Write-Log "[Linkerd] WARNING: Pre-pull of '$image' failed (will fall back to runtime pull): $($pullResult.Output)" -Console
+        }
+    }
+}
+
+<#
+.DESCRIPTION
 Waits for the linkerd pods to be available.
 #>
 function Wait-ForLinkerdAvailable {
     # Linkerd control plane (especially linkerd-destination with 3 containers) may need
     # 1-2 restart cycles on a loaded single-node cluster before probes pass consistently.
     # 600s (10 min) allows for BackOff + restart + stabilization.
-    return (Wait-ForPodCondition -Condition Ready -Label 'linkerd.io/workload-ns=linkerd' -Namespace 'linkerd' -TimeoutSeconds 180)
+    return (Wait-ForPodCondition -Condition Ready -Label 'linkerd.io/workload-ns=linkerd' -Namespace 'linkerd' -TimeoutSeconds 600)
 }
 
 <#
