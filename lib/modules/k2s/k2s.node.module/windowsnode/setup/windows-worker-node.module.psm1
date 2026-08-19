@@ -128,6 +128,7 @@ function Remove-WindowsWorkerNodeOnWindowsHost {
     }
 
     Write-Log 'Remove external switch'
+    Remove-HostBridgeIpReservation -PodSubnetworkNumber '0'
     Remove-ExternalSwitch
 
     Write-Log 'Uninstall the worker node artifacts from the Windows host'
