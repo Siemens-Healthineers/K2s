@@ -298,23 +298,6 @@ timeout: 30
 
             $content | ForEach-Object { $_ -replace $natExceptions, $configuredExceptions } | Set-Content "$kubePath\cfg\containerd\flannel-l2bridge.conf"
         }
-
-        # Replace IPAM.RANGE_START placeholder with an IP after the host bridge endpoint (cbr0 NextHop)
-        # to prevent host-local IPAM from allocating the bridge endpoint IP to pods
-        $ipamRangeStartLine = Get-Content "$kubePath\cfg\containerd\flannel-l2bridge.conf" | Select-String 'IPAM.RANGE_START' | Select-Object -ExpandProperty Line
-        if ( $ipamRangeStartLine ) {
-            if (-not $clusterCIDRNextHop) {
-                $clusterCIDRNextHop = Get-ConfiguredClusterCIDRNextHop -PodSubnetworkNumber $PodSubnetworkNumber
-            }
-            $nextHopParts = $clusterCIDRNextHop.Split('.')
-            $rangeStartLastOctet = [int]$nextHopParts[3] + 1
-            $ipamRangeStart = "$($nextHopParts[0]).$($nextHopParts[1]).$($nextHopParts[2]).$rangeStartLastOctet"
-            Write-Log "Setting IPAM rangeStart to '$ipamRangeStart' (skipping host bridge endpoint '$clusterCIDRNextHop')"
-
-            $content = Get-Content "$kubePath\cfg\containerd\flannel-l2bridge.conf"
-            $content | ForEach-Object { $_ -replace 'IPAM.RANGE_START', $ipamRangeStart } | Set-Content "$kubePath\cfg\containerd\flannel-l2bridge.conf"
-        }
-
         Move-Item -Path "$kubePath\cfg\containerd\flannel-l2bridge.conf" -Destination "$kubePath\cfg\containerd\cni\conf" -ErrorAction SilentlyContinue
     }
     # register and start containerd
