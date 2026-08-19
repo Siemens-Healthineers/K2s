@@ -746,6 +746,50 @@ function Test-KubeSwitchPrivateProfile {
     }
 }
 
+function Add-HostBridgeIpReservation {
+    param(
+        [string] $PodSubnetworkNumber = $(throw 'Argument missing: PodSubnetworkNumber')
+    )
+    # Reserve the host bridge endpoint IP in the host-local IPAM state directory
+    # so that the CNI IPAM plugin does not allocate it to pods, avoiding HCN error 0x803b002f
+    $l2BridgeName = Get-L2BridgeSwitchName
+    $stateDir = "C:\var\lib\cni\networks\$l2BridgeName"
+    $bridgeIp = Get-ConfiguredClusterCIDRNextHop -PodSubnetworkNumber $PodSubnetworkNumber
+
+    if (-not (Test-Path $stateDir)) {
+        New-Item -ItemType Directory -Path $stateDir -Force | Out-Null
+        Write-Log "[IPAM] Created host-local state directory: $stateDir"
+    }
+
+    $reservationFile = Join-Path $stateDir $bridgeIp
+    if (-not (Test-Path $reservationFile)) {
+        # host-local format: containerID\r\nifname
+        Set-Content -Path $reservationFile -Value "host-bridge-reservation`r`ncbr0_ep" -NoNewline
+        Write-Log "[IPAM] Reserved bridge endpoint IP $bridgeIp in host-local IPAM state" -Console
+    }
+    else {
+        Write-Log "[IPAM] Bridge endpoint IP $bridgeIp already reserved in host-local IPAM state"
+    }
+}
+
+function Remove-HostBridgeIpReservation {
+    param(
+        [string] $PodSubnetworkNumber = $(throw 'Argument missing: PodSubnetworkNumber')
+    )
+    $l2BridgeName = Get-L2BridgeSwitchName
+    $stateDir = "C:\var\lib\cni\networks\$l2BridgeName"
+    $bridgeIp = Get-ConfiguredClusterCIDRNextHop -PodSubnetworkNumber $PodSubnetworkNumber
+    $reservationFile = Join-Path $stateDir $bridgeIp
+
+    if (Test-Path $reservationFile) {
+        $content = Get-Content -Path $reservationFile -Raw -ErrorAction SilentlyContinue
+        if ($content -and $content.Contains('host-bridge-reservation')) {
+            Remove-Item -Path $reservationFile -Force -ErrorAction SilentlyContinue
+            Write-Log "[IPAM] Removed bridge endpoint IP reservation for $bridgeIp"
+        }
+    }
+}
+
 Export-ModuleMember -Function Add-Route, Remove-Route, Update-RoutePriority
 Export-ModuleMember Set-IndexForDefaultSwitch, Get-ConfiguredClusterCIDRHost,
 New-ExternalSwitch, Remove-ExternalSwitch,
@@ -754,4 +798,5 @@ Get-L2BridgeSwitchName,
 Set-IPAddressAndDnsClientServerAddress, Set-WSLSwitch,
 Add-VfpRulesToWindowsNode, Remove-VfpRulesFromWindowsNode, Get-ConfiguredClusterCIDRNextHop,
 Add-VfpRoute, Remove-VfpRoute, Get-VirtualSwitchName, Set-KubeSwitchToPrivate, Invoke-HNSCommand,
-Wait-ForServiceStopped, Test-KubeSwitchPrivateProfile
+Wait-ForServiceStopped, Test-KubeSwitchPrivateProfile,
+Add-HostBridgeIpReservation, Remove-HostBridgeIpReservation

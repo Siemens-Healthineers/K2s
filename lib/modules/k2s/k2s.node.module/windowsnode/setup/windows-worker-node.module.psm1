@@ -220,6 +220,8 @@ function Start-WindowsWorkerNode {
 
     Wait-NetworkL2BridgeReady -PodSubnetworkNumber $PodSubnetworkNumber
 
+    Add-HostBridgeIpReservation -PodSubnetworkNumber $PodSubnetworkNumber
+
     CheckFlannelConfig
 
     $endTime = Get-Date
@@ -325,6 +327,9 @@ function Stop-WindowsWorkerNode {
     }
 
     Write-Log 'Stopping K8s network' -Console
+
+    Remove-HostBridgeIpReservation -PodSubnetworkNumber $PodSubnetworkNumber
+
     Restart-WinService 'hns'
 
     Invoke-Hook -HookName 'BeforeStopK8sNetwork' -AdditionalHooksDir $AdditionalHooksDir
