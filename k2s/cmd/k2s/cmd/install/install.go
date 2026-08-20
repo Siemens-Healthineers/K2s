@@ -7,7 +7,6 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
-	"strings"
 
 	"os"
 	"path/filepath"
@@ -16,6 +15,7 @@ import (
 	config_contracts "github.com/siemens-healthineers/k2s/internal/contracts/config"
 	"github.com/siemens-healthineers/k2s/internal/core/config"
 	"github.com/siemens-healthineers/k2s/internal/definitions"
+	kos "github.com/siemens-healthineers/k2s/internal/os"
 	"github.com/siemens-healthineers/k2s/internal/powershell"
 	"github.com/siemens-healthineers/k2s/internal/provider"
 	"github.com/siemens-healthineers/k2s/internal/version"
@@ -146,40 +146,10 @@ func createTimezoneConfigHandle(config *config_contracts.KubeConfig) (tz.ConfigW
 	return tzConfigHandle, nil
 }
 
-func findExecutablesInPath(exeName string) ([]string, error) {
-	pathEnv := os.Getenv("PATH")
-	if pathEnv == "" {
-		return nil, nil
-	}
-	var found []string
-	for _, dir := range filepath.SplitList(pathEnv) {
-		if dir == "" || dir == "." {
-			continue
-		}
-		exePath := filepath.Join(dir, exeName)
-		absExePath, err := filepath.Abs(exePath)
-		if err != nil {
-			continue
-		}
-		if info, err := os.Stat(absExePath); err == nil && !info.IsDir() {
-			found = append(found, absExePath)
-		}
-	}
-	return found, nil
-}
-
 func checkForOldK2sExecutables(currentExe string, exeName string) ([]string, error) {
-	currentExeAbs, _ := filepath.Abs(currentExe)
-	paths, err := findExecutablesInPath(exeName)
+	otherK2s, err := kos.FindOtherExecutablesInPath(currentExe, exeName)
 	if err != nil {
 		return nil, fmt.Errorf("[Install] Error scanning PATH for %s: %v", exeName, err)
-	}
-	var otherK2s []string
-	for _, p := range paths {
-		absP, _ := filepath.Abs(p)
-		if !strings.EqualFold(absP, currentExeAbs) {
-			otherK2s = append(otherK2s, absP)
-		}
 	}
 	return otherK2s, nil
 }

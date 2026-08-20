@@ -5,6 +5,7 @@ package upgrade
 
 import (
 	"errors"
+	"fmt"
 	"io/fs"
 	"log/slog"
 	"os"
@@ -154,7 +155,7 @@ func upgradeCluster(cmd *cobra.Command, args []string) error {
 
 	context := cmd.Context().Value(common.ContextKeyCmdContext).(*common.CmdContext)
 
-	runtimeConfig, err := readConfigLegacyAware(context.Config())
+	runtimeConfig, resolvedConfigDir, err := readConfigLegacyAware(context.Config())
 	if err != nil {
 		if errors.Is(err, cconfig.ErrSystemInCorruptedState) {
 			return common.CreateSystemInCorruptedStateCmdFailure()
@@ -190,6 +191,11 @@ func upgradeCluster(cmd *cobra.Command, args []string) error {
 
 	switchToUpgradeLogFile(showLog, context.Logger())
 
+	if err := applySetupConfigDirOverride(resolvedConfigDir, context.Config().Host().K2sSetupConfigDir()); err != nil {
+		switchToDefaultLogFile(showLog, context.Logger())
+		return err
+	}
+
 	psErr := context.Providers().System.Upgrade(provider.SystemUpgradeConfig{
 		SkipResources:      skip,
 		SkipImages:         skipImages,
@@ -215,30 +221,90 @@ func upgradeCluster(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
-func readConfigLegacyAware(k2sConfig *cconfig.K2sConfig) (*cconfig.K2sRuntimeConfig, error) {
+func readConfigLegacyAware(k2sConfig *cconfig.K2sConfig) (*cconfig.K2sRuntimeConfig, string, error) {
 	slog.Info("Trying to read the config file", "config-dir", k2sConfig.Host().K2sSetupConfigDir())
 
-	runtimeConfig, err := config.ReadRuntimeConfig(k2sConfig.Host().K2sSetupConfigDir())
+	setupConfigDir := k2sConfig.Host().K2sSetupConfigDir()
+
+	runtimeConfig, err := config.ReadRuntimeConfig(setupConfigDir)
 	if err != nil {
 		if !errors.Is(err, cconfig.ErrSystemNotInstalled) {
-			return nil, err
+			return nil, "", err
 		}
 
 		slog.Info("Config file not found, trying to read the config file from legacy dir", "legacy-dir", k2sConfig.Host().KubeConfig().CurrentDir())
 
 		runtimeConfig, err = config.ReadRuntimeConfig(k2sConfig.Host().KubeConfig().CurrentDir())
 		if err != nil {
-			return nil, err
+			if !errors.Is(err, cconfig.ErrSystemNotInstalled) {
+				return nil, "", err
+			}
+
+			// The currently running package may be configured with a different
+			// 'configDir.k2s' than the installed K2s (e.g. an upgrade package with
+			// default config vs. an installation with a customized config dir).
+			// Therefore discover the installed K2s via PATH as last resort.
+			// NOTE: no config file is copied here on purpose - the installed setup
+			// config must stay at its original location.
+			return readInstalledConfigFromPath()
 		}
 
-		if err := copyLegacyConfigFile(k2sConfig.Host().KubeConfig().CurrentDir(), k2sConfig.Host().K2sSetupConfigDir()); err != nil {
-			return nil, err
+		if err := copyLegacyConfigFile(k2sConfig.Host().KubeConfig().CurrentDir(), setupConfigDir); err != nil {
+			return nil, "", err
 		}
 	}
 
 	slog.Info("Config file read")
 
-	return runtimeConfig, nil
+	return runtimeConfig, setupConfigDir, nil
+}
+
+func readInstalledConfigFromPath() (*cconfig.K2sRuntimeConfig, string, error) {
+	slog.Info("Setup config file not found in legacy dir, trying to discover the installed K2s via PATH")
+
+	installed, err := config.ResolveInstalledK2s()
+	if err != nil && !errors.Is(err, cconfig.ErrSystemInCorruptedState) {
+		// e.g. ErrSystemNotInstalled or multiple installations found in PATH
+		return nil, "", err
+	}
+	if installed == nil {
+		return nil, "", cconfig.ErrSystemNotInstalled
+	}
+
+	installedConfigDir := installed.Config.Host().K2sSetupConfigDir()
+
+	slog.Info("Installed K2s discovered via PATH", "install-dir", installed.InstallDir, "config-dir", installedConfigDir)
+
+	// <err> is either nil or ErrSystemInCorruptedState; returning it preserves the
+	// corrupted-state semantics of config.ReadRuntimeConfig.
+	return installed.RuntimeConfig, installedConfigDir, err
+}
+
+// applySetupConfigDirOverride makes the setup config dir of the installed K2s known to the
+// child processes (i.e. the PowerShell upgrade scripts) via an environment variable.
+//
+// This is only necessary if the installed K2s uses a different 'configDir.k2s' than the
+// currently running package. The override exists solely to discover, analyze and uninstall
+// the OLD installation.
+//
+// IMPORTANT: The override must NOT reach the installation of the new version. The new
+// version is installed with the configuration of its own package, therefore the upgrade
+// scripts clear the override again before the new 'k2s install' is started
+// (see 'Invoke-ClusterInstall' in upgrade.module.psm1). The config file of the new package
+// is never modified.
+func applySetupConfigDirOverride(resolvedConfigDir string, packageConfigDir string) error {
+	if resolvedConfigDir == "" || resolvedConfigDir == packageConfigDir {
+		slog.Debug("Setup config dir of installed K2s equals the current package's config dir, no override needed", "config-dir", packageConfigDir)
+		return nil
+	}
+
+	slog.Info("Overriding setup config dir for the old cluster analysis/uninstall",
+		"env-var", definitions.SetupConfigDirEnvVar, "config-dir", resolvedConfigDir, "package-config-dir", packageConfigDir)
+
+	if err := os.Setenv(definitions.SetupConfigDirEnvVar, resolvedConfigDir); err != nil {
+		return fmt.Errorf("could not set setup config dir override '%s': %w", definitions.SetupConfigDirEnvVar, err)
+	}
+	return nil
 }
 
 func copyLegacyConfigFile(legacyDir string, targetDir string) error {
