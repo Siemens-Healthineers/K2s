@@ -480,6 +480,7 @@ try {
                     Start-Service -Name 'flanneld' -ErrorAction SilentlyContinue
                     Write-Log "[$logUseCase] Waiting for k8s L2 bridge network to be ready"
                     Wait-NetworkL2BridgeReady -PodSubnetworkNumber $PodSubnetworkNumber
+                    Add-HostBridgeIpReservation -PodSubnetworkNumber $PodSubnetworkNumber
                     Write-Log "[$logUseCase] L2 bridge network is ready"
 
                     Start-K8sNetworkingServices
