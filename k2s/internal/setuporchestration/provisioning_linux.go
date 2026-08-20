@@ -149,7 +149,7 @@ func (o *LinuxOrchestrator) provisionKubernetes(cfg InstallConfig, registryToken
 	}
 
 	slog.Info("[Install] Installing Kubernetes and CRI-O packages")
-	if err := runCommandWithLogs(cfg.ShowLogs, "bash", installScript, stagingDir, proxyURL, registryToken, "false", mergeNoProxy(cfg.NoProxy)); err != nil {
+	if err := runCommandWithLogs(cfg.ShowLogs, "bash", installScript, stagingDir, proxyURL, registryToken, "false", mergeNoProxy(cfg.NoProxy), "true"); err != nil {
 		return "", fmt.Errorf("install Kubernetes packages: %w", err)
 	}
 

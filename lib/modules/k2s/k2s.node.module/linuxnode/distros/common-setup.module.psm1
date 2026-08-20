@@ -25,6 +25,24 @@ $directoryOfKubenodeImagesOnWindowsHost = "$directoryOfLinuxNodeArtifactsOnWindo
 $linuxNodeArtifactsZipFileName = 'LinuxNodeArtifacts.zip'
 $pathOfLinuxNodeArtifactsPackageOnWindowsHost = "$binPath\$linuxNodeArtifactsZipFileName"
 
+function Get-KubenodeNoProxy {
+    $entries = @(
+        'localhost',
+        '127.0.0.1',
+        '::1',
+        '.local',
+        '.cluster.local',
+        '.svc',
+        (Get-ConfiguredIPControlPlane),
+        (Get-ConfiguredKubeSwitchIP),
+        (Get-ConfiguredClusterCIDR),
+        (Get-ConfiguredClusterCIDRServices),
+        (Get-ConfiguredKubeDnsServiceIP)
+    )
+
+    return (($entries | Where-Object { ![string]::IsNullOrWhiteSpace($_) } | Sort-Object -Unique) -join ',')
+}
+
 Function Assert-GeneralComputerPrerequisites {
     Param(
         [ValidateScript({ !([string]::IsNullOrWhiteSpace($_)) })]
@@ -388,6 +406,7 @@ Function Install-KubernetesArtifacts {
 
     $token = Get-RegistryToken
     $isWsl = if (Get-ConfigWslFlag) { 'true' } else { 'false' }
+    $noProxy = Get-KubenodeNoProxy
 
     Write-Log "[InstallK8s] Installing Kubernetes artifacts on '$IpAddress' from '$SourcePath'"
     Write-Log "[InstallK8s] WSL support: $isWsl"
@@ -398,7 +417,7 @@ Function Install-KubernetesArtifacts {
                         -UserName $UserName `
                         -IpAddress $IpAddress `
                         -UserPwd $UserPwd `
-                        -Arguments @($SourcePath, $Proxy, $token, $isWsl) `
+                        -Arguments @($SourcePath, $Proxy, $token, $isWsl, $noProxy, 'false') `
                         -CleanupAfterExecution `
                         -Retries 2
 
