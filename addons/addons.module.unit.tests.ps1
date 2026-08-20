@@ -1378,6 +1378,8 @@ Describe 'Initialize-CACertificateIssuer' -Tag 'unit', 'ci', 'addon' {
         Mock -ModuleName $moduleName Wait-ForCARootCertificate { return $true }
         Mock -ModuleName $moduleName Update-CertificateResources { }
         Mock -ModuleName $moduleName Clear-KubectlDiscoveryCache { }
+        Mock -ModuleName $moduleName Get-CARootCertificateHash { return 'old-hash' }
+        Mock -ModuleName $moduleName Wait-ForCARootCertificateRotation { return $true }
     }
 
     It 'clears cache and applies issuer manifest and waits for root cert' {
@@ -1392,6 +1394,18 @@ Describe 'Initialize-CACertificateIssuer' -Tag 'unit', 'ci', 'addon' {
         }
     }
 
+    It 'captures the CA hash before renewal and waits for rotation using it afterwards' {
+        InModuleScope -ModuleName $moduleName {
+            Initialize-CACertificateIssuer
+
+            Should -Invoke Get-CARootCertificateHash -Times 1 -Scope It
+            Should -Invoke Update-CertificateResources -Times 1 -Scope It
+            Should -Invoke Wait-ForCARootCertificateRotation -Times 1 -Scope It -ParameterFilter {
+                $PreviousHash -eq 'old-hash'
+            }
+        }
+    }
+
     Context 'CA root certificate is never created' {
         BeforeAll {
             Mock -ModuleName $moduleName Wait-ForCARootCertificate { return $false }
@@ -1401,6 +1415,76 @@ Describe 'Initialize-CACertificateIssuer' -Tag 'unit', 'ci', 'addon' {
             InModuleScope -ModuleName $moduleName {
                 { Initialize-CACertificateIssuer } | Should -Throw
             }
+        }
+    }
+}
+
+Describe 'Get-CARootCertificateHash' -Tag 'unit', 'ci', 'addon' {
+    It 'returns the secret content when readable' {
+        InModuleScope -ModuleName $moduleName {
+            Mock Invoke-Kubectl { return [pscustomobject]@{ Output = 'BASE64DATA' } }
+
+            $result = Get-CARootCertificateHash
+
+            $result | Should -Be 'BASE64DATA'
+        }
+    }
+
+    It 'returns an empty string when the secret content cannot be read' {
+        InModuleScope -ModuleName $moduleName {
+            Mock Invoke-Kubectl { return [pscustomobject]@{ Output = '' } }
+
+            $result = Get-CARootCertificateHash
+
+            $result | Should -Be ''
+        }
+    }
+}
+
+Describe 'Wait-ForCARootCertificateRotation' -Tag 'unit', 'ci', 'addon' {
+    BeforeAll {
+        Mock -ModuleName $moduleName Write-Log { }
+        Mock -ModuleName $moduleName Start-Sleep { }
+    }
+
+    It 'returns true immediately when PreviousHash is empty (fresh install, nothing to wait for)' {
+        InModuleScope -ModuleName $moduleName {
+            Mock Get-CARootCertificateHash { return 'anything' }
+
+            $result = Wait-ForCARootCertificateRotation -PreviousHash '' -SleepDurationInSeconds 0 -NumberOfRetries 3
+
+            $result | Should -BeTrue
+            Should -Invoke Get-CARootCertificateHash -Times 0 -Scope It
+        }
+    }
+
+    It 'returns true as soon as the content differs from PreviousHash' {
+        InModuleScope -ModuleName $moduleName {
+            $script:callCount = 0
+            Mock Get-CARootCertificateHash {
+                $script:callCount++
+                if ($script:callCount -lt 2) {
+                    return 'old-hash'
+                }
+                return 'new-hash'
+            }
+
+            $result = Wait-ForCARootCertificateRotation -PreviousHash 'old-hash' -SleepDurationInSeconds 0 -NumberOfRetries 5
+
+            $result | Should -BeTrue
+            Should -Invoke Get-CARootCertificateHash -Times 2 -Scope It
+        }
+    }
+
+    It 'returns false without throwing when rotation is never observed within retries' {
+        InModuleScope -ModuleName $moduleName {
+            Mock Get-CARootCertificateHash { return 'old-hash' }
+
+            $result = Wait-ForCARootCertificateRotation -PreviousHash 'old-hash' -SleepDurationInSeconds 0 -NumberOfRetries 3
+
+            $result | Should -BeFalse
+            Should -Invoke Get-CARootCertificateHash -Times 3 -Scope It
+            Should -Invoke Start-Sleep -Times 2 -Scope It
         }
     }
 }
