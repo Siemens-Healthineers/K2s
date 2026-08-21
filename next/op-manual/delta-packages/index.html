@@ -3717,21 +3717,21 @@ SPDX-License-Identifier: MIT
 <h3 id="delta-manifest-structure">Delta Manifest Structure</h3>
 <p>The <code>delta-manifest.json</code> file describes the changes between versions. A typical manifest includes:</p>
 <div class="highlight"><span class="filename">JSON</span><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="p">{</span>
-<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="w">  </span><span class="nt">&quot;sourceVersion&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;1.4.0&quot;</span><span class="p">,</span>
-<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="w">  </span><span class="nt">&quot;targetVersion&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;1.5.0&quot;</span><span class="p">,</span>
-<a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="w">  </span><span class="nt">&quot;createdAt&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;2025-02-03T10:30:00Z&quot;</span><span class="p">,</span>
-<a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a><span class="w">  </span><span class="nt">&quot;filesAdded&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;lib/new-module.psm1&quot;</span><span class="p">],</span>
-<a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a><span class="w">  </span><span class="nt">&quot;filesModified&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;lib/existing-module.psm1&quot;</span><span class="p">],</span>
-<a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a><span class="w">  </span><span class="nt">&quot;filesRemoved&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;lib/deprecated-module.psm1&quot;</span><span class="p">],</span>
-<a id="__codelineno-3-8" name="__codelineno-3-8" href="#__codelineno-3-8"></a><span class="w">  </span><span class="nt">&quot;wholesaleDirectories&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;bin/kube&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;bin/docker&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;bin/cni&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;bin/containerd&quot;</span><span class="p">],</span>
-<a id="__codelineno-3-9" name="__codelineno-3-9" href="#__codelineno-3-9"></a><span class="w">  </span><span class="nt">&quot;debianDelta&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
-<a id="__codelineno-3-10" name="__codelineno-3-10" href="#__codelineno-3-10"></a><span class="w">    </span><span class="nt">&quot;added&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;new-package&quot;</span><span class="p">],</span>
-<a id="__codelineno-3-11" name="__codelineno-3-11" href="#__codelineno-3-11"></a><span class="w">    </span><span class="nt">&quot;removed&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;old-package&quot;</span><span class="p">],</span>
-<a id="__codelineno-3-12" name="__codelineno-3-12" href="#__codelineno-3-12"></a><span class="w">    </span><span class="nt">&quot;changed&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;updated-package&quot;</span><span class="p">]</span>
+<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="w">  </span><span class="nt">"sourceVersion"</span><span class="p">:</span><span class="w"> </span><span class="s2">"1.4.0"</span><span class="p">,</span>
+<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="w">  </span><span class="nt">"targetVersion"</span><span class="p">:</span><span class="w"> </span><span class="s2">"1.5.0"</span><span class="p">,</span>
+<a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="w">  </span><span class="nt">"createdAt"</span><span class="p">:</span><span class="w"> </span><span class="s2">"2025-02-03T10:30:00Z"</span><span class="p">,</span>
+<a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a><span class="w">  </span><span class="nt">"filesAdded"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">"lib/new-module.psm1"</span><span class="p">],</span>
+<a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a><span class="w">  </span><span class="nt">"filesModified"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">"lib/existing-module.psm1"</span><span class="p">],</span>
+<a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a><span class="w">  </span><span class="nt">"filesRemoved"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">"lib/deprecated-module.psm1"</span><span class="p">],</span>
+<a id="__codelineno-3-8" name="__codelineno-3-8" href="#__codelineno-3-8"></a><span class="w">  </span><span class="nt">"wholesaleDirectories"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">"bin/kube"</span><span class="p">,</span><span class="w"> </span><span class="s2">"bin/docker"</span><span class="p">,</span><span class="w"> </span><span class="s2">"bin/cni"</span><span class="p">,</span><span class="w"> </span><span class="s2">"bin/containerd"</span><span class="p">],</span>
+<a id="__codelineno-3-9" name="__codelineno-3-9" href="#__codelineno-3-9"></a><span class="w">  </span><span class="nt">"debianDelta"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-3-10" name="__codelineno-3-10" href="#__codelineno-3-10"></a><span class="w">    </span><span class="nt">"added"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">"new-package"</span><span class="p">],</span>
+<a id="__codelineno-3-11" name="__codelineno-3-11" href="#__codelineno-3-11"></a><span class="w">    </span><span class="nt">"removed"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">"old-package"</span><span class="p">],</span>
+<a id="__codelineno-3-12" name="__codelineno-3-12" href="#__codelineno-3-12"></a><span class="w">    </span><span class="nt">"changed"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">"updated-package"</span><span class="p">]</span>
 <a id="__codelineno-3-13" name="__codelineno-3-13" href="#__codelineno-3-13"></a><span class="w">  </span><span class="p">},</span>
-<a id="__codelineno-3-14" name="__codelineno-3-14" href="#__codelineno-3-14"></a><span class="w">  </span><span class="nt">&quot;imageDiff&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
-<a id="__codelineno-3-15" name="__codelineno-3-15" href="#__codelineno-3-15"></a><span class="w">    </span><span class="nt">&quot;added&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;new-image:tag&quot;</span><span class="p">],</span>
-<a id="__codelineno-3-16" name="__codelineno-3-16" href="#__codelineno-3-16"></a><span class="w">    </span><span class="nt">&quot;removed&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;old-image:tag&quot;</span><span class="p">]</span>
+<a id="__codelineno-3-14" name="__codelineno-3-14" href="#__codelineno-3-14"></a><span class="w">  </span><span class="nt">"imageDiff"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-3-15" name="__codelineno-3-15" href="#__codelineno-3-15"></a><span class="w">    </span><span class="nt">"added"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">"new-image:tag"</span><span class="p">],</span>
+<a id="__codelineno-3-16" name="__codelineno-3-16" href="#__codelineno-3-16"></a><span class="w">    </span><span class="nt">"removed"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">"old-image:tag"</span><span class="p">]</span>
 <a id="__codelineno-3-17" name="__codelineno-3-17" href="#__codelineno-3-17"></a><span class="w">  </span><span class="p">}</span>
 <a id="__codelineno-3-18" name="__codelineno-3-18" href="#__codelineno-3-18"></a><span class="p">}</span>
 </code></pre></div>
@@ -3753,7 +3753,7 @@ SPDX-License-Identifier: MIT
 <ol>
 <li>
 <p>Extract the delta package to the desired final installation location (a versioned folder is recommended):
-   <div class="highlight"><span class="filename">PowerShell</span><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="nb">Expand-Archive</span> <span class="n">-Path</span> <span class="s2">&quot;k2s-delta-v1.4.0-to-v1.5.0.zip&quot;</span> <span class="n">-DestinationPath</span> <span class="s2">&quot;C:\k2s\1.5.0&quot;</span>
+   <div class="highlight"><span class="filename">PowerShell</span><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="nb">Expand-Archive</span> <span class="n">-Path</span> <span class="s2">"k2s-delta-v1.4.0-to-v1.5.0.zip"</span> <span class="n">-DestinationPath</span> <span class="s2">"C:\k2s\1.5.0"</span>
 </code></pre></div></p>
 </li>
 <li>
@@ -3780,8 +3780,8 @@ SPDX-License-Identifier: MIT
 <p>A full node package bundles everything needed for a fresh node installation or a full node upgrade.</p>
 <p>Creating a full node package requires an existing <em>K2s</em> cluster on the machine where you run the command, and it must use the local cluster proxy <code>http://172.19.1.1:8181</code>.</p>
 <div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="go">k2s system package --node-package --os debian12 `</span>
-<a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a><span class="go">  --target-dir &quot;C:\out&quot; `</span>
-<a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a><span class="go">  --name &quot;debian12-node.zip&quot; `</span>
+<a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a><span class="go">  --target-dir "C:\out" `</span>
+<a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a><span class="go">  --name "debian12-node.zip" `</span>
 <a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a><span class="go">  -p http://172.19.1.1:8181</span>
 </code></pre></div>
 <h4 id="full-node-package-parameters">Full Node Package Parameters</h4>
@@ -3889,7 +3889,7 @@ SPDX-License-Identifier: MIT
 </table>
 <h3 id="node-delta-package-contents">Node Delta Package Contents</h3>
 <div class="highlight"><span class="filename">Text Only</span><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a>deb12-node-delta-v1.7.0-to-v1.8.0.zip
-<a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a>├── delta-manifest.json      # Metadata and file lists (DeltaType: &quot;node-package&quot;)
+<a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a>├── delta-manifest.json      # Metadata and file lists (DeltaType: "node-package")
 <a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a>├── Apply-Delta.ps1          # Manual application helper (Windows host)
 <a id="__codelineno-9-4" name="__codelineno-9-4" href="#__codelineno-9-4"></a>├── apply-node-delta.sh      # Manual application helper (Linux node)
 <a id="__codelineno-9-5" name="__codelineno-9-5" href="#__codelineno-9-5"></a>├── verify-node-delta.sh     # Manual verification helper (Linux node)
@@ -3912,10 +3912,10 @@ SPDX-License-Identifier: MIT
 <li>No <code>delta-manifest.json</code> present → <strong>full upgrade</strong><br />
   (installs all packages present in the ZIP)</li>
 </ul>
-<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a><span class="go">k2s system upgrade --node k2s-nodepkg-debian13 --path &quot;C:\ws\DeltaPackage\debian13-node-delta-v1.7.0-to-v1.8.0.zip&quot; -o</span>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a><span class="go">k2s system upgrade --node k2s-nodepkg-debian13 --path "C:\ws\DeltaPackage\debian13-node-delta-v1.7.0-to-v1.8.0.zip" -o</span>
 </code></pre></div>
 <p>The same command works for full node packages:</p>
-<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a><span class="go">k2s system upgrade --node k2s-nodepkg-debian13 --path &quot;C:\ws\DeltaPackage\debian13-node-v1.8.0.zip&quot; -o</span>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a><span class="go">k2s system upgrade --node k2s-nodepkg-debian13 --path "C:\ws\DeltaPackage\debian13-node-v1.8.0.zip" -o</span>
 </code></pre></div>
 <h4 id="k2s-system-upgrade-node-flags"><code>k2s system upgrade --node</code> Flags</h4>
 <table>
@@ -4005,9 +4005,9 @@ SPDX-License-Identifier: MIT
 <a id="__codelineno-15-3" name="__codelineno-15-3" href="#__codelineno-15-3"></a><span class="w">  </span><span class="nt">run</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">|</span>
 <a id="__codelineno-15-4" name="__codelineno-15-4" href="#__codelineno-15-4"></a><span class="w">    </span><span class="no">k2s system package --delta-package `</span>
 <a id="__codelineno-15-5" name="__codelineno-15-5" href="#__codelineno-15-5"></a><span class="w">      </span><span class="no">-d ${{ env.OUTPUT_DIR }} `</span>
-<a id="__codelineno-15-6" name="__codelineno-15-6" href="#__codelineno-15-6"></a><span class="w">      </span><span class="no">-n &quot;k2s-delta-${{ env.PREV_VERSION }}-to-${{ env.NEW_VERSION }}.zip&quot; `</span>
-<a id="__codelineno-15-7" name="__codelineno-15-7" href="#__codelineno-15-7"></a><span class="w">      </span><span class="no">--package-version-from &quot;${{ env.PREV_PACKAGE }}&quot; `</span>
-<a id="__codelineno-15-8" name="__codelineno-15-8" href="#__codelineno-15-8"></a><span class="w">      </span><span class="no">--package-version-to &quot;${{ env.NEW_PACKAGE }}&quot; `</span>
+<a id="__codelineno-15-6" name="__codelineno-15-6" href="#__codelineno-15-6"></a><span class="w">      </span><span class="no">-n "k2s-delta-${{ env.PREV_VERSION }}-to-${{ env.NEW_VERSION }}.zip" `</span>
+<a id="__codelineno-15-7" name="__codelineno-15-7" href="#__codelineno-15-7"></a><span class="w">      </span><span class="no">--package-version-from "${{ env.PREV_PACKAGE }}" `</span>
+<a id="__codelineno-15-8" name="__codelineno-15-8" href="#__codelineno-15-8"></a><span class="w">      </span><span class="no">--package-version-to "${{ env.NEW_PACKAGE }}" `</span>
 <a id="__codelineno-15-9" name="__codelineno-15-9" href="#__codelineno-15-9"></a><span class="w">      </span><span class="no">-o</span>
 </code></pre></div>
 <h3 id="artifact-publishing">Artifact Publishing</h3>

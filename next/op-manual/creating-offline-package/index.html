@@ -2900,7 +2900,7 @@ SPDX-License-Identifier: MIT
 <h3 id="addon-selection">Addon Selection</h3>
 <p>By default, all addons are included in the package. To customize which addons are included, use the <code>--addons-list</code> flag:</p>
 <div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="gp"># </span>Include<span class="w"> </span>only<span class="w"> </span>specific<span class="w"> </span>addons
-<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="go">k2s system package -d C:\output -n k2s.zip --addons-list &quot;ingress nginx,monitoring,logging&quot;</span>
+<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="go">k2s system package -d C:\output -n k2s.zip --addons-list "ingress nginx,monitoring,logging"</span>
 <a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>
 <a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="gp"># </span>Exclude<span class="w"> </span>all<span class="w"> </span>addons<span class="w"> </span>from<span class="w"> </span>the<span class="w"> </span>package
 <a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="go">k2s system package -d C:\output -n k2s.zip --addons-list none</span>
@@ -2937,13 +2937,13 @@ SPDX-License-Identifier: MIT
 <div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="go">k2s system package -h</span>
 </code></pre></div>
 <p>Example from a local directory using <code>k2s.exe</code> directly:</p>
-<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="go">.\k2s.exe system package --node-package --os debian12 --target-dir &quot;D:\Linuxpackagetest&quot; --name &quot;debian12.zip&quot; --proxy http://172.19.1.1:8181</span>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="go">.\k2s.exe system package --node-package --os debian12 --target-dir "D:\Linuxpackagetest" --name "debian12.zip" --proxy http://172.19.1.1:8181</span>
 </code></pre></div>
 <p>Create an <abbr title="Operating System">OS</abbr>-specific node package ZIP:</p>
-<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="go">k2s system package --node-package --os debian12 --target-dir &quot;C:\out&quot; --name &quot;debian12-node.zip&quot; -p http://172.19.1.1:8181</span>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="go">k2s system package --node-package --os debian12 --target-dir "C:\out" --name "debian12-node.zip" -p http://172.19.1.1:8181</span>
 </code></pre></div>
 <p>Example for Debian 13:</p>
-<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="go">k2s system package --node-package --os debian13 --target-dir &quot;C:\out&quot; --name &quot;debian13-node.zip&quot; -p http://172.19.1.1:8181</span>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="go">k2s system package --node-package --os debian13 --target-dir "C:\out" --name "debian13-node.zip" -p http://172.19.1.1:8181</span>
 </code></pre></div>
 <p>Then add the node by passing the package to <code>k2s node add</code>:</p>
 <div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="go">k2s node add --ip-addr &lt;IPAddressOfNewNode&gt; --username &lt;UserNameForRemoteConnection&gt; --node-package C:\out\debian13-node.zip</span>

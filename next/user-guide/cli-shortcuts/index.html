@@ -755,6 +755,34 @@ You're not viewing the latest release version.
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="Krew support">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#initializing-the-plugin-index" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Initializing the plugin index
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#plugin-directories-and-path" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Plugin directories and PATH
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
     </ul>
@@ -2665,6 +2693,34 @@ You're not viewing the latest release version.
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="Krew support">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#initializing-the-plugin-index" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Initializing the plugin index
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#plugin-directories-and-path" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Plugin directories and PATH
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
     </ul>
@@ -2787,20 +2843,88 @@ SPDX-License-Identifier: MIT
 </table>
 <h2 id="krew-support">Krew support</h2>
 <p><em>K2s</em> bundles <a href="https://krew.sigs.k8s.io/" target="_blank" rel="noopener">Krew</a>, the official <em>kubectl</em> plugin
-manager, together with <em>kubectl</em>. Krew is included in the offline package, so no additional download
-is required — after installing <em>K2s</em> you can immediately run:</p>
+manager, together with <em>kubectl</em> on <strong>both</strong> the Windows host and the Linux control-plane node. Krew is
+part of the offline package, so no additional download is required — after installing <em>K2s</em> you can
+immediately run:</p>
+<div class="tabbed-set tabbed-alternate" data-tabs="1:2"><input checked="checked" id="__tabbed_1_1" name="__tabbed_1" type="radio" /><input id="__tabbed_1_2" name="__tabbed_1" type="radio" /><div class="tabbed-labels"><label for="__tabbed_1_1">Windows host</label><label for="__tabbed_1_2">Linux control-plane</label></div>
+<div class="tabbed-content">
+<div class="tabbed-block">
 <div class="highlight"><span class="filename">PowerShell</span><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="n">kubectl</span> <span class="n">krew</span> <span class="n">version</span>
 </code></pre></div>
+</div>
+<div class="tabbed-block">
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="go">kubectl krew version</span>
+</code></pre></div>
+</div>
+</div>
+</div>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
 <p>Installing plugins (for example <code>kubectl krew install ctx</code>) fetches the plugin index and packages
 from the internet and is therefore an online, user-initiated action. It is never performed during
-<em>K2s</em> installation, preserving <em>K2s</em>'s offline guarantees.</p>
+<em>K2s</em> installation, preserving <em>K2s</em>'s offline guarantees. <em>K2s</em> bundles Krew itself, but never
+bundles or installs plugins.</p>
 </div>
-<p>Krew installs plugins into the per-user directory <code>%USERPROFILE%\.krew\bin</code>. For the user who installed
-<em>K2s</em>, this directory is added to <code>PATH</code> automatically, so installed plugins are discoverable right away.
-Any additional Windows user follows Krew's standard <a href="https://krew.sigs.k8s.io/docs/user-guide/setup/install/" target="_blank" rel="noopener">one-time PATH setup</a>
-to expose their own plugins.</p>
+<h3 id="initializing-the-plugin-index">Initializing the plugin index</h3>
+<p><em>K2s</em> provides the Krew binary; the plugin index and the plugin lifecycle stay user-managed. Before
+plugins can be searched or installed, initialize the index once per user:</p>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="go">kubectl krew update</span>
+</code></pre></div>
+<p>This command clones Krew's plugin index and therefore requires <strong>Git</strong> and <strong>network access</strong>. <em>K2s</em>
+does not bundle Git on either platform — install it yourself if it is missing:</p>
+<table>
+<thead>
+<tr>
+<th>Platform</th>
+<th>Install Git via</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Windows host</td>
+<td><a href="https://git-scm.com/download/win" target="_blank" rel="noopener">Git for Windows</a></td>
+</tr>
+<tr>
+<td>Linux control-plane</td>
+<td><code>sudo apt-get install git</code></td>
+</tr>
+</tbody>
+</table>
+<p>Until the index is initialized, <code>kubectl krew list</code> and <code>kubectl krew search</code> report
+<code>krew local plugin index is not initialized</code>, while <code>kubectl krew version</code> already works. This is
+expected Krew behaviour and does not affect the <em>K2s</em> installation itself, which remains fully
+offline-capable. The same model applies to <em>Helm</em>, where <em>K2s</em> ships the binary and you add chart
+repositories yourself.</p>
+<h3 id="plugin-directories-and-path">Plugin directories and PATH</h3>
+<p>Krew installs plugins into a per-user directory, which <em>K2s</em> adds to <code>PATH</code> for the user that installed
+<em>K2s</em> so that installed plugins are discoverable right away:</p>
+<table>
+<thead>
+<tr>
+<th>Platform</th>
+<th>Plugin directory</th>
+<th>How <code>PATH</code> is configured</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Windows</td>
+<td><code>%USERPROFILE%\.krew\bin</code></td>
+<td>User-scope <code>PATH</code> of the installing user</td>
+</tr>
+<tr>
+<td>Linux control-plane</td>
+<td><code>$HOME/.krew/bin</code></td>
+<td><code>~/.profile</code> of the node user</td>
+</tr>
+</tbody>
+</table>
+<p>Any additional user follows Krew's standard
+<a href="https://krew.sigs.k8s.io/docs/user-guide/setup/install/" target="_blank" rel="noopener">one-time PATH setup</a> to
+expose their own plugins.</p>
+<p>Plugins are <strong>user-owned state</strong>: <em>K2s</em> never backs up, migrates, upgrades or deletes <code>~/.krew</code>
+(<code>%USERPROFILE%\.krew</code> on Windows). Plugins therefore survive a <em>K2s</em> upgrade and are not removed by
+<code>k2s uninstall</code>. Use <code>kubectl krew upgrade</code> to update plugins yourself.</p>
 <!--
 SPDX-FileCopyrightText: © 2024 Siemens Healthineers AG
 SPDX-License-Identifier: MIT

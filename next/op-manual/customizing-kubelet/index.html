@@ -3045,27 +3045,27 @@ SPDX-License-Identifier: MIT
 <a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">KubeletConfiguration</span>
 <a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="nt">maxPods</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">200</span>
 <a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="nt">systemReserved</span><span class="p">:</span>
-<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="w">  </span><span class="nt">cpu</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;500m&quot;</span>
-<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="w">  </span><span class="nt">memory</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;1Gi&quot;</span>
+<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="w">  </span><span class="nt">cpu</span><span class="p">:</span><span class="w"> </span><span class="s">"500m"</span>
+<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="w">  </span><span class="nt">memory</span><span class="p">:</span><span class="w"> </span><span class="s">"1Gi"</span>
 <a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="nt">kubeReserved</span><span class="p">:</span>
-<a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a><span class="w">  </span><span class="nt">cpu</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;250m&quot;</span>
-<a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a><span class="w">  </span><span class="nt">memory</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;512Mi&quot;</span>
+<a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a><span class="w">  </span><span class="nt">cpu</span><span class="p">:</span><span class="w"> </span><span class="s">"250m"</span>
+<a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a><span class="w">  </span><span class="nt">memory</span><span class="p">:</span><span class="w"> </span><span class="s">"512Mi"</span>
 <a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a><span class="nt">evictionHard</span><span class="p">:</span>
-<a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a><span class="w">  </span><span class="nt">memory.available</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;200Mi&quot;</span>
-<a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a><span class="w">  </span><span class="nt">nodefs.available</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;10%&quot;</span>
+<a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a><span class="w">  </span><span class="nt">memory.available</span><span class="p">:</span><span class="w"> </span><span class="s">"200Mi"</span>
+<a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a><span class="w">  </span><span class="nt">nodefs.available</span><span class="p">:</span><span class="w"> </span><span class="s">"10%"</span>
 </code></pre></div>
 <p>Save this file locally, e.g. as <code>C:\temp\20-custom.conf</code>.</p>
 <h3 id="2-copy-the-file-to-the-linux-node">2. Copy the file to the Linux node</h3>
 <div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="go">k2s node copy -i 172.19.1.100 -u remote -s C:\temp\20-custom.conf -t /tmp/20-custom.conf</span>
 </code></pre></div>
 <h3 id="3-place-it-in-the-drop-in-directory">3. Place it in the drop-in directory</h3>
-<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="go">k2s node exec -i 172.19.1.100 -u remote -c &quot;sudo mkdir -p /etc/kubernetes/kubelet.conf.d &amp;&amp; sudo cp /tmp/20-custom.conf /etc/kubernetes/kubelet.conf.d/20-custom.conf&quot;</span>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="go">k2s node exec -i 172.19.1.100 -u remote -c "sudo mkdir -p /etc/kubernetes/kubelet.conf.d &amp;&amp; sudo cp /tmp/20-custom.conf /etc/kubernetes/kubelet.conf.d/20-custom.conf"</span>
 </code></pre></div>
 <h3 id="4-restart-kubelet">4. Restart kubelet</h3>
-<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="go">k2s node exec -i 172.19.1.100 -u remote -c &quot;sudo systemctl restart kubelet&quot;</span>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="go">k2s node exec -i 172.19.1.100 -u remote -c "sudo systemctl restart kubelet"</span>
 </code></pre></div>
 <h3 id="5-verify">5. Verify</h3>
-<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="go">k2s node exec -i 172.19.1.100 -u remote -c &quot;cat /var/lib/kubelet/config.yaml&quot; -r</span>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="go">k2s node exec -i 172.19.1.100 -u remote -c "cat /var/lib/kubelet/config.yaml" -r</span>
 </code></pre></div>
 <p>Check that the node reflects the new settings:</p>
 <div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="go">kubectl describe node kubemaster</span>
@@ -3075,14 +3075,14 @@ SPDX-License-Identifier: MIT
 <p><em>K2s</em> configures the Windows kubelet with <code>--config-dir=C:\etc\kubernetes\kubelet.conf.d</code> and deploys a default drop-in file (<code>00-k2s-defaults.conf</code>) that sets <code>enforceNodeAllocatable: []</code>. To add custom overrides, create additional <code>.conf</code> files in the same directory.</p>
 <h3 id="1-create-an-override-file_1">1. Create an override file</h3>
 <p>Open an <strong>elevated PowerShell</strong> prompt on the Windows host:</p>
-<div class="highlight"><span class="filename">PowerShell</span><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="sh">@&quot;</span>
+<div class="highlight"><span class="filename">PowerShell</span><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="sh">@"</span>
 <a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a><span class="sh">apiVersion: kubelet.config.k8s.io/v1beta1</span>
 <a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a><span class="sh">kind: KubeletConfiguration</span>
 <a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a><span class="sh">maxPods: 100</span>
 <a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a><span class="sh">systemReserved:</span>
-<a id="__codelineno-6-6" name="__codelineno-6-6" href="#__codelineno-6-6"></a><span class="sh">  cpu: &quot;500m&quot;</span>
-<a id="__codelineno-6-7" name="__codelineno-6-7" href="#__codelineno-6-7"></a><span class="sh">  memory: &quot;1Gi&quot;</span>
-<a id="__codelineno-6-8" name="__codelineno-6-8" href="#__codelineno-6-8"></a><span class="sh">&quot;@</span> <span class="p">|</span> <span class="nb">Set-Content</span> <span class="n">-Path</span> <span class="s2">&quot;C:\etc\kubernetes\kubelet.conf.d\20-custom.conf&quot;</span> <span class="n">-Encoding</span> <span class="n">UTF8</span>
+<a id="__codelineno-6-6" name="__codelineno-6-6" href="#__codelineno-6-6"></a><span class="sh">  cpu: "500m"</span>
+<a id="__codelineno-6-7" name="__codelineno-6-7" href="#__codelineno-6-7"></a><span class="sh">  memory: "1Gi"</span>
+<a id="__codelineno-6-8" name="__codelineno-6-8" href="#__codelineno-6-8"></a><span class="sh">"@</span> <span class="p">|</span> <span class="nb">Set-Content</span> <span class="n">-Path</span> <span class="s2">"C:\etc\kubernetes\kubelet.conf.d\20-custom.conf"</span> <span class="n">-Encoding</span> <span class="n">UTF8</span>
 </code></pre></div>
 <h3 id="2-restart-the-cluster">2. Restart the cluster</h3>
 <div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="go">k2s stop</span>
@@ -3095,7 +3095,7 @@ SPDX-License-Identifier: MIT
 <div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="go">kubectl describe node %COMPUTERNAME%</span>
 </code></pre></div>
 <p>Check kubelet logs for any configuration errors:</p>
-<div class="highlight"><span class="filename">PowerShell</span><pre><span></span><code><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a><span class="nb">Get-Content</span> <span class="s2">&quot;C:\var\log\kubelet\kubelet_stderr.log&quot;</span> <span class="n">-Tail</span> <span class="n">50</span>
+<div class="highlight"><span class="filename">PowerShell</span><pre><span></span><code><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a><span class="nb">Get-Content</span> <span class="s2">"C:\var\log\kubelet\kubelet_stderr.log"</span> <span class="n">-Tail</span> <span class="n">50</span>
 </code></pre></div>
 <h2 id="common-kubelet-settings">Common Kubelet Settings</h2>
 <p>The table below lists commonly customized <code>KubeletConfiguration</code> fields. For the full reference, see the <a href="https://kubernetes.io/docs/reference/config-api/kubelet-config.v1beta1/">Kubernetes KubeletConfiguration <abbr title="Application Programming Interface">API</abbr></a>.</p>
@@ -3180,16 +3180,16 @@ SPDX-License-Identifier: MIT
 <div class="highlight"><span class="filename">YAML</span><pre><span></span><code><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a><span class="nt">apiVersion</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">kubelet.config.k8s.io/v1beta1</span>
 <a id="__codelineno-11-2" name="__codelineno-11-2" href="#__codelineno-11-2"></a><span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">KubeletConfiguration</span>
 <a id="__codelineno-11-3" name="__codelineno-11-3" href="#__codelineno-11-3"></a><span class="nt">systemReserved</span><span class="p">:</span>
-<a id="__codelineno-11-4" name="__codelineno-11-4" href="#__codelineno-11-4"></a><span class="w">  </span><span class="nt">cpu</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;500m&quot;</span>
-<a id="__codelineno-11-5" name="__codelineno-11-5" href="#__codelineno-11-5"></a><span class="w">  </span><span class="nt">memory</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;1Gi&quot;</span>
-<a id="__codelineno-11-6" name="__codelineno-11-6" href="#__codelineno-11-6"></a><span class="w">  </span><span class="nt">ephemeral-storage</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;1Gi&quot;</span>
+<a id="__codelineno-11-4" name="__codelineno-11-4" href="#__codelineno-11-4"></a><span class="w">  </span><span class="nt">cpu</span><span class="p">:</span><span class="w"> </span><span class="s">"500m"</span>
+<a id="__codelineno-11-5" name="__codelineno-11-5" href="#__codelineno-11-5"></a><span class="w">  </span><span class="nt">memory</span><span class="p">:</span><span class="w"> </span><span class="s">"1Gi"</span>
+<a id="__codelineno-11-6" name="__codelineno-11-6" href="#__codelineno-11-6"></a><span class="w">  </span><span class="nt">ephemeral-storage</span><span class="p">:</span><span class="w"> </span><span class="s">"1Gi"</span>
 <a id="__codelineno-11-7" name="__codelineno-11-7" href="#__codelineno-11-7"></a><span class="nt">kubeReserved</span><span class="p">:</span>
-<a id="__codelineno-11-8" name="__codelineno-11-8" href="#__codelineno-11-8"></a><span class="w">  </span><span class="nt">cpu</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;250m&quot;</span>
-<a id="__codelineno-11-9" name="__codelineno-11-9" href="#__codelineno-11-9"></a><span class="w">  </span><span class="nt">memory</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;512Mi&quot;</span>
+<a id="__codelineno-11-8" name="__codelineno-11-8" href="#__codelineno-11-8"></a><span class="w">  </span><span class="nt">cpu</span><span class="p">:</span><span class="w"> </span><span class="s">"250m"</span>
+<a id="__codelineno-11-9" name="__codelineno-11-9" href="#__codelineno-11-9"></a><span class="w">  </span><span class="nt">memory</span><span class="p">:</span><span class="w"> </span><span class="s">"512Mi"</span>
 <a id="__codelineno-11-10" name="__codelineno-11-10" href="#__codelineno-11-10"></a><span class="nt">evictionHard</span><span class="p">:</span>
-<a id="__codelineno-11-11" name="__codelineno-11-11" href="#__codelineno-11-11"></a><span class="w">  </span><span class="nt">memory.available</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;200Mi&quot;</span>
-<a id="__codelineno-11-12" name="__codelineno-11-12" href="#__codelineno-11-12"></a><span class="w">  </span><span class="nt">nodefs.available</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;10%&quot;</span>
-<a id="__codelineno-11-13" name="__codelineno-11-13" href="#__codelineno-11-13"></a><span class="w">  </span><span class="nt">imagefs.available</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;15%&quot;</span>
+<a id="__codelineno-11-11" name="__codelineno-11-11" href="#__codelineno-11-11"></a><span class="w">  </span><span class="nt">memory.available</span><span class="p">:</span><span class="w"> </span><span class="s">"200Mi"</span>
+<a id="__codelineno-11-12" name="__codelineno-11-12" href="#__codelineno-11-12"></a><span class="w">  </span><span class="nt">nodefs.available</span><span class="p">:</span><span class="w"> </span><span class="s">"10%"</span>
+<a id="__codelineno-11-13" name="__codelineno-11-13" href="#__codelineno-11-13"></a><span class="w">  </span><span class="nt">imagefs.available</span><span class="p">:</span><span class="w"> </span><span class="s">"15%"</span>
 </code></pre></div>
 <p>With these settings, the Kubernetes scheduler sees reduced <code>Allocatable</code> resources, preventing workloads from consuming all node capacity.</p>
 <h2 id="important-notes">Important Notes</h2>
@@ -3209,12 +3209,12 @@ SPDX-License-Identifier: MIT
 <li>After <code>k2s install</code> or <code>k2s system upgrade</code> completes, re-apply them:</li>
 </ol>
 <div class="highlight"><span class="filename">PowerShell</span><pre><span></span><code><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a><span class="c"># Windows worker node</span>
-<a id="__codelineno-12-2" name="__codelineno-12-2" href="#__codelineno-12-2"></a><span class="nb">Copy-Item</span> <span class="s2">&quot;.\my-kubelet-overrides\20-custom.conf&quot;</span> <span class="s2">&quot;C:\etc\kubernetes\kubelet.conf.d\&quot;</span>
+<a id="__codelineno-12-2" name="__codelineno-12-2" href="#__codelineno-12-2"></a><span class="nb">Copy-Item</span> <span class="s2">".\my-kubelet-overrides\20-custom.conf"</span> <span class="s2">"C:\etc\kubernetes\kubelet.conf.d\"</span>
 <a id="__codelineno-12-3" name="__codelineno-12-3" href="#__codelineno-12-3"></a><span class="n">nssm</span> <span class="n">restart</span> <span class="n">kubelet</span>
 </code></pre></div>
 <div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a><span class="gp"># </span>Linux<span class="w"> </span>control-plane<span class="w"> </span>node
 <a id="__codelineno-13-2" name="__codelineno-13-2" href="#__codelineno-13-2"></a><span class="go">k2s node copy -i 172.19.1.100 -u remote -s .\my-kubelet-overrides\20-custom.conf -t /tmp/20-custom.conf</span>
-<a id="__codelineno-13-3" name="__codelineno-13-3" href="#__codelineno-13-3"></a><span class="go">k2s node exec -i 172.19.1.100 -u remote -c &quot;sudo cp /tmp/20-custom.conf /etc/kubernetes/kubelet.conf.d/20-custom.conf &amp;&amp; sudo systemctl restart kubelet&quot;</span>
+<a id="__codelineno-13-3" name="__codelineno-13-3" href="#__codelineno-13-3"></a><span class="go">k2s node exec -i 172.19.1.100 -u remote -c "sudo cp /tmp/20-custom.conf /etc/kubernetes/kubelet.conf.d/20-custom.conf &amp;&amp; sudo systemctl restart kubelet"</span>
 </code></pre></div>
 <p>Alternatively, use the <a href="../hook-system/">Hook System</a> to automate re-application via a post-install hook script.</p>
 </div>

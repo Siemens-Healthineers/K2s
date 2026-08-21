@@ -3356,7 +3356,7 @@ SPDX-License-Identifier: MIT
 <h1 id="known-issues">Known Issues</h1>
 <h2 id="secret-issue-when-loading-via-kustomize">Secret Issue When Loading via <a href="https://github.com/kubernetes-sigs/kustomize" target="_blank" rel="noopener">Kustomize</a></h2>
 <div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="go">kubectl apply -k &lt;folder&gt;</span>
-<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="go">error: rawResources failed to read Resources: Load from path ../secrets failed: &#39;../secrets&#39; must be a file (got d=&#39;..\kubernetes\secrets&#39;)</span>
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="go">error: rawResources failed to read Resources: Load from path ../secrets failed: '../secrets' must be a file (got d='..\kubernetes\secrets')</span>
 </code></pre></div>
 <p>=&gt; <a href="https://kubernetes.io/docs/reference/kubectl/" target="_blank" rel="noopener">kubectl</a> might be outdated, please us a newer version.</p>
 <h2 id="disk-pressure">Disk Pressure</h2>
@@ -3481,7 +3481,7 @@ If the problem is on your local <em>Windows</em> system, use the <em>standard</e
 <h2 id="unable-to-mount-file-share-between-nodes">Unable to Mount File Share Between Nodes</h2>
 <h3 id="problem">Problem</h3>
 <p>Mounting errors like the following occurred:
-<div class="highlight"><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a>mount: /mnt/k8s-smb-share: can&#39;t read superblock on //172.x.x.x/k8s-smb-share.
+<div class="highlight"><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a>mount: /mnt/k8s-smb-share: can't read superblock on //172.x.x.x/k8s-smb-share.
 </code></pre></div></p>
 <h3 id="solution_1">Solution</h3>
 <p>Respective user must have local permissions to use file shares in order to host/mount <abbr title="Server Message Block">SMB</abbr> shares.</p>
@@ -3497,12 +3497,12 @@ If the problem is on your local <em>Windows</em> system, use the <em>standard</e
 <h2 id="unable-to-run-windows-container-on-a-hardened-machine-applocker-rules">Unable to Run <em>Windows</em> Container on a Hardened Machine (<em>AppLocker</em> Rules)</h2>
 <h3 id="problem_2">Problem</h3>
 <p>If the <em>K2s</em> cluster is installed on a machine where security hardening is applied using <em>AppLocker</em> rules, then running <em>Windows</em> containers normally will be blocked. If you describe the <em>Windows</em> container <em>Pod</em> then you might see the following error, where the application is blocked by group policy:
-<div class="highlight"><pre><span></span><code><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a>Warning  FailedCreatePodSandBox  0s    kubelet            Failed to create pod sandbox: rpc error: code = Unknown desc = failed to start sandbox container task &quot;459fe28ca0da5a154964c80e1b5d74de3abefc83cf7ad77418a5d6cd9a7e5605&quot;: hcs::System::CreateProcess 459fe28ca0da5a154964c80e1b5d74de3abefc83cf7ad77418a5d6cd9a7e5605: This program is blocked by group policy. For more information, contact your system administrator.: unknown
+<div class="highlight"><pre><span></span><code><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a>Warning  FailedCreatePodSandBox  0s    kubelet            Failed to create pod sandbox: rpc error: code = Unknown desc = failed to start sandbox container task "459fe28ca0da5a154964c80e1b5d74de3abefc83cf7ad77418a5d6cd9a7e5605": hcs::System::CreateProcess 459fe28ca0da5a154964c80e1b5d74de3abefc83cf7ad77418a5d6cd9a7e5605: This program is blocked by group policy. For more information, contact your system administrator.: unknown
 </code></pre></div></p>
 <p>You can check the existing <em>AppLocker</em> rules by opening <code>Local Group Policy Editor</code> by running <code>gpedit.msc</code>. You can find the rules as shown below:</p>
 <p><img alt="AppLocker Rules" src="../assets/WindowsAppLockerRules.png" /></p>
 <p>If Applocker is activated within <em>K2s</em> usage, the the rule need to be added manually:</p>
-<div class="highlight"><span class="filename">Text Only</span><pre><span></span><code><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a>        $appLockerRules = &#39;.\cfg\applocker\applockerrules.xml&#39;
+<div class="highlight"><span class="filename">Text Only</span><pre><span></span><code><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a>        $appLockerRules = '.\cfg\applocker\applockerrules.xml'
 <a id="__codelineno-11-2" name="__codelineno-11-2" href="#__codelineno-11-2"></a>        Set-AppLockerPolicy -XmlPolicy $appLockerRules -Merge
 </code></pre></div>
 <p>By this, windows containers will not be blocked by Applocker.</p>

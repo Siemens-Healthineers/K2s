@@ -2926,15 +2926,15 @@ SPDX-License-Identifier: MIT
 <a id="__codelineno-2-12" name="__codelineno-2-12" href="#__codelineno-2-12"></a>⏳ [12:11:20] ...imported
 <a id="__codelineno-2-13" name="__codelineno-2-13" href="#__codelineno-2-13"></a>⏳ [12:11:20] Removing temporarily created file C:\ws\k2s\Temp\ExportedImages\BuiltImage.tar...
 <a id="__codelineno-2-14" name="__codelineno-2-14" href="#__codelineno-2-14"></a>⏳ [12:11:20] ...removed
-<a id="__codelineno-2-15" name="__codelineno-2-15" href="#__codelineno-2-15"></a>⏳ [12:11:21] The built image &#39;local/example.albums-win:99&#39; is available in the containerd&#39;s local repository.
+<a id="__codelineno-2-15" name="__codelineno-2-15" href="#__codelineno-2-15"></a>⏳ [12:11:21] The built image 'local/example.albums-win:99' is available in the containerd's local repository.
 <a id="__codelineno-2-16" name="__codelineno-2-16" href="#__codelineno-2-16"></a>⏳ [12:11:21] Total duration: 00:00:59
-<a id="__codelineno-2-17" name="__codelineno-2-17" href="#__codelineno-2-17"></a>⏳ [12:11:21] Converting message of type &#39;CmdResult&#39; to JSON..
+<a id="__codelineno-2-17" name="__codelineno-2-17" href="#__codelineno-2-17"></a>⏳ [12:11:21] Converting message of type 'CmdResult' to JSON..
 <a id="__codelineno-2-18" name="__codelineno-2-18" href="#__codelineno-2-18"></a>⏳ [12:11:21] message converted
 <a id="__codelineno-2-19" name="__codelineno-2-19" href="#__codelineno-2-19"></a>⏳ [12:11:21] JSON compressed
 <a id="__codelineno-2-20" name="__codelineno-2-20" href="#__codelineno-2-20"></a>⏳ [12:11:21] JSON base64 encoded
 <a id="__codelineno-2-21" name="__codelineno-2-21" href="#__codelineno-2-21"></a>⏳ [12:11:21] message sent via CLI
-<a id="__codelineno-2-22" name="__codelineno-2-22" href="#__codelineno-2-22"></a> SUCCESS  &#39;image build&#39; completed in 1m6.2240613s
-<a id="__codelineno-2-23" name="__codelineno-2-23" href="#__codelineno-2-23"></a>Please see &#39;C:\var\log\k2s.log&#39; for more information
+<a id="__codelineno-2-22" name="__codelineno-2-22" href="#__codelineno-2-22"></a> SUCCESS  'image build' completed in 1m6.2240613s
+<a id="__codelineno-2-23" name="__codelineno-2-23" href="#__codelineno-2-23"></a>Please see 'C:\var\log\k2s.log' for more information
 </code></pre></div>
 <p>As we are building container images using <em>Docker</em>, built images should be available for <em>containerd</em> and this is achieved via import of built images to the <em>containerd</em> repository.</p>
 <p>After a successful build command, the image should be available in the <em>containerd</em> repository and can be queried with <em>k2s</em> <abbr title="Command-Line Interface">CLI</abbr>:</p>
@@ -2950,10 +2950,10 @@ SPDX-License-Identifier: MIT
 <div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="w">      </span><span class="nt">nodeSelector</span><span class="p">:</span>
 <a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="w">        </span><span class="nt">kubernetes.io/os</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">windows</span>
 <a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="w">      </span><span class="nt">tolerations</span><span class="p">:</span>
-<a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a><span class="w">        </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">key</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;OS&quot;</span>
-<a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a><span class="w">          </span><span class="nt">operator</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;Equal&quot;</span>
-<a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a><span class="w">          </span><span class="nt">value</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;Windows&quot;</span>
-<a id="__codelineno-4-7" name="__codelineno-4-7" href="#__codelineno-4-7"></a><span class="w">          </span><span class="nt">effect</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;NoSchedule&quot;</span>
+<a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a><span class="w">        </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">key</span><span class="p">:</span><span class="w"> </span><span class="s">"OS"</span>
+<a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a><span class="w">          </span><span class="nt">operator</span><span class="p">:</span><span class="w"> </span><span class="s">"Equal"</span>
+<a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a><span class="w">          </span><span class="nt">value</span><span class="p">:</span><span class="w"> </span><span class="s">"Windows"</span>
+<a id="__codelineno-4-7" name="__codelineno-4-7" href="#__codelineno-4-7"></a><span class="w">          </span><span class="nt">effect</span><span class="p">:</span><span class="w"> </span><span class="s">"NoSchedule"</span>
 </code></pre></div></p>
 <h2 id="building-a-linux-container-image">Building a <em>Linux</em> Container Image</h2>
 <p>If you need to build a <em>Linux</em>-based application (e.g. a <em>Go</em>-based application), you might have the following project structure:</p>
@@ -2977,7 +2977,7 @@ SPDX-License-Identifier: MIT
 <a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a><span class="w">      </span><span class="nt">containers</span><span class="p">:</span>
 <a id="__codelineno-7-5" name="__codelineno-7-5" href="#__codelineno-7-5"></a><span class="w">        </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">albums-win</span>
 <a id="__codelineno-7-6" name="__codelineno-7-6" href="#__codelineno-7-6"></a><span class="w">          </span><span class="nt">image</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">docker.io/local/example.albums-win:99</span>
-<a id="__codelineno-7-7" name="__codelineno-7-7" href="#__codelineno-7-7"></a><span class="w">          </span><span class="nt">args</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="s">&quot;--v&quot;</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="s">&quot;4&quot;</span><span class="p p-Indicator">]</span>
+<a id="__codelineno-7-7" name="__codelineno-7-7" href="#__codelineno-7-7"></a><span class="w">          </span><span class="nt">args</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="s">"--v"</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="s">"4"</span><span class="p p-Indicator">]</span>
 </code></pre></div>
 <h2 id="specifying-the-dockerfile-explicitly">Specifying the <em>Dockerfile</em> Explicitly</h2>
 <p>It is possible to specify a <em>Dockerfile</em> that is not present in the same location as your source to build the container image. This can be achieved by specifying the path to the <em>Dockerfile</em> with the <code>--dockerfile</code> or <code>-f</code> parameter:</p>
@@ -2997,12 +2997,12 @@ SPDX-License-Identifier: MIT
 <a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a>
 <a id="__codelineno-10-3" name="__codelineno-10-3" href="#__codelineno-10-3"></a><span class="k">FROM</span><span class="w"> </span><span class="s">${BaseImage}</span>
 <a id="__codelineno-10-4" name="__codelineno-10-4" href="#__codelineno-10-4"></a><span class="k">COPY</span><span class="w"> </span>servicelin<span class="w"> </span>/bin
-<a id="__codelineno-10-5" name="__codelineno-10-5" href="#__codelineno-10-5"></a><span class="k">RUN</span><span class="w"> </span><span class="o">[</span><span class="s2">&quot;chmod&quot;</span>,<span class="w">  </span><span class="s2">&quot;777&quot;</span>,<span class="w"> </span><span class="s2">&quot;./bin/servicelin&quot;</span><span class="o">]</span>
-<a id="__codelineno-10-6" name="__codelineno-10-6" href="#__codelineno-10-6"></a><span class="k">ENTRYPOINT</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;/bin/servicelin&quot;</span><span class="p">]</span>
+<a id="__codelineno-10-5" name="__codelineno-10-5" href="#__codelineno-10-5"></a><span class="k">RUN</span><span class="w"> </span><span class="o">[</span><span class="s2">"chmod"</span>,<span class="w">  </span><span class="s2">"777"</span>,<span class="w"> </span><span class="s2">"./bin/servicelin"</span><span class="o">]</span>
+<a id="__codelineno-10-6" name="__codelineno-10-6" href="#__codelineno-10-6"></a><span class="k">ENTRYPOINT</span><span class="w"> </span><span class="p">[</span><span class="s2">"/bin/servicelin"</span><span class="p">]</span>
 </code></pre></div>
 <p>Above is a <em>Dockerfile</em> which has the build argument <code>BaseImage</code>. If the build argument is not set via  <code>k2s image build</code>, the default value <code>alpine:latest</code> is used.</p>
 <p>You can specify the build argument using <code>--build-arg</code> parameter. In this example, the base image can be set to a <em>Debian</em> version:</p>
-<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a><span class="go">k2s image build -n k2s.io/servicelin -t 1 --build-arg=&quot;BaseImage=debian:latest&quot;</span>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a><span class="go">k2s image build -n k2s.io/servicelin -t 1 --build-arg="BaseImage=debian:latest"</span>
 </code></pre></div>
 <h3 id="multiple-build-arguments">Multiple Build Arguments</h3>
 <p>It is also possible to supply multiple build arguments. </p>
@@ -3012,14 +3012,14 @@ SPDX-License-Identifier: MIT
 <a id="__codelineno-12-3" name="__codelineno-12-3" href="#__codelineno-12-3"></a>
 <a id="__codelineno-12-4" name="__codelineno-12-4" href="#__codelineno-12-4"></a><span class="k">FROM</span><span class="w"> </span><span class="s">${BaseImage}</span>
 <a id="__codelineno-12-5" name="__codelineno-12-5" href="#__codelineno-12-5"></a>
-<a id="__codelineno-12-6" name="__codelineno-12-6" href="#__codelineno-12-6"></a><span class="k">LABEL</span><span class="w"> </span><span class="s2">&quot;Commit-Id&quot;</span><span class="o">=</span><span class="si">${</span><span class="nv">CommitId</span><span class="si">}</span>
+<a id="__codelineno-12-6" name="__codelineno-12-6" href="#__codelineno-12-6"></a><span class="k">LABEL</span><span class="w"> </span><span class="s2">"Commit-Id"</span><span class="o">=</span><span class="si">${</span><span class="nv">CommitId</span><span class="si">}</span>
 <a id="__codelineno-12-7" name="__codelineno-12-7" href="#__codelineno-12-7"></a>
 <a id="__codelineno-12-8" name="__codelineno-12-8" href="#__codelineno-12-8"></a><span class="k">COPY</span><span class="w"> </span>servicelin<span class="w"> </span>/bin
-<a id="__codelineno-12-9" name="__codelineno-12-9" href="#__codelineno-12-9"></a><span class="k">RUN</span><span class="w"> </span><span class="o">[</span><span class="s2">&quot;chmod&quot;</span>,<span class="w">  </span><span class="s2">&quot;777&quot;</span>,<span class="w"> </span><span class="s2">&quot;./bin/servicelin&quot;</span><span class="o">]</span>
-<a id="__codelineno-12-10" name="__codelineno-12-10" href="#__codelineno-12-10"></a><span class="k">ENTRYPOINT</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;/bin/servicelin&quot;</span><span class="p">]</span>
+<a id="__codelineno-12-9" name="__codelineno-12-9" href="#__codelineno-12-9"></a><span class="k">RUN</span><span class="w"> </span><span class="o">[</span><span class="s2">"chmod"</span>,<span class="w">  </span><span class="s2">"777"</span>,<span class="w"> </span><span class="s2">"./bin/servicelin"</span><span class="o">]</span>
+<a id="__codelineno-12-10" name="__codelineno-12-10" href="#__codelineno-12-10"></a><span class="k">ENTRYPOINT</span><span class="w"> </span><span class="p">[</span><span class="s2">"/bin/servicelin"</span><span class="p">]</span>
 </code></pre></div>
 <p>Then, we can supply the values to these build arguments using the following command:</p>
-<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a><span class="go">k2s image build -n k2s.io/servicelin -t 1 --build-arg=&quot;BaseImage=debian:latest&quot; --build-arg=&quot;CommitId=a5e04dafb1d235a81d3332a6535b63e7&quot;</span>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a><span class="go">k2s image build -n k2s.io/servicelin -t 1 --build-arg="BaseImage=debian:latest" --build-arg="CommitId=a5e04dafb1d235a81d3332a6535b63e7"</span>
 </code></pre></div>
 <p>Here, we use the parameter <code>--build-arg</code> twice to supply the values of both the build arguments.</p>
 <p>For running <em>Linux</em> <em>Pods</em> in <em><abbr title="Kubernetes">K8s</abbr></em> please always specify the <em>Node</em> selector for <em>Linux</em>:

@@ -3085,9 +3085,9 @@ SPDX-License-Identifier: MIT
 <h2 id="usage">Usage</h2>
 <h3 id="via-cli-flag">Via <abbr title="Command-Line Interface">CLI</abbr> Flag</h3>
 <p>Pass a custom hooks directory to any supported command:</p>
-<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="go">k2s install --additional-hooks-dir &quot;C:\MyHooks&quot;</span>
-<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="go">k2s system upgrade --additional-hooks-dir &quot;C:\MyHooks&quot;</span>
-<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="go">k2s start --additional-hooks-dir &quot;C:\MyHooks&quot;</span>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="go">k2s install --additional-hooks-dir "C:\MyHooks"</span>
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="go">k2s system upgrade --additional-hooks-dir "C:\MyHooks"</span>
+<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="go">k2s start --additional-hooks-dir "C:\MyHooks"</span>
 </code></pre></div>
 <h3 id="via-config-file">Via Config File</h3>
 <p>Set the hooks directory in the install config <abbr title="Yet Another Markup Language">YAML</abbr>:</p>
@@ -3108,15 +3108,15 @@ SPDX-License-Identifier: MIT
 <a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a>    <span class="no">[switch]</span><span class="nv">$ShowLogs</span>
 <a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a><span class="p">)</span>
 <a id="__codelineno-4-7" name="__codelineno-4-7" href="#__codelineno-4-7"></a>
-<a id="__codelineno-4-8" name="__codelineno-4-8" href="#__codelineno-4-8"></a><span class="nv">$backupPath</span> <span class="p">=</span> <span class="nb">Join-Path</span> <span class="nv">$BackupDir</span> <span class="s2">&quot;smb-shares&quot;</span>
+<a id="__codelineno-4-8" name="__codelineno-4-8" href="#__codelineno-4-8"></a><span class="nv">$backupPath</span> <span class="p">=</span> <span class="nb">Join-Path</span> <span class="nv">$BackupDir</span> <span class="s2">"smb-shares"</span>
 <a id="__codelineno-4-9" name="__codelineno-4-9" href="#__codelineno-4-9"></a><span class="nb">New-Item</span> <span class="n">-ItemType</span> <span class="n">Directory</span> <span class="n">-Path</span> <span class="nv">$backupPath</span> <span class="n">-Force</span> <span class="p">|</span> <span class="nb">Out-Null</span>
 <a id="__codelineno-4-10" name="__codelineno-4-10" href="#__codelineno-4-10"></a>
 <a id="__codelineno-4-11" name="__codelineno-4-11" href="#__codelineno-4-11"></a><span class="k">if</span> <span class="p">(</span><span class="nv">$ShowLogs</span><span class="p">)</span> <span class="p">{</span>
-<a id="__codelineno-4-12" name="__codelineno-4-12" href="#__codelineno-4-12"></a>    <span class="nb">Write-Host</span> <span class="s2">&quot;Backing up SMB share configuration...&quot;</span>
+<a id="__codelineno-4-12" name="__codelineno-4-12" href="#__codelineno-4-12"></a>    <span class="nb">Write-Host</span> <span class="s2">"Backing up SMB share configuration..."</span>
 <a id="__codelineno-4-13" name="__codelineno-4-13" href="#__codelineno-4-13"></a><span class="p">}</span>
 <a id="__codelineno-4-14" name="__codelineno-4-14" href="#__codelineno-4-14"></a>
 <a id="__codelineno-4-15" name="__codelineno-4-15" href="#__codelineno-4-15"></a><span class="nb">Get-SmbShare</span> <span class="p">|</span> <span class="nb">Where-Object</span> <span class="p">{</span> <span class="nv">$_</span><span class="p">.</span><span class="n">Special</span> <span class="o">-eq</span> <span class="nv">$false</span> <span class="p">}</span> <span class="p">|</span>
-<a id="__codelineno-4-16" name="__codelineno-4-16" href="#__codelineno-4-16"></a>    <span class="nb">Export-Clixml</span> <span class="n">-Path</span> <span class="p">(</span><span class="nb">Join-Path</span> <span class="nv">$backupPath</span> <span class="s2">&quot;shares.xml&quot;</span><span class="p">)</span>
+<a id="__codelineno-4-16" name="__codelineno-4-16" href="#__codelineno-4-16"></a>    <span class="nb">Export-Clixml</span> <span class="n">-Path</span> <span class="p">(</span><span class="nb">Join-Path</span> <span class="nv">$backupPath</span> <span class="s2">"shares.xml"</span><span class="p">)</span>
 </code></pre></div>
 <div class="highlight"><span class="filename">PowerShell</span><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="c"># SMBBackup.Restore.ps1</span>
 <a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="c"># Restores SMB share mappings after upgrade</span>
@@ -3125,12 +3125,12 @@ SPDX-License-Identifier: MIT
 <a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a>    <span class="no">[switch]</span><span class="nv">$ShowLogs</span>
 <a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a><span class="p">)</span>
 <a id="__codelineno-5-7" name="__codelineno-5-7" href="#__codelineno-5-7"></a>
-<a id="__codelineno-5-8" name="__codelineno-5-8" href="#__codelineno-5-8"></a><span class="nv">$backupPath</span> <span class="p">=</span> <span class="nb">Join-Path</span> <span class="nv">$BackupDir</span> <span class="s2">&quot;smb-shares&quot;</span>
-<a id="__codelineno-5-9" name="__codelineno-5-9" href="#__codelineno-5-9"></a><span class="nv">$sharesFile</span> <span class="p">=</span> <span class="nb">Join-Path</span> <span class="nv">$backupPath</span> <span class="s2">&quot;shares.xml&quot;</span>
+<a id="__codelineno-5-8" name="__codelineno-5-8" href="#__codelineno-5-8"></a><span class="nv">$backupPath</span> <span class="p">=</span> <span class="nb">Join-Path</span> <span class="nv">$BackupDir</span> <span class="s2">"smb-shares"</span>
+<a id="__codelineno-5-9" name="__codelineno-5-9" href="#__codelineno-5-9"></a><span class="nv">$sharesFile</span> <span class="p">=</span> <span class="nb">Join-Path</span> <span class="nv">$backupPath</span> <span class="s2">"shares.xml"</span>
 <a id="__codelineno-5-10" name="__codelineno-5-10" href="#__codelineno-5-10"></a>
 <a id="__codelineno-5-11" name="__codelineno-5-11" href="#__codelineno-5-11"></a><span class="k">if</span> <span class="p">(</span><span class="nb">Test-Path</span> <span class="nv">$sharesFile</span><span class="p">)</span> <span class="p">{</span>
 <a id="__codelineno-5-12" name="__codelineno-5-12" href="#__codelineno-5-12"></a>    <span class="k">if</span> <span class="p">(</span><span class="nv">$ShowLogs</span><span class="p">)</span> <span class="p">{</span>
-<a id="__codelineno-5-13" name="__codelineno-5-13" href="#__codelineno-5-13"></a>        <span class="nb">Write-Host</span> <span class="s2">&quot;Restoring SMB share configuration...&quot;</span>
+<a id="__codelineno-5-13" name="__codelineno-5-13" href="#__codelineno-5-13"></a>        <span class="nb">Write-Host</span> <span class="s2">"Restoring SMB share configuration..."</span>
 <a id="__codelineno-5-14" name="__codelineno-5-14" href="#__codelineno-5-14"></a>    <span class="p">}</span>
 <a id="__codelineno-5-15" name="__codelineno-5-15" href="#__codelineno-5-15"></a>    <span class="nv">$shares</span> <span class="p">=</span> <span class="nb">Import-Clixml</span> <span class="n">-Path</span> <span class="nv">$sharesFile</span>
 <a id="__codelineno-5-16" name="__codelineno-5-16" href="#__codelineno-5-16"></a>    <span class="k">foreach</span> <span class="p">(</span><span class="nv">$share</span> <span class="k">in</span> <span class="nv">$shares</span><span class="p">)</span> <span class="p">{</span>

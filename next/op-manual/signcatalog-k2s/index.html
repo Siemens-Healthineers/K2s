@@ -2756,19 +2756,19 @@ Signing a catalog file is essential when complying with Windows Code Integrity P
 These are trusted organizations that issue digital certificates for code signing.
 Examples are: DigiCert, Sectigo, Globalsign, ...</p>
 <p>In case that you don't have such an certificate from an official certificate issuer, you could also use an self-signed certificate:</p>
-<div class="highlight"><span class="filename">Text Only</span><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>$cert = New-SelfSignedCertificate -Type CodeSigningCert -Subject &quot;CN=K2sCatalogCertificate&quot; -KeyAlgorithm RSA -KeyLength 2048 -HashAlgorithm SHA256 -CertStoreLocation &quot;Cert:\LocalMachine\My&quot; -NotAfter (Get-Date).AddYears(10)
+<div class="highlight"><span class="filename">Text Only</span><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>$cert = New-SelfSignedCertificate -Type CodeSigningCert -Subject "CN=K2sCatalogCertificate" -KeyAlgorithm RSA -KeyLength 2048 -HashAlgorithm SHA256 -CertStoreLocation "Cert:\LocalMachine\My" -NotAfter (Get-Date).AddYears(10)
 </code></pre></div>
 <p>After creating such an certificate, you can export it to a file:</p>
-<div class="highlight"><span class="filename">Text Only</span><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>Export-PfxCertificate -Cert $cert -FilePath &quot;C:\Path\To\Your\Certificates\MyCatalogSigningCert.pfx&quot; -Password $password
+<div class="highlight"><span class="filename">Text Only</span><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>Export-PfxCertificate -Cert $cert -FilePath "C:\Path\To\Your\Certificates\MyCatalogSigningCert.pfx" -Password $password
 </code></pre></div>
 <p>Also the public key can be export to a file:</p>
-<div class="highlight"><span class="filename">Text Only</span><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>Export-Certificate -Cert $cert -FilePath &quot;C:\Path\To\Your\Certificates\MyCatalogSigningCert.cer&quot;
+<div class="highlight"><span class="filename">Text Only</span><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>Export-Certificate -Cert $cert -FilePath "C:\Path\To\Your\Certificates\MyCatalogSigningCert.cer"
 </code></pre></div>
 <p>At the end, either the certificate from an official certificate issuer or the self signed one can be used to sign the catalog file:</p>
-<div class="highlight"><span class="filename">Text Only</span><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>signtool.exe sign /f &quot;C:\Path\To\Your\Certificates\MyCatalogSigningCert.pfx&quot; /p &quot;YourStrongPassword!&quot; /fd SHA256 /v &quot;.\build\catalog\k2s.cat&quot;
+<div class="highlight"><span class="filename">Text Only</span><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>signtool.exe sign /f "C:\Path\To\Your\Certificates\MyCatalogSigningCert.pfx" /p "YourStrongPassword!" /fd SHA256 /v ".\build\catalog\k2s.cat"
 </code></pre></div>
 <p>Please don't forget to import the public key into the local store:</p>
-<div class="highlight"><span class="filename">Text Only</span><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>$CertificatePath = &quot;C:\Path\To\Your\Certificates\MyCatalogSigningCert.cer&quot;
+<div class="highlight"><span class="filename">Text Only</span><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>$CertificatePath = "C:\Path\To\Your\Certificates\MyCatalogSigningCert.cer"
 <a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>Import-Certificate -FilePath $CertificatePath -CertStoreLocation Cert:\LocalMachine\Root
 <a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a>Import-Certificate -FilePath $CertificatePath -CertStoreLocation Cert:\LocalMachine\TrustedPublisher
 </code></pre></div>

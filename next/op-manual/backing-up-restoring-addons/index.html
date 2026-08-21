@@ -3415,10 +3415,10 @@ SPDX-License-Identifier: MIT
 <a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="go">k2s addons backup registry</span>
 <a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>
 <a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="gp"># </span>Backup<span class="w"> </span>an<span class="w"> </span>addon<span class="w"> </span>implementation<span class="w"> </span>to<span class="w"> </span>a<span class="w"> </span>custom<span class="w"> </span>path
-<a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="go">k2s addons backup &quot;ingress nginx&quot; -f D:\backups\ingress-nginx.zip</span>
+<a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="go">k2s addons backup "ingress nginx" -f D:\backups\ingress-nginx.zip</span>
 <a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a>
 <a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a><span class="gp"># </span>Backup<span class="w"> </span>an<span class="w"> </span>addon<span class="w"> </span>implementation<span class="w"> </span>to<span class="w"> </span>the<span class="w"> </span>default<span class="w"> </span>folder
-<a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a><span class="go">k2s addons backup &quot;ingress traefik&quot;</span>
+<a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a><span class="go">k2s addons backup "ingress traefik"</span>
 </code></pre></div>
 <h2 id="restore-command">Restore Command</h2>
 <div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="go">k2s addons restore ADDON [IMPLEMENTATION] [-f &lt;path&gt;]</span>
@@ -3459,16 +3459,16 @@ SPDX-License-Identifier: MIT
 <a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="go">k2s addons restore registry -f D:\backups\registry-backup.zip</span>
 <a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a>
 <a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a><span class="gp"># </span>Restore<span class="w"> </span>from<span class="w"> </span>the<span class="w"> </span>latest<span class="w"> </span>backup<span class="w"> </span><span class="k">in</span><span class="w"> </span>the<span class="w"> </span>default<span class="w"> </span>folder
-<a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a><span class="go">k2s addons restore &quot;ingress nginx&quot;</span>
+<a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a><span class="go">k2s addons restore "ingress nginx"</span>
 <a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a>
 <a id="__codelineno-4-7" name="__codelineno-4-7" href="#__codelineno-4-7"></a><span class="gp"># </span>Restore<span class="w"> </span>a<span class="w"> </span>specific<span class="w"> </span>addon<span class="w"> </span>implementation
-<a id="__codelineno-4-8" name="__codelineno-4-8" href="#__codelineno-4-8"></a><span class="go">k2s addons restore &quot;storage smb&quot; -f C:\Temp\k2s\Addons\storage_smb_backup_20260219_143012.zip</span>
+<a id="__codelineno-4-8" name="__codelineno-4-8" href="#__codelineno-4-8"></a><span class="go">k2s addons restore "storage smb" -f C:\Temp\k2s\Addons\storage_smb_backup_20260219_143012.zip</span>
 </code></pre></div>
 <h2 id="typical-workflow">Typical Workflow</h2>
 <p>A common scenario is backing up addons before a <em>K2s</em> upgrade and restoring them afterwards:</p>
 <div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="gp"># </span><span class="m">1</span>.<span class="w"> </span>Back<span class="w"> </span>up<span class="w"> </span>the<span class="w"> </span>addons<span class="w"> </span>you<span class="w"> </span>want<span class="w"> </span>to<span class="w"> </span>preserve
 <a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="go">k2s addons backup registry</span>
-<a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a><span class="go">k2s addons backup &quot;ingress nginx&quot;</span>
+<a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a><span class="go">k2s addons backup "ingress nginx"</span>
 <a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a><span class="go">k2s addons backup security</span>
 <a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a>
 <a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a><span class="gp"># </span><span class="m">2</span>.<span class="w"> </span>Disable<span class="w"> </span>the<span class="w"> </span>addons
@@ -3481,7 +3481,7 @@ SPDX-License-Identifier: MIT
 <a id="__codelineno-5-13" name="__codelineno-5-13" href="#__codelineno-5-13"></a>
 <a id="__codelineno-5-14" name="__codelineno-5-14" href="#__codelineno-5-14"></a><span class="gp"># </span><span class="m">4</span>.<span class="w"> </span>Restore<span class="w"> </span>each<span class="w"> </span>addon<span class="w"> </span><span class="o">(</span>re-enables<span class="w"> </span>automatically<span class="o">)</span>
 <a id="__codelineno-5-15" name="__codelineno-5-15" href="#__codelineno-5-15"></a><span class="go">k2s addons restore registry</span>
-<a id="__codelineno-5-16" name="__codelineno-5-16" href="#__codelineno-5-16"></a><span class="go">k2s addons restore &quot;ingress nginx&quot;</span>
+<a id="__codelineno-5-16" name="__codelineno-5-16" href="#__codelineno-5-16"></a><span class="go">k2s addons restore "ingress nginx"</span>
 <a id="__codelineno-5-17" name="__codelineno-5-17" href="#__codelineno-5-17"></a><span class="go">k2s addons restore security</span>
 </code></pre></div>
 <p>After restore each addon is re-enabled with its backed-up configuration applied on top.</p>
@@ -3674,11 +3674,11 @@ SPDX-License-Identifier: MIT
 <h2 id="backup-manifest-format">Backup Manifest Format</h2>
 <p>Each backup zip contains a <code>backup.json</code> file at the root with the following structure:</p>
 <div class="highlight"><span class="filename">JSON</span><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="p">{</span>
-<a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a><span class="w">  </span><span class="nt">&quot;k2sVersion&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;1.5.0&quot;</span><span class="p">,</span>
-<a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a><span class="w">  </span><span class="nt">&quot;files&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;configmap.yaml&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;ingress.json&quot;</span><span class="p">],</span>
-<a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a><span class="w">  </span><span class="nt">&quot;addon&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;registry&quot;</span><span class="p">,</span>
-<a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a><span class="w">  </span><span class="nt">&quot;implementation&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;registry&quot;</span><span class="p">,</span>
-<a id="__codelineno-6-6" name="__codelineno-6-6" href="#__codelineno-6-6"></a><span class="w">  </span><span class="nt">&quot;createdAt&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;2026-02-19T14:30:12Z&quot;</span>
+<a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a><span class="w">  </span><span class="nt">"k2sVersion"</span><span class="p">:</span><span class="w"> </span><span class="s2">"1.5.0"</span><span class="p">,</span>
+<a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a><span class="w">  </span><span class="nt">"files"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">"configmap.yaml"</span><span class="p">,</span><span class="w"> </span><span class="s2">"ingress.json"</span><span class="p">],</span>
+<a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a><span class="w">  </span><span class="nt">"addon"</span><span class="p">:</span><span class="w"> </span><span class="s2">"registry"</span><span class="p">,</span>
+<a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a><span class="w">  </span><span class="nt">"implementation"</span><span class="p">:</span><span class="w"> </span><span class="s2">"registry"</span><span class="p">,</span>
+<a id="__codelineno-6-6" name="__codelineno-6-6" href="#__codelineno-6-6"></a><span class="w">  </span><span class="nt">"createdAt"</span><span class="p">:</span><span class="w"> </span><span class="s2">"2026-02-19T14:30:12Z"</span>
 <a id="__codelineno-6-7" name="__codelineno-6-7" href="#__codelineno-6-7"></a><span class="p">}</span>
 </code></pre></div>
 <table>

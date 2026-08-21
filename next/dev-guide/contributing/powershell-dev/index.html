@@ -2797,11 +2797,11 @@ SPDX-License-Identifier: MIT
 </code></pre></div>
 <p>will be interpreted as a string in the end.<br/>
 When using double quotes like</p>
-<div class="highlight"><span class="filename">PowerShell</span><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="s2">&quot;$myPath\theFile.yaml&quot;</span>
+<div class="highlight"><span class="filename">PowerShell</span><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="s2">"$myPath\theFile.yaml"</span>
 </code></pre></div>
 <p>we are then telling <em>PowerShell</em> that it is a string (<em>PowerShell</em> doesn't have to do its best guess).<br/>
 And if our string must contain double quotes, then</p>
-<div class="highlight"><span class="filename">PowerShell</span><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="s2">&quot;</span><span class="se">`&quot;</span><span class="s2">$myPath\theFile.yaml</span><span class="se">`&quot;</span><span class="s2">&quot;</span>
+<div class="highlight"><span class="filename">PowerShell</span><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="s2">"</span><span class="se">`"</span><span class="s2">$myPath\theFile.yaml</span><span class="se">`"</span><span class="s2">"</span>
 </code></pre></div>
 <p>(in the latter case, <em>PowerShell</em> interprets a string out of it) has to be used.</p>
 <h2 id="paths">Paths</h2>
@@ -2812,7 +2812,7 @@ And if our string must contain double quotes, then</p>
 </ul>
 <div class="admonition example">
 <p class="admonition-title">Example</p>
-<div class="highlight"><span class="filename">PowerShell</span><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>    <span class="p">&amp;</span><span class="nv">$global:BinPath</span><span class="p">\</span><span class="n">kubectl</span><span class="p">.</span><span class="n">exe</span> <span class="n">delete</span> <span class="o">-f</span> <span class="s2">&quot;$myPath\theFile.yaml&quot;</span>
+<div class="highlight"><span class="filename">PowerShell</span><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>    <span class="p">&amp;</span><span class="nv">$global:BinPath</span><span class="p">\</span><span class="n">kubectl</span><span class="p">.</span><span class="n">exe</span> <span class="n">delete</span> <span class="o">-f</span> <span class="s2">"$myPath\theFile.yaml"</span>
 </code></pre></div>
 </div>
 <ul>
@@ -2823,16 +2823,16 @@ next developer that is confronted with the code (many times just ourselves...)</
 <h2 id="escaping">Escaping</h2>
 <p>Escaping has been changed in <em>PowerShell Core</em> (<em>PS</em> version &gt; 5) which is required for newer <em>PowerShell Core</em> versions. The following example shows how quotes needs to be escaped when executing a <em>Linux</em> remote command:</p>
 <div class="highlight"><span class="filename">PowerShell</span><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="k">if</span> <span class="p">(</span><span class="nv">$PSVersionTable</span><span class="p">.</span><span class="n">PSVersion</span><span class="p">.</span><span class="n">Major</span> <span class="o">-gt</span> <span class="n">5</span><span class="p">)</span> <span class="p">{</span>
-<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>    <span class="n">ExecCmdMaster</span> <span class="s2">&quot;echo Acquire::http::Proxy \&quot;&quot;$Proxy\&quot;&quot;\; | sudo tee -a /etc/apt/apt.conf.d/proxy.conf&quot;</span> <span class="n">-UsePwd</span>
+<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>    <span class="n">ExecCmdMaster</span> <span class="s2">"echo Acquire::http::Proxy \""$Proxy\""\; | sudo tee -a /etc/apt/apt.conf.d/proxy.conf"</span> <span class="n">-UsePwd</span>
 <a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="p">}</span> <span class="k">else</span> <span class="p">{</span>
-<a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a>    <span class="n">ExecCmdMaster</span> <span class="s2">&quot;echo Acquire::http::Proxy \\\&quot;&quot;$Proxy\\\&quot;&quot;\; | sudo tee -a /etc/apt/apt.conf.d/proxy.conf&quot;</span> <span class="n">-UsePwd</span>
+<a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a>    <span class="n">ExecCmdMaster</span> <span class="s2">"echo Acquire::http::Proxy \\\""$Proxy\\\""\; | sudo tee -a /etc/apt/apt.conf.d/proxy.conf"</span> <span class="n">-UsePwd</span>
 <a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a><span class="p">}</span>
 </code></pre></div>
 <h2 id="markers">Markers</h2>
 <p>Passing markers from PowerShell to the <abbr title="Command-Line Interface">CLI</abbr> will result in appropriate user messages. The following example shows how during installation, if some pre-requisite checks fail then marker <code>[PREREQ-FAILED]</code> is sent through error stream which results in only warning message to user without going to corrupted install state.</p>
 <div class="highlight"><span class="filename">PowerShell</span><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="k">if</span> <span class="p">(</span> <span class="nv">$MasterVMMemory</span> <span class="o">-lt</span> <span class="n">2GB</span> <span class="p">)</span> <span class="p">{</span>
-<a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a>    <span class="nb">Write-Log</span> <span class="s1">&#39;k2s needs minimal 2GB main memory, you have passed a lower value!&#39;</span> <span class="n">-Error</span>
-<a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a>    <span class="k">throw</span> <span class="s1">&#39;[PREREQ-FAILED] Master node memory passed too low&#39;</span>
+<a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a>    <span class="nb">Write-Log</span> <span class="s1">'k2s needs minimal 2GB main memory, you have passed a lower value!'</span> <span class="n">-Error</span>
+<a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a>    <span class="k">throw</span> <span class="s1">'[PREREQ-FAILED] Master node memory passed too low'</span>
 <a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a><span class="p">}</span>
 </code></pre></div>
 <p>Following markers are in use:</p>

@@ -3214,7 +3214,7 @@ See <a href="../tags-labels/#commonly-used-tags">Commonly Used Tags</a> for comm
 <div class="highlight"><span class="filename">PowerShell</span><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="nb">Invoke-Pester</span> <span class="n">-Output</span> <span class="n">Detailed</span> <span class="p">.\&lt;</span><span class="n">test</span> <span class="n">file</span><span class="p">&gt;.</span><span class="n">Tests</span><span class="p">.</span><span class="n">ps1</span>
 </code></pre></div>
 To include/exclude tests by tags, run:
-<div class="highlight"><span class="filename">PowerShell</span><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="nb">Invoke-Pester</span> <span class="n">-Tag</span> <span class="s2">&quot;acceptance&quot;</span> <span class="n">-ExcludeTag</span> <span class="s2">&quot;slow&quot;</span><span class="p">,</span> <span class="s2">&quot;linuxOnly&quot;</span> <span class="p">.\&lt;</span><span class="n">test</span> <span class="n">file</span><span class="p">&gt;.</span><span class="n">Tests</span><span class="p">.</span><span class="n">ps1</span>
+<div class="highlight"><span class="filename">PowerShell</span><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="nb">Invoke-Pester</span> <span class="n">-Tag</span> <span class="s2">"acceptance"</span> <span class="n">-ExcludeTag</span> <span class="s2">"slow"</span><span class="p">,</span> <span class="s2">"linuxOnly"</span> <span class="p">.\&lt;</span><span class="n">test</span> <span class="n">file</span><span class="p">&gt;.</span><span class="n">Tests</span><span class="p">.</span><span class="n">ps1</span>
 </code></pre></div></p>
 <h4 id="code-coverage">Code Coverage</h4>
 <p>To calculate the code coverage of a test run, additionally specify the file(s) under test:
@@ -3231,9 +3231,9 @@ To include/exclude tests by tags, run:
 <p>When executing <em>K2s</em> scripts inside <em>Pester</em> test functions, it is recommended to execute these scripts in a separate <em>PowerShell</em> session, so that the called scripts still log to the <em>K2s</em> log files due to the current logging implementation.</p>
 <h4 id="dont">Don't</h4>
 <div class="highlight"><span class="filename">PowerShell</span><pre><span></span><code><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a><span class="c"># ...</span>
-<a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a><span class="nv">$enableScript</span> <span class="p">=</span> <span class="s2">&quot;$PSScriptRoot\Enable.ps1&quot;</span>
+<a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a><span class="nv">$enableScript</span> <span class="p">=</span> <span class="s2">"$PSScriptRoot\Enable.ps1"</span>
 <a id="__codelineno-10-3" name="__codelineno-10-3" href="#__codelineno-10-3"></a><span class="c"># ...</span>
-<a id="__codelineno-10-4" name="__codelineno-10-4" href="#__codelineno-10-4"></a><span class="n">It</span> <span class="s1">&#39;does not log to log file :-(&#39;</span> <span class="p">{</span>
+<a id="__codelineno-10-4" name="__codelineno-10-4" href="#__codelineno-10-4"></a><span class="n">It</span> <span class="s1">'does not log to log file :-('</span> <span class="p">{</span>
 <a id="__codelineno-10-5" name="__codelineno-10-5" href="#__codelineno-10-5"></a>    <span class="nv">$output</span> <span class="p">=</span> <span class="p">$(&amp;</span><span class="nv">$enableScript</span> <span class="n">-ShowLogs</span><span class="p">)</span> <span class="p">*&gt;&amp;</span><span class="n">1</span> <span class="c"># output redirect, but no log file entries</span>
 <a id="__codelineno-10-6" name="__codelineno-10-6" href="#__codelineno-10-6"></a>    <span class="c"># ...</span>
 <a id="__codelineno-10-7" name="__codelineno-10-7" href="#__codelineno-10-7"></a><span class="p">}</span>
@@ -3241,10 +3241,10 @@ To include/exclude tests by tags, run:
 </code></pre></div>
 <h4 id="do">Do</h4>
 <div class="highlight"><span class="filename">PowerShell</span><pre><span></span><code><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a><span class="c"># ...</span>
-<a id="__codelineno-11-2" name="__codelineno-11-2" href="#__codelineno-11-2"></a><span class="nv">$enableScript</span> <span class="p">=</span> <span class="s2">&quot;$PSScriptRoot\Enable.ps1&quot;</span>
+<a id="__codelineno-11-2" name="__codelineno-11-2" href="#__codelineno-11-2"></a><span class="nv">$enableScript</span> <span class="p">=</span> <span class="s2">"$PSScriptRoot\Enable.ps1"</span>
 <a id="__codelineno-11-3" name="__codelineno-11-3" href="#__codelineno-11-3"></a><span class="c"># ...</span>
-<a id="__codelineno-11-4" name="__codelineno-11-4" href="#__codelineno-11-4"></a><span class="n">It</span> <span class="s1">&#39;logs to log file :-)&#39;</span> <span class="p">{</span>
-<a id="__codelineno-11-5" name="__codelineno-11-5" href="#__codelineno-11-5"></a>    <span class="nv">$output</span> <span class="p">=</span> <span class="n">powershell</span> <span class="n">-Command</span> <span class="s2">&quot;$enableScript -ShowLogs&quot;</span> <span class="p">*&gt;&amp;</span><span class="n">1</span> <span class="c"># output redirect and log file entries</span>
+<a id="__codelineno-11-4" name="__codelineno-11-4" href="#__codelineno-11-4"></a><span class="n">It</span> <span class="s1">'logs to log file :-)'</span> <span class="p">{</span>
+<a id="__codelineno-11-5" name="__codelineno-11-5" href="#__codelineno-11-5"></a>    <span class="nv">$output</span> <span class="p">=</span> <span class="n">powershell</span> <span class="n">-Command</span> <span class="s2">"$enableScript -ShowLogs"</span> <span class="p">*&gt;&amp;</span><span class="n">1</span> <span class="c"># output redirect and log file entries</span>
 <a id="__codelineno-11-6" name="__codelineno-11-6" href="#__codelineno-11-6"></a>    <span class="c"># ...</span>
 <a id="__codelineno-11-7" name="__codelineno-11-7" href="#__codelineno-11-7"></a><span class="p">}</span>
 <a id="__codelineno-11-8" name="__codelineno-11-8" href="#__codelineno-11-8"></a><span class="c"># ...</span>
@@ -3252,7 +3252,7 @@ To include/exclude tests by tags, run:
 <h3 id="suppress-code-analysis">Suppress Code Analysis</h3>
 <p><em>Pester</em> requires a certain test code structure that can lead to code analyzer warnings, e.g. in this case:
 <div class="highlight"><span class="filename">PowerShell</span><pre><span></span><code><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a><span class="n">BeforeAll</span> <span class="p">{</span>
-<a id="__codelineno-12-2" name="__codelineno-12-2" href="#__codelineno-12-2"></a>    <span class="nv">$module</span> <span class="p">=</span> <span class="s2">&quot;$PSScriptRoot\setupinfo.module.psm1&quot;</span>
+<a id="__codelineno-12-2" name="__codelineno-12-2" href="#__codelineno-12-2"></a>    <span class="nv">$module</span> <span class="p">=</span> <span class="s2">"$PSScriptRoot\setupinfo.module.psm1"</span>
 <a id="__codelineno-12-3" name="__codelineno-12-3" href="#__codelineno-12-3"></a>
 <a id="__codelineno-12-4" name="__codelineno-12-4" href="#__codelineno-12-4"></a>    <span class="nv">$moduleName</span> <span class="p">=</span> <span class="p">(</span><span class="nb">Import-Module</span> <span class="nv">$module</span> <span class="n">-PassThru</span> <span class="n">-Force</span><span class="p">).</span><span class="n">Name</span>
 <a id="__codelineno-12-5" name="__codelineno-12-5" href="#__codelineno-12-5"></a><span class="p">}</span>
@@ -3264,16 +3264,16 @@ The analyzer would complain:</p>
 </div>
 <p>To mitigate this, suppress this warning like the following:
 <div class="highlight"><span class="filename">PowerShell</span><pre><span></span><code><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a><span class="n">BeforeAll</span> <span class="p">{</span>
-<a id="__codelineno-13-2" name="__codelineno-13-2" href="#__codelineno-13-2"></a>    <span class="nv">$module</span> <span class="p">=</span> <span class="s2">&quot;$PSScriptRoot\setupinfo.module.psm1&quot;</span>
+<a id="__codelineno-13-2" name="__codelineno-13-2" href="#__codelineno-13-2"></a>    <span class="nv">$module</span> <span class="p">=</span> <span class="s2">"$PSScriptRoot\setupinfo.module.psm1"</span>
 <a id="__codelineno-13-3" name="__codelineno-13-3" href="#__codelineno-13-3"></a>
-<a id="__codelineno-13-4" name="__codelineno-13-4" href="#__codelineno-13-4"></a>    <span class="p">[</span><span class="n">Diagnostics</span><span class="p">.</span><span class="n">CodeAnalysis</span><span class="p">.</span><span class="n">SuppressMessageAttribute</span><span class="p">(</span><span class="s1">&#39;UseDeclaredVarsMoreThanAssignments&#39;</span><span class="p">,</span> <span class="s1">&#39;&#39;</span><span class="p">,</span> <span class="n">Justification</span> <span class="p">=</span> <span class="s1">&#39;Pester Test&#39;</span><span class="p">)]</span>
+<a id="__codelineno-13-4" name="__codelineno-13-4" href="#__codelineno-13-4"></a>    <span class="p">[</span><span class="n">Diagnostics</span><span class="p">.</span><span class="n">CodeAnalysis</span><span class="p">.</span><span class="n">SuppressMessageAttribute</span><span class="p">(</span><span class="s1">'UseDeclaredVarsMoreThanAssignments'</span><span class="p">,</span> <span class="s1">''</span><span class="p">,</span> <span class="n">Justification</span> <span class="p">=</span> <span class="s1">'Pester Test'</span><span class="p">)]</span>
 <a id="__codelineno-13-5" name="__codelineno-13-5" href="#__codelineno-13-5"></a>    <span class="nv">$moduleName</span> <span class="p">=</span> <span class="p">(</span><span class="nb">Import-Module</span> <span class="nv">$module</span> <span class="n">-PassThru</span> <span class="n">-Force</span><span class="p">).</span><span class="n">Name</span>
 <a id="__codelineno-13-6" name="__codelineno-13-6" href="#__codelineno-13-6"></a><span class="p">}</span>
 </code></pre></div></p>
 <h2 id="automated-testing-with-ginkgogomega">Automated Testing with Ginkgo/Gomega</h2>
 <h3 id="log-output-redirection_1">Log Output Redirection</h3>
 <p>For diagnostic logging, <em>k2s</em> <abbr title="Command-Line Interface">CLI</abbr> uses <a href="https://pkg.go.dev/log/slog" target="_blank" rel="noopener">slog</a>. To redirect the log output to <em>Ginkgo</em>, set the <em>Ginkgo</em> logger as follows (<em>Ginkgo</em> uses <a href="https://github.com/go-logr/logr/" target="_blank" rel="noopener">logr</a> internally):
-<div class="highlight"><span class="filename">Go</span><pre><span></span><code><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a><span class="kd">var</span><span class="w"> </span><span class="nx">_</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="nx">BeforeSuite</span><span class="p">(</span><span class="kd">func</span><span class="p">()</span><span class="w"> </span><span class="p">{</span>
+<div class="highlight"><span class="filename">Go</span><pre><span></span><code><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a><span class="kd">var</span><span class="w"> </span><span class="nx">_</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">BeforeSuite</span><span class="p">(</span><span class="kd">func</span><span class="p">()</span><span class="w"> </span><span class="p">{</span>
 <a id="__codelineno-14-2" name="__codelineno-14-2" href="#__codelineno-14-2"></a><span class="w">    </span><span class="nx">slog</span><span class="p">.</span><span class="nx">SetDefault</span><span class="p">(</span><span class="nx">slog</span><span class="p">.</span><span class="nx">New</span><span class="p">(</span><span class="nx">logr</span><span class="p">.</span><span class="nx">ToSlogHandler</span><span class="p">(</span><span class="nx">GinkgoLogr</span><span class="p">)))</span>
 <a id="__codelineno-14-3" name="__codelineno-14-3" href="#__codelineno-14-3"></a><span class="p">})</span>
 </code></pre></div></p>

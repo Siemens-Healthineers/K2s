@@ -4215,7 +4215,7 @@ SPDX-License-Identifier: MIT
 <a id="__codelineno-12-5" name="__codelineno-12-5" href="#__codelineno-12-5"></a><span class="go">k2s addons export registry -d C:\export</span>
 <a id="__codelineno-12-6" name="__codelineno-12-6" href="#__codelineno-12-6"></a>
 <a id="__codelineno-12-7" name="__codelineno-12-7" href="#__codelineno-12-7"></a><span class="gp"># </span>Export<span class="w"> </span>a<span class="w"> </span>specific<span class="w"> </span>implementation
-<a id="__codelineno-12-8" name="__codelineno-12-8" href="#__codelineno-12-8"></a><span class="go">k2s addons export &quot;ingress nginx&quot; -d C:\export</span>
+<a id="__codelineno-12-8" name="__codelineno-12-8" href="#__codelineno-12-8"></a><span class="go">k2s addons export "ingress nginx" -d C:\export</span>
 </code></pre></div>
 <p>The export produces a file like <code>addons.oci.tar</code> containing all requested addon artifacts.</p>
 <h3 id="importing-addons">Importing Addons</h3>
@@ -4227,13 +4227,13 @@ SPDX-License-Identifier: MIT
 <a id="__codelineno-13-5" name="__codelineno-13-5" href="#__codelineno-13-5"></a><span class="go">k2s addons import registry -z C:\transfer\addons.oci.tar</span>
 <a id="__codelineno-13-6" name="__codelineno-13-6" href="#__codelineno-13-6"></a>
 <a id="__codelineno-13-7" name="__codelineno-13-7" href="#__codelineno-13-7"></a><span class="gp"># </span>Import<span class="w"> </span>a<span class="w"> </span>specific<span class="w"> </span>implementation
-<a id="__codelineno-13-8" name="__codelineno-13-8" href="#__codelineno-13-8"></a><span class="go">k2s addons import &quot;ingress nginx&quot; -z C:\transfer\addons.oci.tar</span>
+<a id="__codelineno-13-8" name="__codelineno-13-8" href="#__codelineno-13-8"></a><span class="go">k2s addons import "ingress nginx" -z C:\transfer\addons.oci.tar</span>
 </code></pre></div>
 <p>After import, the addon images are loaded into the cluster's container runtime and the addon can be enabled normally.</p>
 <h3 id="typical-offline-workflow">Typical Offline Workflow</h3>
 <ol>
 <li><strong>On an online machine</strong> with K2s installed, export the addons you need:
-   <div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a><span class="go">k2s addons export &quot;ingress nginx&quot; registry monitoring -d C:\export</span>
+   <div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a><span class="go">k2s addons export "ingress nginx" registry monitoring -d C:\export</span>
 </code></pre></div></li>
 <li><strong>Transfer</strong> the <code>addons.oci.tar</code> file to the air-gapped environment (USB drive, secure file transfer, etc.)</li>
 <li><strong>On the offline machine</strong>, import and enable:
@@ -4297,7 +4297,7 @@ SPDX-License-Identifier: MIT
 <p>Combining OCI export/import with the rollout addon enables GitOps in air-gapped environments:</p>
 <ol>
 <li><strong>Export</strong> the rollout addon (and any other addons your applications depend on):
-   <div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-22-1" name="__codelineno-22-1" href="#__codelineno-22-1"></a><span class="go">k2s addons export rollout &quot;ingress nginx&quot; registry -d C:\export</span>
+   <div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-22-1" name="__codelineno-22-1" href="#__codelineno-22-1"></a><span class="go">k2s addons export rollout "ingress nginx" registry -d C:\export</span>
 </code></pre></div></li>
 <li><strong>Transfer</strong> and <strong>import</strong> on the offline cluster:
    <div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-23-1" name="__codelineno-23-1" href="#__codelineno-23-1"></a><span class="go">k2s addons import -z D:\transfer\addons.oci.tar</span>

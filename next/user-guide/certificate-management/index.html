@@ -3305,7 +3305,7 @@ SPDX-License-Identifier: MIT
 <h3 id="windows-certificate-store">Windows certificate store</h3>
 <p>The default <abbr title="Certificate Authority">CA</abbr> certificate is imported into <code>Cert:\LocalMachine\Root</code> (Trusted Root Certification Authorities). When the ingress addon is disabled, the certificate is automatically removed from the Windows store.</p>
 <p>If you use an external <abbr title="Certificate Authority">CA</abbr>, you may need to import your organization's root certificate into the Windows trust store separately:</p>
-<div class="highlight"><span class="filename">PowerShell</span><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="nb">Import-Certificate</span> <span class="n">-FilePath</span> <span class="s2">&quot;C:\path\to\org-root-ca.crt&quot;</span> <span class="n">-CertStoreLocation</span> <span class="n">Cert</span><span class="p">:\</span><span class="n">LocalMachine</span><span class="p">\</span><span class="n">Root</span>
+<div class="highlight"><span class="filename">PowerShell</span><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="nb">Import-Certificate</span> <span class="n">-FilePath</span> <span class="s2">"C:\path\to\org-root-ca.crt"</span> <span class="n">-CertStoreLocation</span> <span class="n">Cert</span><span class="p">:\</span><span class="n">LocalMachine</span><span class="p">\</span><span class="n">Root</span>
 </code></pre></div>
 <h2 id="decision-guide">Decision Guide</h2>
 <table>

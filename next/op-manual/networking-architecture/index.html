@@ -2939,7 +2939,7 @@ In addition, these solutions introduce packet-processing overhead and extra <abb
 <a id="__codelineno-0-20" name="__codelineno-0-20" href="#__codelineno-0-20"></a>      # Allow this pod to run on any node, including control-plane
 <a id="__codelineno-0-21" name="__codelineno-0-21" href="#__codelineno-0-21"></a>      tolerations:
 <a id="__codelineno-0-22" name="__codelineno-0-22" href="#__codelineno-0-22"></a>      - operator: Exists
-<a id="__codelineno-0-23" name="__codelineno-0-23" href="#__codelineno-0-23"></a>      # Use the host&#39;s namespaces to modify its settings
+<a id="__codelineno-0-23" name="__codelineno-0-23" href="#__codelineno-0-23"></a>      # Use the host's namespaces to modify its settings
 <a id="__codelineno-0-24" name="__codelineno-0-24" href="#__codelineno-0-24"></a>      hostNetwork: true
 <a id="__codelineno-0-25" name="__codelineno-0-25" href="#__codelineno-0-25"></a>      hostPID: true
 <a id="__codelineno-0-26" name="__codelineno-0-26" href="#__codelineno-0-26"></a>      containers:
@@ -2948,7 +2948,7 @@ In addition, these solutions introduce packet-processing overhead and extra <abb
 <a id="__codelineno-0-29" name="__codelineno-0-29" href="#__codelineno-0-29"></a>        # This pod requires elevated privileges to modify host iptables
 <a id="__codelineno-0-30" name="__codelineno-0-30" href="#__codelineno-0-30"></a>        securityContext:
 <a id="__codelineno-0-31" name="__codelineno-0-31" href="#__codelineno-0-31"></a>          privileged: true
-<a id="__codelineno-0-32" name="__codelineno-0-32" href="#__codelineno-0-32"></a>        command: [&quot;/bin/sh&quot;, &quot;-c&quot;]
+<a id="__codelineno-0-32" name="__codelineno-0-32" href="#__codelineno-0-32"></a>        command: ["/bin/sh", "-c"]
 <a id="__codelineno-0-33" name="__codelineno-0-33" href="#__codelineno-0-33"></a>        args:
 <a id="__codelineno-0-34" name="__codelineno-0-34" href="#__codelineno-0-34"></a>        - |
 <a id="__codelineno-0-35" name="__codelineno-0-35" href="#__codelineno-0-35"></a>          # Ensure iptables is available
@@ -2973,7 +2973,7 @@ In addition, these solutions introduce packet-processing overhead and extra <abb
 <a id="__codelineno-0-54" name="__codelineno-0-54" href="#__codelineno-0-54"></a>          iptables -A INPUT -p udp -j DROP || true
 <a id="__codelineno-0-55" name="__codelineno-0-55" href="#__codelineno-0-55"></a>          iptables -A OUTPUT -p udp -j DROP || true
 <a id="__codelineno-0-56" name="__codelineno-0-56" href="#__codelineno-0-56"></a>
-<a id="__codelineno-0-57" name="__codelineno-0-57" href="#__codelineno-0-57"></a>          echo &quot;K2s UDP firewall rules applied successfully.&quot;
+<a id="__codelineno-0-57" name="__codelineno-0-57" href="#__codelineno-0-57"></a>          echo "K2s UDP firewall rules applied successfully."
 <a id="__codelineno-0-58" name="__codelineno-0-58" href="#__codelineno-0-58"></a>
 <a id="__codelineno-0-59" name="__codelineno-0-59" href="#__codelineno-0-59"></a>          # Keep the container alive indefinitely
 <a id="__codelineno-0-60" name="__codelineno-0-60" href="#__codelineno-0-60"></a>          sleep infinity
@@ -3003,35 +3003,35 @@ In addition, these solutions introduce packet-processing overhead and extra <abb
 <a id="__codelineno-1-22" name="__codelineno-1-22" href="#__codelineno-1-22"></a>      securityContext:
 <a id="__codelineno-1-23" name="__codelineno-1-23" href="#__codelineno-1-23"></a>        windowsOptions:
 <a id="__codelineno-1-24" name="__codelineno-1-24" href="#__codelineno-1-24"></a>          hostProcess: true
-<a id="__codelineno-1-25" name="__codelineno-1-25" href="#__codelineno-1-25"></a>          runAsUserName: &quot;System&quot;
+<a id="__codelineno-1-25" name="__codelineno-1-25" href="#__codelineno-1-25"></a>          runAsUserName: "System"
 <a id="__codelineno-1-26" name="__codelineno-1-26" href="#__codelineno-1-26"></a>      hostNetwork: true
 <a id="__codelineno-1-27" name="__codelineno-1-27" href="#__codelineno-1-27"></a>      containers:
 <a id="__codelineno-1-28" name="__codelineno-1-28" href="#__codelineno-1-28"></a>      - name: powershell-configurator
 <a id="__codelineno-1-29" name="__codelineno-1-29" href="#__codelineno-1-29"></a>        image: mcr.microsoft.com/powershell:lts-nanoserver-1809
 <a id="__codelineno-1-30" name="__codelineno-1-30" href="#__codelineno-1-30"></a>        command:
-<a id="__codelineno-1-31" name="__codelineno-1-31" href="#__codelineno-1-31"></a>        - &quot;powershell.exe&quot;
-<a id="__codelineno-1-32" name="__codelineno-1-32" href="#__codelineno-1-32"></a>        - &quot;-Command&quot;
+<a id="__codelineno-1-31" name="__codelineno-1-31" href="#__codelineno-1-31"></a>        - "powershell.exe"
+<a id="__codelineno-1-32" name="__codelineno-1-32" href="#__codelineno-1-32"></a>        - "-Command"
 <a id="__codelineno-1-33" name="__codelineno-1-33" href="#__codelineno-1-33"></a>        args:
 <a id="__codelineno-1-34" name="__codelineno-1-34" href="#__codelineno-1-34"></a>        - |
 <a id="__codelineno-1-35" name="__codelineno-1-35" href="#__codelineno-1-35"></a>          # Define a unique group name for our rules
-<a id="__codelineno-1-36" name="__codelineno-1-36" href="#__codelineno-1-36"></a>          $group = &#39;K2s-UDP-Policy&#39;
+<a id="__codelineno-1-36" name="__codelineno-1-36" href="#__codelineno-1-36"></a>          $group = 'K2s-UDP-Policy'
 <a id="__codelineno-1-37" name="__codelineno-1-37" href="#__codelineno-1-37"></a>
 <a id="__codelineno-1-38" name="__codelineno-1-38" href="#__codelineno-1-38"></a>          # Remove any pre-existing rules in this group to ensure a clean state
 <a id="__codelineno-1-39" name="__codelineno-1-39" href="#__codelineno-1-39"></a>          Get-NetFirewallRule -Group $group | Remove-NetFirewallRule
 <a id="__codelineno-1-40" name="__codelineno-1-40" href="#__codelineno-1-40"></a>
 <a id="__codelineno-1-41" name="__codelineno-1-41" href="#__codelineno-1-41"></a>          # Rule 1: Block all inbound UDP traffic by default.
-<a id="__codelineno-1-42" name="__codelineno-1-42" href="#__codelineno-1-42"></a>          New-NetFirewallRule -DisplayName &#39;Block All UDP Inbound&#39; -Group $group -Direction Inbound -Action Block -Protocol UDP -Profile Any
+<a id="__codelineno-1-42" name="__codelineno-1-42" href="#__codelineno-1-42"></a>          New-NetFirewallRule -DisplayName 'Block All UDP Inbound' -Group $group -Direction Inbound -Action Block -Protocol UDP -Profile Any
 <a id="__codelineno-1-43" name="__codelineno-1-43" href="#__codelineno-1-43"></a>
 <a id="__codelineno-1-44" name="__codelineno-1-44" href="#__codelineno-1-44"></a>          # Rule 2: Explicitly allow inbound DNS responses (overrides the block rule).
-<a id="__codelineno-1-45" name="__codelineno-1-45" href="#__codelineno-1-45"></a>          New-NetFirewallRule -DisplayName &#39;Allow DNS Inbound (UDP)&#39; -Group $group -Direction Inbound -Action Allow -Protocol UDP -LocalPort 53 -Profile Any
+<a id="__codelineno-1-45" name="__codelineno-1-45" href="#__codelineno-1-45"></a>          New-NetFirewallRule -DisplayName 'Allow DNS Inbound (UDP)' -Group $group -Direction Inbound -Action Allow -Protocol UDP -LocalPort 53 -Profile Any
 <a id="__codelineno-1-46" name="__codelineno-1-46" href="#__codelineno-1-46"></a>
 <a id="__codelineno-1-47" name="__codelineno-1-47" href="#__codelineno-1-47"></a>          # Rule 3: Block all outbound UDP traffic by default.
-<a id="__codelineno-1-48" name="__codelineno-1-48" href="#__codelineno-1-48"></a>          New-NetFirewallRule -DisplayName &#39;Block All UDP Outbound&#39; -Group $group -Direction Outbound -Action Block -Protocol UDP -Profile Any
+<a id="__codelineno-1-48" name="__codelineno-1-48" href="#__codelineno-1-48"></a>          New-NetFirewallRule -DisplayName 'Block All UDP Outbound' -Group $group -Direction Outbound -Action Block -Protocol UDP -Profile Any
 <a id="__codelineno-1-49" name="__codelineno-1-49" href="#__codelineno-1-49"></a>
 <a id="__codelineno-1-50" name="__codelineno-1-50" href="#__codelineno-1-50"></a>          # Rule 4: Explicitly allow outbound DNS requests.
-<a id="__codelineno-1-51" name="__codelineno-1-51" href="#__codelineno-1-51"></a>          New-NetFirewallRule -DisplayName &#39;Allow DNS Outbound (UDP)&#39; -Group $group -Direction Outbound -Action Allow -Protocol UDP -RemotePort 53 -Profile Any
+<a id="__codelineno-1-51" name="__codelineno-1-51" href="#__codelineno-1-51"></a>          New-NetFirewallRule -DisplayName 'Allow DNS Outbound (UDP)' -Group $group -Direction Outbound -Action Allow -Protocol UDP -RemotePort 53 -Profile Any
 <a id="__codelineno-1-52" name="__codelineno-1-52" href="#__codelineno-1-52"></a>
-<a id="__codelineno-1-53" name="__codelineno-1-53" href="#__codelineno-1-53"></a>          Write-Host &quot;K2s Windows UDP firewall rules applied.&quot;
+<a id="__codelineno-1-53" name="__codelineno-1-53" href="#__codelineno-1-53"></a>          Write-Host "K2s Windows UDP firewall rules applied."
 <a id="__codelineno-1-54" name="__codelineno-1-54" href="#__codelineno-1-54"></a>
 <a id="__codelineno-1-55" name="__codelineno-1-55" href="#__codelineno-1-55"></a>          # Keep the container alive
 <a id="__codelineno-1-56" name="__codelineno-1-56" href="#__codelineno-1-56"></a>          Start-Sleep -Seconds 2147483647
