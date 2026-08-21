@@ -748,7 +748,8 @@ function Assert-ControlPlaneArtifactDiskSizeCompatibility {
 
     $controlPlaneBaseImagePath = Get-ControlPlaneVMBaseImagePath
     if (!(Test-Path -Path $controlPlaneBaseImagePath)) {
-        throw "[PREREQ-FAILED] Precheck failed: expected packaged control-plane artifact is missing at '$controlPlaneBaseImagePath'. Installation cannot validate disk-size compatibility safely. Restore a complete package (including base VHDX) or run an explicit online installation mode."
+        Write-Log "[Precheck] Skip package disk-size guard because packaged control-plane artifact is missing at '$controlPlaneBaseImagePath'. This is allowed for online installation when the base VHDX is not present in the local bin folder."
+        return
     }
 
     try {

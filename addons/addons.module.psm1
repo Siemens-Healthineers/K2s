@@ -2140,8 +2140,13 @@ function Initialize-CACertificateIssuer {
         throw "CA root certificate 'ca-issuer-root-secret' not found.`nInstallation of 'cert-manager' failed."
     }
 
+    # Capture the current CA content before renewal to detect rotation.
+    $previousCaHash = Get-CARootCertificateHash
+
     # Write-Log 'Renewing old Certificates using the new CA Issuer' -Console
     Update-CertificateResources
+
+    Wait-ForCARootCertificateRotation -PreviousHash $previousCaHash
 }
 
 <#
@@ -2192,6 +2197,41 @@ function Wait-ForCARootCertificate(
     $cmEvents = (Invoke-Kubectl -Params '-n', 'cert-manager', 'get', 'events', '--sort-by=.lastTimestamp').Output
     Write-Log "[CertManager] cert-manager events: $cmEvents" -Console
 
+    return $false
+}
+
+# Returns the current CA content, or an empty string when it is unavailable.
+function Get-CARootCertificateHash {
+    $out = (Invoke-Kubectl -Params '-n', 'cert-manager', 'get', 'secrets', 'ca-issuer-root-secret', '-o', 'jsonpath', '--template', '{.data.ca\.crt}').Output
+    if ([string]::IsNullOrWhiteSpace($out)) {
+        return ''
+    }
+    return $out
+}
+
+# Waits for CA content to change after renewal, without blocking fresh installs.
+function Wait-ForCARootCertificateRotation(
+    [string]$PreviousHash,
+    [int]$SleepDurationInSeconds = 5,
+    [int]$NumberOfRetries = 12) {
+    if ([string]::IsNullOrWhiteSpace($PreviousHash)) {
+        Write-Log '[CertManager] No previous CA root certificate content captured; skipping rotation wait.'
+        return $true
+    }
+
+    for ($i = 1; $i -le $NumberOfRetries; $i++) {
+        $currentHash = Get-CARootCertificateHash
+        if (-not [string]::IsNullOrWhiteSpace($currentHash) -and $currentHash -ne $PreviousHash) {
+            Write-Log '[CertManager] CA root certificate rotation detected; proceeding with import.'
+            return $true
+        }
+        if ($i -lt $NumberOfRetries) {
+            Write-Log "Retry {$i}: CA root certificate not yet rotated. Will retry after $SleepDurationInSeconds Seconds" -Console
+            Start-Sleep -Seconds $SleepDurationInSeconds
+        }
+    }
+
+    Write-Log '[CertManager] CA root certificate rotation was not detected within the retry budget. Proceeding with import anyway; the imported CA may be stale until the next renewal cycle completes.' -Console
     return $false
 }
 

@@ -27,19 +27,66 @@ To interact with the *K2s* cluster, the following shortcuts can be used:
 ## Krew support
 
 *K2s* bundles [Krew](https://krew.sigs.k8s.io/){target="_blank"}, the official *kubectl* plugin
-manager, together with *kubectl*. Krew is included in the offline package, so no additional download
-is required — after installing *K2s* you can immediately run:
+manager, together with *kubectl* on **both** the Windows host and the Linux control-plane node. Krew is
+part of the offline package, so no additional download is required — after installing *K2s* you can
+immediately run:
 
-```powershell
-kubectl krew version
-```
+=== "Windows host"
+
+    ```powershell
+    kubectl krew version
+    ```
+
+=== "Linux control-plane"
+
+    ```console
+    kubectl krew version
+    ```
 
 !!! note
     Installing plugins (for example `kubectl krew install ctx`) fetches the plugin index and packages
     from the internet and is therefore an online, user-initiated action. It is never performed during
-    *K2s* installation, preserving *K2s*'s offline guarantees.
+    *K2s* installation, preserving *K2s*'s offline guarantees. *K2s* bundles Krew itself, but never
+    bundles or installs plugins.
 
-Krew installs plugins into the per-user directory `%USERPROFILE%\.krew\bin`. For the user who installed
-*K2s*, this directory is added to `PATH` automatically, so installed plugins are discoverable right away.
-Any additional Windows user follows Krew's standard [one-time PATH setup](https://krew.sigs.k8s.io/docs/user-guide/setup/install/){target="_blank"}
-to expose their own plugins.
+### Initializing the plugin index
+
+*K2s* provides the Krew binary; the plugin index and the plugin lifecycle stay user-managed. Before
+plugins can be searched or installed, initialize the index once per user:
+
+```console
+kubectl krew update
+```
+
+This command clones Krew's plugin index and therefore requires **Git** and **network access**. *K2s*
+does not bundle Git on either platform — install it yourself if it is missing:
+
+| Platform | Install Git via |
+| -------- | --------------- |
+| Windows host | [Git for Windows](https://git-scm.com/download/win){target="_blank"} |
+| Linux control-plane | `sudo apt-get install git` |
+
+Until the index is initialized, `kubectl krew list` and `kubectl krew search` report
+`krew local plugin index is not initialized`, while `kubectl krew version` already works. This is
+expected Krew behaviour and does not affect the *K2s* installation itself, which remains fully
+offline-capable. The same model applies to *Helm*, where *K2s* ships the binary and you add chart
+repositories yourself.
+
+### Plugin directories and PATH
+
+Krew installs plugins into a per-user directory, which *K2s* adds to `PATH` for the user that installed
+*K2s* so that installed plugins are discoverable right away:
+
+| Platform | Plugin directory | How `PATH` is configured |
+| -------- | ---------------- | ------------------------ |
+| Windows  | `%USERPROFILE%\.krew\bin` | User-scope `PATH` of the installing user |
+| Linux control-plane | `$HOME/.krew/bin` | `~/.profile` of the node user |
+
+Any additional user follows Krew's standard
+[one-time PATH setup](https://krew.sigs.k8s.io/docs/user-guide/setup/install/){target="_blank"} to
+expose their own plugins.
+
+Plugins are **user-owned state**: *K2s* never backs up, migrates, upgrades or deletes `~/.krew`
+(`%USERPROFILE%\.krew` on Windows). Plugins therefore survive a *K2s* upgrade and are not removed by
+`k2s uninstall`. Use `kubectl krew upgrade` to update plugins yourself.
+
