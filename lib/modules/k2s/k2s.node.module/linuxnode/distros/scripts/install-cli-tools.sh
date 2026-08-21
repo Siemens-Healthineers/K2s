@@ -36,8 +36,12 @@ if ! command -v yq &> /dev/null; then
     echo "Installing yq..."
     YQ_VERSION="v4.53.4"
     ARCH=$(uname -m)
+    # yq release artifacts use Go's architecture names: yq_linux_amd64 / yq_linux_arm64.
+    # 'uname -m' reports x86_64 / aarch64, so both have to be normalized or the download 404s.
     if [[ "$ARCH" == "x86_64" ]]; then
         ARCH="amd64"
+    elif [[ "$ARCH" == "aarch64" ]]; then
+        ARCH="arm64"
     fi
     sudo curl -fL $CURL_PROXY_OPT -o /usr/local/bin/yq "https://github.com/mikefarah/yq/releases/download/${YQ_VERSION}/yq_linux_${ARCH}" --silent
     sudo chmod +x /usr/local/bin/yq
