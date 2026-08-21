@@ -74,15 +74,21 @@ if ! command -v kubectl-krew &> /dev/null; then
     echo "Installing krew..."
     KREW_VERSION="v0.5.0"
     ARCH=$(uname -m)
+    # Krew release artifacts use Go's architecture names: krew-linux_amd64 / krew-linux_arm64.
+    # 'uname -m' reports x86_64 / aarch64, so both have to be normalized or the download 404s.
     if [[ "$ARCH" == "x86_64" ]]; then
         ARCH="amd64"
+    elif [[ "$ARCH" == "aarch64" ]]; then
+        ARCH="arm64"
     fi
     curl -fL $CURL_PROXY_OPT -o "krew-linux_${ARCH}.tar.gz" "https://github.com/kubernetes-sigs/krew/releases/download/${KREW_VERSION}/krew-linux_${ARCH}.tar.gz" --silent
     tar -xzf "krew-linux_${ARCH}.tar.gz" "./krew-linux_${ARCH}"
     sudo mv "krew-linux_${ARCH}" /usr/local/bin/kubectl-krew
     sudo chmod +x /usr/local/bin/kubectl-krew
     rm -rf "krew-linux_${ARCH}.tar.gz"
-    kubectl-krew version
+    # Only verify that the binary was installed and is executable. Running 'kubectl-krew version'
+    # here would execute krew as root during image build and could create root-owned Krew state.
+    test -x /usr/local/bin/kubectl-krew
 else
     echo "krew already installed"
 fi
