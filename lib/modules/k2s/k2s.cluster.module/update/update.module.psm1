@@ -1810,7 +1810,7 @@ Export-ModuleMember -Function Select-PrunableRemovedFile
 	Delta creation captures changed/added control plane host files via the GuestConfig diff (see
 	New-K2sDelta.GuestConfig.ps1) and bundles them under the package's 'guest-config/' folder so the
 	update is fully air-gapped. Only host TOOL binaries are re-applied during a delta update - currently
-	the Linux helm and yq executables under /usr/local/bin. Cluster-identity files (PKI, kubeconfigs,
+	the Linux helm, yq and kubectl-krew executables under /usr/local/bin. Cluster-identity files (PKI, kubeconfigs,
 	static pod manifests, kubelet config) are intentionally NOT applied even though delta creation already
 	excludes them from the payload - this allowlist is a second, independent safety boundary.
 .OUTPUTS
@@ -1922,7 +1922,7 @@ function Invoke-GuestConfigDeltaApply {
 		try { $cpRunning = Get-IsControlPlaneRunning } catch { $cpRunning = $false }
 	}
 	if (-not $cpRunning) {
-		Write-Log '[GuestConfigApply][Warn] Control plane VM not running; cannot apply guest-config (helm/yq).' -Console:$consoleSwitch
+		Write-Log '[GuestConfigApply][Warn] Control plane VM not running; cannot apply guest-config (helm/yq/krew).' -Console:$consoleSwitch
 		$result.Success = $false
 		return $result
 	}

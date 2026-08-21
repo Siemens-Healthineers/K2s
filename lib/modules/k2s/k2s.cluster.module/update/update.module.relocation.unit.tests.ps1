@@ -188,6 +188,11 @@ Describe 'Test-GuestConfigApplyAllowed' -Tag 'unit', 'ci', 'update' {
 		Test-GuestConfigApplyAllowed 'usr/local/bin/yq' | Should -BeTrue
 	}
 
+	It 'permits the Linux kubectl-krew host tool' {
+		Test-GuestConfigApplyAllowed 'usr/local/bin/kubectl-krew' | Should -BeTrue
+		Test-GuestConfigApplyAllowed '/usr/local/bin/kubectl-krew' | Should -BeTrue
+	}
+
 	It 'permits absolute and backslash forms of allowlisted paths' {
 		Test-GuestConfigApplyAllowed '/usr/local/bin/helm' | Should -BeTrue
 		Test-GuestConfigApplyAllowed 'usr\local\bin\yq' | Should -BeTrue

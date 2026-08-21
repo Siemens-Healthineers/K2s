@@ -740,7 +740,7 @@ Function Install-Tools {
     &$executeRemoteCommand 'sudo systemctl daemon-reload'
     &$executeRemoteCommand 'sudo systemctl restart crio'
 
-    Install-HelmAndYqOnKubeMaster -UserName $UserName -UserPwd $UserPwd -IpAddress $IpAddress
+    Install-CliToolsOnKubeMaster -UserName $UserName -UserPwd $UserPwd -IpAddress $IpAddress
 
     Write-Log 'Finished installing tools in Linux'
 
@@ -1608,7 +1608,12 @@ function Get-KubenodeBaseFileName {
 }
 
 
-function Install-HelmAndYqOnKubeMaster
+# Installs the bundled Linux CLI tools (currently helm, yq and krew) into /usr/local/bin of the
+# control-plane VM. Runs at base-image build time, so the tools are baked into the base image and
+# offline installations require no downloads. Krew is deployed as 'kubectl-krew' so that
+# 'kubectl krew' works. To add a further tool, extend scripts\install-cli-tools.sh - no change to
+# this function is required.
+function Install-CliToolsOnKubeMaster
 {
     param (
         [Parameter(Mandatory = $true)]
@@ -1618,8 +1623,9 @@ function Install-HelmAndYqOnKubeMaster
         [Parameter(Mandatory = $true)]
         [string]$IpAddress
     )
-    $localScriptPath = "$PSScriptRoot\scripts\install-helm-yq.sh"
-    $remoteScriptPath = "/home/$UserName/install-helm-yq.sh"
+    $scriptName = 'install-cli-tools.sh'
+    $localScriptPath = "$PSScriptRoot\scripts\$scriptName"
+    $remoteScriptPath = "/home/$UserName/$scriptName"
     if ( [string]::IsNullOrWhiteSpace($UserPwd))
     {
         Copy-ToRemoteComputerViaSshKey -Source $localScriptPath -Target $remoteScriptPath -UserName $UserName -IpAddress $IpAddress
@@ -1633,10 +1639,10 @@ function Install-HelmAndYqOnKubeMaster
     $installResult = Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute "sudo $remoteScriptPath" -RemoteUser "$UserName@$IpAddress" -RemoteUserPwd $UserPwd
     $installResult.Output | Write-Log
     if (-not $installResult.Success) {
-        Write-Log "[InstallHelmYq] WARNING: install-helm-yq.sh failed on $IpAddress. Helm/yq may not be available. Check network connectivity and proxy settings." -Console
+        Write-Log "[InstallCliTools] WARNING: $scriptName failed on $IpAddress. The Linux CLI tools (helm/yq/krew) may not be available. Check network connectivity and proxy settings." -Console
     }
     else {
-        Write-Log "install-helm-yq.sh copied and executed successfully on $IpAddress"
+        Write-Log "[InstallCliTools] $scriptName copied and executed successfully on $IpAddress"
     }
 }
 

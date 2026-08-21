@@ -441,18 +441,17 @@ func (o *LinuxOrchestrator) deployFlannel(cfg InstallConfig) error {
 }
 
 // installControlPlaneTools keeps native Linux feature parity with the
-// Windows-host kubemaster flow, which installs Helm and yq after provisioning
-// the Linux control plane. The shared script uses K2s's persistent apt proxy
-// configuration and installs both tools into /usr/local/bin.
+// Windows-host kubemaster flow, which installs bundled CLI tools after
+// provisioning the Linux control plane.
 func (o *LinuxOrchestrator) installControlPlaneTools(cfg InstallConfig) error {
-	scriptPath := filepath.Join(cfg.InstallDir, "lib", "modules", "k2s", "k2s.node.module", "linuxnode", "distros", "scripts", "install-helm-yq.sh")
+	scriptPath := filepath.Join(cfg.InstallDir, "lib", "modules", "k2s", "k2s.node.module", "linuxnode", "distros", "scripts", "install-cli-tools.sh")
 	if _, err := os.Stat(scriptPath); err != nil {
 		return fmt.Errorf("required control-plane tools installer is missing at %s: %w", scriptPath, err)
 	}
 
-	slog.Info("[Install] Installing Helm and yq on native Linux control plane")
+	slog.Info("[Install] Installing bundled CLI tools on native Linux control plane")
 	if err := runCommandWithLogs(cfg.ShowLogs, "bash", scriptPath); err != nil {
-		return fmt.Errorf("run Helm and yq installer: %w", err)
+		return fmt.Errorf("run CLI tools installer: %w", err)
 	}
 	for _, tool := range []string{"helm", "yq"} {
 		if _, err := exec.LookPath(tool); err != nil {
