@@ -247,12 +247,14 @@ func (s FailureSeverity) String() string {
 	}
 }
 
+// WriteStdOut forwards PowerShell stdout lines. Progress lines are written to
+// stderr to avoid contaminating structured output (e.g. JSON) on stdout.
 func (w *PtermWriter) WriteStdOut(line string) {
 	if strings.TrimSpace(line) == "" {
 		return
 	}
 	if w.ShowProgress {
-		fmt.Fprintf(stdos.Stderr, "⏳ %s\n", line)
+		pterm.Fprintln(stdos.Stderr, pterm.Sprintf("⏳ %s", line))
 	} else {
 		pterm.Println(line)
 	}
@@ -263,7 +265,7 @@ func (w *PtermWriter) WriteStdErr(line string) {
 	w.ErrorOccurred = true
 	w.ErrorLines = append(w.ErrorLines, line)
 
-	fmt.Fprintf(stdos.Stderr, "⏳ %s\n", pterm.Yellow(line))
+	pterm.Fprintln(stdos.Stderr, pterm.Sprintf("⏳ %s", pterm.Yellow(line)))
 }
 
 func (w *PtermWriter) Flush() { w.errorLineBuffer.Flush() }
