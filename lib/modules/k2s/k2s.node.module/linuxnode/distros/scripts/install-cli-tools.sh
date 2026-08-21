@@ -30,9 +30,11 @@ if [ -n "$PROXY" ]; then
 fi
 
 # Install yq
+# Keep YQ_VERSION in sync with the yq download URL in
+# lib/modules/k2s/k2s.node.module/windowsnode/downloader/artifacts/yaml-tools/yaml-tools.module.psm1
 if ! command -v yq &> /dev/null; then
     echo "Installing yq..."
-    YQ_VERSION="v4.47.1"
+    YQ_VERSION="v4.53.4"
     ARCH=$(uname -m)
     if [[ "$ARCH" == "x86_64" ]]; then
         ARCH="amd64"
@@ -45,6 +47,8 @@ else
 fi
 
 # Install helm
+# Keep HELM_VERSION in sync with the helm download URL in
+# lib/modules/k2s/k2s.node.module/windowsnode/downloader/artifacts/helm/helm.module.psm1
 if ! command -v helm &> /dev/null; then
     echo "Installing helm..."
     HELM_VERSION="v4.2.3"

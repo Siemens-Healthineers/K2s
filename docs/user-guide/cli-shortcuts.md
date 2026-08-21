@@ -49,6 +49,31 @@ immediately run:
     *K2s* installation, preserving *K2s*'s offline guarantees. *K2s* bundles Krew itself, but never
     bundles or installs plugins.
 
+### Initializing the plugin index
+
+*K2s* provides the Krew binary; the plugin index and the plugin lifecycle stay user-managed. Before
+plugins can be searched or installed, initialize the index once per user:
+
+```console
+kubectl krew update
+```
+
+This command clones Krew's plugin index and therefore requires **Git** and **network access**. *K2s*
+does not bundle Git on either platform — install it yourself if it is missing:
+
+| Platform | Install Git via |
+| -------- | --------------- |
+| Windows host | [Git for Windows](https://git-scm.com/download/win){target="_blank"} |
+| Linux control-plane | `sudo apt-get install git` |
+
+Until the index is initialized, `kubectl krew list` and `kubectl krew search` report
+`krew local plugin index is not initialized`, while `kubectl krew version` already works. This is
+expected Krew behaviour and does not affect the *K2s* installation itself, which remains fully
+offline-capable. The same model applies to *Helm*, where *K2s* ships the binary and you add chart
+repositories yourself.
+
+### Plugin directories and PATH
+
 Krew installs plugins into a per-user directory, which *K2s* adds to `PATH` for the user that installed
 *K2s* so that installed plugins are discoverable right away:
 
