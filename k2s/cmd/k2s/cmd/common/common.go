@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	stdos "os"
 	"strings"
 	"time"
 
@@ -251,7 +252,7 @@ func (w *PtermWriter) WriteStdOut(line string) {
 		return
 	}
 	if w.ShowProgress {
-		pterm.Printfln("⏳ %s", line)
+		fmt.Fprintf(stdos.Stderr, "⏳ %s\n", line)
 	} else {
 		pterm.Println(line)
 	}
@@ -262,7 +263,7 @@ func (w *PtermWriter) WriteStdErr(line string) {
 	w.ErrorOccurred = true
 	w.ErrorLines = append(w.ErrorLines, line)
 
-	pterm.Printfln("⏳ %s", pterm.Yellow(line))
+	fmt.Fprintf(stdos.Stderr, "⏳ %s\n", pterm.Yellow(line))
 }
 
 func (w *PtermWriter) Flush() { w.errorLineBuffer.Flush() }

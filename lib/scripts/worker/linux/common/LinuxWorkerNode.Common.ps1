@@ -178,7 +178,7 @@ function Start-LinuxWorkerNodeServices {
 
     $sshProbeToken = 'k2s-ssh-ok'
     $sshProbeCmd = "echo $sshProbeToken"
-    $startServicesCmd = 'sudo systemctl start crio || true; sudo systemctl start containerd || true; sudo systemctl start kubelet'
+    $startServicesCmd = 'sudo systemctl start crio 2>/dev/null || true; sudo systemctl start containerd 2>/dev/null || true; sudo systemctl start kubelet'
     $maxSshRetries = 12
     $retryDelaySeconds = 5
     $sshProbeTimeoutSeconds = 5
