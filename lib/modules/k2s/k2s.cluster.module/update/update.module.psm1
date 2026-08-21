@@ -1922,7 +1922,7 @@ function Invoke-GuestConfigDeltaApply {
 		try { $cpRunning = Get-IsControlPlaneRunning } catch { $cpRunning = $false }
 	}
 	if (-not $cpRunning) {
-		Write-Log '[GuestConfigApply][Warn] Control plane VM not running; cannot apply guest-config (helm/yq).' -Console:$consoleSwitch
+		Write-Log '[GuestConfigApply][Warn] Control plane VM not running; cannot apply guest-config (helm/yq/krew).' -Console:$consoleSwitch
 		$result.Success = $false
 		return $result
 	}
