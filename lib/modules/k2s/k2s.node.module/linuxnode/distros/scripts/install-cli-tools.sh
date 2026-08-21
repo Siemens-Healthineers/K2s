@@ -105,7 +105,7 @@ if [ -n "$TARGET_HOME" ]; then
     if ! grep -q '.krew/bin' "$PROFILE_FILE" 2>/dev/null; then
         echo "Adding \$HOME/.krew/bin to PATH in $PROFILE_FILE"
         echo 'export PATH="$HOME/.krew/bin:$PATH"' | sudo tee -a "$PROFILE_FILE" > /dev/null
-        sudo chown "$TARGET_USER" "$PROFILE_FILE"
+        sudo chown "$TARGET_USER:$(id -gn "$TARGET_USER")" "$PROFILE_FILE"
     else
         echo "\$HOME/.krew/bin already on PATH in $PROFILE_FILE"
     fi
