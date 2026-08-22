@@ -237,35 +237,10 @@ try {
 
 		Install-LinkerdCli -ManifestPath $manifestPath -K2sRoot $k2sRoot -Proxy $Proxy
 
-		# generate linkerd config
-		Write-Log 'Creating linkerd config files' -Console
+		Write-Log 'Creating linkerd CRD manifest' -Console
 		$clinkerdExe = "$(Get-KubeBinPath)\linkerd.exe"
 		$linkerdYaml = Get-LinkerdConfigDirectory
-		# generate the CRDs
-		& $clinkerdExe install --ignore-cluster --crds 2> $null | Out-File -FilePath $linkerdYaml\linkerd-crds-gen.yaml -Encoding utf8
-		# generate the other resources
-		# add this line for debug infos
-		# --ignore-cluster --disable-heartbeat --proxy-log-level "debug,linkerd=debug,hickory=error"  `
-		& $clinkerdExe install  `
---ignore-cluster --disable-heartbeat  `
---proxy-memory-limit 100Mi  `
---proxy-cpu-request 100m  `
---proxy-cpu-limit 100m  `
---default-inbound-policy "all-authenticated"  `
---set "identity.externalCA=true"  `
---set "identity.issuer.scheme=kubernetes.io/tls"  `
---set "proxy.await=false"  `
---set "proxy.image.name=shsk2s.azurecr.io/linkerd/proxy"  `
---set "proxyInit.image.name=shsk2s.azurecr.io/linkerd/proxy-init"  `
---set "proxyInit.resources.cpu.request=100m"  `
---set "proxyInit.resources.cpu.limit=100m" 2> $null | Out-File -FilePath $linkerdYaml\linkerd-gen.yaml -Encoding utf8
-
-		# cleanup linkerd resources
-		(Get-Content $linkerdYaml\linkerd-crds-gen.yaml) -replace '[^\x20-\x7E\r\n]', '' | Set-Content $linkerdYaml\linkerd-crds.yaml
-		(Get-Content $linkerdYaml\linkerd-gen.yaml) -replace '[^\x20-\x7E\r\n]', '' | Set-Content $linkerdYaml\linkerd.yaml
-		# remove downloaded files
-		Remove-Item -Path $linkerdYaml\linkerd-crds-gen.yaml -Force
-		Remove-Item -Path $linkerdYaml\linkerd-gen.yaml -Force
+		New-LinkerdCrdsManifest -LinkerdExe $clinkerdExe -OutputDirectory $linkerdYaml
 
 		# create linkerd namespace
 		Write-Log 'Creating linkerd namespace' -Console
@@ -345,6 +320,15 @@ try {
 		# Wait for trust-manager to propagate certificates to linkerd namespace
 		Write-Log 'Waiting for linkerd namespace secrets to be ready' -Console
 		Start-Sleep -Seconds 10
+
+		Write-Log 'Applying linkerd CRDs' -Console
+		Clear-KubectlDiscoveryCache
+		(Invoke-Kubectl -Params 'apply', '--server-side', '--force-conflicts', '-f', (Get-LinkerdConfigCRDs)).Output | Write-Log
+
+		Write-Log 'Creating linkerd control plane manifest' -Console
+		New-LinkerdControlPlaneManifest -LinkerdExe $clinkerdExe -OutputDirectory $linkerdYaml
+
+		Invoke-LinkerdImagePrePull -ManifestPath "$linkerdYaml\linkerd.yaml"
 
 		# install linkerd
 		# Clear kubectl discovery cache before applying Linkerd kustomization
