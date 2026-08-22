@@ -55,7 +55,7 @@ fi
 # lib/modules/k2s/k2s.node.module/windowsnode/downloader/artifacts/helm/helm.module.psm1
 if ! command -v helm &> /dev/null; then
     echo "Installing helm..."
-    HELM_VERSION="v4.2.3"
+    HELM_VERSION="v4.2.4"
     ARCH=$(uname -m)
     if [[ "$ARCH" == "x86_64" ]]; then
         ARCH="amd64"
