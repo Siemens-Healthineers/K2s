@@ -53,9 +53,9 @@ function Start-VirtualMachine {
             $Error.Clear()
             Write-Log "Error starting VM: $($Error[0].Message)"
             # write to log free RAM memory
-            Write-Log "Free RAM memory: $((Get-WmiObject -Class Win32_OperatingSystem).FreePhysicalMemory)"
+            Write-Log "Free RAM memory: $((Get-CimInstance -ClassName Win32_OperatingSystem).FreePhysicalMemory)"
             # write to log standby memory
-            Write-Log "Standby memory: $((Get-WmiObject -Class Win32_OperatingSystem).FreeVirtualMemory)"
+            Write-Log "Standby memory: $((Get-CimInstance -ClassName Win32_OperatingSystem).FreeVirtualMemory)"
             Start-Sleep -Seconds $retryDelay
         }
     }

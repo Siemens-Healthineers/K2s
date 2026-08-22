@@ -35,7 +35,9 @@ Param (
     [parameter(Mandatory = $false, HelpMessage = 'If set to true, will encode and send result as structured data to the CLI.')]
     [switch] $EncodeStructuredOutput,
     [parameter(Mandatory = $false, HelpMessage = 'Message type of the encoded structure; applies only if EncodeStructuredOutput was set to $true')]
-    [string] $MessageType
+    [string] $MessageType,
+    [parameter(Mandatory = $false, HelpMessage = 'Skip Update.ps1 execution (used by restore flow to avoid duplicate update execution).')]
+    [switch] $SkipPostEnableUpdate
 )
 $clusterModule = "$PSScriptRoot/../../../lib/modules/k2s/k2s.cluster.module/k2s.cluster.module.psm1"
 $infraModule = "$PSScriptRoot/../../../lib/modules/k2s/k2s.infra.module/k2s.infra.module.psm1"
@@ -139,8 +141,14 @@ if ($Ingress -ne 'none') {
     Enable-IngressAddon -Ingress:$Ingress
 }
 
-&"$PSScriptRoot\Update.ps1"
+if (-not $SkipPostEnableUpdate) {
+    &"$PSScriptRoot\Update.ps1"
+}
+else {
+    Write-Log '[AddonRestore] Skipping Update.ps1 in Enable.ps1 (restore flow will run update once in Restore.ps1).' -Console
+}
 
+Write-Log "[RolloutTiming] statefulset rollout end (Enable.ps1 done): $(Get-Date -Format 'HH:mm:ss')" -Console
 Write-Log 'Installation of rollout addon finished.' -Console
 
 Add-AddonToSetupJson -Addon ([pscustomobject] @{Name = 'rollout'; Implementation = 'argocd' })

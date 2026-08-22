@@ -28,6 +28,17 @@ $imageCommonModule = "$PSScriptRoot\..\lib\scripts\k2s\image\Image-Common.module
 
 Import-Module $infraModule, $clusterModule, $addonsModule, $ociModule, $imageCommonModule
 
+function New-CompatTemporaryFile {
+    <#
+    .SYNOPSIS
+    Creates a temporary file object compatible with New-TemporaryFile usage
+    #>
+    $tempPath = [System.IO.Path]::GetTempFileName()
+    return [PSCustomObject]@{
+        FullName = $tempPath
+    }
+}
+
 Initialize-Logging -ShowLogs:$ShowLogs
 
 $systemError = Test-SystemAvailability -Structured
@@ -492,7 +503,7 @@ foreach ($addon in $addonsToImport) {
                     $yqExe = Join-Path $kubeBinPath "windowsnode\yaml\yq.exe"
                     
                     if (Test-Path $yqExe) {
-                        $tempJsonFile = New-TemporaryFile
+                        $tempJsonFile = New-CompatTemporaryFile
                         try {
                             $originalContent = Get-Content -Path $destManifestPath -Raw -Encoding UTF8
                             $headerLines = @()
@@ -507,7 +518,7 @@ foreach ($addon in $addonsToImport) {
                             $mergedJson = $existingManifest | ConvertTo-Json -Depth 100
                             Set-Content -Path $tempJsonFile.FullName -Value $mergedJson -Encoding UTF8
                             
-                            $yamlOutput = & $yqExe eval -P '.' $tempJsonFile
+                            $yamlOutput = & $yqExe eval -P '.' $tempJsonFile.FullName
                             if ($yamlOutput -is [array]) {
                                 $yamlContent = $yamlOutput -join "`n"
                             } else {
@@ -518,7 +529,7 @@ foreach ($addon in $addonsToImport) {
                             Set-Content -Path $destManifestPath -Value $finalContent -Encoding UTF8
                             Write-Log "Merged manifest saved to: $destManifestPath" -Console
                         } finally {
-                            Remove-Item -Path $tempJsonFile -Force -ErrorAction SilentlyContinue
+                            Remove-Item -Path $tempJsonFile.FullName -Force -ErrorAction SilentlyContinue
                         }
                     } else {
                         Write-Log "Warning: yq.exe not found, copying manifest as-is"
@@ -597,7 +608,7 @@ foreach ($addon in $addonsToImport) {
                     $yqExe = Join-Path $kubeBinPath "windowsnode\yaml\yq.exe"
                     
                     if (Test-Path $yqExe) {
-                        $tempJsonFile = New-TemporaryFile
+                        $tempJsonFile = New-CompatTemporaryFile
                         try {
                             $originalContent = Get-Content -Path $parentManifestPath -Raw -Encoding UTF8
                             $headerLines = @()
@@ -612,7 +623,7 @@ foreach ($addon in $addonsToImport) {
                             $mergedJson = $existingManifest | ConvertTo-Json -Depth 100
                             Set-Content -Path $tempJsonFile.FullName -Value $mergedJson -Encoding UTF8
                             
-                            $yamlOutput = & $yqExe eval -P '.' $tempJsonFile
+                            $yamlOutput = & $yqExe eval -P '.' $tempJsonFile.FullName
                             if ($yamlOutput -is [array]) {
                                 $yamlContent = $yamlOutput -join "`n"
                             } else {
@@ -623,7 +634,7 @@ foreach ($addon in $addonsToImport) {
                             Set-Content -Path $parentManifestPath -Value $finalContent -Encoding UTF8
                             Write-Log "Merged manifest saved to: $parentManifestPath" -Console
                         } finally {
-                            Remove-Item -Path $tempJsonFile -Force -ErrorAction SilentlyContinue
+                            Remove-Item -Path $tempJsonFile.FullName -Force -ErrorAction SilentlyContinue
                         }
                     } else {
                         Write-Log "Warning: yq.exe not found, copying manifest as-is"
