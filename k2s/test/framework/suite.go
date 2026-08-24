@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"path/filepath"
 	"reflect"
+	"runtime"
 	"time"
 
 	"github.com/siemens-healthineers/k2s/internal/definitions"
@@ -112,6 +113,9 @@ func Setup(ctx context.Context, args ...any) *K2sTestSuite {
 	rootDir := determineRootDir()
 
 	k2sCliFunc := func() *os.CliExecutor {
+		if runtime.GOOS == "linux" {
+			return newCliFunc(filepath.Join(rootDir, "k2s.linux"))
+		}
 		return newCliFunc(filepath.Join(rootDir, "k2s.exe"))
 	}
 	setupInfo := k2s.CreateSetupInfo(rootDir)
@@ -146,9 +150,15 @@ func Setup(ctx context.Context, args ...any) *K2sTestSuite {
 		Fail(fmt.Sprintf("Unsupported setup type detected: '%s'", testSuite.setupInfo.RuntimeConfig.InstallConfig().SetupName()))
 	}
 
-	nssmCli := newCliFunc(filepath.Join(rootDir, "bin", "nssm.exe"))
+	var nssmCli *os.CliExecutor
+	if runtime.GOOS != "linux" {
+		nssmCli = newCliFunc(filepath.Join(rootDir, "bin", "nssm.exe"))
+	}
 
 	kubectlFunc := func() *os.CliExecutor {
+		if runtime.GOOS == "linux" {
+			return newCliFunc("kubectl")
+		}
 		return newCliFunc(filepath.Join(rootDir, "bin", "kube", "kubectl.exe"))
 	}
 
