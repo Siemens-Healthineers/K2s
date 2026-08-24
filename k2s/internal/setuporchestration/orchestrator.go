@@ -91,6 +91,7 @@ type InstallConfig struct {
 type UninstallConfig struct {
 	ShowLogs                          bool
 	SkipPurge                         bool
+	LinuxOnly                         bool
 	DeleteFilesForOfflineInstallation bool
 	AdditionalHooksDir                string
 	ConfigDir                         string // K2s setup config dir
@@ -99,14 +100,19 @@ type UninstallConfig struct {
 // StartConfig holds parameters for cluster start.
 type StartConfig struct {
 	ShowLogs            bool
+	LinuxOnly           bool
 	AdditionalHooksDir  string
 	UseCachedK2sVSwitch bool
+	ConfigDir           string
+	InstallDir          string
 }
 
 // StopConfig holds parameters for cluster stop.
 type StopConfig struct {
 	ShowLogs           bool
+	LinuxOnly          bool
 	AdditionalHooksDir string
+	ConfigDir          string
 }
 
 // VMConfig holds parameters for virtual machine creation.

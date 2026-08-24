@@ -117,6 +117,7 @@ nav:
       - Backing Up and Restoring Addons: op-manual/backing-up-restoring-addons.md
       - GitOps Addon Delivery: op-manual/gitops-addon-delivery.md
       - External DNS: op-manual/external-dns.md
+      - Native Linux Host DNS: op-manual/native-linux-host-dns.md
       - Extending K2s cluster: op-manual/extending-k2s-cluster.md
       - Secure Host Access: op-manual/secure-host-access.md
       - Networking Architecture: op-manual/networking-architecture.md
@@ -139,6 +140,7 @@ nav:
           - Updating Documentation: dev-guide/contributing/updating-documentation.md
           - Submitting Changes: dev-guide/contributing/submitting-changes.md
       - Hosting Variants Features Matrix: dev-guide/hosting-variants-features-matrix.md
+      - DNS Host Topologies: dev-guide/dns-host-topologies.md
       - Architecture & Tools: dev-guide/architecture.md
       - Linux Development: dev-guide/contributing/linux-development/linux-development.md
       - Training: dev-guide/training.md

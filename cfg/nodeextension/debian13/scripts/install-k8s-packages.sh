@@ -12,6 +12,7 @@ PROXY="${2:-}"
 REGISTRY_TOKEN="${3:?Argument missing: RegistryToken}"
 IS_WSL="${4:-false}"
 NO_PROXY="${5:-localhost,127.0.0.1,::1,172.20.0.0/16,172.21.0.0/16,.cluster.local,.svc}"
+CONFIGURE_CONTAINER_TOOLING_PROXY="${6:-false}"
 
 echo "[InstallK8s] Starting Kubernetes artifacts installation"
 echo "[InstallK8s] Packages path: $K8S_DEB_PACKAGES_PATH"
@@ -116,6 +117,30 @@ if [ -n "$PROXY" ]; then
         echo "Environment='NO_PROXY=$NO_PROXY'"
         echo "Environment='no_proxy=$NO_PROXY'"
     } | sudo tee /etc/systemd/system/crio.service.d/http-proxy.conf > /dev/null
+
+fi
+
+if [ "$CONFIGURE_CONTAINER_TOOLING_PROXY" = "true" ] && [ -n "$PROXY" ]; then
+    # Native Linux K2s uses Buildah and Podman directly on the host. Keep
+    # its proxy configuration separate from CRI-O and user configuration.
+    echo "[InstallK8s] Configuring containers tooling proxy: $PROXY"
+    sudo mkdir -p /etc/containers/containers.conf.d
+    {
+        echo '# Managed by K2s native Linux installation'
+        echo '[engine]'
+        echo 'env = ['
+        echo "  \"HTTP_PROXY=$PROXY\","
+        echo "  \"HTTPS_PROXY=$PROXY\","
+        echo "  \"http_proxy=$PROXY\","
+        echo "  \"https_proxy=$PROXY\","
+        echo "  \"NO_PROXY=$NO_PROXY\","
+        echo "  \"no_proxy=$NO_PROXY\""
+        echo ']'
+    } | sudo tee /etc/containers/containers.conf.d/20-k2s-proxy.conf > /dev/null
+else
+    # Windows-host Kubemaster provisioning owns Buildah proxy behavior via its
+    # established transparent proxy setup. Remove stale native-only state.
+    sudo rm -f /etc/containers/containers.conf.d/20-k2s-proxy.conf
 fi
 
 # ---------------------------------------------------------------------------
