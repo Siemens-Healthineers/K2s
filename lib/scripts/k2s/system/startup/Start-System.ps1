@@ -271,6 +271,46 @@ function Get-MissingWindowsPodRoutesOnControlPlane {
     return $missingRoutes
 }
 
+function Restore-ControlPlaneTransitRoute {
+    <#
+    .SYNOPSIS
+        Ensures the control plane has a route to the Windows loopback adapter subnet.
+    .DESCRIPTION
+        After a reboot or k2s stop/start, the Linux control-plane node may lose its
+        route to the Windows loopback adapter subnet (e.g. 172.22.1.0/24). Without this
+        route, flannel's host-gw mode cannot install pod subnet routes because the
+        gateway (the Windows node's InternalIP on the loopback adapter) is unreachable.
+        This function checks for and restores the transit route via the KubeSwitch gateway.
+    #>
+    $loopbackCIDR = Get-LoopbackAdapterCIDR
+    $kubeSwitchIP = Get-ConfiguredKubeSwitchIP
+
+    if ([string]::IsNullOrWhiteSpace($loopbackCIDR) -or [string]::IsNullOrWhiteSpace($kubeSwitchIP)) {
+        Write-Log "[$logUseCase] WARNING: Cannot restore transit route - loopbackCIDR='$loopbackCIDR', kubeSwitchIP='$kubeSwitchIP'"
+        return
+    }
+
+    $routeCheckCmd = "ip -4 route show $loopbackCIDR"
+    $routeResult = Invoke-CmdOnControlPlaneViaSSHKey -CmdToExecute $routeCheckCmd -IgnoreErrors -NoLog
+    $existingRoute = ($routeResult.Output | Out-String).Trim()
+
+    if (-not [string]::IsNullOrWhiteSpace($existingRoute) -and $existingRoute -match "via\s+$([regex]::Escape($kubeSwitchIP))") {
+        Write-Log "[$logUseCase] Transit route to $loopbackCIDR via $kubeSwitchIP already exists on control plane"
+        return
+    }
+
+    Write-Log "[$logUseCase] Transit route to $loopbackCIDR missing or incorrect on control plane, restoring via $kubeSwitchIP" -Console
+    $addRouteCmd = "sudo ip route replace $loopbackCIDR via $kubeSwitchIP"
+    $addResult = Invoke-CmdOnControlPlaneViaSSHKey -CmdToExecute $addRouteCmd -IgnoreErrors
+    if ($addResult.Success) {
+        Write-Log "[$logUseCase] Transit route to $loopbackCIDR via $kubeSwitchIP restored successfully"
+    }
+    else {
+        $addOutput = ($addResult.Output | Out-String).Trim()
+        Write-Log "[$logUseCase] WARNING: Failed to restore transit route to $loopbackCIDR via $kubeSwitchIP - $addOutput"
+    }
+}
+
 function Restart-FlannelDaemonSetWithWindowsRouteRepair {
     [CmdletBinding()]
     param(
@@ -278,6 +318,12 @@ function Restart-FlannelDaemonSetWithWindowsRouteRepair {
         [string]$KubeConfigPath,
         [int]$MaxAttempts = 3
     )
+
+    # Ensure the control plane can reach the Windows loopback adapter subnet
+    # before attempting flannel restart. After reboot or stop/start, this transit
+    # route may be missing, causing flannel's host-gw route additions to fail
+    # with "network is unreachable".
+    Restore-ControlPlaneTransitRoute
 
     for ($attempt = 1; $attempt -le $MaxAttempts; $attempt++) {
         $windowsNodeRouteResult = Get-WindowsWorkerNodeRoutes -KubeConfigPath $KubeConfigPath
