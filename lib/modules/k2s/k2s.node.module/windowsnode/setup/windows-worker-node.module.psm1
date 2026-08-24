@@ -128,6 +128,7 @@ function Remove-WindowsWorkerNodeOnWindowsHost {
     }
 
     Write-Log 'Remove external switch'
+    Remove-HostBridgeIpReservation -PodSubnetworkNumber '0'
     Remove-ExternalSwitch
 
     Write-Log 'Uninstall the worker node artifacts from the Windows host'
@@ -219,6 +220,8 @@ function Start-WindowsWorkerNode {
     Start-ServiceAndSetToAutoStart -Name 'kubeproxy'
 
     Wait-NetworkL2BridgeReady -PodSubnetworkNumber $PodSubnetworkNumber
+
+    Add-HostBridgeIpReservation -PodSubnetworkNumber $PodSubnetworkNumber
 
     CheckFlannelConfig
 
@@ -325,6 +328,9 @@ function Stop-WindowsWorkerNode {
     }
 
     Write-Log 'Stopping K8s network' -Console
+
+    Remove-HostBridgeIpReservation -PodSubnetworkNumber $PodSubnetworkNumber
+
     Restart-WinService 'hns'
 
     Invoke-Hook -HookName 'BeforeStopK8sNetwork' -AdditionalHooksDir $AdditionalHooksDir
