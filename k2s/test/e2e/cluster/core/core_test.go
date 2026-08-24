@@ -382,7 +382,7 @@ func runDiagnosticCommand(ctx context.Context, args ...string) {
 }
 
 func controlPlaneNodeName() string {
-	if !suite.SetupInfo().RuntimeConfig.InstallConfig().LinuxOnly() {
+	if !suite.SetupInfo().RuntimeConfig.InstallConfig().LinuxOnly() || runtime.GOOS != "linux" {
 		return suite.SetupInfo().RuntimeConfig.ControlPlaneConfig().Hostname()
 	}
 
