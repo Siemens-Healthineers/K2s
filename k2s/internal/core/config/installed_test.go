@@ -297,6 +297,49 @@ var _ = Describe("ResolveInstalledK2s", func() {
 			Expect(actual.InstallDir).To(Equal(installDir))
 		})
 	})
+
+	// An ambiguous PATH must never be resolved silently to one of the candidates; the
+	// user has to clean up the PATH first.
+	When("two independent valid installations are in PATH", func() {
+		It("returns no installation and reports both install dirs asking to clean up PATH", func() {
+			firstInstallDir, _ := newInstallation(false)
+			secondInstallDir, _ := newInstallation(false)
+			setPath(firstInstallDir, secondInstallDir)
+
+			actual, err := resolveInstalledK2s(filepath.Join(GinkgoT().TempDir(), "k2s.exe"))
+
+			Expect(actual).To(BeNil())
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("multiple installed K2s"))
+			Expect(err.Error()).To(ContainSubstring(firstInstallDir))
+			Expect(err.Error()).To(ContainSubstring(secondInstallDir))
+			Expect(err.Error()).To(ContainSubstring("clean up your PATH"))
+		})
+	})
+
+	// Leftovers of previous installations must not prevent the discovery of the
+	// installed K2s (#2886: custom 'configDir.k2s' is resolved from its own package).
+	When("stale and non-existing PATH entries precede a valid installation", func() {
+		It("ignores them and fully resolves the valid installation", func() {
+			installDir, k2sConfigDir := newInstallation(false)
+
+			setPath(
+				filepath.Join(GinkgoT().TempDir(), "does-not-exist"),
+				filepath.Join(GinkgoT().TempDir(), "also-removed"),
+				installDir)
+
+			actual, err := resolveInstalledK2s(filepath.Join(GinkgoT().TempDir(), "k2s.exe"))
+
+			Expect(err).ToNot(HaveOccurred())
+			Expect(actual).ToNot(BeNil())
+			Expect(actual.InstallDir).To(Equal(installDir))
+			Expect(actual.Config.Host().K2sSetupConfigDir()).To(Equal(k2sConfigDir))
+			Expect(actual.RuntimeConfig).ToNot(BeNil())
+			Expect(actual.RuntimeConfig.InstallConfig().SetupName()).To(Equal(definitions.SetupNameK2s))
+			Expect(actual.RuntimeConfig.InstallConfig().Version()).To(Equal("1.8.0"))
+			Expect(actual.RuntimeConfig.ClusterConfig().Name()).To(Equal("k2s-cluster"))
+		})
+	})
 })
 
 var _ = Describe("ReadInstallFolder", func() {
