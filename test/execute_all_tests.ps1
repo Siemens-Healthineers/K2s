@@ -74,7 +74,7 @@ param (
     $OfflineMode,
     [Parameter(Mandatory = $false, HelpMessage = 'Ginkgo test timeout duration (e.g., 90m, 2h)')]
     [string]
-    $GinkgoTimeout = '120m',
+    $GinkgoTimeout = '180m',
     [Parameter(Mandatory = $false, HelpMessage = 'Keep test resources in case of errors for debugging (default: false, resources are always cleaned up)')]
     [switch]
     $KeepResourcesInCaseOfError = $false

@@ -30,7 +30,7 @@
     {
       "group": "https://github.com/AdguardTeam/dnsproxy",
       "name": "dnsproxy",
-      "version": "v0.84.0",
+      "version": "v0.84.1",
       "description": "",
       "scope": "required",
       "licenses": [
@@ -47,7 +47,7 @@
           "value": "k2s:core:pkg:executables"
         }
       ],
-      "purl": "pkg:github/AdguardTeam/dnsproxy@v0.84.0",
+      "purl": "pkg:github/AdguardTeam/dnsproxy@v0.84.1",
       "type": "application"
     },
     {
@@ -214,7 +214,7 @@
     {
       "group": "https://www.chiark.greenend.org.uk/~sgtatham/putty/releases/0.83.html",
       "name": "plink",
-      "version": "v0.84.0",
+      "version": "v0.84.1",
       "description": "",
       "scope": "required",
       "licenses": [
@@ -231,13 +231,13 @@
           "value": "k2s:core:pkg:executables"
         }
       ],
-      "purl": "pkg:generic/plink@v0.84.0",
+      "purl": "pkg:generic/plink@v0.84.1",
       "type": "application"
     },
     {
       "group": "https://www.chiark.greenend.org.uk/~sgtatham/putty/releases/0.83.html",
       "name": "pscp",
-      "version": "v0.84.0",
+      "version": "v0.84.1",
       "description": "",
       "scope": "required",
       "licenses": [
@@ -254,7 +254,7 @@
           "value": "k2s:core:pkg:executables"
         }
       ],
-      "purl": "pkg:generic/pscp@v0.84.0",
+      "purl": "pkg:generic/pscp@v0.84.1",
       "type": "application"
     },
     {
@@ -557,9 +557,9 @@
       "type": "application"
     },
     {
-      "group": "https://github.com/stedolan/jq/releases/download/jq-1.6/jq-win64.exe",
+      "group": "https://github.com/stedolan/jq/releases/download/jq-1.8.2/jq-win64.exe",
       "name": "jq",
-      "version": "v1.6.9.8.1",
+      "version": "v1.8.2",
       "description": "",
       "scope": "required",
       "licenses": [
@@ -576,13 +576,36 @@
           "value": "k2s:core:pkg:executables"
         }
       ],
-      "purl": "pkg:github/stedolan/jq@v1.6.9.8.1",
+      "purl": "pkg:github/stedolan/jq@v1.8.2",
       "type": "application"
     },
     {
-      "group": "https://get.helm.sh/helm-v4.2.3-windows-amd64.zip",
+      "group": "https://github.com/mikefarah/yq/releases/download/v4.53.4/yq_windows_amd64.exe",
+      "name": "yq",
+      "version": "v4.53.4",
+      "description": "",
+      "scope": "required",
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT",
+            "url": "https://github.com/mikefarah/yq/blob/master/LICENSE"
+          }
+        }
+      ],
+      "properties": [
+        {
+          "name": "sw360:projectName",
+          "value": "k2s:core:pkg:executables"
+        }
+      ],
+      "purl": "pkg:github/mikefarah/yq@v4.53.4",
+      "type": "application"
+    },
+    {
+      "group": "https://get.helm.sh/helm-v4.2.4-windows-amd64.zip",
       "name": "helm",
-      "version": "v4.2.3",
+      "version": "v4.2.4",
       "description": "",
       "scope": "required",
       "licenses": [
@@ -599,7 +622,30 @@
           "value": "k2s:core:pkg:executables"
         }
       ],
-      "purl": "pkg:github/helm/helm@v4.2.3",
+      "purl": "pkg:github/helm/helm@v4.2.4",
+      "type": "application"
+    },
+    {
+      "group": "https://github.com/kubernetes-sigs/krew/releases/download/v0.5.0/krew-windows_amd64.tar.gz",
+      "name": "krew",
+      "version": "v0.5.0",
+      "description": "",
+      "scope": "required",
+      "licenses": [
+        {
+          "license": {
+            "id": "Apache-2.0",
+            "url": "https://github.com/kubernetes-sigs/krew/blob/master/LICENSE"
+          }
+        }
+      ],
+      "properties": [
+        {
+          "name": "sw360:projectName",
+          "value": "k2s:core:pkg:executables"
+        }
+      ],
+      "purl": "pkg:github/kubernetes-sigs/krew@v0.5.0",
       "type": "application"
     }
   ],
