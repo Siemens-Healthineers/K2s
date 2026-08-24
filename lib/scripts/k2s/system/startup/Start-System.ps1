@@ -294,7 +294,7 @@ function Restore-ControlPlaneTransitRoute {
     $routeResult = Invoke-CmdOnControlPlaneViaSSHKey -CmdToExecute $routeCheckCmd -IgnoreErrors -NoLog
     $existingRoute = ($routeResult.Output | Out-String).Trim()
 
-    if (-not [string]::IsNullOrWhiteSpace($existingRoute) -and $existingRoute -match "via\s+$([regex]::Escape($kubeSwitchIP))") {
+    if (-not [string]::IsNullOrWhiteSpace($existingRoute) -and $existingRoute -match "(^|\s)via\s+$([regex]::Escape($kubeSwitchIP))(\s|$)") {
         Write-Log "[$logUseCase] Transit route to $loopbackCIDR via $kubeSwitchIP already exists on control plane"
         return
     }
