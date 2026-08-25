@@ -413,22 +413,28 @@ func expectStatusToBePrinted(ctx context.Context) {
 		MatchRegexp("The viewer is working"),
 	))
 
-	output = suite.K2sCli().MustExec(ctx, "addons", "status", "viewer", "-o", "json")
+	// The viewer application may not be serving HTTP requests immediately after
+	// the deployment rollout completes (e.g. after Update.ps1 triggers a second
+	// rollout). The JSON status check performs an HTTP health probe, so we retry
+	// until the application is fully ready.
+	Eventually(func(g Gomega) {
+		output = suite.K2sCli().MustExec(ctx, "addons", "status", "viewer", "-o", "json")
 
-	var status status.AddonPrintStatus
+		var addonStatus status.AddonPrintStatus
 
-	Expect(json.Unmarshal([]byte(output), &status)).To(Succeed())
+		g.Expect(json.Unmarshal([]byte(output), &addonStatus)).To(Succeed())
 
-	Expect(status.Name).To(Equal("viewer"))
-	Expect(status.Error).To(BeNil())
-	Expect(status.Enabled).NotTo(BeNil())
-	Expect(*status.Enabled).To(BeTrue())
-	Expect(status.Props).NotTo(BeNil())
-	Expect(status.Props).To(ContainElements(
-		SatisfyAll(
-			HaveField("Name", "IsViewerRunning"),
-			HaveField("Value", true),
-			HaveField("Okay", gstruct.PointTo(BeTrue())),
-			HaveField("Message", gstruct.PointTo(ContainSubstring("The viewer is working")))),
-	))
+		g.Expect(addonStatus.Name).To(Equal("viewer"))
+		g.Expect(addonStatus.Error).To(BeNil())
+		g.Expect(addonStatus.Enabled).NotTo(BeNil())
+		g.Expect(*addonStatus.Enabled).To(BeTrue())
+		g.Expect(addonStatus.Props).NotTo(BeNil())
+		g.Expect(addonStatus.Props).To(ContainElements(
+			SatisfyAll(
+				HaveField("Name", "IsViewerRunning"),
+				HaveField("Value", true),
+				HaveField("Okay", gstruct.PointTo(BeTrue())),
+				HaveField("Message", gstruct.PointTo(ContainSubstring("The viewer is working")))),
+		))
+	}).WithTimeout(90 * time.Second).WithPolling(10 * time.Second).Should(Succeed())
 }
