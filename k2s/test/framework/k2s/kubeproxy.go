@@ -26,8 +26,8 @@ func NewKubeProxyRestarter(setupInfo config.K2sRuntimeConfig, nssmCli *os.CliExe
 }
 
 func (r *KubeProxyRestarter) Restart(ctx context.Context) {
-	if r.runtimeConfig.InstallConfig().LinuxOnly() {
-		GinkgoWriter.Println("Linux-only setup, skipping kubeproxy restart")
+	if r.runtimeConfig.InstallConfig().LinuxOnly() || r.nssmCli == nil {
+		GinkgoWriter.Println("Native Linux setup, skipping Windows kubeproxy restart")
 	} else {
 		r.restart(ctx)
 	}
