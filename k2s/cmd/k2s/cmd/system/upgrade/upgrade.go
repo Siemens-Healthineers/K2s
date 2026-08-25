@@ -259,15 +259,23 @@ func readConfigLegacyAware(k2sConfig *cconfig.K2sConfig) (*cconfig.K2sRuntimeCon
 	return runtimeConfig, setupConfigDir, nil
 }
 
+// resolveInstalledK2s indirects config.ResolveInstalledK2s so that the PATH-based
+// discovery can be substituted in unit tests (same pattern as in cmd.go).
+var resolveInstalledK2s = config.ResolveInstalledK2s
+
 func readInstalledConfigFromPath() (*cconfig.K2sRuntimeConfig, string, error) {
 	slog.Info("Setup config file not found in legacy dir, trying to discover the installed K2s via PATH")
 
-	installed, err := config.ResolveInstalledK2s()
+	installed, err := resolveInstalledK2s()
 	if err != nil && !errors.Is(err, cconfig.ErrSystemInCorruptedState) {
 		// e.g. ErrSystemNotInstalled or multiple installations found in PATH
 		return nil, "", err
 	}
 	if installed == nil {
+		// Preserve an existing error (e.g. corrupted state) instead of masking it.
+		if err != nil {
+			return nil, "", err
+		}
 		return nil, "", cconfig.ErrSystemNotInstalled
 	}
 
@@ -293,7 +301,9 @@ func readInstalledConfigFromPath() (*cconfig.K2sRuntimeConfig, string, error) {
 // (see 'Invoke-ClusterInstall' in upgrade.module.psm1). The config file of the new package
 // is never modified.
 func applySetupConfigDirOverride(resolvedConfigDir string, packageConfigDir string) error {
-	if resolvedConfigDir == "" || resolvedConfigDir == packageConfigDir {
+	// Windows paths are case-insensitive, therefore dirs that differ only in casing (or in
+	// trailing separators) denote the same setup config dir and must not trigger an override.
+	if resolvedConfigDir == "" || kos.SamePath(resolvedConfigDir, packageConfigDir) {
 		slog.Debug("Setup config dir of installed K2s equals the current package's config dir, no override needed", "config-dir", packageConfigDir)
 		return nil
 	}

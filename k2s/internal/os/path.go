@@ -46,10 +46,14 @@ func FindExecutablesInPath(exeName string) ([]string, error) {
 	return found, nil
 }
 
-// samePath reports whether two absolute paths denote the same file, honoring the
+// SamePath reports whether two paths denote the same file or directory, honoring the
 // case-sensitivity semantics of the current platform: Windows paths are compared
-// case-insensitively, paths on other platforms case-sensitively.
-func samePath(left string, right string) bool {
+// case-insensitively, paths on other platforms case-sensitively. Both paths are
+// cleaned before comparison.
+func SamePath(left string, right string) bool {
+	left = filepath.Clean(left)
+	right = filepath.Clean(right)
+
 	if runtime.GOOS == "windows" {
 		return strings.EqualFold(left, right)
 	}
@@ -71,7 +75,7 @@ func FindOtherExecutablesInPath(currentExe string, exeName string) ([]string, er
 	var others []string
 	for _, path := range paths {
 		absPath, _ := filepath.Abs(path)
-		if !samePath(absPath, currentExeAbs) {
+		if !SamePath(absPath, currentExeAbs) {
 			others = append(others, absPath)
 		}
 	}
