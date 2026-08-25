@@ -5,12 +5,16 @@ package upgrade
 
 import (
 	"encoding/json"
+	"errors"
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 
 	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/common"
 	"github.com/siemens-healthineers/k2s/cmd/k2s/utils"
+	cconfig "github.com/siemens-healthineers/k2s/internal/contracts/config"
+	"github.com/siemens-healthineers/k2s/internal/core/config"
 	"github.com/siemens-healthineers/k2s/internal/definitions"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -175,6 +179,131 @@ var _ = Describe("upgrade", func() {
 
 				_, isSet := os.LookupEnv(definitions.SetupConfigDirEnvVar)
 				Expect(isSet).To(BeFalse())
+			})
+		})
+
+		// Windows paths are case-insensitive: the same dir written in different casing must
+		// not trigger a redundant override.
+		When("both config dirs denote the same dir but differ in casing", func() {
+			It("does not set the override on Windows", func() {
+				if runtime.GOOS != "windows" {
+					Skip("path comparison is only case-insensitive on Windows")
+				}
+
+				err := applySetupConfigDirOverride(`C:\ProgramData\K2s`, `c:\programdata\k2s`)
+
+				Expect(err).ToNot(HaveOccurred())
+
+				_, isSet := os.LookupEnv(definitions.SetupConfigDirEnvVar)
+				Expect(isSet).To(BeFalse())
+			})
+		})
+
+		When("both config dirs denote the same dir but differ in trailing separators", func() {
+			It("does not set the override", func() {
+				err := applySetupConfigDirOverride(`C:\ProgramData\K2s\`, `C:\ProgramData\K2s`)
+
+				Expect(err).ToNot(HaveOccurred())
+
+				_, isSet := os.LookupEnv(definitions.SetupConfigDirEnvVar)
+				Expect(isSet).To(BeFalse())
+			})
+		})
+	})
+
+	Describe("readInstalledConfigFromPath", func() {
+		// stubResolveInstalledK2s replaces the PATH-based discovery for the current spec.
+		stubResolveInstalledK2s := func(installed *config.InstalledK2s, err error) {
+			original := resolveInstalledK2s
+			DeferCleanup(func() { resolveInstalledK2s = original })
+
+			resolveInstalledK2s = func() (*config.InstalledK2s, error) {
+				return installed, err
+			}
+		}
+
+		newInstalled := func(configDir string, version string) *config.InstalledK2s {
+			hostConfig := cconfig.NewHostConfig(nil, nil, configDir, `D:\ws\K2s\1.6.0`, "")
+			installConfig := cconfig.NewK2sInstallConfig("k2s", false, version, false, false)
+
+			return &config.InstalledK2s{
+				InstallDir:    `D:\ws\K2s\1.6.0`,
+				Config:        cconfig.NewK2sConfig(hostConfig, nil),
+				RuntimeConfig: cconfig.NewK2sRuntimeConfig(nil, installConfig, nil),
+			}
+		}
+
+		When("an installation with a custom config dir is discovered", func() {
+			It("returns its runtime config and setup config dir", func() {
+				stubResolveInstalledK2s(newInstalled(`C:\DummySetup\K2s`, "1.8.1"), nil)
+
+				runtimeConfig, configDir, err := readInstalledConfigFromPath()
+
+				Expect(err).ToNot(HaveOccurred())
+				Expect(configDir).To(Equal(`C:\DummySetup\K2s`))
+				Expect(runtimeConfig).ToNot(BeNil())
+				Expect(runtimeConfig.InstallConfig().Version()).To(Equal("1.8.1"))
+			})
+		})
+
+		// A corrupted installation is still an existing installation.
+		When("the discovered installation is in corrupted state", func() {
+			It("returns its config dir and preserves the corrupted-state error", func() {
+				stubResolveInstalledK2s(newInstalled(`C:\DummySetup\K2s`, "1.8.1"), cconfig.ErrSystemInCorruptedState)
+
+				runtimeConfig, configDir, err := readInstalledConfigFromPath()
+
+				Expect(errors.Is(err, cconfig.ErrSystemInCorruptedState)).To(BeTrue())
+				Expect(configDir).To(Equal(`C:\DummySetup\K2s`))
+				Expect(runtimeConfig).ToNot(BeNil())
+			})
+		})
+
+		When("no installation is found", func() {
+			It("returns the system-not-installed error", func() {
+				stubResolveInstalledK2s(nil, cconfig.ErrSystemNotInstalled)
+
+				runtimeConfig, configDir, err := readInstalledConfigFromPath()
+
+				Expect(err).To(MatchError(cconfig.ErrSystemNotInstalled))
+				Expect(configDir).To(BeEmpty())
+				Expect(runtimeConfig).To(BeNil())
+			})
+		})
+
+		When("discovery fails with another error", func() {
+			It("propagates that error", func() {
+				discoveryErr := errors.New("found multiple installed K2s")
+				stubResolveInstalledK2s(nil, discoveryErr)
+
+				runtimeConfig, configDir, err := readInstalledConfigFromPath()
+
+				Expect(err).To(MatchError(discoveryErr))
+				Expect(configDir).To(BeEmpty())
+				Expect(runtimeConfig).To(BeNil())
+			})
+		})
+
+		// Defensive: an error must never be masked by ErrSystemNotInstalled.
+		When("no installation is returned together with the corrupted-state error", func() {
+			It("preserves the corrupted-state error", func() {
+				stubResolveInstalledK2s(nil, cconfig.ErrSystemInCorruptedState)
+
+				runtimeConfig, configDir, err := readInstalledConfigFromPath()
+
+				Expect(errors.Is(err, cconfig.ErrSystemInCorruptedState)).To(BeTrue())
+				Expect(configDir).To(BeEmpty())
+				Expect(runtimeConfig).To(BeNil())
+			})
+		})
+
+		When("no installation and no error are returned", func() {
+			It("returns the system-not-installed error", func() {
+				stubResolveInstalledK2s(nil, nil)
+
+				_, _, err := readInstalledConfigFromPath()
+
+				Expect(err).To(MatchError(cconfig.ErrSystemNotInstalled))
 			})
 		})
 	})
