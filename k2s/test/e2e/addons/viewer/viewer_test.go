@@ -418,7 +418,8 @@ func expectStatusToBePrinted(ctx context.Context) {
 	// rollout). The JSON status check performs an HTTP health probe, so we retry
 	// until the application is fully ready.
 	Eventually(func(g Gomega) {
-		output = suite.K2sCli().MustExec(ctx, "addons", "status", "viewer", "-o", "json")
+		output, exitCode := suite.K2sCli().Exec(ctx, "addons", "status", "viewer", "-o", "json")
+		g.Expect(exitCode).To(Equal(0), "k2s addons status viewer -o json exited with code %d", exitCode)
 
 		var addonStatus status.AddonPrintStatus
 
