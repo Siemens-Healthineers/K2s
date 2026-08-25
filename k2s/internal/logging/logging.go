@@ -11,6 +11,7 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strconv"
 	"strings"
 	"sync"
@@ -88,6 +89,12 @@ func readLogRootFromSetupJson() string {
 }
 
 func readLogRootFromConfigJson() string {
+	if runtime.GOOS == "linux" {
+		// cfg/config.json contains the Windows default (C:\var\log). Native
+		// Linux installations use the standard host log directory instead.
+		return "/var/log"
+	}
+
 	installDir := os.Getenv("K2S_INSTALL_DIR")
 	if installDir == "" {
 		// Best-effort fallback: try the executable's directory chain.
