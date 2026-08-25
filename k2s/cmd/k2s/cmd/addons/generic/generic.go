@@ -68,7 +68,7 @@ func newAddonCmd(addon addons.Addon, cmdName string) (*cobra.Command, error) {
 	cmd := &cobra.Command{
 		Use:   addon.Metadata.Name,
 		Short: fmt.Sprintf("Runs '%s' for '%s' addon", cmdName, addon.Metadata.Name),
-		Long:  addonCommandLongDescription(addon, cmdName),
+		Args:  validateAddonCommandArgs,
 	}
 
 	for _, implementation := range addon.Spec.Implementations {
@@ -81,7 +81,7 @@ func newAddonCmd(addon addons.Addon, cmdName string) (*cobra.Command, error) {
 			cmd.AddCommand(implementationCmd)
 		} else {
 			cmd.RunE = func(cmd *cobra.Command, args []string) error {
-				return runCmd(cmd, addon, cmdName, implementation)
+				return runCmd(cmd, addon, cmdName, implementation, args)
 			}
 
 			cmdConfig := (*implementation.Commands)[cmdName]
@@ -141,10 +141,10 @@ func newImplementationCmd(addon addons.Addon, cmdName string, implementation add
 
 	cmd := &cobra.Command{
 		Use:   implementation.Name,
-		Short: fmt.Sprintf("Runs '%s' for '%s' implementation of '%s' addon", cmdName, implementationName, addon.Metadata.Name),
-		Long:  implementationCommandLongDescription(addon, cmdName, implementation, implementationName),
+		Short: fmt.Sprintf("Runs '%s' for '%s' implementation of '%s' addon", cmdName, implementation.Name, addon.Metadata.Name),
+		Args:  validateAddonCommandArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runCmd(cmd, addon, cmdName, implementation)
+			return runCmd(cmd, addon, cmdName, implementation, args)
 		},
 	}
 
@@ -247,12 +247,16 @@ func addFlag(flag addons.CliFlag, flagSet *pflag.FlagSet) error {
 	return nil
 }
 
-func runCmd(cmd *cobra.Command, addon addons.Addon, cmdName string, implementation addons.Implementation) error {
+func runCmd(cmd *cobra.Command, addon addons.Addon, cmdName string, implementation addons.Implementation, args []string) error {
 	cmdSession := common.StartCmdSession(cmd.CommandPath())
 	if addon.Metadata.Name != implementation.Name {
 		pterm.Printfln("🤖 Running '%s' for implementation '%s' of '%s' addon", cmdName, implementation.Name, addon.Metadata.Name)
 	} else {
 		pterm.Printfln("🤖 Running '%s' for '%s' addon", cmdName, addon.Metadata.Name)
+	}
+
+	if err := mergeExtraNodeArgs(cmd, args); err != nil {
+		return err
 	}
 
 	cmdConfig := (*implementation.Commands)[cmdName]
@@ -356,6 +360,85 @@ func convertToPsParam(flag *pflag.Flag, cmdConfig addons.AddonCmd, add func(stri
 		return fmt.Errorf("validation error for flag '%s': %v", flag.Name, err)
 	}
 
+	if flag.Value.Type() == "string" {
+		add(fmt.Sprintf("-%s %s", scriptParam.ScriptParameterName, utils.EscapeWithSingleQuotes(flag.Value.String())))
+		return nil
+	}
+
 	add(fmt.Sprintf("-%s %v", scriptParam.ScriptParameterName, flag.Value))
 	return nil
+}
+
+func validateAddonCommandArgs(cmd *cobra.Command, args []string) error {
+	normalizedArgs := normalizePositionalArgs(args)
+	if len(normalizedArgs) == 0 {
+		return nil
+	}
+
+	extra := strings.Join(normalizedArgs, " ")
+	nodeFlag := cmd.Flags().Lookup("node")
+	if nodeFlag != nil {
+		nodeVal := strings.TrimSpace(nodeFlag.Value.String())
+		if strings.HasSuffix(nodeVal, ",") {
+			return fmt.Errorf("unexpected argument(s): %s. It looks like the --node value was split by whitespace after a comma. Use '--node node1,node2' (no spaces) or quote the value, e.g. '--node \"node1, node2\"'", extra)
+		}
+		if nodeVal != "" {
+			return nil
+		}
+	}
+
+	return fmt.Errorf("unexpected argument(s): %s", extra)
+}
+
+func mergeExtraNodeArgs(cmd *cobra.Command, args []string) error {
+	normalizedArgs := normalizePositionalArgs(args)
+	if len(normalizedArgs) == 0 {
+		return nil
+	}
+
+	nodeFlag := cmd.Flags().Lookup("node")
+	if nodeFlag == nil {
+		return fmt.Errorf("unexpected argument(s): %s", strings.Join(normalizedArgs, " "))
+	}
+
+	base := strings.TrimSpace(nodeFlag.Value.String())
+	if base == "" {
+		return fmt.Errorf("unexpected argument(s): %s", strings.Join(normalizedArgs, " "))
+	}
+
+	parts := []string{}
+	parts = append(parts, strings.Trim(base, " ,"))
+	for _, arg := range normalizedArgs {
+		// Guard against typos like a misspelled flag (e.g. "--tiime-slices") being
+		// silently merged into the node list. Only bare node names are accepted here.
+		if strings.HasPrefix(strings.TrimSpace(arg), "-") {
+			return fmt.Errorf("unexpected argument(s): %s", strings.Join(normalizedArgs, " "))
+		}
+		trimmed := strings.Trim(arg, " ,")
+		if trimmed == "" {
+			continue
+		}
+		parts = append(parts, trimmed)
+	}
+
+	merged := strings.Join(parts, ",")
+	if err := cmd.Flags().Set("node", merged); err != nil {
+		return fmt.Errorf("failed to normalize --node value: %w", err)
+	}
+
+	slog.Warn("Additional positional arguments were interpreted as extra --node values", "normalizedNode", merged)
+	return nil
+}
+
+func normalizePositionalArgs(args []string) []string {
+	normalized := make([]string, 0, len(args))
+	for _, arg := range args {
+		trimmed := strings.TrimSpace(arg)
+		if trimmed == "" {
+			continue
+		}
+		normalized = append(normalized, trimmed)
+	}
+
+	return normalized
 }

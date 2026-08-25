@@ -6,10 +6,12 @@
 
 <#
 .SYNOPSIS
-Enables GPU support for KubeMaster node.
+Enables GPU support for KubeMaster or selected Linux worker nodes.
 
 .DESCRIPTION
-The "gpu-node" addons enables the KubeMaster node to get direct access to the host's GPU.
+The "gpu-node" addon enables GPU scheduling by deploying the NVIDIA device plugin.
+Without --node, it configures KubeMaster for GPU access.
+With --node, it targets only the specified cluster node(s).
 
 #>
 Param(
@@ -20,6 +22,8 @@ Param(
     [parameter(Mandatory = $false, HelpMessage = 'Number of time-slicing replicas per GPU (1 = exclusive access, >1 = shared GPU)')]
     [ValidateRange(1, 16)]
     [int] $TimeSlices = 1,
+    [parameter(Mandatory = $false, HelpMessage = 'Optional comma-separated list of cluster node names to enable gpu-node on. If not specified, the KubeMaster node will be configured for GPU access.')]
+    [string] $Node,
     [parameter(Mandatory = $false, HelpMessage = 'If set to true, will encode and send result as structured data to the CLI.')]
     [switch] $EncodeStructuredOutput,
     [parameter(Mandatory = $false, HelpMessage = 'Message type of the encoded structure; applies only if EncodeStructuredOutput was set to $true')]
@@ -58,6 +62,140 @@ if ((Test-IsAddonEnabled -Addon ([pscustomobject] @{Name = 'gpu-node' })) -eq $t
     
     Write-Log $errMsg -Error
     exit 1
+}
+
+# Optional node-targeted mode: target only explicitly listed nodes.
+if ($null -ne $Config -and $null -ne $Config.Node -and ![string]::IsNullOrWhiteSpace([string]$Config.Node)) {
+    $Node = [string]$Config.Node
+}
+
+$targetNodes = @()
+if (![string]::IsNullOrWhiteSpace($Node)) {
+    $targetNodes = @(
+        $Node -split ',' |
+            ForEach-Object { $_.Trim() } |
+            Where-Object { ![string]::IsNullOrWhiteSpace($_) } |
+            Select-Object -Unique
+    )
+}
+
+$controlPlaneNodeName = (Invoke-Kubectl -Params 'get', 'nodes', '-l', 'node-role.kubernetes.io/control-plane', '-o', 'jsonpath={.items[0].metadata.name}').Output
+$additionalGpuLabelNodes = @()
+
+if ($targetNodes.Count -gt 0) {
+    foreach ($targetNode in $targetNodes) {
+        if ([string]::IsNullOrWhiteSpace((Invoke-Kubectl -Params 'get', 'node', $targetNode, '--ignore-not-found', '-o', 'name').Output)) {
+            $errMsg = "Node '$targetNode' was not found in the cluster."
+            if ($EncodeStructuredOutput -eq $true) {
+                $err = New-Error -Severity Warning -Code (Get-ErrCodeAddonEnableFailed) -Message $errMsg
+                Send-ToCli -MessageType $MessageType -Message @{Error = $err }
+                return
+            }
+            Write-Log $errMsg -Error
+            exit 1
+        }
+
+        $nodeOs = (Invoke-Kubectl -Params 'get', 'node', $targetNode, '-o', 'jsonpath={.status.nodeInfo.operatingSystem}').Output
+        if ($nodeOs -ne 'linux') {
+            $errMsg = "Node '$targetNode' has OS '$nodeOs'. gpu-node can only target Linux nodes."
+            if ($EncodeStructuredOutput -eq $true) {
+                $err = New-Error -Severity Warning -Code (Get-ErrCodeAddonEnableFailed) -Message $errMsg
+                Send-ToCli -MessageType $MessageType -Message @{Error = $err }
+                return
+            }
+            Write-Log $errMsg -Error
+            exit 1
+        }
+    }
+
+    $controlPlaneTargeted = $targetNodes -contains $controlPlaneNodeName
+
+    if ($controlPlaneTargeted) {
+        $additionalGpuLabelNodes = @($targetNodes | Where-Object { $_ -ne $controlPlaneNodeName })
+        if ($additionalGpuLabelNodes.Count -gt 0) {
+            Write-Log "[gpu-node] Control plane node '$controlPlaneNodeName' is included in --node. Running full KubeMaster GPU setup and also targeting: $($additionalGpuLabelNodes -join ', ')" -Console
+        }
+        else {
+            Write-Log "[gpu-node] Control plane node '$controlPlaneNodeName' is included in --node. Running full KubeMaster GPU setup." -Console
+        }
+    }
+    else {
+        Write-Log "[gpu-node] Node-targeted mode enabled for node(s): $($targetNodes -join ', ')" -Console
+
+        Wait-ForAPIServer
+
+        if ($TimeSlices -gt 1) {
+            Write-Log "[gpu-node] Configuring GPU time-slicing (replicas: $TimeSlices)" -Console
+            $timeSlicingTemplate = Get-Content -Path "$PSScriptRoot\manifests\time-slicing-config.yaml" -Raw
+            $timeSlicingResolved = $timeSlicingTemplate -replace '__TIME_SLICES__', $TimeSlices
+            $tmpConfigMap = [System.IO.Path]::Combine([System.IO.Path]::GetTempPath(), [System.Guid]::NewGuid().ToString() + '.yaml')
+            $timeSlicingResolved | Set-Content -Path $tmpConfigMap -Encoding UTF8
+            (Invoke-Kubectl -Params 'apply', '-f', $tmpConfigMap).Output | Write-Log
+            Remove-Item $tmpConfigMap -Force -ErrorAction SilentlyContinue
+        }
+        else {
+            (Invoke-Kubectl -Params 'apply', '-f', "$PSScriptRoot\manifests\time-slicing-config-default.yaml").Output | Write-Log
+        }
+
+        foreach ($targetNode in $targetNodes) {
+            Write-Log "[gpu-node] Labeling node '$targetNode' with gpu=true and accelerator=nvidia" -Console
+            (Invoke-Kubectl -Params 'label', 'node', $targetNode, 'gpu=true', 'accelerator=nvidia', '--overwrite').Output | Write-Log
+        }
+
+        Write-Log 'Installing Nvidia Device Plugin' -Console
+        (Invoke-Kubectl -Params 'apply', '-f', "$PSScriptRoot\manifests\nvidia-device-plugin.yaml").Output | Write-Log
+
+        $kubectlCmd = (Invoke-Kubectl -Params 'rollout', 'status', 'daemonset', 'nvidia-device-plugin', '-n', 'gpu-node', '--timeout', '180s')
+        Write-Log $kubectlCmd.Output
+        if (!$kubectlCmd.Success) {
+            $errMsg = 'Nvidia device plugin could not be started!'
+            if ($EncodeStructuredOutput -eq $true) {
+                $err = New-Error -Code (Get-ErrCodeAddonEnableFailed) -Message $errMsg
+                Send-ToCli -MessageType $MessageType -Message @{Error = $err }
+                return
+            }
+
+            Write-Log $errMsg -Error
+            exit 1
+        }
+
+        foreach ($targetNode in $targetNodes) {
+            Write-Log "[gpu-node] Waiting for nvidia.com/gpu registration on node '$targetNode'..."
+            $gpuRegistered = $false
+            for ($i = 0; $i -lt 30; $i++) {
+                $gpuCount = (Invoke-Kubectl -Params 'get', 'node', $targetNode, '-o', "jsonpath={.status.allocatable['nvidia\.com/gpu']}").Output
+                if (![string]::IsNullOrWhiteSpace($gpuCount) -and $gpuCount -match '^\d+$' -and [int]$gpuCount -gt 0) {
+                    $gpuRegistered = $true
+                    Write-Log "[gpu-node] Node '$targetNode' registered nvidia.com/gpu with $gpuCount slot(s) allocatable" -Console
+                    break
+                }
+                Start-Sleep -Seconds 2
+            }
+
+            if (!$gpuRegistered) {
+                $errMsg = "Node '$targetNode' did not register nvidia.com/gpu within 60s. Ensure NVIDIA drivers and container toolkit are configured on that worker node."
+                if ($EncodeStructuredOutput -eq $true) {
+                    $err = New-Error -Code (Get-ErrCodeAddonEnableFailed) -Message $errMsg
+                    Send-ToCli -MessageType $MessageType -Message @{Error = $err }
+                    return
+                }
+                Write-Log $errMsg -Error
+                exit 1
+            }
+        }
+
+        Add-AddonToSetupJson -Addon ([pscustomobject] @{Name = 'gpu-node' })
+
+        if ($EncodeStructuredOutput -eq $true) {
+            Send-ToCli -MessageType $MessageType -Message @{Error = $null }
+        }
+
+        return
+    }
+}
+
+if ($targetNodes.Count -eq 0) {
+    Write-Log '[gpu-node] No --node specified. Enabling gpu-node on KubeMaster by default.' -Console
 }
 
 Write-Log 'Checking Nvidia driver installation' -Console
@@ -312,7 +450,7 @@ else {
 
     # Apply WSL2 Kernel
     Write-Log 'Changing linux kernel' -Console
-    $microsoftStandardWSL2 = 'shsk2s.azurecr.io/microsoft-standard-wsl2:6.18.35.2'
+    $microsoftStandardWSL2 = 'shsk2s.azurecr.io/microsoft-standard-wsl2:6.18.40.1'
     (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute 'mkdir -p .microsoft-standard-wsl2').Output | Write-Log
     $command = "container=`$(sudo buildah from $microsoftStandardWSL2 2> /dev/null)  && mountpoint=`$(sudo buildah mount `$container) && sudo find `$mountpoint -iname *.deb | xargs sudo cp -t .microsoft-standard-wsl2 && sudo buildah unmount `$container && sudo buildah rm `$container > /dev/null 2>&1"
     (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute $command).Output | Write-Log
@@ -432,7 +570,7 @@ try {
         Write-Log '[gpu-node] Pre-pulling images via SSH tunnel (buildah)' -Console
 
         $images = @(
-            'nvcr.io/nvidia/k8s-device-plugin:v0.19.3'
+            'nvcr.io/nvidia/k8s-device-plugin:v0.20.0'
             'nvcr.io/nvidia/k8s/dcgm-exporter:4.5.2-4.8.1-ubi9'
         )
         foreach ($image in $images) {
@@ -504,6 +642,11 @@ $labelNodeName = if ($WSL) { Get-ConfigControlPlaneNodeHostname } else { $contro
 Write-Log "[gpu-node] Labeling node '$labelNodeName' with gpu=true and accelerator=nvidia" -Console
 (Invoke-Kubectl -Params 'label', 'node', $labelNodeName, 'gpu=true', 'accelerator=nvidia', '--overwrite').Output | Write-Log
 
+foreach ($targetNode in $additionalGpuLabelNodes) {
+    Write-Log "[gpu-node] Labeling additional targeted node '$targetNode' with gpu=true and accelerator=nvidia" -Console
+    (Invoke-Kubectl -Params 'label', 'node', $targetNode, 'gpu=true', 'accelerator=nvidia', '--overwrite').Output | Write-Log
+}
+
 # Apply Nvidia device plugin — ConfigMap content determines time-slicing behavior.
 Write-Log 'Installing Nvidia Device Plugin' -Console
 (Invoke-Kubectl -Params 'apply', '-f', "$PSScriptRoot\manifests\nvidia-device-plugin.yaml").Output | Write-Log
@@ -524,26 +667,29 @@ if (!$kubectlCmd.Success) {
 
 # Wait for the device plugin to register nvidia.com/gpu with kubelet (takes a few seconds after pod start).
 Write-Log '[gpu-node] Waiting for nvidia.com/gpu to be registered with kubelet...'
-$gpuRegistered = $false
 $gpuCheckNode = if ($WSL) { Get-ConfigControlPlaneNodeHostname } else { $controlPlaneNodeName }
-for ($i = 0; $i -lt 30; $i++) {
-    $gpuCount = (Invoke-Kubectl -Params 'get', 'node', $gpuCheckNode, '-o', "jsonpath={.status.allocatable['nvidia\.com/gpu']}").Output
-    if (![string]::IsNullOrWhiteSpace($gpuCount) -and $gpuCount -match '^\d+$' -and [int]$gpuCount -gt 0) {
-        $gpuRegistered = $true
-        Write-Log "[gpu-node] nvidia.com/gpu registered: $gpuCount slot(s) allocatable" -Console
-        break
+$nodesToVerify = @($gpuCheckNode) + $additionalGpuLabelNodes | Select-Object -Unique
+foreach ($nodeToVerify in $nodesToVerify) {
+    $gpuRegistered = $false
+    for ($i = 0; $i -lt 30; $i++) {
+        $gpuCount = (Invoke-Kubectl -Params 'get', 'node', $nodeToVerify, '-o', "jsonpath={.status.allocatable['nvidia\.com/gpu']}").Output
+        if (![string]::IsNullOrWhiteSpace($gpuCount) -and $gpuCount -match '^\d+$' -and [int]$gpuCount -gt 0) {
+            $gpuRegistered = $true
+            Write-Log "[gpu-node] Node '$nodeToVerify' registered nvidia.com/gpu: $gpuCount slot(s) allocatable" -Console
+            break
+        }
+        Start-Sleep -Seconds 2
     }
-    Start-Sleep -Seconds 2
-}
-if (!$gpuRegistered) {
-    $errMsg = 'Nvidia device plugin started but nvidia.com/gpu was not registered with kubelet within 60s. The GPU may not be accessible from the VM.'
-    if ($EncodeStructuredOutput -eq $true) {
-        $err = New-Error -Code (Get-ErrCodeAddonEnableFailed) -Message $errMsg
-        Send-ToCli -MessageType $MessageType -Message @{Error = $err }
-        return
+    if (!$gpuRegistered) {
+        $errMsg = "Nvidia device plugin started but node '$nodeToVerify' did not register nvidia.com/gpu within 60s. Ensure GPU drivers/container toolkit are configured for that node."
+        if ($EncodeStructuredOutput -eq $true) {
+            $err = New-Error -Code (Get-ErrCodeAddonEnableFailed) -Message $errMsg
+            Send-ToCli -MessageType $MessageType -Message @{Error = $err }
+            return
+        }
+        Write-Log $errMsg -Error
+        exit 1
     }
-    Write-Log $errMsg -Error
-    exit 1
 }
 
 # DCGM-Exporter is NOT deployed. It requires the native NVML library which is

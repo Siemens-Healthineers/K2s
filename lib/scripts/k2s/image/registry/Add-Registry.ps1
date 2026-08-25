@@ -99,7 +99,8 @@ function Set-RegistryOnLinuxTarget {
             $escapedUser = ConvertTo-LinuxSingleQuoteEscaped -Value $User
             $escapedPwd = ConvertTo-LinuxSingleQuoteEscaped -Value $Pwd
             $escapedRegistry = ConvertTo-LinuxSingleQuoteEscaped -Value $Registry
-            $loginSuccess = (Invoke-CmdOnControlPlaneViaSSHKey "sudo buildah login --authfile /root/.config/containers/auth.json -u '$escapedUser' -p '$escapedPwd' '$escapedRegistry' > /dev/null 2>&1" -NoLog -IgnoreErrors).Success
+            $proxyCmd = Get-LinuxTransparentProxyPrefix -LogPrefix 'Registry' -NodeName $NodeInfo.Name -Reference $Registry
+            $loginSuccess = (Invoke-CmdOnControlPlaneViaSSHKey "sudo ${proxyCmd}buildah login --authfile /root/.config/containers/auth.json -u '$escapedUser' -p '$escapedPwd' '$escapedRegistry' > /dev/null 2>&1" -NoLog -IgnoreErrors).Success
             if (-not $loginSuccess) {
                 throw "Login to registry '$Registry' failed on Linux control-plane '$($NodeInfo.Name)'"
             }
@@ -128,7 +129,9 @@ function Set-RegistryOnLinuxTarget {
 
             (Invoke-CmdOnVmViaSSHKey -CmdToExecute 'sudo mkdir -p /root/.config/containers' -IpAddress $NodeInfo.IpAddress -UserName $NodeInfo.Username -NoLog).Output | Write-Log
 
-            $loginResult = (Invoke-CmdOnVmViaSSHKey -CmdToExecute "sudo buildah login --authfile /root/.config/containers/auth.json -u '$escapedUser' -p '$escapedPwd' '$escapedRegistry' 2>&1" -IpAddress $NodeInfo.IpAddress -UserName $NodeInfo.Username -NoLog -IgnoreErrors)
+            $proxyCmd = Get-LinuxTransparentProxyPrefix -LogPrefix 'Registry' -NodeName $NodeInfo.Name -Reference $Registry
+
+            $loginResult = (Invoke-CmdOnVmViaSSHKey -CmdToExecute "sudo ${proxyCmd}buildah login --authfile /root/.config/containers/auth.json -u '$escapedUser' -p '$escapedPwd' '$escapedRegistry' 2>&1" -IpAddress $NodeInfo.IpAddress -UserName $NodeInfo.Username -NoLog -IgnoreErrors)
             $loginResult.Output | Write-Log
 
             if (-not $loginResult.Success) {

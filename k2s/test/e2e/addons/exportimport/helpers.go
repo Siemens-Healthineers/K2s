@@ -1028,8 +1028,7 @@ func isRetryableWindowsRenameError(err error) bool {
 		return false
 	}
 
-	var pathErr *os.PathError
-	if errors.As(err, &pathErr) {
+	if pathErr, ok := errors.AsType[*os.PathError](err); ok {
 		err = pathErr.Err
 	}
 

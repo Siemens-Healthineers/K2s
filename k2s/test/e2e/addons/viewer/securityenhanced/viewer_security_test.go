@@ -18,7 +18,7 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-const testClusterTimeout = time.Minute * 20
+const testClusterTimeout = time.Minute * 30
 
 var (
 	suite      *framework.K2sTestSuite
@@ -107,6 +107,7 @@ var _ = Describe("'Viewer and security enhanced' addons", Ordered, func() {
 		It("activates the viewer addon", func(ctx context.Context) {
 			GinkgoWriter.Println(">>> TEST: Enabling viewer addon first")
 			suite.K2sCli().MustExec(ctx, "addons", "enable", "viewer", "-o")
+			suite.Cluster().WaitForAPIServerReady(ctx)
 			suite.Cluster().ExpectDeploymentToBeAvailable("viewerwebapp", "viewer")
 			suite.Cluster().ExpectPodsUnderDeploymentReady(ctx, "app", "viewerwebapp", "viewer")
 			GinkgoWriter.Println(">>> TEST: Viewer addon enabled")

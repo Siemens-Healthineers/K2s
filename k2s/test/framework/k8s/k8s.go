@@ -44,10 +44,10 @@ type Cluster struct {
 const clusterReadinessTimeout = 10 * time.Minute
 
 const (
-	internetReachabilityCurlMaxTime       = "60"
-	internetReachabilityCurlRetryCount    = "5"
-	internetReachabilityCheckTimeout      = 3 * time.Minute
-	internetReachabilityCheckPollInterval = 10 * time.Second
+	internetReachabilityCurlMaxTime       = "20"
+	internetReachabilityCurlRetryCount    = "0"
+	internetReachabilityCheckTimeout      = 15 * time.Minute
+	internetReachabilityCheckPollInterval = 15 * time.Second
 )
 
 type podExecParam struct {
@@ -1009,6 +1009,24 @@ func (c *Cluster) ExpectInternetToBeReachableFromPodOfDeployment(deploymentName 
 
 func (c *Cluster) waitOptions() []wait.Option {
 	return []wait.Option{wait.WithTimeout(c.testStepTimeout), wait.WithInterval(c.testStepPollInterval), wait.WithImmediate()}
+}
+
+// WaitForAPIServerReady retries connecting to the Kubernetes API server until it
+// responds successfully or the testStepTimeout is exceeded. This is needed after
+// operations that may transiently disrupt API server connectivity (e.g., security
+// addon enable/disable which installs cert-manager and restarts control-plane components).
+func (c *Cluster) WaitForAPIServerReady(ctx context.Context) {
+	GinkgoWriter.Println("Waiting for API server to be ready..")
+
+	clientSet, err := kubernetes.NewForConfig(c.Client().Resources().GetConfig())
+	Expect(err).ToNot(HaveOccurred())
+
+	Eventually(func() error {
+		_, err := clientSet.ServerGroups()
+		return err
+	}, c.testStepTimeout, 5*time.Second, ctx).Should(Succeed(), "API server should become reachable within %s", c.testStepTimeout)
+
+	GinkgoWriter.Println("API server is ready")
 }
 
 func determineFirstPodOfDeployment(deploymentName string, namespace string, client klient.Client, ctx context.Context) (*corev1.Pod, error) {

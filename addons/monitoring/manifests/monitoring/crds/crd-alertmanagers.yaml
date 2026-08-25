@@ -8,7 +8,7 @@ kind: CustomResourceDefinition
 metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.21.0
-    operator.prometheus.io/version: 0.92.1
+    operator.prometheus.io/version: 0.93.1
   name: alertmanagers.monitoring.coreos.com
 spec:
   group: monitoring.coreos.com
@@ -9639,6 +9639,7 @@ spec:
                       getConcurrency defines the maximum number of GET requests processed concurrently. This corresponds to the
                       Alertmanager's `--web.get-concurrency` flag.
                     format: int32
+                    minimum: 0
                     type: integer
                   httpConfig:
                     description: httpConfig defines HTTP parameters for web server.
@@ -9699,6 +9700,7 @@ spec:
                       timeout for HTTP requests. This corresponds to the Alertmanager's
                       `--web.timeout` flag.
                     format: int32
+                    minimum: 0
                     type: integer
                   tlsConfig:
                     description: tlsConfig defines the TLS parameters for HTTPS.

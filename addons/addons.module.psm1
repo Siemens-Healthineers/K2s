@@ -840,8 +840,14 @@ function Add-HostEntries {
 	$hostFile = 'C:\Windows\System32\drivers\etc\hosts'
 
 	# add in host
-	if (!$(Get-Content $hostFile | ForEach-Object { $_ -match $hostEntry }).Contains($true)) {
-		Add-Content $hostFile $hostEntry
+	$hostEntryPattern = '^\s*' + [regex]::Escape($hostEntry) + '\s*$'
+	$hostEntryExists = $false
+	if (Test-Path $hostFile) {
+		$hostEntryExists = @((Get-Content -Path $hostFile -ErrorAction SilentlyContinue) | Where-Object { $_ -match $hostEntryPattern }).Count -gt 0
+	}
+
+	if (-not $hostEntryExists) {
+		Add-Content -Path $hostFile -Value $hostEntry
 	}
 }
 
@@ -1839,8 +1845,25 @@ function Install-CertManagerControllers {
     [CmdletBinding()]
     param()
 
-    Write-Log 'Installing cert-manager' -Console
+    # Pre-pull cert-manager images on the control-plane node before applying
+    # manifests so all pods start from cache and never race against a readiness
+    # deadline waiting for a cold network pull from quay.io.
+    Write-Log '[CertManager] Pre-pulling cert-manager images on control-plane node' -Console
     $certManagerConfig = Get-CertManagerConfig
+    $certManagerImages = Get-ImagesFromYaml -YamlContent (Get-Content -Path $certManagerConfig -Raw)
+    
+    foreach ($image in $certManagerImages) {
+        Write-Log "[CertManager] Pre-pulling image: $image" -Console
+        $pullResult = Invoke-CmdOnControlPlaneViaSSHKey -CmdToExecute "sudo timeout 300 crictl pull '$image' 2>&1"
+        if ($pullResult.Success -eq $true) {
+            Write-Log "[CertManager] Pre-pull succeeded: $image"
+        }
+        else {
+            Write-Log "[CertManager] WARNING: Pre-pull of '$image' failed (will fall back to runtime pull): $($pullResult.Output)" -Console
+        }
+    }
+
+    Write-Log 'Installing cert-manager' -Console
     (Invoke-Kubectl -Params 'apply', '-f', $certManagerConfig).Output | Write-Log
 
     Write-Log 'Waiting for cert-manager APIs to be ready, be patient!' -Console
@@ -1927,8 +1950,13 @@ function Initialize-CACertificateIssuer {
         throw "CA root certificate 'ca-issuer-root-secret' not found.`nInstallation of 'cert-manager' failed."
     }
 
+    # Capture the current CA content before renewal to detect rotation.
+    $previousCaHash = Get-CARootCertificateHash
+
     # Write-Log 'Renewing old Certificates using the new CA Issuer' -Console
     Update-CertificateResources
+
+    Wait-ForCARootCertificateRotation -PreviousHash $previousCaHash
 }
 
 <#
@@ -1936,7 +1964,7 @@ function Initialize-CACertificateIssuer {
 Waits for the cert-manager API to be available.
 #>
 function Wait-ForCertManagerAvailable {
-    $out = &$cmctlExe check api --wait=3m
+    $out = &$cmctlExe check api --wait=10m
     if ($out -match 'The cert-manager API is ready') {
         return $true
     }
@@ -1979,6 +2007,41 @@ function Wait-ForCARootCertificate(
     $cmEvents = (Invoke-Kubectl -Params '-n', 'cert-manager', 'get', 'events', '--sort-by=.lastTimestamp').Output
     Write-Log "[CertManager] cert-manager events: $cmEvents" -Console
 
+    return $false
+}
+
+# Returns the current CA content, or an empty string when it is unavailable.
+function Get-CARootCertificateHash {
+    $out = (Invoke-Kubectl -Params '-n', 'cert-manager', 'get', 'secrets', 'ca-issuer-root-secret', '-o', 'jsonpath', '--template', '{.data.ca\.crt}').Output
+    if ([string]::IsNullOrWhiteSpace($out)) {
+        return ''
+    }
+    return $out
+}
+
+# Waits for CA content to change after renewal, without blocking fresh installs.
+function Wait-ForCARootCertificateRotation(
+    [string]$PreviousHash,
+    [int]$SleepDurationInSeconds = 5,
+    [int]$NumberOfRetries = 12) {
+    if ([string]::IsNullOrWhiteSpace($PreviousHash)) {
+        Write-Log '[CertManager] No previous CA root certificate content captured; skipping rotation wait.'
+        return $true
+    }
+
+    for ($i = 1; $i -le $NumberOfRetries; $i++) {
+        $currentHash = Get-CARootCertificateHash
+        if (-not [string]::IsNullOrWhiteSpace($currentHash) -and $currentHash -ne $PreviousHash) {
+            Write-Log '[CertManager] CA root certificate rotation detected; proceeding with import.'
+            return $true
+        }
+        if ($i -lt $NumberOfRetries) {
+            Write-Log "Retry {$i}: CA root certificate not yet rotated. Will retry after $SleepDurationInSeconds Seconds" -Console
+            Start-Sleep -Seconds $SleepDurationInSeconds
+        }
+    }
+
+    Write-Log '[CertManager] CA root certificate rotation was not detected within the retry budget. Proceeding with import anyway; the imported CA may be stale until the next renewal cycle completes.' -Console
     return $false
 }
 

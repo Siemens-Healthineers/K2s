@@ -25,6 +25,24 @@ $directoryOfKubenodeImagesOnWindowsHost = "$directoryOfLinuxNodeArtifactsOnWindo
 $linuxNodeArtifactsZipFileName = 'LinuxNodeArtifacts.zip'
 $pathOfLinuxNodeArtifactsPackageOnWindowsHost = "$binPath\$linuxNodeArtifactsZipFileName"
 
+function Get-KubenodeNoProxy {
+    $entries = @(
+        'localhost',
+        '127.0.0.1',
+        '::1',
+        '.local',
+        '.cluster.local',
+        '.svc',
+        (Get-ConfiguredIPControlPlane),
+        (Get-ConfiguredKubeSwitchIP),
+        (Get-ConfiguredClusterCIDR),
+        (Get-ConfiguredClusterCIDRServices),
+        (Get-ConfiguredKubeDnsServiceIP)
+    )
+
+    return (($entries | Where-Object { ![string]::IsNullOrWhiteSpace($_) } | Sort-Object -Unique) -join ',')
+}
+
 Function Assert-GeneralComputerPrerequisites {
     Param(
         [ValidateScript({ !([string]::IsNullOrWhiteSpace($_)) })]
@@ -388,6 +406,7 @@ Function Install-KubernetesArtifacts {
 
     $token = Get-RegistryToken
     $isWsl = if (Get-ConfigWslFlag) { 'true' } else { 'false' }
+    $noProxy = Get-KubenodeNoProxy
 
     Write-Log "[InstallK8s] Installing Kubernetes artifacts on '$IpAddress' from '$SourcePath'"
     Write-Log "[InstallK8s] WSL support: $isWsl"
@@ -398,7 +417,7 @@ Function Install-KubernetesArtifacts {
                         -UserName $UserName `
                         -IpAddress $IpAddress `
                         -UserPwd $UserPwd `
-                        -Arguments @($SourcePath, $Proxy, $token, $isWsl) `
+                        -Arguments @($SourcePath, $Proxy, $token, $isWsl, $noProxy, 'false') `
                         -CleanupAfterExecution `
                         -Retries 2
 
@@ -721,7 +740,7 @@ Function Install-Tools {
     &$executeRemoteCommand 'sudo systemctl daemon-reload'
     &$executeRemoteCommand 'sudo systemctl restart crio'
 
-    Install-HelmAndYqOnKubeMaster -UserName $UserName -UserPwd $UserPwd -IpAddress $IpAddress
+    Install-CliToolsOnKubeMaster -UserName $UserName -UserPwd $UserPwd -IpAddress $IpAddress
 
     Write-Log 'Finished installing tools in Linux'
 
@@ -777,8 +796,8 @@ function Get-FlannelImages {
 
     Write-Log 'Get images used by flannel'
 
-    &$executeRemoteCommand 'sudo crictl pull docker.io/flannel/flannel-cni-plugin:v1.9.1-flannel2'
-    &$executeRemoteCommand 'sudo crictl pull docker.io/flannel/flannel:0.28.8'
+    &$executeRemoteCommand 'sudo crictl pull docker.io/flannel/flannel-cni-plugin:v1.9.1-flannel3'
+    &$executeRemoteCommand 'sudo crictl pull docker.io/flannel/flannel:0.28.9'
 }
 
 <#
@@ -950,7 +969,7 @@ function Get-ClusterIPWebhookImages {
 
     Write-Log 'Get images used by clusterip-webhook'
 
-    &$executeRemoteCommand 'sudo crictl pull shsk2s.azurecr.io/clusterip-webhook:v1.3.5'
+    &$executeRemoteCommand 'sudo crictl pull shsk2s.azurecr.io/clusterip-webhook:v1.3.6'
 }
 
 function AddRegistryMirrors {
@@ -1591,7 +1610,12 @@ function Get-KubenodeBaseFileName {
 }
 
 
-function Install-HelmAndYqOnKubeMaster
+# Installs the bundled Linux CLI tools (currently helm, yq and krew) into /usr/local/bin of the
+# control-plane VM. Runs at base-image build time, so the tools are baked into the base image and
+# offline installations require no downloads. Krew is deployed as 'kubectl-krew' so that
+# 'kubectl krew' works. To add a further tool, extend scripts\install-cli-tools.sh - no change to
+# this function is required.
+function Install-CliToolsOnKubeMaster
 {
     param (
         [Parameter(Mandatory = $true)]
@@ -1601,8 +1625,9 @@ function Install-HelmAndYqOnKubeMaster
         [Parameter(Mandatory = $true)]
         [string]$IpAddress
     )
-    $localScriptPath = "$PSScriptRoot\scripts\install-helm-yq.sh"
-    $remoteScriptPath = "/home/$UserName/install-helm-yq.sh"
+    $scriptName = 'install-cli-tools.sh'
+    $localScriptPath = "$PSScriptRoot\scripts\$scriptName"
+    $remoteScriptPath = "/home/$UserName/$scriptName"
     if ( [string]::IsNullOrWhiteSpace($UserPwd))
     {
         Copy-ToRemoteComputerViaSshKey -Source $localScriptPath -Target $remoteScriptPath -UserName $UserName -IpAddress $IpAddress
@@ -1616,10 +1641,10 @@ function Install-HelmAndYqOnKubeMaster
     $installResult = Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute "sudo $remoteScriptPath" -RemoteUser "$UserName@$IpAddress" -RemoteUserPwd $UserPwd
     $installResult.Output | Write-Log
     if (-not $installResult.Success) {
-        Write-Log "[InstallHelmYq] WARNING: install-helm-yq.sh failed on $IpAddress. Helm/yq may not be available. Check network connectivity and proxy settings." -Console
+        Write-Log "[InstallCliTools] WARNING: $scriptName failed on $IpAddress. The Linux CLI tools (helm/yq/krew) may not be available. Check network connectivity and proxy settings." -Console
     }
     else {
-        Write-Log "install-helm-yq.sh copied and executed successfully on $IpAddress"
+        Write-Log "[InstallCliTools] $scriptName copied and executed successfully on $IpAddress"
     }
 }
 

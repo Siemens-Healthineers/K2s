@@ -6,7 +6,7 @@
 # Native Linux build for the K2s Go executables -- no PowerShell required.
 #
 # Mirrors the Linux build performed by smallsetup/common/BuildGoExe.ps1
-# (GOOS=linux, GOARCH=amd64, GOEXPERIMENT=boringcrypto, matching ldflags and
+# (GOOS=linux, GOARCH=amd64, GOFIPS140=certified, matching ldflags and
 # gcflags, and the same version metadata injected into internal/version).
 #
 # Usage:
@@ -24,6 +24,7 @@ Builds the Linux-targeted K2s Go executables natively (no PowerShell):
     k2s                 -> k2s.linux
   cloudinitisobuilder -> bin/
   httpproxy           -> bin/
+    dnsproxy            -> bin/
   yaml2json           -> bin/
 
 The CLI is named k2s.linux to avoid colliding with the k2s/ source directory.
@@ -67,8 +68,9 @@ if ! command -v go >/dev/null 2>&1; then
     exit 1
 fi
 
-# boringcrypto for FIPS compliance (matches BuildGoExe.ps1).
-export GOEXPERIMENT=boringcrypto
+
+unset GOEXPERIMENT # ensure stale boringcrypto value doesn't linger
+export GOFIPS140=certified # GOFIPS140=certified for FIPS compliance (matches BuildGoExe.ps1).
 export GOOS=linux
 export GOARCH=amd64
 
@@ -86,24 +88,29 @@ echo "VERSION: $VERSION"
 BUILD_DATE="$(date -u +'%Y-%m-%dT%H:%M:%SZ')"
 echo "BUILD_DATE: $BUILD_DATE"
 
-# GIT COMMIT
-GIT_COMMIT="$(git rev-parse HEAD)"
-echo "GIT_COMMIT: $GIT_COMMIT"
+# GIT COMMIT, TREE STATE, AND TAG
+# Falls back to "unknown" (instead of aborting the build under `set -e`)
+# when the script runs outside a git working tree, e.g. from files copied
+# without .git.
+if git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+    GIT_COMMIT="$(git rev-parse HEAD)"
 
-# GIT TREE STATE AND TAG
-GIT_TAG=""
-GIT_TREE_STATE="clean"
-if [[ -n "$(git status --porcelain)" ]]; then
-    GIT_TREE_STATE="dirty"
-else
-    # Clean tree: check for an exact tag to declare an official release.
-    if GIT_TAG="$(git describe --exact-match --tags HEAD 2>/dev/null)"; then
-        echo "GIT_TAG: $GIT_TAG"
+    GIT_TAG=""
+    GIT_TREE_STATE="clean"
+
+    if [[ -n "$(git status --porcelain)" ]]; then
+        GIT_TREE_STATE="dirty"
     else
-        GIT_TAG=""
-        echo "No tag found for the git commit"
+        GIT_TAG="$(git describe --exact-match --tags HEAD 2>/dev/null || true)"
     fi
+else
+    echo "No git repository found."
+
+    GIT_COMMIT="unknown"
+    GIT_TAG=""
+    GIT_TREE_STATE="unknown"
 fi
+echo "GIT_COMMIT: $GIT_COMMIT"
 echo "GIT_TREE_STATE: $GIT_TREE_STATE"
 
 VERSION_PKG="github.com/siemens-healthineers/k2s/internal/version"
@@ -137,11 +144,27 @@ for target in "${BUILD_TARGETS[@]}"; do
     echo "Building GO executable: $app -> $out_path ..."
     go build \
         -ldflags "$LDFLAGS" \
-        -gcflags=all="-l -B" \
+        -trimpath \
         -o "$out_path" \
         "./cmd/${app}"
     echo "Built: \"$out_path\""
 done
+
+DNSPROXY_VERSION="0.83.1"
+DNSPROXY_SHA256="e3b82e72b8175a2278d56ba0230476014823d3d15c1bf48aad803051df4dce34"
+if [[ ! "$DNSPROXY_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || [[ ! "$DNSPROXY_SHA256" =~ ^[a-f0-9]{64}$ ]]; then
+    echo "error: invalid pinned dnsproxy version or SHA-256" >&2
+    exit 1
+fi
+DNSPROXY_ARCHIVE="dnsproxy-linux-amd64-v${DNSPROXY_VERSION}.tar.gz"
+DNSPROXY_URL="https://github.com/AdguardTeam/dnsproxy/releases/download/v${DNSPROXY_VERSION}/${DNSPROXY_ARCHIVE}"
+DNSPROXY_OUTPUT="$BIN_DIR/dnsproxy"
+echo "Downloading pinned dnsproxy v${DNSPROXY_VERSION} -> $DNSPROXY_OUTPUT ..."
+curl --fail --location --retry 3 --output "$BIN_DIR/$DNSPROXY_ARCHIVE" "$DNSPROXY_URL"
+printf '%s  %s\n' "$DNSPROXY_SHA256" "$BIN_DIR/$DNSPROXY_ARCHIVE" | sha256sum --check --status
+tar --extract --gzip --file "$BIN_DIR/$DNSPROXY_ARCHIVE" --directory "$BIN_DIR" --strip-components=2 "./linux-amd64/dnsproxy"
+rm -f "$BIN_DIR/$DNSPROXY_ARCHIVE"
+chmod +x "$DNSPROXY_OUTPUT"
 
 echo '---------------------------------------------------------------'
 echo ' Build finished.'

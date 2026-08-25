@@ -279,6 +279,9 @@ function Invoke-DownloadWindowsNodeArtifacts {
     #HELM TOOLS
     Invoke-DownloadHelmArtifacts $downloadsBaseDirectory $Proxy $windowsNodeArtifactsDirectory
 
+    #KREW TOOLS
+    Invoke-DownloadKrewArtifacts $downloadsBaseDirectory $Proxy $windowsNodeArtifactsDirectory
+
     # ORAS
     Invoke-DownloadOrasArtifacts $downloadsBaseDirectory $Proxy $windowsNodeArtifactsDirectory
 
@@ -288,6 +291,9 @@ function Invoke-DownloadWindowsNodeArtifacts {
 
     # HELM
     Invoke-DeployHelmArtifacts $windowsNodeArtifactsDirectory
+
+    # KREW
+    Invoke-DeployKrewArtifacts $windowsNodeArtifactsDirectory
 
     # ORAS
     Invoke-DeployOrasArtifacts $windowsNodeArtifactsDirectory
@@ -389,6 +395,12 @@ function Invoke-DeployWinArtifacts {
         Invoke-DeployNssmArtifacts $windowsNodeArtifactsDirectory
         # Deploy Helm when the artifacts are already present
         Invoke-DeployHelmArtifacts $windowsNodeArtifactsDirectory
+        # Deploy Krew when the artifacts are already present
+        Invoke-DeployKrewArtifacts $windowsNodeArtifactsDirectory
+        # Deploy jq/yq when the artifacts are already present. Without this, an offline
+        # installation would never publish jq.exe/yq.exe to bin (they are only deployed in
+        # the online branch above), unlike helm/krew which are handled on both paths.
+        Invoke-DeployYamlArtifacts $windowsNodeArtifactsDirectory
     }
 }
 
