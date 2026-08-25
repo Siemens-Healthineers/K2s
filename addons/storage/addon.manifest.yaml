@@ -99,7 +99,6 @@ spec:
             # SMB CSI driver images used by the '-w' flow to let Windows pods consume CephFS over
             # SMB (Ceph mgr/smb export). Reused from the storage/smb addon manifests.
             - registry.k8s.io/sig-storage/smbplugin:v1.20.1
-            - registry.k8s.io/sig-storage/csi-provisioner:v6.1.1
             - registry.k8s.io/sig-storage/csi-node-driver-registrar:v2.16.0
           additionalImagesFiles:
             - manifests/operator.yaml
