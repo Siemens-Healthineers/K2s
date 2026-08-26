@@ -893,6 +893,19 @@ function Invoke-ClusterInstall {
 	$texe = "$K2sPathToInstallFrom\k2sx.exe"
 	Copy-Item "$K2sPathToInstallFrom\k2s.exe" -Destination $texe -Force -PassThru
 
+	# The K2S_SETUP_CONFIG_DIR override (set by 'k2s system upgrade') points to the setup
+	# config dir of the OLD installation. It is only needed to analyze and uninstall the old
+	# cluster, which is done by now. The NEW version must be installed with the configuration
+	# of its own package, therefore the override is cleared BEFORE the new k2s.exe is
+	# started - otherwise the child process would inherit it and write its setup.json to the
+	# old location. The package's cfg/config.json is never modified.
+	if ($env:K2S_SETUP_CONFIG_DIR) {
+		Write-Log "[Upgrade] Clearing setup config dir override '$env:K2S_SETUP_CONFIG_DIR' of the old installation" -Console
+		Remove-Item -Path 'Env:\K2S_SETUP_CONFIG_DIR' -ErrorAction SilentlyContinue
+		$newSetupConfigDir = Update-SetupConfigDir
+		Write-Log "[Upgrade] New installation will use setup config dir '$newSetupConfigDir'" -Console
+	}
+
 	# start new executable and do an install
 	$argsCall = 'install'
 	if ( $ShowLogs ) { $argsCall += ' -o' }
