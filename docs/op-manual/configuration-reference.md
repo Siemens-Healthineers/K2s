@@ -79,7 +79,7 @@ installBehavior:
 
 ## Runtime Configuration (setup.json)
 
-After installation, *K2s* persists cluster state in `C:\ProgramData\K2s\setup.json`. This file is managed automatically — do not edit it manually.
+After installation, *K2s* persists cluster state in `setup.json`, located in the directory configured via `configDir.k2s` (default: `C:\ProgramData\K2s`). This file is managed automatically — do not edit it manually.
 
 | Key | Type | Description |
 |-----|------|-------------|

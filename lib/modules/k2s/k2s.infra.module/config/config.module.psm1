@@ -35,10 +35,29 @@ $configuredstorageLocalDriveFolder = $smallsetup.psobject.properties['storageLoc
 $kubeConfigDir = Expand-Path $configDir.psobject.properties['kube'].value
 $sshConfigDir = Expand-Path $configDir.psobject.properties['ssh'].value
 $dockerConfigDir = Expand-Path $configDir.psobject.properties['docker'].value
-$k2sConfigDir = Expand-Path $configDir.psobject.properties['k2s'].value
+
+# Resolves the K2s setup config directory ('configDir.k2s').
+#
+# Fallback chain (first hit wins):
+#   1. Environment variable K2S_SETUP_CONFIG_DIR
+#   2. cfg/config.json -> configDir.k2s
+#
+# The environment variable is set by the K2s CLI during 'k2s system upgrade' when the
+# already installed K2s uses a different (customized) setup config directory than the
+# currently running package. It exists solely to discover, analyze and uninstall the OLD
+# installation and is cleared again before the NEW version is installed, so that the new
+# installation always uses the setup config dir of its own package.
+function Resolve-K2sSetupConfigDir {
+    if ($env:K2S_SETUP_CONFIG_DIR) {
+        return Expand-Path $env:K2S_SETUP_CONFIG_DIR
+    }
+    return Expand-Path $configDir.psobject.properties['k2s'].value
+}
+
+$script:k2sConfigDir = Resolve-K2sSetupConfigDir
 
 $sshKeyFileName = 'id_rsa'
-$kubernetesImagesJsonFile = "$k2sConfigDir\kubernetes_images.json"
+$script:kubernetesImagesJsonFile = "$script:k2sConfigDir\kubernetes_images.json"
 $sshKeyControlPlane = "$sshConfigDir\k2s\$sshKeyFileName"
 
 #NETWORKING
@@ -60,10 +79,34 @@ $legacyClusterName = 'kubernetes'
 $clusterName = $rootConfig.psobject.properties['clusterName'].value
 
 #CONSTANTS
-New-Variable -Name 'SetupJsonFile' -Value "$k2sConfigDir\setup.json" -Option Constant
+# NOTE: intentionally NOT '-Option Constant': 'k2s system upgrade' clears the
+# K2S_SETUP_CONFIG_DIR override once the old cluster has been uninstalled and re-resolves
+# the setup config dir via 'Update-SetupConfigDir' before the new version is installed.
+$script:SetupJsonFile = "$script:k2sConfigDir\setup.json"
 
 
 # PUBLIC FUNCTIONS
+
+<#
+.SYNOPSIS
+Re-resolves the K2s setup config directory and all paths derived from it.
+
+.DESCRIPTION
+'k2s system upgrade' temporarily sets K2S_SETUP_CONFIG_DIR to the setup config dir of the
+OLD installation in order to analyze and uninstall it. Once the old cluster is gone, the
+override is removed and this function switches the module back to the setup config dir of
+the current package, so the new installation is tracked at its own location.
+
+.OUTPUTS
+The re-resolved setup config directory.
+#>
+function Update-SetupConfigDir {
+    $script:k2sConfigDir = Resolve-K2sSetupConfigDir
+    $script:SetupJsonFile = "$script:k2sConfigDir\setup.json"
+    $script:kubernetesImagesJsonFile = "$script:k2sConfigDir\kubernetes_images.json"
+
+    return $script:k2sConfigDir
+}
 
 function Get-RootConfig {
     return $rootConfig
@@ -615,4 +658,5 @@ Get-MirrorRegistries,
 Get-ClusterName,
 Get-InstalledClusterName,
 Set-InstalledClusterName,
+Update-SetupConfigDir,
 Get-DistributionCloudImage
