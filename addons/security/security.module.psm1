@@ -388,8 +388,46 @@ Waits for the linkerd pods to be available.
 function Wait-ForLinkerdAvailable {
     # Linkerd control plane (especially linkerd-destination with 3 containers) may need
     # 1-2 restart cycles on a loaded single-node cluster before probes pass consistently.
-    # 600s (10 min) allows for BackOff + restart + stabilization.
-    return (Wait-ForPodCondition -Condition Ready -Label 'linkerd.io/workload-ns=linkerd' -Namespace 'linkerd' -TimeoutSeconds 180)
+    # 300s (5 min) allows for BackOff + restart + stabilization.
+    return (Wait-ForPodCondition -Condition Ready -Label 'linkerd.io/workload-ns=linkerd' -Namespace 'linkerd' -TimeoutSeconds 300)
+}
+
+<#
+.DESCRIPTION
+Waits for a cert-manager Certificate resource to reach the Ready condition.
+This prevents proceeding with stale or partially-issued certificates that
+could cause x509 verification failures (e.g. ErrorKeyMatch race condition).
+#>
+function Wait-ForCertificateReady {
+    param (
+        [Parameter(Mandatory = $true)]
+        [string]$CertificateName,
+        [Parameter(Mandatory = $true)]
+        [string]$Namespace,
+        [int]$TimeoutSeconds = 120,
+        [string]$KubeToolsPath = (Get-KubeToolsPath)
+    )
+
+    $startTime = Get-Date
+    $endTime = $startTime.AddSeconds($TimeoutSeconds)
+
+    while ((Get-Date) -lt $endTime) {
+        try {
+            $readyStatus = &"$KubeToolsPath\kubectl.exe" get certificate $CertificateName -n $Namespace -o jsonpath='{.status.conditions[?(@.type=="Ready")].status}' 2>$null
+            if ($readyStatus -eq 'True') {
+                Write-Log "Certificate '$CertificateName' is Ready." -Console
+                return $true
+            }
+            Write-Log "Certificate '$CertificateName' not yet Ready (status: $readyStatus), waiting..." -Console
+        }
+        catch {
+            Write-Log "Error checking certificate status: $_" -Console
+        }
+        Start-Sleep -Seconds 5
+    }
+
+    Write-Log "Certificate '$CertificateName' did not become Ready within ${TimeoutSeconds}s" -Console
+    return $false
 }
 
 <#
