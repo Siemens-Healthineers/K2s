@@ -66,9 +66,6 @@ type configDir struct {
 
 // configFileRelDir and configFileName are joined via filepath.Join so the
 // correct OS path separator is used on both Windows and Linux.
-//
-// NOTE: The K2s config file of a package is read-only for the CLI. It is the source of
-// truth of the installation it belongs to and must never be modified at runtime.
 const (
 	configFileRelDir = "cfg"
 	configFileName   = "config.json"
