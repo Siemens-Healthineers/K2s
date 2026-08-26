@@ -311,6 +311,17 @@ try {
 			throw $errMsg
 		}
 
+		# Clean up stale linkerd PKI resources to prevent cert-manager key mismatch race condition.
+		# When re-enabling after a prior disable, leftover secrets/certificates can cause
+		# ErrorKeyMatch ("CSR not signed by referenced private key") because cert-manager
+		# finds an existing private key that doesn't match the new CSR.
+		Write-Log 'Cleaning up stale linkerd PKI resources' -Console
+		(Invoke-Kubectl -Params 'delete', 'certificate', 'linkerd-trust-anchor', '-n', 'cert-manager', '--ignore-not-found').Output | Write-Log
+		(Invoke-Kubectl -Params 'delete', 'certificate', 'linkerd-identity-issuer', '-n', 'linkerd', '--ignore-not-found').Output | Write-Log
+		(Invoke-Kubectl -Params 'delete', 'secret', 'linkerd-trust-anchor', '-n', 'cert-manager', '--ignore-not-found').Output | Write-Log
+		(Invoke-Kubectl -Params 'delete', 'secret', 'linkerd-identity-issuer', '-n', 'linkerd', '--ignore-not-found').Output | Write-Log
+		(Invoke-Kubectl -Params 'delete', 'secret', 'linkerd-previous-anchor', '-n', 'cert-manager', '--ignore-not-found').Output | Write-Log
+
 		# install cert-manager addons
 		Write-Log 'Install trust manager and cert-manager resources, creating bundle' -Console
 		Clear-KubectlDiscoveryCache
@@ -334,6 +345,24 @@ try {
 		# create previous anchor secret
 		Write-Log 'Create previous anchor secret' -Console
         $kubeToolsPath = Get-KubeToolsPath
+
+		# Verify the Certificate resource is Ready (not just that the secret exists).
+		# This prevents using a stale or partially-issued certificate that could cause
+		# x509 verification failures in linkerd-identity.
+		Write-Log 'Verifying linkerd-trust-anchor certificate is Ready' -Console
+		$certReady = Wait-ForCertificateReady -CertificateName 'linkerd-trust-anchor' -Namespace 'cert-manager' -TimeoutSeconds 120 -KubeToolsPath $kubeToolsPath
+		if ($certReady -ne $true) {
+			$errMsg = "Certificate linkerd-trust-anchor did not reach Ready state. Check cert-manager logs for details.`nInstallation of security addon failed."
+			if ($EncodeStructuredOutput -eq $true) {
+				$err = New-Error -Code (Get-ErrCodeAddonEnableFailed) -Message $errMsg
+				Send-ToCli -MessageType $MessageType -Message @{Error = $err }
+				return
+			}
+
+			Write-Log $errMsg -Error
+			throw $errMsg
+		}
+
 		$secretYaml = &"$kubeToolsPath\kubectl.exe" get secret -n cert-manager linkerd-trust-anchor -o yaml | Out-String
 		$modifiedYaml = $secretYaml -replace 'linkerd-trust-anchor', 'linkerd-previous-anchor'
 		$filteredYamlLines = $modifiedYaml.Split("`n") | Where-Object {
