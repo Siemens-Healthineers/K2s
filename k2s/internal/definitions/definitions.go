@@ -21,6 +21,13 @@ const (
 	SetupCorruptedKey        = "Corrupted"
 	LegacyClusterName        = "kubernetes"
 
+	// SetupConfigDirEnvVar overrides the K2s setup config directory ('configDir.k2s')
+	// for child processes (e.g. the PowerShell upgrade scripts). When set, it takes
+	// precedence over the 'configDir.k2s' entry of the running package's cfg/config.json.
+	// It is used during 'k2s system upgrade' to point the upgrade scripts to the setup
+	// config of the already installed K2s, which may reside in a customized location.
+	SetupConfigDirEnvVar = "K2S_SETUP_CONFIG_DIR"
+
 	K2sUsersPrefix = "k2s-"
 	K2sUserGroup   = K2sUsersPrefix + "users"
 )
