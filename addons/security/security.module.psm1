@@ -410,6 +410,7 @@ function Wait-ForCertificateReady {
 
     $startTime = Get-Date
     $endTime = $startTime.AddSeconds($TimeoutSeconds)
+    $renewAttempted = $false
 
     while ((Get-Date) -lt $endTime) {
         try {
@@ -418,14 +419,39 @@ function Wait-ForCertificateReady {
                 Write-Log "Certificate '$CertificateName' is Ready." -Console
                 return $true
             }
-            Write-Log "Certificate '$CertificateName' not yet Ready (status: $readyStatus), waiting..." -Console
+
+            $elapsed = ((Get-Date) - $startTime).TotalSeconds
+
+            # After 30s of empty status, check if the secret already exists with valid TLS data.
+            # cert-manager may have issued the certificate but failed to update the Certificate
+            # resource status (e.g. due to controller restart during rapid enable/disable cycles).
+            if ($elapsed -ge 30 -and [string]::IsNullOrEmpty($readyStatus)) {
+                $secretData = &"$KubeToolsPath\kubectl.exe" get secret $CertificateName -n $Namespace -o jsonpath='{.data.tls\.crt}' 2>$null
+                if (-not [string]::IsNullOrEmpty($secretData)) {
+                    Write-Log "Certificate '$CertificateName' status is empty but secret exists with valid TLS data. Accepting as ready." -Console
+                    return $true
+                }
+
+                # Try cmctl renew to kick cert-manager into reconciling
+                if (-not $renewAttempted -and $elapsed -ge 45) {
+                    $renewAttempted = $true
+                    $cmctlPath = Join-Path -Path $KubeToolsPath -ChildPath 'cmctl.exe'
+                    if (Test-Path $cmctlPath) {
+                        Write-Log "[CertDiag] Attempting cmctl renew to force reconciliation" -Console
+                        &$cmctlPath renew $CertificateName -n $Namespace 2>&1 | Write-Log
+                    }
+                }
+            }
+
             # After 60s of empty status, log cert-manager controller state for diagnostics
-            if (((Get-Date) - $startTime).TotalSeconds -ge 60 -and [string]::IsNullOrEmpty($readyStatus)) {
+            if ($elapsed -ge 60 -and [string]::IsNullOrEmpty($readyStatus)) {
                 $controllerPods = &"$KubeToolsPath\kubectl.exe" get pods -n cert-manager -l app=cert-manager --no-headers 2>$null
                 Write-Log "[CertDiag] cert-manager controller pods: $controllerPods"
                 $certDesc = &"$KubeToolsPath\kubectl.exe" get certificate $CertificateName -n $Namespace -o yaml 2>$null | Select-Object -Last 20 | Out-String
                 Write-Log "[CertDiag] Certificate status: $certDesc"
             }
+
+            Write-Log "Certificate '$CertificateName' not yet Ready (status: $readyStatus), waiting..." -Console
         }
         catch {
             Write-Log "Error checking certificate status: $_" -Console
