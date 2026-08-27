@@ -108,7 +108,7 @@ try {
 	$manifestPath = "$PSScriptRoot\addon.manifest.yaml"
     $k2sRoot = "$PSScriptRoot\..\.."
     Install-CmctlCli -ManifestPath $manifestPath -K2sRoot $k2sRoot -Proxy $Proxy
-	if (Wait-ForCertManagerAvailable) {
+	if (Wait-ForCertManagerAvailable -WaitTimeout '30s') {
 		Write-Log 'cert-manager is already installed and ready' -Console
 	} else {
 		Write-Log 'Installing cert-manager' -Console
