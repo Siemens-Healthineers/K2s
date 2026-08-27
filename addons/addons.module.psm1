@@ -1857,7 +1857,7 @@ Waits for the cert-manager API to be available.
 #>
 function Wait-ForCertManagerAvailable {
     param(
-        [string]$WaitTimeout = '2m'
+        [string]$WaitTimeout = '10m'
     )
     $out = &$cmctlExe check api --wait=$WaitTimeout
     if ($out -match 'The cert-manager API is ready') {
