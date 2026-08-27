@@ -389,6 +389,13 @@ function Start-K8sNetworkingServices {
     Start-Service -Name 'kubelet' -ErrorAction SilentlyContinue
     Start-Service -Name 'kubeproxy' -ErrorAction SilentlyContinue
 
+    # Remove broken flannel routes on Loopbackk2s that may shadow k2s static routes.
+    # Flannel's host-gw backend adds routes for remote subnets on the Loopbackk2s
+    # interface, but the gateway IP is on a different L2 segment (WSL or KubeSwitch),
+    # making the route topologically invalid.
+    Start-Sleep -Seconds 3
+    Remove-FlannelConflictingRoutesOnLoopback
+
     # Restore kubelet and kubeproxy to auto-start in case Stop-System.ps1
     # set them to SERVICE_DEMAND_START during a previous shutdown.
     $kubeBinPathLocal = Get-KubeBinPath
