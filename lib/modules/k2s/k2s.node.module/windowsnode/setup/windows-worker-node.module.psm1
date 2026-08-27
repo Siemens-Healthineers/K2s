@@ -221,6 +221,12 @@ function Start-WindowsWorkerNode {
 
     Wait-NetworkL2BridgeReady -PodSubnetworkNumber $PodSubnetworkNumber
 
+    # Remove broken flannel routes on Loopbackk2s. Flannel's host-gw backend may
+    # add routes for remote subnets via Loopbackk2s, but the gateway IP lives on a
+    # different L2 segment (WSL or KubeSwitch). These lower-metric routes shadow the
+    # correct k2s static routes and break cross-node pod connectivity.
+    Remove-FlannelConflictingRoutesOnLoopback
+
     Add-HostBridgeIpReservation -PodSubnetworkNumber $PodSubnetworkNumber
 
     CheckFlannelConfig
@@ -474,12 +480,52 @@ function Repair-K2sRoutes {
     # TODO: add routes for additional nodes
 }
 
+<#
+.SYNOPSIS
+    Removes flannel-added routes on the Loopbackk2s interface that conflict with k2s static routes.
+.DESCRIPTION
+    Flannel's host-gw backend adds routes for remote subnets via the interface specified
+    by --iface (Loopbackk2s). When the remote node's gateway IP (e.g. 172.19.1.100) is
+    on a different L2 segment (e.g. WSL or KubeSwitch), the route is topologically
+    invalid - the gateway is unreachable from Loopbackk2s. This creates a lower-metric
+    route that shadows the correct k2s static route, breaking cross-node pod connectivity.
+    This function removes such conflicting routes on the Loopbackk2s interface.
+#>
+function Remove-FlannelConflictingRoutesOnLoopback {
+    $adapterName = Get-L2BridgeName
+    $adapter = Get-NetAdapter -Name "*$adapterName*" -ErrorAction SilentlyContinue
+    if ($null -eq $adapter) {
+        Write-Log '[FlannelRoutes] Loopback adapter not found, skipping route cleanup'
+        return
+    }
+    $loopbackIfIndex = $adapter.ifIndex
+
+    $setupConfigRoot = Get-RootConfigk2s
+    $clusterCIDRMaster = $setupConfigRoot.psobject.properties['podNetworkMasterCIDR'].value
+    if ([string]::IsNullOrWhiteSpace($clusterCIDRMaster)) {
+        Write-Log '[FlannelRoutes] podNetworkMasterCIDR not configured, skipping route cleanup'
+        return
+    }
+
+    # Find routes to the Linux pod CIDR on the Loopbackk2s interface
+    $conflictingRoutes = Get-NetRoute -DestinationPrefix $clusterCIDRMaster -InterfaceIndex $loopbackIfIndex -ErrorAction SilentlyContinue
+    if ($null -ne $conflictingRoutes) {
+        foreach ($route in $conflictingRoutes) {
+            Write-Log "[FlannelRoutes] Removing conflicting route: $clusterCIDRMaster via $($route.NextHop) on interface $loopbackIfIndex (metric $($route.RouteMetric))" -Console
+            Remove-NetRoute -DestinationPrefix $clusterCIDRMaster -InterfaceIndex $loopbackIfIndex -NextHop $route.NextHop -Confirm:$false -ErrorAction SilentlyContinue
+        }
+    } else {
+        Write-Log '[FlannelRoutes] No conflicting routes found on Loopbackk2s interface'
+    }
+}
+
 Export-ModuleMember -Function Add-WindowsWorkerNodeOnWindowsHost,
 Remove-WindowsWorkerNodeOnWindowsHost,
 Start-WindowsWorkerNodeOnWindowsHost,
 Stop-WindowsWorkerNodeOnWindowsHost,
 Wait-NetworkL2BridgeReady,
 Repair-K2sRoutes,
+Remove-FlannelConflictingRoutesOnLoopback,
 Set-RoutesToKubemaster,
 Set-RoutesToLinuxWorkloads,
 Set-RoutesToWindowsWorkloads
