@@ -419,6 +419,13 @@ function Wait-ForCertificateReady {
                 return $true
             }
             Write-Log "Certificate '$CertificateName' not yet Ready (status: $readyStatus), waiting..." -Console
+            # After 60s of empty status, log cert-manager controller state for diagnostics
+            if (((Get-Date) - $startTime).TotalSeconds -ge 60 -and [string]::IsNullOrEmpty($readyStatus)) {
+                $controllerPods = &"$KubeToolsPath\kubectl.exe" get pods -n cert-manager -l app=cert-manager --no-headers 2>$null
+                Write-Log "[CertDiag] cert-manager controller pods: $controllerPods"
+                $certDesc = &"$KubeToolsPath\kubectl.exe" get certificate $CertificateName -n $Namespace -o yaml 2>$null | Select-Object -Last 20 | Out-String
+                Write-Log "[CertDiag] Certificate status: $certDesc"
+            }
         }
         catch {
             Write-Log "Error checking certificate status: $_" -Console
@@ -427,6 +434,43 @@ function Wait-ForCertificateReady {
     }
 
     Write-Log "Certificate '$CertificateName' did not become Ready within ${TimeoutSeconds}s" -Console
+    return $false
+}
+
+<#
+.DESCRIPTION
+Waits for a cert-manager Issuer resource to reach the Ready condition.
+cert-manager cannot issue Certificates until their referenced Issuer is Ready.
+#>
+function Wait-ForIssuerReady {
+    param (
+        [Parameter(Mandatory = $true)]
+        [string]$IssuerName,
+        [Parameter(Mandatory = $true)]
+        [string]$Namespace,
+        [int]$TimeoutSeconds = 60,
+        [string]$KubeToolsPath = (Get-KubeToolsPath)
+    )
+
+    $startTime = Get-Date
+    $endTime = $startTime.AddSeconds($TimeoutSeconds)
+
+    while ((Get-Date) -lt $endTime) {
+        try {
+            $readyStatus = &"$KubeToolsPath\kubectl.exe" get issuer $IssuerName -n $Namespace -o jsonpath='{.status.conditions[?(@.type=="Ready")].status}' 2>$null
+            if ($readyStatus -eq 'True') {
+                Write-Log "Issuer '$IssuerName' is Ready." -Console
+                return $true
+            }
+            Write-Log "Issuer '$IssuerName' not yet Ready (status: $readyStatus), waiting..."
+        }
+        catch {
+            Write-Log "Error checking issuer status: $_"
+        }
+        Start-Sleep -Seconds 3
+    }
+
+    Write-Log "Issuer '$IssuerName' did not become Ready within ${TimeoutSeconds}s" -Console
     return $false
 }
 
