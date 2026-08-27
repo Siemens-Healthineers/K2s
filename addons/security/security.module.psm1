@@ -411,6 +411,7 @@ function Wait-ForCertificateReady {
     $startTime = Get-Date
     $endTime = $startTime.AddSeconds($TimeoutSeconds)
     $renewAttempted = $false
+    $diagnosticsLogged = $false
 
     while ((Get-Date) -lt $endTime) {
         try {
@@ -428,8 +429,23 @@ function Wait-ForCertificateReady {
             if ($elapsed -ge 30 -and [string]::IsNullOrEmpty($readyStatus)) {
                 $secretData = &"$KubeToolsPath\kubectl.exe" get secret $CertificateName -n $Namespace -o jsonpath='{.data.tls\.crt}' 2>$null
                 if (-not [string]::IsNullOrEmpty($secretData)) {
-                    Write-Log "Certificate '$CertificateName' status is empty but secret exists with valid TLS data. Accepting as ready." -Console
-                    return $true
+                    # Validate the certificate is not expired before accepting
+                    try {
+                        $certBytes = [System.Convert]::FromBase64String($secretData)
+                        $x509 = [System.Security.Cryptography.X509Certificates.X509Certificate2]::new($certBytes)
+                        $notAfter = $x509.NotAfter
+                        $x509.Dispose()
+                        if ($notAfter -lt (Get-Date)) {
+                            Write-Log "[CertDiag] Secret for '$CertificateName' contains an expired certificate (notAfter: $notAfter). Ignoring stale secret." -Console
+                        }
+                        else {
+                            Write-Log "Certificate '$CertificateName' status is empty but secret exists with valid TLS data (notAfter: $notAfter). Accepting as ready." -Console
+                            return $true
+                        }
+                    }
+                    catch {
+                        Write-Log "[CertDiag] Could not parse certificate from secret '$CertificateName': $_. Ignoring stale secret." -Console
+                    }
                 }
 
                 # Try cmctl renew to kick cert-manager into reconciling
@@ -443,8 +459,9 @@ function Wait-ForCertificateReady {
                 }
             }
 
-            # After 60s of empty status, log cert-manager controller state for diagnostics
-            if ($elapsed -ge 60 -and [string]::IsNullOrEmpty($readyStatus)) {
+            # After 60s of empty status, log cert-manager controller state once for diagnostics
+            if ($elapsed -ge 60 -and [string]::IsNullOrEmpty($readyStatus) -and -not $diagnosticsLogged) {
+                $diagnosticsLogged = $true
                 $controllerPods = &"$KubeToolsPath\kubectl.exe" get pods -n cert-manager -l app=cert-manager --no-headers 2>$null
                 Write-Log "[CertDiag] cert-manager controller pods: $controllerPods"
                 $certDesc = &"$KubeToolsPath\kubectl.exe" get certificate $CertificateName -n $Namespace -o yaml 2>$null | Select-Object -Last 20 | Out-String
