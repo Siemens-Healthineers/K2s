@@ -328,6 +328,15 @@ try {
 		$linkerdYamlCertManager = Get-LinkerdConfigCertManager
 		(Invoke-Kubectl -Params 'apply', '--server-side', '--force-conflicts', '-f', $linkerdYamlCertManager).Output | Write-Log
 
+		# Wait for the self-signed Issuer to be Ready before expecting Certificate issuance.
+		# cert-manager must reconcile the Issuer first; without this, the Certificate stays
+		# in an empty status state because its Issuer is not yet available.
+		Write-Log 'Waiting for linkerd-trust-root-issuer to be Ready' -Console
+		$issuerReady = Wait-ForIssuerReady -IssuerName 'linkerd-trust-root-issuer' -Namespace 'cert-manager' -TimeoutSeconds 60 -KubeToolsPath (Get-KubeToolsPath)
+		if ($issuerReady -ne $true) {
+			Write-Log 'WARNING: Issuer linkerd-trust-root-issuer not Ready yet, Certificate issuance may be delayed' -Console
+		}
+
 		# wait for secret linkerd-trust-anchor to be available
 		Write-Log 'Waiting for secret linkerd-trust-anchor to be available' -Console
 		$secretStatus = Wait-ForK8sSecret -SecretName 'linkerd-trust-anchor' -Namespace 'cert-manager' -TimeoutSeconds 120
@@ -350,7 +359,7 @@ try {
 		# This prevents using a stale or partially-issued certificate that could cause
 		# x509 verification failures in linkerd-identity.
 		Write-Log 'Verifying linkerd-trust-anchor certificate is Ready' -Console
-		$certReady = Wait-ForCertificateReady -CertificateName 'linkerd-trust-anchor' -Namespace 'cert-manager' -TimeoutSeconds 120 -KubeToolsPath $kubeToolsPath
+		$certReady = Wait-ForCertificateReady -CertificateName 'linkerd-trust-anchor' -Namespace 'cert-manager' -TimeoutSeconds 300 -KubeToolsPath $kubeToolsPath
 		if ($certReady -ne $true) {
 			$errMsg = "Certificate linkerd-trust-anchor did not reach Ready state. Check cert-manager logs for details.`nInstallation of security addon failed."
 			if ($EncodeStructuredOutput -eq $true) {
