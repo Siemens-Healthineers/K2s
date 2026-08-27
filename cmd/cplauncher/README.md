@@ -21,7 +21,7 @@ You may then copy `cphook.dll` next to `cplauncher.exe` if you want it discovere
 ### Building `cplauncher`
 Automated build (repository helper):
 ```
-c:\ws\k2s\bin\bgo.cmd -ProjectDir "c:\ws\k2s\k2s\cmd\cplauncher" -ExeOutDir "c:\ws\k2s\bin\cni"
+c:\ws\k2s\bin\bgo.cmd -ProjectDir "c:\ws\k2s\cmd\cplauncher" -ExeOutDir "c:\ws\k2s\bin\cni"
 ```
 Ad-hoc local build:
 ```
@@ -127,7 +127,7 @@ SPDX-License-Identifier: MIT
 g++ -shared -o ..\..\..\bin\cni\cphook.dll .\cphook\cphook.c -liphlpapi -Wl,--out-implib,libcphook.a
 
 ## build compartment launcher
-c:\ws\k2s\bin\bgo.cmd -ProjectDir "c:\ws\k2s\k2s\cmd\cplauncher" -ExeOutDir "c:\ws\k2s\bin\cni"
+c:\ws\k2s\bin\bgo.cmd -ProjectDir "c:\ws\k2s\cmd\cplauncher" -ExeOutDir "c:\ws\k2s\bin\cni"
 # or for testing
 go build -o cplauncher.exe .
 

@@ -44,7 +44,7 @@ C:\ws\k2s\bin\bgo.cmd
 
 Building `httpproxy` *Go* project:
 ```console
-C:\ws\k2s\bin\bgo -ProjectDir "C:\ws\k2s\k2s\cmd\httpproxy\" -ExeOutDir "c:\ws\k2s\bin"
+C:\ws\k2s\bin\bgo -ProjectDir "C:\ws\k2s\cmd\httpproxy\" -ExeOutDir "c:\ws\k2s\bin"
 ```
 
 !!! info
@@ -65,7 +65,7 @@ C:\ws\k2s\bin\bgol
 
 If *K2s* is installed then just simply execute the command without the full path:
 ```console
-bgo -ProjectDir "C:\ws\k2s\k2s\cmd\httpproxy\" -ExeOutDir "c:\ws\k2s\bin"
+bgo -ProjectDir "C:\ws\k2s\cmd\httpproxy\" -ExeOutDir "c:\ws\k2s\bin"
 bgow
 bgol
 ```
@@ -82,11 +82,11 @@ Alternatively, you can use standard Go tools directly:
 
 ```bash
 # Build the Linux binary
-GOOS=linux go build -o k2s ./k2s/cmd/k2s
+GOOS=linux go build -o k2s ./cmd/k2s
 
 # Verify the build compiles for both platforms
-GOOS=windows go build ./k2s/cmd/k2s
-GOOS=linux go build ./k2s/cmd/k2s
+GOOS=windows go build ./cmd/k2s
+GOOS=linux go build ./cmd/k2s
 ```
 
 !!! note
@@ -96,7 +96,7 @@ GOOS=linux go build ./k2s/cmd/k2s
 
 On a Linux developer machine you can build the Linux executables without PowerShell using the `build.sh` script (or the `Makefile` wrapper) in the repository root. Both mirror the same Go build flags and version metadata as [BuildGoExe.ps1](https://github.com/Siemens-Healthineers/K2s/blob/main/smallsetup/common/BuildGoExe.ps1){target="_blank"}.
 
-Prerequisite: install [*Go*](https://go.dev/dl/){target="_blank"} (see `k2s/go.mod` for the required version).
+Prerequisite: install [*Go*](https://go.dev/dl/){target="_blank"} (see `go.mod` for the required version).
 
 After cloning, make the build script executable before running it:
 

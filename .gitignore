@@ -102,9 +102,6 @@ bin/msiuninstall.log
 # addons
 addons/hooks
 
-# apps in /k2s exclude 
-/k2s/**/*.exe
-
 # Go-built binaries (built via BuildGoExe.ps1 / bgo -BuildAll)
 # These are no longer committed to git — build locally after clone.
 /k2s.exe
@@ -126,8 +123,6 @@ addons/hooks
 
 tmp/**/*
 
-# temp files in /k2s
-/k2s/**/*.tmp
 db.sqlite
 
 # sbom
@@ -173,15 +168,15 @@ bin/cdxgen.exe
 .cache
 site
 build/bom/sbomgenerator.exe
-k2s/cmd/vfprules/vfprules/vfprules.obj
-k2s/cmd/vfprules/vfprules/vfprules.dll
-k2s/cmd/vfprules/vfprules/vfprules.exp
-k2s/cmd/vfprules/vfprules/vfprules.lib
-k2s/cmd/vfprules/vfprules/.vs/**
-k2s/cmd/vfprules/vfprules/x64/**
-k2s/cmd/vfprules/vfprules/vfprules.sln
-k2s/cmd/vfprules/vfprules/vfprules.vcxproj.filters
-k2s/cmd/vfprules/vfprules/vfprules.vcxproj.user
+cmd/vfprules/vfprules/vfprules.obj
+cmd/vfprules/vfprules/vfprules.dll
+cmd/vfprules/vfprules/vfprules.exp
+cmd/vfprules/vfprules/vfprules.lib
+cmd/vfprules/vfprules/.vs/**
+cmd/vfprules/vfprules/x64/**
+cmd/vfprules/vfprules/vfprules.sln
+cmd/vfprules/vfprules/vfprules.vcxproj.filters
+cmd/vfprules/vfprules/vfprules.vcxproj.user
 bin/cni/vfprules.lib
 bin/cni/vfprules.json.origin
 bin/cni/vfprules.exp
@@ -203,4 +198,3 @@ bin/debian-13-genericcloud-amd64.qcow2
 
 # AI assistant context
 claude.md
-k2s/k2s

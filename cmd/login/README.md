@@ -6,7 +6,7 @@ SPDX-License-Identifier: MIT
 
 # login servive providing login UI 
 ### build it
-bgo.cmd -ProjectDir "c:\ws\k2s\k2s\cmd\login" -ExeOutDir "c:\ws\k2s\k2s\cmd\login"
+bgo.cmd -ProjectDir "c:\ws\k2s\cmd\login" -ExeOutDir "c:\ws\k2s\cmd\login"
 ### download hydra
 .\DownloadandExtractHydra.ps1
 ### build container with k2s

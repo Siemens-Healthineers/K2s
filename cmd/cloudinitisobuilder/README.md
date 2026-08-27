@@ -9,5 +9,5 @@ SPDX-License-Identifier: MIT
 
 #### build executable for windows 
 ### copy it to bin [Hardcoded c:\ws\k2s as an example]
-bgo.cmd -ProjectDir "C:\ws\k2s\k2s\cmd\cloudinitisobuilder" -ExeOutDir "c:\ws\k2s\bin"
+bgo.cmd -ProjectDir "C:\ws\k2s\cmd\cloudinitisobuilder" -ExeOutDir "c:\ws\k2s\bin"
 

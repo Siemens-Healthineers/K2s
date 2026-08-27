@@ -9,5 +9,5 @@ SPDX-License-Identifier: MIT
 
 #### build executable for windows 
 ### copy it to bin [Hardcoded c:\ws\k2s as an example]
-bgo.cmd -ProjectDir "c:\ws\k2s\k2s\cmd\bridge" -ExeOutDir "c:\ws\k2s\bin\cni"
+bgo.cmd -ProjectDir "c:\ws\k2s\cmd\bridge" -ExeOutDir "c:\ws\k2s\bin\cni"
 

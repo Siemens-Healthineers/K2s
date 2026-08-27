@@ -5,4 +5,4 @@ SPDX-License-Identifier: MIT
 -->
 
 ### build it
-bgo.cmd -ProjectDir "c:\ws\k2s\k2s\cmd\l4proxy" -ExeOutDir "c:\ws\k2s\bin\cni"
+bgo.cmd -ProjectDir "c:\ws\k2s\cmd\l4proxy" -ExeOutDir "c:\ws\k2s\bin\cni"

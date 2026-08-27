@@ -22,7 +22,7 @@ They show the **two options** for integrating a native Windows host process into
 * `albumswin.exe` built. From the repo root:
 
   ```powershell
-  go build -o k2s/test/e2e/cluster/hostprocess/albumswin/albumswin.exe ./k2s/test/e2e/cluster/hostprocess/albumswin
+  go build -o test/e2e/cluster/hostprocess/albumswin/albumswin.exe ./test/e2e/cluster/hostprocess/albumswin
   ```
 
 * For Option 2 zero‑trust policies: the `security` addon (enhanced) enabled:

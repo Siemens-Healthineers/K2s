@@ -27,7 +27,7 @@ Builds the Linux-targeted K2s Go executables natively (no PowerShell):
     dnsproxy            -> bin/
   yaml2json           -> bin/
 
-The CLI is named k2s.linux to avoid colliding with the k2s/ source directory.
+The CLI is named k2s.linux to distinguish it from the Windows k2s.exe artifact.
 Helper executables are placed in bin/.
 
 Options:
@@ -134,9 +134,7 @@ BUILD_TARGETS=(
     "yaml2json|$BIN_DIR/yaml2json"
 )
 
-# The Go module (go.mod) lives under k2s/, so build from there and reference
-# each command by its module-relative package path (./cmd/<app>).
-cd "$REPO_ROOT/k2s"
+# Build each command from the repository-root Go module.
 
 for target in "${BUILD_TARGETS[@]}"; do
     app="${target%%|*}"

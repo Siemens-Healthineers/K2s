@@ -14,13 +14,13 @@ This script verifies:
 4. The clusterip-webhook pod is healthy
 
 Deploy the stress test manifests first:
-  kubectl apply -k k2s/test/e2e/cluster/core/workload/clusterip-stress/
+    kubectl apply -k test/e2e/cluster/core/workload/clusterip-stress/
 
 Cleanup after testing:
   kubectl delete namespace clusterip-stress-test
 
 .EXAMPLE
-kubectl apply -k k2s/test/e2e/cluster/core/workload/clusterip-stress/
+kubectl apply -k test/e2e/cluster/core/workload/clusterip-stress/
 powershell -File Validate-ClusterIPStressTest.ps1
 kubectl delete namespace clusterip-stress-test
 #>

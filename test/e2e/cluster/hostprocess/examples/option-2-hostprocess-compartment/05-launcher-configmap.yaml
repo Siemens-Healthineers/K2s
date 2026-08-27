@@ -19,6 +19,6 @@ metadata:
   name: hostprocess-launcher-env
   namespace: hostprocess-examples
 data:
-  ALBUMS_WIN: 'C:\ws\k2s\k2s\test\e2e\cluster\hostprocess\albumswin\albumswin.exe'
+  ALBUMS_WIN: 'C:\ws\k2s\test\e2e\cluster\hostprocess\albumswin\albumswin.exe'
   # Uncomment and set if kubectl.exe is not resolvable on the SYSTEM PATH:
   KUBECTL: 'C:\ws\k2s\bin\kube\kubectl.exe'

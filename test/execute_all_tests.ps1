@@ -91,7 +91,7 @@ Import-Module "$PSScriptRoot\test.module.psm1" -Force
 $pesterVersion = '5.7.1'
 
 # Read ginkgo version from go.mod to avoid version mismatch
-$goModPath = Join-Path -Path $PSScriptRoot -ChildPath '..\k2s\go.mod'
+$goModPath = Join-Path -Path $PSScriptRoot -ChildPath '..\go.mod'
 $ginkgoVersionMatch = Select-String -Path $goModPath -Pattern 'github\.com/onsi/ginkgo/v2\s+v([\d\.]+)' | Select-Object -First 1
 if ($ginkgoVersionMatch) {
     $ginkgoVersion = $ginkgoVersionMatch.Matches[0].Groups[1].Value

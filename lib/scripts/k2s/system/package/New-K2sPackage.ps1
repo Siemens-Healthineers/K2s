@@ -107,10 +107,10 @@ if (Test-Path $zipPackagePath) {
 # create exclusion list
 $kubePath = Get-KubePath
 $exclusionList = @('.git', '.vscode', '.gitignore') | ForEach-Object { Join-Path $kubePath $_ }
-$exclusionList += "$kubePath\k2s\cmd\vfprules\vfprules.exe"
-$exclusionList += "$kubePath\k2s\cmd\httpproxy\httpproxy.exe"
-$exclusionList += "$kubePath\k2s\cmd\devgon\devgon.exe"
-$exclusionList += "$kubePath\k2s\cmd\bridge\bridge.exe"
+$exclusionList += "$kubePath\cmd\vfprules\vfprules.exe"
+$exclusionList += "$kubePath\cmd\httpproxy\httpproxy.exe"
+$exclusionList += "$kubePath\cmd\devgon\devgon.exe"
+$exclusionList += "$kubePath\cmd\bridge\bridge.exe"
 $exclusionList += "$kubePath\bin\debian-12-genericcloud-amd64.qcow2"  # Large guest cloud image not needed in package
 $exclusionList += "$kubePath\bin\debian-13-genericcloud-amd64.qcow2"  # Large guest cloud image not needed in package
 
@@ -152,7 +152,7 @@ if ($Profile -eq 'Lite') {
         foreach ($dir in $addonSubDirs) {
             $liteExclude += $dir.FullName
         }
-        $liteExclude += (Join-Path $kubePath 'k2s/test/e2e/addons')
+        $liteExclude += (Join-Path $kubePath 'test/e2e/addons')
         Write-Log '[Profile+Addons] Lite profile: excluding all addons (keeping addons module files and common/)' -Console
     } elseif ($selectedAddons.Count -gt 0) {
         # Specific addons requested: exclude those NOT selected
@@ -181,7 +181,7 @@ if ($Profile -eq 'Lite') {
             -ExclusionListRef ([ref]$liteExclude) -AllAddonPaths $allAddonPaths
         
         # Include test folders for selected addons
-        $testAddonsPath = Join-Path $kubePath 'k2s/test/e2e/addons'
+        $testAddonsPath = Join-Path $kubePath 'test/e2e/addons'
         if (Test-Path $testAddonsPath) {
             $testAddonDirs = Get-ChildItem -Path $testAddonsPath -Directory
             foreach ($testDir in $testAddonDirs) {
@@ -215,9 +215,9 @@ if ($Profile -eq 'Lite') {
                 }
                 
                 if ($shouldInclude) {
-                    $testDirFullPath = Join-Path $kubePath "k2s/test/e2e/addons/$testDirName"
+                    $testDirFullPath = Join-Path $kubePath "test/e2e/addons/$testDirName"
                     $inclusionList += $testDirFullPath
-                    Write-Log "[Addons] Including test folder for addon: k2s/test/e2e/addons/$testDirName" -Console
+                    Write-Log "[Addons] Including test folder for addon: test/e2e/addons/$testDirName" -Console
                 }
             }
         }
@@ -246,7 +246,7 @@ if ($Profile -eq 'Lite') {
     foreach ($dir in $addonSubDirs) {
         if (-not ($exclusionList -contains $dir.FullName)) { $exclusionList += $dir.FullName }
     }
-    $testAddonsFullPath = Join-Path $kubePath 'k2s/test/e2e/addons'
+    $testAddonsFullPath = Join-Path $kubePath 'test/e2e/addons'
     if (-not ($exclusionList -contains $testAddonsFullPath)) { $exclusionList += $testAddonsFullPath }
     Write-Log '[Addons] Dev profile: excluding all addons (keeping addons module files and common/)' -Console
 } elseif ($selectedAddons.Count -gt 0) {
