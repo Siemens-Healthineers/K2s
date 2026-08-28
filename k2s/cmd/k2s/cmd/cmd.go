@@ -5,6 +5,7 @@ package cmd
 
 import (
 	"context"
+	"errors"
 	"log/slog"
 	"os"
 	"path/filepath"
@@ -25,9 +26,9 @@ import (
 	"github.com/siemens-healthineers/k2s/cmd/k2s/utils"
 	"github.com/siemens-healthineers/k2s/cmd/k2s/utils/logging"
 	"github.com/siemens-healthineers/k2s/internal/cli"
+	cconfig "github.com/siemens-healthineers/k2s/internal/contracts/config"
 	"github.com/siemens-healthineers/k2s/internal/core/config"
 	"github.com/siemens-healthineers/k2s/internal/host"
-	"github.com/siemens-healthineers/k2s/internal/json"
 	bl "github.com/siemens-healthineers/k2s/internal/logging"
 	"github.com/siemens-healthineers/k2s/internal/provider"
 
@@ -116,14 +117,11 @@ func CreateRootCmd(logger *logging.Slogger) (*cobra.Command, error) {
 	return cmd, nil
 }
 
-// setupJson is the minimal struct for reading InstallFolder from setup.json.
-type setupJson struct {
-	InstallFolder string `json:"InstallFolder"`
-}
-
 // resolveInstallDirForDelta checks if the executable is running from a delta package
 // directory (indicated by delta-manifest.json) and resolves the actual K2s install
-// directory from setup.json at the well-known system location.
+// directory from setup.json at the well-known system location. If the setup.json is
+// not present there (e.g. because the installed K2s uses a customized 'configDir.k2s'),
+// the installed K2s is discovered via PATH as fallback.
 func resolveInstallDirForDelta(exeDir string) (string, error) {
 	deltaManifest := filepath.Join(exeDir, "delta-manifest.json")
 	if _, err := os.Stat(deltaManifest); err != nil {
@@ -137,19 +135,45 @@ func resolveInstallDirForDelta(exeDir string) (string, error) {
 	// Note: must use host.SystemDrive() (returns "C:\") instead of os.Getenv("SystemDrive")
 	// (returns "C:") because Go's filepath.Join does not add a separator after a bare
 	// drive letter — see https://github.com/golang/go/issues/26953
-	setupConfigPath := filepath.Join(host.SystemDrive(), "ProgramData", "k2s", "setup.json")
+	setupConfigDir := filepath.Join(host.SystemDrive(), "ProgramData", "k2s")
 
-	setup, err := json.FromFile[setupJson](setupConfigPath)
+	installFolder, err := config.ReadInstallFolder(setupConfigDir)
 	if err != nil {
-		slog.Warn("Could not read setup.json", "path", setupConfigPath, "error", err)
-		return exeDir, err
+		slog.Warn("Could not read setup.json", "dir", setupConfigDir, "error", err)
+
+		return resolveInstallDirFromPath(exeDir, err)
 	}
 
-	if setup.InstallFolder == "" {
+	if installFolder == "" {
 		slog.Warn("InstallFolder not set in setup.json")
 		return exeDir, nil
 	}
 
-	slog.Info("Resolved actual install directory from setup.json", "install-dir", setup.InstallFolder)
-	return setup.InstallFolder, nil
+	slog.Info("Resolved actual install directory from setup.json", "install-dir", installFolder)
+	return installFolder, nil
+}
+
+// resolveInstalledK2s indirects config.ResolveInstalledK2s so that the PATH-based
+// discovery can be substituted in unit tests.
+var resolveInstalledK2s = config.ResolveInstalledK2s
+
+// resolveInstallDirFromPath discovers the installed K2s via the PATH environment
+// variable. It preserves the original error/behavior if no installation was found.
+//
+// NOTE: config.ResolveInstalledK2s may return a valid installation together with
+// ErrSystemInCorruptedState. A corrupted installation is still an existing installation,
+// therefore its install dir must be used (consistent with the upgrade cmd).
+func resolveInstallDirFromPath(exeDir string, originalErr error) (string, error) {
+	installed, resolveErr := resolveInstalledK2s()
+	if resolveErr != nil && !errors.Is(resolveErr, cconfig.ErrSystemInCorruptedState) {
+		slog.Warn("Could not discover installed K2s via PATH", "error", resolveErr)
+		return exeDir, originalErr
+	}
+	if installed == nil {
+		slog.Warn("No installed K2s discovered via PATH")
+		return exeDir, originalErr
+	}
+
+	slog.Info("Resolved actual install directory via PATH", "install-dir", installed.InstallDir)
+	return installed.InstallDir, nil
 }
