@@ -155,8 +155,8 @@ try {
     if (!$ExcludeGoTests) {
         Install-GinkgoIfNecessary -Proxy $Proxy -GinkgoVersion $ginkgoVersion
 
-        # Build an absolute path to Go module directory under root
-        $goSrcDir = Join-Path -Path $rootDir -ChildPath 'k2s'
+        # The Go module is at the repository root.
+        $goSrcDir = $rootDir
 
         Start-GinkgoTests -Tags $Tags -ExcludeTags $ExcludeTags -WorkingDir $goSrcDir -OutDir $TestResultPath -Proxy $Proxy -V:$V -VV:$VV -Timeout $GinkgoTimeout
         $results.Go = $LASTEXITCODE
