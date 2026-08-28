@@ -385,15 +385,15 @@ function Restart-FlannelDaemonSetWithWindowsRouteRepair {
 # removed) and when cbr0 survived a reboot but services aren't running.
 function Start-K8sNetworkingServices {
     Write-Log "[$logUseCase] Ensuring flanneld, kubelet and kubeproxy are running"
+
+    # Remove broken flannel routes on Loopbackk2s BEFORE starting flanneld.
+    # Must run first because flanneld's host-gw backend actively maintains routes
+    # and would re-add them if already running when we try to remove.
+    Remove-FlannelConflictingRoutesOnLoopback
+
     Start-Service -Name 'flanneld' -ErrorAction SilentlyContinue
     Start-Service -Name 'kubelet' -ErrorAction SilentlyContinue
     Start-Service -Name 'kubeproxy' -ErrorAction SilentlyContinue
-
-    # Remove broken flannel routes on Loopbackk2s that may shadow k2s static routes.
-    # Flannel's host-gw backend adds routes for remote subnets on the Loopbackk2s
-    # interface, but the gateway IP is on a different L2 segment (WSL or KubeSwitch),
-    # making the route topologically invalid.
-    Remove-FlannelConflictingRoutesOnLoopback
 
     # Restore kubelet and kubeproxy to auto-start in case Stop-System.ps1
     # set them to SERVICE_DEMAND_START during a previous shutdown.
