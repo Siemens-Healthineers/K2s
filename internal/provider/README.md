@@ -9,7 +9,7 @@ The `provider` package defines **platform-agnostic interfaces** for all K2s oper
 
 ## Purpose
 
-Command handlers in `cmd/cmd/` call provider interfaces exclusively, eliminating any `runtime.GOOS` checks or build-tagged dispatch files from the command layer. All platform differences are encapsulated here.
+Command handlers in `cmd/k2s/cmd/` call provider interfaces exclusively, eliminating any `runtime.GOOS` checks or build-tagged dispatch files from the command layer. All platform differences are encapsulated here.
 
 ## Interfaces
 

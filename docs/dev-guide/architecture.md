@@ -128,7 +128,7 @@ The Go CLI uses a **provider pattern** to abstract all platform-specific operati
 
 ```
 ┌──────────────────────────────────────────────────────────┐
-│  Command Layer (cmd/cmd/)                            │
+│  Command Layer (cmd/k2s/cmd/)                        │
 │  install.go, start.go, stop.go, uninstall.go, ...       │
 │                                                          │
 │  context.Providers().Cluster.Install(config)             │
