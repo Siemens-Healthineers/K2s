@@ -500,8 +500,7 @@ function Remove-FlannelConflictingRoutesOnLoopback {
     }
     $loopbackIfIndex = $adapter.ifIndex
 
-    $setupConfigRoot = Get-RootConfigk2s
-    $podNetworkCIDR = $setupConfigRoot.psobject.properties['podNetworkCIDR'].value
+    $podNetworkCIDR = Get-ConfiguredClusterCIDR
     if ([string]::IsNullOrWhiteSpace($podNetworkCIDR)) {
         Write-Log '[FlannelRoutes] podNetworkCIDR not configured, skipping route cleanup'
         return

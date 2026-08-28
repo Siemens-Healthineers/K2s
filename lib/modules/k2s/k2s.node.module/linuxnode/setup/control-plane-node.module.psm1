@@ -411,8 +411,7 @@ function Start-ControlPlaneNodeOnNewVM {
     # Windows node's public-ip (on the loopback adapter). Without this route,
     # flannel fails with "network is unreachable" when the loopback subnet is
     # not directly connected to the control plane's L2 segment.
-    $setupConfigRoot = Get-RootConfigk2s
-    $loopbackCIDR = $setupConfigRoot.psobject.properties['loopbackAdapterCIDR'].value
+    $loopbackCIDR = Get-LoopbackAdapterCIDR
     $kubeSwitchIP = Get-ConfiguredKubeSwitchIP
     if (-not [string]::IsNullOrWhiteSpace($loopbackCIDR) -and -not [string]::IsNullOrWhiteSpace($kubeSwitchIP)) {
         Write-Log "Adding transit route to $loopbackCIDR via $kubeSwitchIP on control plane" -Console
