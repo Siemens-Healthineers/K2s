@@ -211,6 +211,12 @@ function Start-WindowsWorkerNode {
     Start-ServiceAndSetToAutoStart -Name 'containerd'
     Start-ServiceAndSetToAutoStart -Name 'httpproxy'
     Confirm-LoopbackAdapterIP
+
+    # Remove broken flannel routes on Loopbackk2s BEFORE starting flanneld.
+    # Must run first because flanneld's host-gw backend actively maintains routes
+    # and would re-add them if already running when we try to remove.
+    Remove-FlannelConflictingRoutesOnLoopback
+
     # Flanneld must remain SERVICE_DEMAND_START. It creates cbr0 L2Bridge when it
     # doesn't find one, which races with Start-System.ps1 after unclean reboots.
     # Start it explicitly here (after cbr0 is created) without changing the start type.
@@ -220,12 +226,6 @@ function Start-WindowsWorkerNode {
     Start-ServiceAndSetToAutoStart -Name 'kubeproxy'
 
     Wait-NetworkL2BridgeReady -PodSubnetworkNumber $PodSubnetworkNumber
-
-    # Remove broken flannel routes on Loopbackk2s. Flannel's host-gw backend may
-    # add routes for remote subnets via Loopbackk2s, but the gateway IP lives on a
-    # different L2 segment (WSL or KubeSwitch). These lower-metric routes shadow the
-    # correct k2s static routes and break cross-node pod connectivity.
-    Remove-FlannelConflictingRoutesOnLoopback
 
     Add-HostBridgeIpReservation -PodSubnetworkNumber $PodSubnetworkNumber
 
@@ -501,18 +501,46 @@ function Remove-FlannelConflictingRoutesOnLoopback {
     $loopbackIfIndex = $adapter.ifIndex
 
     $setupConfigRoot = Get-RootConfigk2s
-    $clusterCIDRMaster = $setupConfigRoot.psobject.properties['podNetworkMasterCIDR'].value
-    if ([string]::IsNullOrWhiteSpace($clusterCIDRMaster)) {
-        Write-Log '[FlannelRoutes] podNetworkMasterCIDR not configured, skipping route cleanup'
+    $podNetworkCIDR = $setupConfigRoot.psobject.properties['podNetworkCIDR'].value
+    if ([string]::IsNullOrWhiteSpace($podNetworkCIDR)) {
+        Write-Log '[FlannelRoutes] podNetworkCIDR not configured, skipping route cleanup'
         return
     }
 
-    # Find routes to the Linux pod CIDR on the Loopbackk2s interface
-    $conflictingRoutes = Get-NetRoute -DestinationPrefix $clusterCIDRMaster -InterfaceIndex $loopbackIfIndex -ErrorAction SilentlyContinue
+    # Parse the cluster-wide pod CIDR (e.g. 172.20.0.0/16) to match all subnets within it
+    $cidrParts = $podNetworkCIDR.Split('/')
+    $podNetworkAddress = [System.Net.IPAddress]::Parse($cidrParts[0])
+    $podNetworkPrefixLength = [int]$cidrParts[1]
+    $podNetworkBytes = $podNetworkAddress.GetAddressBytes()
+
+    # Find all routes on the Loopbackk2s interface whose destination falls within the pod CIDR.
+    # Flannel's host-gw backend adds per-node subnet routes (e.g. 172.20.0.0/24, 172.20.2.0/24)
+    # on this interface, but the gateway IP is on a different L2 segment, making them invalid.
+    $allRoutes = Get-NetRoute -InterfaceIndex $loopbackIfIndex -ErrorAction SilentlyContinue
+    $conflictingRoutes = $allRoutes | Where-Object {
+        if ($_.DestinationPrefix -notmatch '^\d+\.\d+\.\d+\.\d+/\d+$') { return $false }
+        $destParts = $_.DestinationPrefix.Split('/')
+        $destAddress = [System.Net.IPAddress]::Parse($destParts[0])
+        $destBytes = $destAddress.GetAddressBytes()
+
+        # Check if destination address falls within the pod network CIDR
+        $fullBytes = [math]::Floor($podNetworkPrefixLength / 8)
+        $match = $true
+        for ($i = 0; $i -lt $fullBytes; $i++) {
+            if ($destBytes[$i] -ne $podNetworkBytes[$i]) { $match = $false; break }
+        }
+        if ($match -and ($podNetworkPrefixLength % 8) -ne 0) {
+            $remainingBits = $podNetworkPrefixLength % 8
+            $mask = [byte](0xFF -shl (8 - $remainingBits))
+            if (($destBytes[$fullBytes] -band $mask) -ne ($podNetworkBytes[$fullBytes] -band $mask)) { $match = $false }
+        }
+        return $match
+    }
+
     if ($null -ne $conflictingRoutes) {
         foreach ($route in $conflictingRoutes) {
-            Write-Log "[FlannelRoutes] Removing conflicting route: $clusterCIDRMaster via $($route.NextHop) on interface $loopbackIfIndex (metric $($route.RouteMetric))" -Console
-            Remove-NetRoute -DestinationPrefix $clusterCIDRMaster -InterfaceIndex $loopbackIfIndex -NextHop $route.NextHop -Confirm:$false -ErrorAction SilentlyContinue
+            Write-Log "[FlannelRoutes] Removing conflicting route: $($route.DestinationPrefix) via $($route.NextHop) on interface $loopbackIfIndex (metric $($route.RouteMetric))" -Console
+            Remove-NetRoute -DestinationPrefix $route.DestinationPrefix -InterfaceIndex $loopbackIfIndex -NextHop $route.NextHop -Confirm:$false -ErrorAction SilentlyContinue
         }
     } else {
         Write-Log '[FlannelRoutes] No conflicting routes found on Loopbackk2s interface'
