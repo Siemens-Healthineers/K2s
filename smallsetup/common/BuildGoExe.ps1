@@ -148,12 +148,7 @@ for ($i = 0; $i -lt $goExecutables.Count; $i++) {
     $outPath = $goExecutable.OutDir
     if ($TargetOS -ne 'windows') {
         $appName = Split-Path $goExecutable.InDir -Leaf
-        if ($appName -eq 'k2s') {
-            $outPath = [IO.Path]::Combine($goExecutable.OutDir, 'k2s')
-        }
-        else {
-            $outPath = [IO.Path]::Combine($goExecutable.OutDir, $appName)
-        }
+        $outPath = [IO.Path]::Combine($goExecutable.OutDir, $appName)
     }
 
     # GO BUILD
