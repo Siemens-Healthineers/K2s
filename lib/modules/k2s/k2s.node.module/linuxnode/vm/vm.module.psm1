@@ -923,7 +923,7 @@ function Wait-ForSshPossible {
         [switch]$Nested = $false
     )
     $iteration = 0
-    $maxIterations = 60  # Increased from 40 to handle sporadic CI infrastructure failures
+    $maxIterations = 80  # 30 attempts before recovery + 50 after, handles nested Hyper-V issues
     $baseDelay = 3       # Base delay in seconds
     $maxDelay = 15       # Maximum delay between attempts
     $startTime = Get-Date
@@ -961,6 +961,38 @@ function Wait-ForSshPossible {
         if ($iteration -eq $maxIterations) {
             Write-Log "SSH login into VM with $($User) still not available after $maxIterations attempts, ssh result is '$($result)' aborting..." -Console
             throw "Unable to SSH login into VM after $maxIterations attempts"
+        }
+
+        # Mid-flight network recovery: after 30 consecutive "Connection timed out" failures,
+        # attempt to fix broken L2 connectivity by disconnecting/reconnecting the VM adapter.
+        # This handles sporadic nested Hyper-V issues where KubeSwitch recreation leaves the
+        # VM NIC in a broken state. Only triggers during failure — zero happy-path impact.
+        if ($iteration -eq 30 -and $result -match 'Connection timed out') {
+            Write-Log "[SSH-Recovery] 30 consecutive SSH timeouts detected. Attempting VM network adapter recovery..." -Console
+            try {
+                $vmName = $nameControlPlane
+                $switchName = Get-ControlPlaneNodeDefaultSwitchName
+                Write-Log "[SSH-Recovery] Stopping VM '$vmName'..."
+                Stop-VM -Name $vmName -Force -ErrorAction SilentlyContinue
+                Start-Sleep -Seconds 5
+
+                Write-Log "[SSH-Recovery] Disconnecting VM network adapter..."
+                Disconnect-VMNetworkAdapter -VMName $vmName -ErrorAction SilentlyContinue
+                Start-Sleep -Seconds 3
+
+                Write-Log "[SSH-Recovery] Reconnecting VM to switch '$switchName'..."
+                Connect-VMNetworkAdapter -VMName $vmName -SwitchName $switchName
+                Start-Sleep -Seconds 3
+
+                Write-Log "[SSH-Recovery] Starting VM '$vmName'..."
+                Start-VM -Name $vmName -ErrorAction SilentlyContinue
+                Start-Sleep -Seconds 15
+
+                Write-Log "[SSH-Recovery] VM restarted with reconnected adapter, resuming SSH attempts..." -Console
+            }
+            catch {
+                Write-Log "[SSH-Recovery] Recovery attempt failed: $_. Continuing SSH retries..."
+            }
         }
 
         # Enhanced logging for sporadic failure diagnosis
