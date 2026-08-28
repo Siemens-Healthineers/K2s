@@ -246,11 +246,13 @@ function Start-LinuxWorkerNodeServices {
         Write-Log "$LogPrefix Started kubelet/runtime services on '$workerNodeName'"
 
         if ($WaitForReady) {
-            Write-Log "$LogPrefix Waiting for node '$workerNodeName' to transition to Ready (max ~60 seconds)..." -Console
             $maxRetries = 30
+            $retryIntervalSeconds = 2
+            $totalTimeoutSeconds = $maxRetries * $retryIntervalSeconds
+            Write-Log "$LogPrefix Waiting for node '$workerNodeName' to transition to Ready (max ~$totalTimeoutSeconds seconds)..." -Console
             $retryCount = 0
             while ($retryCount -lt $maxRetries) {
-                Start-Sleep -Seconds 2
+                Start-Sleep -Seconds $retryIntervalSeconds
                 $nodeStatusOutput = (Invoke-Kubectl -Params @('get', 'node', $workerNodeName, '--no-headers')).Output | Out-String
                 $nodeStatus = $nodeStatusOutput.Trim()
                 if (-not [string]::IsNullOrWhiteSpace($nodeStatus) -and $nodeStatus -match '\s+Ready(?:\s|,)') {
@@ -260,7 +262,7 @@ function Start-LinuxWorkerNodeServices {
                 $retryCount++
             }
             Write-Log "$LogPrefix Timeout waiting for node '$workerNodeName' to become Ready" -Console
-            throw "$LogPrefix Node '$workerNodeName' did not transition to Ready within 60 seconds after starting services"
+            throw "$LogPrefix Node '$workerNodeName' did not transition to Ready within $totalTimeoutSeconds seconds after starting services"
         }
     } else {
         $errorOutput = ($startServicesResult.Output | Out-String).Trim()
