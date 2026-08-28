@@ -266,9 +266,41 @@ function Start-LinuxWorkerNodeServices {
         }
     } else {
         $errorOutput = ($startServicesResult.Output | Out-String).Trim()
-        Write-Log "$LogPrefix Failed to start kubelet/runtime services on '$workerNodeName': $errorOutput" -Console
+        Write-Log "$LogPrefix Service start command returned non-zero for '$workerNodeName': $errorOutput" -Console
 
-        # Collect diagnostics from the node to aid troubleshooting
+        # The systemctl start command may return non-zero even when services are already running.
+        # Verify actual service state before deciding to fail.
+        $verifyCmd = 'systemctl is-active kubelet 2>/dev/null'
+        $verifyResult = Invoke-CmdOnVmViaSSHKey -CmdToExecute $verifyCmd -UserName $UserName -IpAddress $IpAddress -IgnoreErrors:$true -ExecutionTimeoutSeconds 10
+        $kubeletStatus = ($verifyResult.Output | Out-String).Trim()
+
+        if ($kubeletStatus -eq 'active') {
+            Write-Log "$LogPrefix kubelet is active on '$workerNodeName' despite non-zero start exit code; continuing." -Console
+
+            if ($WaitForReady) {
+                $maxRetries = 30
+                $retryIntervalSeconds = 2
+                $totalTimeoutSeconds = $maxRetries * $retryIntervalSeconds
+                Write-Log "$LogPrefix Waiting for node '$workerNodeName' to transition to Ready (max ~$totalTimeoutSeconds seconds)..." -Console
+                $retryCount = 0
+                while ($retryCount -lt $maxRetries) {
+                    Start-Sleep -Seconds $retryIntervalSeconds
+                    $nodeStatusOutput = (Invoke-Kubectl -Params @('get', 'node', $workerNodeName, '--no-headers')).Output | Out-String
+                    $nodeStatus = $nodeStatusOutput.Trim()
+                    if (-not [string]::IsNullOrWhiteSpace($nodeStatus) -and $nodeStatus -match '\s+Ready(?:\s|,)') {
+                        Write-Log "$LogPrefix Node '$workerNodeName' is now Ready" -Console
+                        return
+                    }
+                    $retryCount++
+                }
+                Write-Log "$LogPrefix Timeout waiting for node '$workerNodeName' to become Ready" -Console
+                throw "$LogPrefix Node '$workerNodeName' did not transition to Ready within $totalTimeoutSeconds seconds after starting services"
+            }
+            return
+        }
+
+        # kubelet truly not running — collect diagnostics and throw
+        Write-Log "$LogPrefix Failed to start kubelet/runtime services on '$workerNodeName' (kubelet status: $kubeletStatus)" -Console
         try {
             $diagCmd = 'journalctl -u kubelet -u crio -u containerd --no-pager -n 50 2>/dev/null; echo "---SERVICE-STATUS---"; systemctl is-active kubelet crio containerd 2>/dev/null'
             $diagResult = Invoke-CmdOnVmViaSSHKey -CmdToExecute $diagCmd -UserName $UserName -IpAddress $IpAddress -IgnoreErrors:$true -ExecutionTimeoutSeconds 15
