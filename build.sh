@@ -21,13 +21,13 @@ usage() {
 Usage: ./build.sh [--proxy URL]
 
 Builds the Linux-targeted K2s Go executables natively (no PowerShell):
-    k2s                 -> k2s.linux
+    k2s                 -> k2s
   cloudinitisobuilder -> bin/
   httpproxy           -> bin/
     dnsproxy            -> bin/
   yaml2json           -> bin/
 
-The CLI is named k2s.linux to distinguish it from the Windows k2s.exe artifact.
+The Linux CLI is named k2s; the Windows CLI artifact is k2s.exe.
 Helper executables are placed in bin/.
 
 Options:
@@ -128,7 +128,7 @@ mkdir -p "$BIN_DIR"
 # Mirrors BuildGoExe.ps1's mapping minus the Windows-only apps.
 #   app|output_path
 BUILD_TARGETS=(
-    "k2s|$REPO_ROOT/k2s.linux"
+    "k2s|$REPO_ROOT/k2s"
     "cloudinitisobuilder|$BIN_DIR/cloudinitisobuilder"
     "httpproxy|$BIN_DIR/httpproxy"
     "yaml2json|$BIN_DIR/yaml2json"

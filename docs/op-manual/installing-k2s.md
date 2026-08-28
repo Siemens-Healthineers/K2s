@@ -208,7 +208,7 @@ supported yet.
 Run the Linux binary with elevated privileges:
 
 ```console
-sudo ./k2s.linux install --linux-only --proxy http://proxy.example:8080 --no-proxy localhost,127.0.0.1
+sudo ./k2s install --linux-only --proxy http://proxy.example:8080 --no-proxy localhost,127.0.0.1
 ```
 
 The installer downloads the version-pinned Kubernetes and CRI-O Debian

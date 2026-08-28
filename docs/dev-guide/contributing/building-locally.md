@@ -115,4 +115,4 @@ make build
 make clean
 ```
 
-This builds the CLI as `k2s.linux` in the repository root and builds `cloudinitisobuilder`, `httpproxy`, and `yaml2json` into `bin/`. To route Go module downloads through a proxy, pass `./build.sh --proxy http://proxy.example.com:8080`.
+This builds the CLI as `k2s` in the repository root and builds `cloudinitisobuilder`, `httpproxy`, and `yaml2json` into `bin/`. To route Go module downloads through a proxy, pass `./build.sh --proxy http://proxy.example.com:8080`.

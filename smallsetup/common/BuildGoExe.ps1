@@ -144,13 +144,12 @@ for ($i = 0; $i -lt $goExecutables.Count; $i++) {
     Write-Output "Building GO executable under folder path: $($goExecutable.InDir) ..."
     Set-Location $($goExecutable.InDir)
 
-    # Determine output path: for non-Windows targets, specify the full file path
-    # to avoid collisions with directories of the same name (e.g. k2s/ vs k2s binary)
+    # Determine output path for non-Windows targets.
     $outPath = $goExecutable.OutDir
     if ($TargetOS -ne 'windows') {
         $appName = Split-Path $goExecutable.InDir -Leaf
         if ($appName -eq 'k2s') {
-            $outPath = [IO.Path]::Combine($goExecutable.OutDir, "k2s.$TargetOS")
+            $outPath = [IO.Path]::Combine($goExecutable.OutDir, 'k2s')
         }
         else {
             $outPath = [IO.Path]::Combine($goExecutable.OutDir, $appName)
