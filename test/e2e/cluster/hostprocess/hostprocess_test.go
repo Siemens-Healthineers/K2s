@@ -341,9 +341,9 @@ func computeAndSetLauncherEnv() {
 	}
 	testDir := filepath.Dir(file)
 
-	// Ascend 5 levels: hostprocess -> cluster -> e2e -> test -> k2s -> repo root
+	// Ascend 4 levels: hostprocess -> cluster -> e2e -> test -> repo root.
 	repoRoot := testDir
-	for i := 0; i < 5; i++ {
+	for i := 0; i < 4; i++ {
 		repoRoot = filepath.Dir(repoRoot)
 	}
 
@@ -398,7 +398,7 @@ func toWindowsPath(p string) string {
 func ensureLauncherConfigMap(ctx context.Context) {
 	base := os.Getenv("TEST_CPLAUNCHER_BASE")
 	if base == "" {
-		base = `..\\..\\..\\..\\..\\..\\bin\\cni`
+		base = `C:\k2s\bin\cni`
 	}
 	albums := os.Getenv("TEST_ALBUMS_WIN")
 	if albums == "" {
