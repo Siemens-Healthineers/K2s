@@ -9,7 +9,7 @@ $securityModule = "$PSScriptRoot\security.module.psm1"
 
 Import-Module $addonsModule, $securityModule
 
-$certManagerAvailable = Wait-ForCertManagerAvailable
+$certManagerAvailable = Wait-ForCertManagerAvailable -WaitTimeout '30s'
 $certManagerProp = @{Name = 'IsCertManagerAvailable'; Value = $certManagerAvailable; Okay = $certManagerAvailable }
 if ($certManagerProp.Value -eq $true) {
     $certManagerProp.Message = 'The cert-manager API is ready'
