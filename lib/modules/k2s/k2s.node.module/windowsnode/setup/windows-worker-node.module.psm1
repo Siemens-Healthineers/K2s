@@ -531,7 +531,7 @@ function Remove-FlannelConflictingRoutesOnLoopback {
         }
         if ($match -and ($podNetworkPrefixLength % 8) -ne 0) {
             $remainingBits = $podNetworkPrefixLength % 8
-            $mask = [byte](0xFF -shl (8 - $remainingBits))
+            $mask = [byte]((0xFF -shl (8 - $remainingBits)) -band 0xFF)
             if (($destBytes[$fullBytes] -band $mask) -ne ($podNetworkBytes[$fullBytes] -band $mask)) { $match = $false }
         }
         return $match
