@@ -388,8 +388,133 @@ Waits for the linkerd pods to be available.
 function Wait-ForLinkerdAvailable {
     # Linkerd control plane (especially linkerd-destination with 3 containers) may need
     # 1-2 restart cycles on a loaded single-node cluster before probes pass consistently.
-    # 600s (10 min) allows for BackOff + restart + stabilization.
-    return (Wait-ForPodCondition -Condition Ready -Label 'linkerd.io/workload-ns=linkerd' -Namespace 'linkerd' -TimeoutSeconds 180)
+    # 300s (5 min) allows for BackOff + restart + stabilization.
+    return (Wait-ForPodCondition -Condition Ready -Label 'linkerd.io/workload-ns=linkerd' -Namespace 'linkerd' -TimeoutSeconds 300)
+}
+
+<#
+.DESCRIPTION
+Waits for a cert-manager Certificate resource to reach the Ready condition.
+This prevents proceeding with stale or partially-issued certificates that
+could cause x509 verification failures (e.g. ErrorKeyMatch race condition).
+#>
+function Wait-ForCertificateReady {
+    param (
+        [Parameter(Mandatory = $true)]
+        [string]$CertificateName,
+        [Parameter(Mandatory = $true)]
+        [string]$Namespace,
+        [int]$TimeoutSeconds = 120,
+        [string]$KubeToolsPath = (Get-KubeToolsPath)
+    )
+
+    $startTime = Get-Date
+    $endTime = $startTime.AddSeconds($TimeoutSeconds)
+    $renewAttempted = $false
+    $diagnosticsLogged = $false
+
+    while ((Get-Date) -lt $endTime) {
+        try {
+            $readyStatus = &"$KubeToolsPath\kubectl.exe" get certificate $CertificateName -n $Namespace -o jsonpath='{.status.conditions[?(@.type=="Ready")].status}' 2>$null
+            if ($readyStatus -eq 'True') {
+                Write-Log "Certificate '$CertificateName' is Ready." -Console
+                return $true
+            }
+
+            $elapsed = ((Get-Date) - $startTime).TotalSeconds
+
+            # After 30s of empty status, check if the secret already exists with valid TLS data.
+            # cert-manager may have issued the certificate but failed to update the Certificate
+            # resource status (e.g. due to controller restart during rapid enable/disable cycles).
+            if ($elapsed -ge 30 -and [string]::IsNullOrEmpty($readyStatus)) {
+                $secretData = &"$KubeToolsPath\kubectl.exe" get secret $CertificateName -n $Namespace -o jsonpath='{.data.tls\.crt}' 2>$null
+                if (-not [string]::IsNullOrEmpty($secretData)) {
+                    # Validate the certificate is not expired before accepting
+                    try {
+                        $certBytes = [System.Convert]::FromBase64String($secretData)
+                        $x509 = [System.Security.Cryptography.X509Certificates.X509Certificate2]::new($certBytes)
+                        $notAfter = $x509.NotAfter
+                        $x509.Dispose()
+                        if ($notAfter -lt (Get-Date)) {
+                            Write-Log "[CertDiag] Secret for '$CertificateName' contains an expired certificate (notAfter: $notAfter). Ignoring stale secret." -Console
+                        }
+                        else {
+                            Write-Log "Certificate '$CertificateName' status is empty but secret exists with valid TLS data (notAfter: $notAfter). Accepting as ready." -Console
+                            return $true
+                        }
+                    }
+                    catch {
+                        Write-Log "[CertDiag] Could not parse certificate from secret '$CertificateName': $_. Ignoring stale secret." -Console
+                    }
+                }
+
+                # Try cmctl renew to kick cert-manager into reconciling
+                if (-not $renewAttempted -and $elapsed -ge 45) {
+                    $renewAttempted = $true
+                    $cmctlPath = Join-Path -Path $KubeToolsPath -ChildPath 'cmctl.exe'
+                    if (Test-Path $cmctlPath) {
+                        Write-Log "[CertDiag] Attempting cmctl renew to force reconciliation" -Console
+                        &$cmctlPath renew $CertificateName -n $Namespace 2>&1 | Write-Log
+                    }
+                }
+            }
+
+            # After 60s of empty status, log cert-manager controller state once for diagnostics
+            if ($elapsed -ge 60 -and [string]::IsNullOrEmpty($readyStatus) -and -not $diagnosticsLogged) {
+                $diagnosticsLogged = $true
+                $controllerPods = &"$KubeToolsPath\kubectl.exe" get pods -n cert-manager -l app=cert-manager --no-headers 2>$null
+                Write-Log "[CertDiag] cert-manager controller pods: $controllerPods"
+                $certDesc = &"$KubeToolsPath\kubectl.exe" get certificate $CertificateName -n $Namespace -o yaml 2>$null | Select-Object -Last 20 | Out-String
+                Write-Log "[CertDiag] Certificate status: $certDesc"
+            }
+
+            Write-Log "Certificate '$CertificateName' not yet Ready (status: $readyStatus), waiting..." -Console
+        }
+        catch {
+            Write-Log "Error checking certificate status: $_" -Console
+        }
+        Start-Sleep -Seconds 5
+    }
+
+    Write-Log "Certificate '$CertificateName' did not become Ready within ${TimeoutSeconds}s" -Console
+    return $false
+}
+
+<#
+.DESCRIPTION
+Waits for a cert-manager Issuer resource to reach the Ready condition.
+cert-manager cannot issue Certificates until their referenced Issuer is Ready.
+#>
+function Wait-ForIssuerReady {
+    param (
+        [Parameter(Mandatory = $true)]
+        [string]$IssuerName,
+        [Parameter(Mandatory = $true)]
+        [string]$Namespace,
+        [int]$TimeoutSeconds = 60,
+        [string]$KubeToolsPath = (Get-KubeToolsPath)
+    )
+
+    $startTime = Get-Date
+    $endTime = $startTime.AddSeconds($TimeoutSeconds)
+
+    while ((Get-Date) -lt $endTime) {
+        try {
+            $readyStatus = &"$KubeToolsPath\kubectl.exe" get issuer $IssuerName -n $Namespace -o jsonpath='{.status.conditions[?(@.type=="Ready")].status}' 2>$null
+            if ($readyStatus -eq 'True') {
+                Write-Log "Issuer '$IssuerName' is Ready." -Console
+                return $true
+            }
+            Write-Log "Issuer '$IssuerName' not yet Ready (status: $readyStatus), waiting..."
+        }
+        catch {
+            Write-Log "Error checking issuer status: $_"
+        }
+        Start-Sleep -Seconds 3
+    }
+
+    Write-Log "Issuer '$IssuerName' did not become Ready within ${TimeoutSeconds}s" -Console
+    return $false
 }
 
 <#
