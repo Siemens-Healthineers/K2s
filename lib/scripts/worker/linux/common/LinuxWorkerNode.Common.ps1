@@ -348,9 +348,15 @@ function Invoke-LinuxWorkerNodeStart {
     }
 
     if ($null -ne $nodeConfig -and -not [string]::IsNullOrWhiteSpace($nodeUserName) -and -not [string]::IsNullOrWhiteSpace($nodeConfig.IpAddress)) {
-        Start-LinuxWorkerNodeServices -NodeName $workerNodeName -IpAddress $nodeConfig.IpAddress -UserName $nodeUserName -WaitForReady:$WaitForReady -LogPrefix $LogPrefix
+        try {
+            Start-LinuxWorkerNodeServices -NodeName $workerNodeName -IpAddress $nodeConfig.IpAddress -UserName $nodeUserName -WaitForReady:$WaitForReady -LogPrefix $LogPrefix
+        }
+        catch {
+            Write-Log "$LogPrefix Error starting services on node '$workerNodeName': $($_.Exception.Message)" -Console
+            throw
+        }
     } else {
-        Write-Log "$LogPrefix Cannot start kubelet/runtime on node '$workerNodeName' because Username/IpAddress is missing in cluster config."
+        Write-Log "$LogPrefix Cannot start kubelet/runtime on node '$workerNodeName' because Username/IpAddress is missing in cluster config." -Console
     }
 }
 
