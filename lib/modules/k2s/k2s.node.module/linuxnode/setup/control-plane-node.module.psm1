@@ -406,6 +406,24 @@ function Start-ControlPlaneNodeOnNewVM {
 
     Wait-ForSSHConnectionToLinuxVMViaSshKey
 
+    # Ensure the control plane has a route to the Windows loopback adapter subnet
+    # so that flannel's host-gw backend can install pod subnet routes via the
+    # Windows node's public-ip (on the loopback adapter). Without this route,
+    # flannel fails with "network is unreachable" when the loopback subnet is
+    # not directly connected to the control plane's L2 segment.
+    $loopbackCIDR = Get-LoopbackAdapterCIDR
+    $kubeSwitchIP = Get-ConfiguredKubeSwitchIP
+    if (-not [string]::IsNullOrWhiteSpace($loopbackCIDR) -and -not [string]::IsNullOrWhiteSpace($kubeSwitchIP)) {
+        Write-Log "Adding transit route to $loopbackCIDR via $kubeSwitchIP on control plane" -Console
+        $addRouteResult = Invoke-CmdOnControlPlaneViaSSHKey -CmdToExecute "sudo ip route replace $loopbackCIDR via $kubeSwitchIP" -IgnoreErrors
+        if ($addRouteResult.Success) {
+            Write-Log "Transit route to $loopbackCIDR via $kubeSwitchIP added successfully on control plane"
+        } else {
+            $routeOutput = ($addRouteResult.Output | Out-String).Trim()
+            Write-Log "WARNING: Failed to add transit route to $loopbackCIDR via $kubeSwitchIP on control plane - $routeOutput"
+        }
+    }
+
     # Initialize-Cni0Interface -VmName $controlPlaneVMHostName -WSL:$WSL
 
     $ipindex = Get-NetIPInterface | Where-Object InterfaceAlias -Like "*$switchname*" | Where-Object AddressFamily -Eq IPv4 | Select-Object -expand 'ifIndex'

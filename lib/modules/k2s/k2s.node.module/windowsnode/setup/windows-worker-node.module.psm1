@@ -211,6 +211,12 @@ function Start-WindowsWorkerNode {
     Start-ServiceAndSetToAutoStart -Name 'containerd'
     Start-ServiceAndSetToAutoStart -Name 'httpproxy'
     Confirm-LoopbackAdapterIP
+
+    # Remove broken flannel routes on Loopbackk2s BEFORE starting flanneld.
+    # Must run first because flanneld's host-gw backend actively maintains routes
+    # and would re-add them if already running when we try to remove.
+    Remove-FlannelConflictingRoutesOnLoopback
+
     # Flanneld must remain SERVICE_DEMAND_START. It creates cbr0 L2Bridge when it
     # doesn't find one, which races with Start-System.ps1 after unclean reboots.
     # Start it explicitly here (after cbr0 is created) without changing the start type.
@@ -474,12 +480,79 @@ function Repair-K2sRoutes {
     # TODO: add routes for additional nodes
 }
 
+<#
+.SYNOPSIS
+    Removes flannel-added routes on the Loopbackk2s interface that conflict with k2s static routes.
+.DESCRIPTION
+    Flannel's host-gw backend adds routes for remote subnets via the interface specified
+    by --iface (Loopbackk2s). When the remote node's gateway IP (e.g. 172.19.1.100) is
+    on a different L2 segment (e.g. WSL or KubeSwitch), the route is topologically
+    invalid - the gateway is unreachable from Loopbackk2s. This creates a lower-metric
+    route that shadows the correct k2s static route, breaking cross-node pod connectivity.
+    This function removes such conflicting routes on the Loopbackk2s interface.
+#>
+function Remove-FlannelConflictingRoutesOnLoopback {
+    $adapterName = Get-L2BridgeName
+    $adapter = Get-NetAdapter -Name $adapterName -ErrorAction SilentlyContinue
+    if ($null -eq $adapter) {
+        Write-Log '[FlannelRoutes] Loopback adapter not found, skipping route cleanup'
+        return
+    }
+    $loopbackIfIndex = $adapter.ifIndex
+
+    $podNetworkCIDR = Get-ConfiguredClusterCIDR
+    if ([string]::IsNullOrWhiteSpace($podNetworkCIDR)) {
+        Write-Log '[FlannelRoutes] podNetworkCIDR not configured, skipping route cleanup'
+        return
+    }
+
+    # Parse the cluster-wide pod CIDR (e.g. 172.20.0.0/16) to match all subnets within it
+    $cidrParts = $podNetworkCIDR.Split('/')
+    $podNetworkAddress = [System.Net.IPAddress]::Parse($cidrParts[0])
+    $podNetworkPrefixLength = [int]$cidrParts[1]
+    $podNetworkBytes = $podNetworkAddress.GetAddressBytes()
+
+    # Find all routes on the Loopbackk2s interface whose destination falls within the pod CIDR.
+    # Flannel's host-gw backend adds per-node subnet routes (e.g. 172.20.0.0/24, 172.20.2.0/24)
+    # on this interface, but the gateway IP is on a different L2 segment, making them invalid.
+    $allRoutes = Get-NetRoute -InterfaceIndex $loopbackIfIndex -ErrorAction SilentlyContinue
+    $conflictingRoutes = $allRoutes | Where-Object {
+        if ($_.DestinationPrefix -notmatch '^\d+\.\d+\.\d+\.\d+/\d+$') { return $false }
+        $destParts = $_.DestinationPrefix.Split('/')
+        $destAddress = [System.Net.IPAddress]::Parse($destParts[0])
+        $destBytes = $destAddress.GetAddressBytes()
+
+        # Check if destination address falls within the pod network CIDR
+        $fullBytes = [math]::Floor($podNetworkPrefixLength / 8)
+        $match = $true
+        for ($i = 0; $i -lt $fullBytes; $i++) {
+            if ($destBytes[$i] -ne $podNetworkBytes[$i]) { $match = $false; break }
+        }
+        if ($match -and ($podNetworkPrefixLength % 8) -ne 0) {
+            $remainingBits = $podNetworkPrefixLength % 8
+            $mask = [byte]((0xFF -shl (8 - $remainingBits)) -band 0xFF)
+            if (($destBytes[$fullBytes] -band $mask) -ne ($podNetworkBytes[$fullBytes] -band $mask)) { $match = $false }
+        }
+        return $match
+    }
+
+    if ($null -ne $conflictingRoutes) {
+        foreach ($route in $conflictingRoutes) {
+            Write-Log "[FlannelRoutes] Removing conflicting route: $($route.DestinationPrefix) via $($route.NextHop) on interface $loopbackIfIndex (metric $($route.RouteMetric))" -Console
+            Remove-NetRoute -DestinationPrefix $route.DestinationPrefix -InterfaceIndex $loopbackIfIndex -NextHop $route.NextHop -Confirm:$false -ErrorAction SilentlyContinue
+        }
+    } else {
+        Write-Log '[FlannelRoutes] No conflicting routes found on Loopbackk2s interface'
+    }
+}
+
 Export-ModuleMember -Function Add-WindowsWorkerNodeOnWindowsHost,
 Remove-WindowsWorkerNodeOnWindowsHost,
 Start-WindowsWorkerNodeOnWindowsHost,
 Stop-WindowsWorkerNodeOnWindowsHost,
 Wait-NetworkL2BridgeReady,
 Repair-K2sRoutes,
+Remove-FlannelConflictingRoutesOnLoopback,
 Set-RoutesToKubemaster,
 Set-RoutesToLinuxWorkloads,
 Set-RoutesToWindowsWorkloads
