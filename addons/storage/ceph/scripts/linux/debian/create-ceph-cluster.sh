@@ -14,7 +14,7 @@
 #
 # Arguments:
 #   $1 - Optional HTTP/HTTPS proxy URL
-#   $2 - Ceph image reference from storage addon additionalImages
+#   $2 - Ceph admin url reference from storage addon manifest (from ceph-config.json 'cephAdminUrl')
 #   $3 - CephFS filesystem name to create (from ceph-config.json 'cephfsFilesystem')
 #   $4 - SSH user for cephadm host management (must be 'root'; K2s always passes 'root' so that
 #          external OSD nodes with different usernames are handled uniformly)
@@ -25,7 +25,7 @@
 #   $9 - Optional total OSD count across all hosts (used to right-size replicated pools)
 
 PROXY="${1:-}"
-CEPH_IMAGE_INPUT="${2:-}"
+CEPHADMIN_URL="${2:-}"
 CEPH_FS_NAME="${3:-cephfs}"
 CEPH_SSH_USER="${4:-root}"
 OSD_CRUSH_CHOOSELEAF_TYPE="${5:-}"
@@ -33,6 +33,7 @@ MON_COUNT="${6:-}"
 MGR_COUNT="${7:-}"
 MDS_COUNT="${8:-}"
 TOTAL_OSD_COUNT="${9:-}"
+CEPH_IMAGE="${10:-}"
 
 log_info() {
     echo "[CephNew] $1"
@@ -280,9 +281,6 @@ if ! command -v podman >/dev/null 2>&1; then
 fi
 log_info "Using container engine: $(command -v podman)"
 
-# Use the Ceph image from the storage addon manifest for bootstrapping
-CEPH_IMAGE="$CEPH_IMAGE_INPUT"
-log_info "Using Ceph image from storage addon manifest: $CEPH_IMAGE"
 
 if sudo podman image exists "$CEPH_IMAGE" 2>/dev/null; then
     log_info "Ceph image '$CEPH_IMAGE' already present locally (e.g. loaded during offline artifact import); skipping pull"
@@ -337,10 +335,10 @@ OFFLINE_CEPHADM="$HOME/.storage/cephadm"
 if [ -f "$OFFLINE_CEPHADM" ] && is_valid_cephadm "$OFFLINE_CEPHADM"; then
     log_info "Using offline cephadm bootstrap binary staged at $OFFLINE_CEPHADM"
     cp "$OFFLINE_CEPHADM" ./cephadm
-elif download_cephadm "https://download.ceph.com/rpm-$CEPH_VERSION/el9/noarch/cephadm"; then
+elif download_cephadm "$CEPHADMIN_URL"; then
     log_info "Downloaded cephadm bootstrap binary for version '$CEPH_VERSION'"
-elif download_cephadm "https://download.ceph.com/rpm-$CEPH_RELEASE/el9/noarch/cephadm"; then
-    log_info "Downloaded cephadm bootstrap binary for release '$CEPH_RELEASE'"
+# elif download_cephadm "https://download.ceph.com/rpm-$CEPH_RELEASE/el9/noarch/cephadm"; then
+#     log_info "Downloaded cephadm bootstrap binary for release '$CEPH_RELEASE'"
 else
     log_error "Failed to obtain a valid cephadm bootstrap binary (offline copy at $OFFLINE_CEPHADM missing/invalid and download from download.ceph.com failed for version '$CEPH_VERSION' and release '$CEPH_RELEASE')."
     exit 1
@@ -364,33 +362,33 @@ if [ -n "$PROXY" ]; then
     CEPHADM_PROXY_ENV=(http_proxy="$PROXY" https_proxy="$PROXY" HTTP_PROXY="$PROXY" HTTPS_PROXY="$PROXY")
 fi
 
-DEBIAN_CODENAME="$(. /etc/os-release 2>/dev/null; echo "${VERSION_CODENAME:-trixie}")"
-CEPH_REPO_RELEASE_URL="https://download.ceph.com/debian-${CEPH_RELEASE}/dists/${DEBIAN_CODENAME}/Release"
+# DEBIAN_CODENAME="$(. /etc/os-release 2>/dev/null; echo "${VERSION_CODENAME:-trixie}")"
+# CEPH_REPO_RELEASE_URL="https://download.ceph.com/debian-${CEPH_RELEASE}/dists/${DEBIAN_CODENAME}/Release"
 
-# Host-side add-repo/install is optional. Bootstrap and all runtime ceph commands use the
-# downloaded/staged cephadm binary plus the container image, so skip this path when the
-# release/codename repo is unavailable (common for newly released Debian versions).
-repo_probe_ok=0
-if [ -n "$PROXY" ]; then
-    if curl -x "$PROXY" --fail --silent --show-error --location --output /dev/null "$CEPH_REPO_RELEASE_URL"; then
-        repo_probe_ok=1
-    fi
-else
-    if curl --fail --silent --show-error --location --output /dev/null "$CEPH_REPO_RELEASE_URL"; then
-        repo_probe_ok=1
-    fi
-fi
+# # Host-side add-repo/install is optional. Bootstrap and all runtime ceph commands use the
+# # downloaded/staged cephadm binary plus the container image, so skip this path when the
+# # release/codename repo is unavailable (common for newly released Debian versions).
+# repo_probe_ok=0
+# if [ -n "$PROXY" ]; then
+#     if curl -x "$PROXY" --fail --silent --show-error --location --output /dev/null "$CEPH_REPO_RELEASE_URL"; then
+#         repo_probe_ok=1
+#     fi
+# else
+#     if curl --fail --silent --show-error --location --output /dev/null "$CEPH_REPO_RELEASE_URL"; then
+#         repo_probe_ok=1
+#     fi
+# fi
 
-if [ "$repo_probe_ok" -eq 1 ]; then
-    log_info "Ceph Debian repo is reachable for release '$CEPH_RELEASE' on codename '$DEBIAN_CODENAME'; running cephadm add-repo/install"
-    sudo env "${CEPHADM_PROXY_ENV[@]}" ./cephadm add-repo --release "$CEPH_RELEASE" || \
-        log_info "add-repo failed (continuing; host-side ceph CLI may be unavailable)"
+# if [ "$repo_probe_ok" -eq 1 ]; then
+#     log_info "Ceph Debian repo is reachable for release '$CEPH_RELEASE' on codename '$DEBIAN_CODENAME'; running cephadm add-repo/install"
+    # sudo env "${CEPHADM_PROXY_ENV[@]}" ./cephadm add-repo --release "$CEPH_RELEASE" || \
+    #     log_info "add-repo failed (continuing; host-side ceph CLI may be unavailable)"
 
-    sudo env "${CEPHADM_PROXY_ENV[@]}" ./cephadm install || \
+sudo env "${CEPHADM_PROXY_ENV[@]}" ./cephadm install || \
         log_info "cephadm install failed (continuing; using available cephadm binary for bootstrap)"
-else
-    log_info "Ceph Debian repo not available at '$CEPH_REPO_RELEASE_URL'; skipping cephadm add-repo/install and continuing with staged cephadm binary."
-fi
+# else
+#     log_info "Ceph Debian repo not available at '$CEPH_REPO_RELEASE_URL'; skipping cephadm add-repo/install and continuing with staged cephadm binary."
+# fi
 
 
 CEPHADM_BIN=''
@@ -414,12 +412,6 @@ if [ -z "$CEPHADM_BIN" ]; then
     exit 1
 fi
 log_info "Using cephadm binary: $CEPHADM_BIN"
-
-if [ -z "$CEPH_IMAGE_INPUT" ]; then
-    log_error "Missing required Ceph image argument (storage addon additionalImages entry)"
-    exit 1
-fi
-
 
 # Determine the monitor IP address for the bootstrap process (first non-loopback IP)
 MON_IP="$(hostname -I | awk '{print $1}')"

@@ -42,7 +42,7 @@ Initialize-Logging -ShowLogs:$ShowLogs
 
 Write-Log "[Ceph] Creating new Ceph cluster on node '$NodeIp'" -Console
 
-function Get-CephBootstrapImageFromStorageManifest {
+function Get-CephadminDownloadUrlFromStorageManifest {
     $manifestPath = Join-Path -Path $PSScriptRoot -ChildPath '..\..\..\..\addon.manifest.yaml'
     $manifestPath = [System.IO.Path]::GetFullPath($manifestPath)
 
@@ -55,9 +55,29 @@ function Get-CephBootstrapImageFromStorageManifest {
         throw "[Ceph] Storage addon manifest is empty: '$manifestPath'"
     }
 
+    $urlRef = Get-Content -Path $manifestPath | ForEach-Object { $_.Trim() } | Where-Object { $_ -like '- url: https://download.ceph.com/rpm*' } | Select-Object -First 1
+    if ([string]::IsNullOrWhiteSpace($urlRef)) {
+        throw "[Ceph] No download URL found in storage addon additionalImages in '$manifestPath'"
+    }
+    Write-Log "[Ceph] Using Ceph admin download URL: '$urlRef'" -Console
+    return ($urlRef -replace '^-\s*url:\s*', '')
+}
+
+<#
+.SYNOPSIS
+Reads the Ceph image reference from the storage addon manifest.
+#>
+function Get-CephImageFromStorageManifest {
+    $manifestPath = Join-Path -Path $PSScriptRoot -ChildPath '..\..\..\..\addon.manifest.yaml'
+    $manifestPath = [System.IO.Path]::GetFullPath($manifestPath)
+
+    if (!(Test-Path -Path $manifestPath)) {
+        throw "[CephSMB] Storage addon manifest not found at '$manifestPath'"
+    }
+
     $imageRef = Get-Content -Path $manifestPath | ForEach-Object { $_.Trim() } | Where-Object { $_ -like '- quay.io/ceph/ceph:*' } | Select-Object -First 1
     if ([string]::IsNullOrWhiteSpace($imageRef)) {
-        throw "[Ceph] No quay.io/ceph/ceph:<tag> image found in storage addon additionalImages in '$manifestPath'"
+        throw "[CephSMB] No quay.io/ceph/ceph:<tag> image found in storage addon additionalImages in '$manifestPath'"
     }
 
     return ($imageRef -replace '^-\s*', '')
@@ -83,25 +103,23 @@ Function New-CephClusterOnNode {
         [string]$CephFsFilesystem = $(throw 'Argument missing: CephFsFilesystem'),
         [string]$CephFsPool = $(throw 'Argument missing: CephFsPool'),
         [ValidateScript({ !([string]::IsNullOrWhiteSpace($_)) })]
-        [string]$CephBootstrapImage = $(throw 'Argument missing: CephBootstrapImage'),
+        [string]$CephadminUrl = $(throw 'Argument missing: CephadminUrl'),
         [string]$OsdCrushChooseleafType = '',
         [string]$MonCount = '',
         [string]$MgrCount = '',
         [string]$MdsCount = '',
         [string]$TotalOsdCount = '',
         [string]$Proxy = '',
-        [string]$InstalledDistribution = 'debian'
+        [string]$InstalledDistribution = 'debian',
+        [string]$CephImage = ''
     )
 
-    Write-Log '[Ceph] Bootstrapping new Ceph cluster'
-
     $scriptSourcePath = "$PSScriptRoot\create-ceph-cluster.sh"
-
     $scriptOutput = Invoke-RemoteScript -LocalScriptPath $scriptSourcePath `
                         -UserName $UserName `
                         -IpAddress $IpAddress `
                         -UserPwd $UserPwd `
-                        -Arguments @($Proxy, $CephBootstrapImage, $CephFsFilesystem, 'root', $OsdCrushChooseleafType, $MonCount, $MgrCount, $MdsCount, $TotalOsdCount) `
+                        -Arguments @($Proxy, $CephadminUrl, $CephFsFilesystem, 'root', $OsdCrushChooseleafType, $MonCount, $MgrCount, $MdsCount, $TotalOsdCount, $CephImage) `
                         -CleanupAfterExecution `
                         -Retries 0
 
@@ -950,24 +968,26 @@ if ([string]::IsNullOrWhiteSpace($Proxy)) {
     $Proxy = "http://${kubeSwitchIp}:8181"
     Write-Log "[NodePkg] No proxy specified. Defaulting to K2s transparent proxy '$Proxy'." -Console
 }
-$cephBootstrapImage = Get-CephBootstrapImageFromStorageManifest
+$cephadminUrl = Get-CephadminDownloadUrlFromStorageManifest
 
-Write-Log "[Ceph] Using Ceph bootstrap image from addon manifest: $cephBootstrapImage" -Console
-Write-Log "[Ceph] Running remote Ceph bootstrap on '$NodeIp'. This can take several minutes (image pull/package install)." -Console
+$cephImage = Get-CephImageFromStorageManifest
+
+Write-Log "[Ceph] Running remote Ceph bootstrap on '$NodeIp' using image '$cephImage'. This can take several minutes (image pull/package install)." -Console
 
 $bootstrapOutput = New-CephClusterOnNode -UserName $nodeUserName `
                       -UserPwd '' `
                       -IpAddress $NodeIp `
                       -CephFsFilesystem $cephFsFilesystem `
                       -CephFsPool $cephFsPool `
-                      -CephBootstrapImage $cephBootstrapImage `
+                      -CephadminUrl $cephadminUrl `
                       -OsdCrushChooseleafType $configuredOsdCrushChooseleafType `
                       -MonCount $configuredMonCount `
                       -MgrCount $configuredMgrCount `
                       -MdsCount $configuredMdsCount `
                       -TotalOsdCount $configuredTotalOsdCount `
                       -Proxy $Proxy `
-                      -InstalledDistribution 'debian'
+                      -InstalledDistribution 'debian' `
+                      -CephImage $cephImage
 
 # Surface the cephadm dashboard connection details (URL / user / password) back into the shared config
 # object so Enable.ps1 can print them in the PowerShell console. The dashboard URL is rewritten to use
@@ -1019,7 +1039,7 @@ if (-not $connectionResolved) {
     exit 1
 }
 
-Invoke-CephOsdPreparation -BootstrapNodeName $clusterHostNode -BootstrapNodeIp $NodeIp -BootstrapNodeUserName $nodeUserName -CephPubKey $cephPubKeyValue -Proxy $Proxy -CephImage $cephBootstrapImage -Config $Config -ShowLogs:$ShowLogs
+Invoke-CephOsdPreparation -BootstrapNodeName $clusterHostNode -BootstrapNodeIp $NodeIp -BootstrapNodeUserName $nodeUserName -CephPubKey $cephPubKeyValue -Proxy $Proxy -CephImage $cephadminUrl -Config $Config -ShowLogs:$ShowLogs
 
 $cephFsForSubvolumeGroup = if (-not [string]::IsNullOrWhiteSpace($cephFsFilesystem)) { $cephFsFilesystem } else { 'cephfs' }
 

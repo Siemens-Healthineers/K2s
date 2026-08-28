@@ -84,10 +84,10 @@ spec:
           curl:
             # cephadm bootstrap binary (Ceph v20 / Tentacle). Downloaded during export and
             # staged into the addon storage folder so cluster bootstrap works fully offline.
-            - url: https://download.ceph.com/rpm-tentacle/el9/noarch/cephadm
+            - url: https://download.ceph.com/rpm-20.2.3/el10/noarch/cephadm
               destination: cephadm
           additionalImages:
-            - quay.io/ceph/ceph:v20
+            - quay.io/ceph/ceph:v20.2.3
             - quay.io/cephcsi/ceph-csi-operator:v1.0.4
             - quay.io/cephcsi/cephcsi:v3.17.0
             - registry.k8s.io/sig-storage/csi-node-driver-registrar:v2.17.0
