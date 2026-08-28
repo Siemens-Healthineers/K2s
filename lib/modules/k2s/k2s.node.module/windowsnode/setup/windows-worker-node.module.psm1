@@ -493,7 +493,7 @@ function Repair-K2sRoutes {
 #>
 function Remove-FlannelConflictingRoutesOnLoopback {
     $adapterName = Get-L2BridgeName
-    $adapter = Get-NetAdapter -Name "*$adapterName*" -ErrorAction SilentlyContinue
+    $adapter = Get-NetAdapter -Name $adapterName -ErrorAction SilentlyContinue
     if ($null -eq $adapter) {
         Write-Log '[FlannelRoutes] Loopback adapter not found, skipping route cleanup'
         return
