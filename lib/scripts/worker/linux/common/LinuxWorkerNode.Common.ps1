@@ -210,7 +210,7 @@ function Start-LinuxWorkerNodeServices {
     }
 
     if (-not $sshProbeSucceeded) {
-        Write-Log "$LogPrefix Failed to establish SSH connection to '$workerNodeName' after retries: $($sshProbeResult.Output)"
+        Write-Log "$LogPrefix Failed to establish SSH connection to '$workerNodeName' after retries: $($sshProbeResult.Output)" -Console
 
         try {
             $tcpCheck = Test-NetConnection -ComputerName $IpAddress -Port 22 -WarningAction SilentlyContinue
@@ -237,7 +237,7 @@ function Start-LinuxWorkerNodeServices {
             Write-Log "$LogPrefix Failed to collect SSH failure diagnostics: $($_.Exception.Message)"
         }
 
-        return
+        throw "$LogPrefix Failed to establish SSH connection to node '$workerNodeName' ($IpAddress) after $maxSshRetries retries"
     }
 
     $startServicesResult = Invoke-CmdOnVmViaSSHKey -CmdToExecute $startServicesCmd -UserName $UserName -IpAddress $IpAddress -IgnoreErrors:$true -ExecutionTimeoutSeconds $startServicesTimeoutSeconds
@@ -259,10 +259,25 @@ function Start-LinuxWorkerNodeServices {
                 }
                 $retryCount++
             }
-            Write-Log "$LogPrefix Timeout waiting for node to become Ready" -Console
+            Write-Log "$LogPrefix Timeout waiting for node '$workerNodeName' to become Ready" -Console
+            throw "$LogPrefix Node '$workerNodeName' did not transition to Ready within 60 seconds after starting services"
         }
     } else {
-        Write-Log "$LogPrefix Failed to start kubelet/runtime services on '$workerNodeName': $($startServicesResult.Output)"
+        $errorOutput = ($startServicesResult.Output | Out-String).Trim()
+        Write-Log "$LogPrefix Failed to start kubelet/runtime services on '$workerNodeName': $errorOutput" -Console
+
+        # Collect diagnostics from the node to aid troubleshooting
+        try {
+            $diagCmd = 'journalctl -u kubelet -u crio -u containerd --no-pager -n 50 2>/dev/null; echo "---SERVICE-STATUS---"; systemctl is-active kubelet crio containerd 2>/dev/null'
+            $diagResult = Invoke-CmdOnVmViaSSHKey -CmdToExecute $diagCmd -UserName $UserName -IpAddress $IpAddress -IgnoreErrors:$true -ExecutionTimeoutSeconds 15
+            $diagOutput = ($diagResult.Output | Out-String).Trim()
+            Write-Log "$LogPrefix Service diagnostics from '$workerNodeName':`n$diagOutput"
+        }
+        catch {
+            Write-Log "$LogPrefix Failed to collect service diagnostics from '$workerNodeName': $($_.Exception.Message)"
+        }
+
+        throw "$LogPrefix Failed to start kubelet/runtime services on '$workerNodeName': $errorOutput"
     }
 }
 
