@@ -12,7 +12,7 @@ on:
     branches:
       - "main"
     paths:
-      - "k2s/cmd/vfprules/vfprules/**"
+      - "cmd/vfprules/vfprules/**"
 
 jobs:
   build-vfp-dll:
@@ -57,7 +57,7 @@ jobs:
 
       - name: Build vfprules.dll
         run: |
-          msbuild .\k2s\cmd\vfprules\vfprules\vfprules.vcxproj -t:rebuild -verbosity:diag -property:Configuration=Release /property:Platform=x64
+          msbuild .\cmd\vfprules\vfprules\vfprules.vcxproj -t:rebuild -verbosity:diag -property:Configuration=Release /property:Platform=x64
           ls .\bin\cni\vfprules.dll
 
       - name: Commit dll

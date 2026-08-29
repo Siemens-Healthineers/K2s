@@ -10,17 +10,17 @@ These instructions make an AI agent immediately productive in this repository. K
 
 ## 1. Big Picture
 K2s is a dual‑platform Kubernetes distribution supporting both Windows and Linux hosts, with strong offline support. On Windows it bundles a Linux VM (Hyper-V or WSL) plus curated OSS components. On Linux (**experimental**) it runs the control plane natively and optionally provisions a Windows VM via libvirt/KVM. Repo delivers:
-- `k2s` CLI (Go) under `k2s/cmd/...` operating orchestration & lifecycle. Builds for both Windows and Linux via `go build` tags.
+- `k2s` CLI (Go) under `cmd/...` operating orchestration & lifecycle. Builds for both Windows and Linux via `go build` tags.
 - PowerShell modules & scripts for host provisioning, packaging, offline builds, addon management (`lib/modules`, `lib/scripts`, `addons/`) — used on Windows only.
-- Provider architecture (`k2s/internal/provider/`) abstracts all platform-specific logic behind domain interfaces. Commands use providers exclusively — no `runtime.GOOS` checks in command handlers.
+- Provider architecture (`internal/provider/`) abstracts all platform-specific logic behind domain interfaces. Commands use providers exclusively — no `runtime.GOOS` checks in command handlers.
 - Addon system: each addon = folder with `addon.manifest.yaml`, enable/disable scripts, and manifests.
 - Offline packaging pipeline producing large ZIPs containing binaries, images, VHDX base disks, and addon assets.
 - Documentation site built via MkDocs (`mkdocs.yml`, `docs/`).
 
 ## 2. Key Directories
 - `k2s/` Go sources (CLI root). Subdirs `cmd/*` for individual commands; shared logic in `internal/`.
-  - `k2s/internal/provider/` Platform-agnostic interfaces + build-tagged implementations (Windows ↔ PowerShell, Linux ↔ native Go). This is the primary abstraction layer for dual-platform support.
-  - `k2s/internal/setuporchestration/` Linux-native cluster provisioning (kubeadm, libvirt/KVM, SSH).
+  - `internal/provider/` Platform-agnostic interfaces + build-tagged implementations (Windows ↔ PowerShell, Linux ↔ native Go). This is the primary abstraction layer for dual-platform support.
+  - `internal/setuporchestration/` Linux-native cluster provisioning (kubeadm, libvirt/KVM, SSH).
 - `lib/modules/k2s.*.module/` PowerShell modules (logging, infra, node, cluster, signing, etc.) — Windows only.
 - `lib/scripts/k2s/system/package/` Packaging & delta generation scripts (`New-K2sDeltaPackage.ps1`, helpers file).
 - `addons/` Addon definitions; each addon has `Enable.ps1`, `Disable.ps1`, optional `Get-Status.ps1`, `Update.ps1`, `README.md`.
@@ -67,15 +67,15 @@ Each addon folder contains:
 New addon: copy a minimal existing one (e.g. `addons/autoscaling/`) and adjust manifest + scripts.
 
 ## 6. Go Code (CLI)
-- Each command in `k2s/cmd/<name>` with its own `main.go` or cobra-style setup (inspect existing patterns before introducing new flags/roots).
-  - CLI uses Cobra framework (`github.com/spf13/cobra`). See `k2s/cmd/k2s/main.go` for root command pattern.
-  - Structured logging via `slog` with custom logger from `k2s/cmd/k2s/utils/logging`.
+- Each command in `cmd/<name>` with its own `main.go` or cobra-style setup (inspect existing patterns before introducing new flags/roots).
+  - CLI uses Cobra framework (`github.com/spf13/cobra`). See `cmd/k2s/main.go` for root command pattern.
+  - Structured logging via `slog` with custom logger from `cmd/k2s/utils/logging`.
   - Exit codes defined in `internal/cli` (ExitCodeSuccess, ExitCodeFailure).
 - **Provider architecture**: All platform-specific logic is behind provider interfaces in `internal/provider/`. Command handlers call `context.Providers().Cluster.Start(config)` etc. — never use `runtime.GOOS` or build-tagged files in command code.
-- Shared functionality lives under `k2s/internal/...`. Reuse before creating duplicates.
+- Shared functionality lives under `internal/...`. Reuse before creating duplicates.
   - Common packages: `cli`, `host`, `powershell`, `logging`, `json`, `yaml`, `os`, `terminal`, `windows`, `provider`, `setuporchestration`.
 - Keep binaries buildable offline: avoid introducing network-time fetches at runtime.
-- **Cross-compilation**: The CLI builds for both Windows and Linux. Use `GOOS=linux go build ./k2s/cmd/k2s` to verify.
+- **Cross-compilation**: The CLI builds for both Windows and Linux. Use `GOOS=linux go build ./cmd/k2s` to verify.
 - Build via `BuildGoExe.ps1` (or `bgo.cmd` shortcut): `bgo -ProjectDir "path/to/cmd" -ExeOutDir "path/to/bin"`, or use `bgow` (all Windows) / `bgol` (all Linux).
 
 ## 7. Build & CI Workflows
@@ -115,9 +115,9 @@ When adding a new packaging / diff feature:
 
 ## 13. Typical Commands (Local Dev)
 - **After fresh clone (mandatory)**: `bgow` — Go-built binaries are not committed to git; this builds all 10 Windows executables to their expected locations. Use `bgol` for Linux cross-compilation.
-- Build CLI (Go): `go build ./k2s/cmd/k2s` (respect existing Go module).
+- Build CLI (Go): `go build ./cmd/k2s` (respect existing Go module).
   - Or use build shortcuts: `bgow` (all Windows executables), `bgol` (all Linux executables), `bgo` (builds k2s.exe only), `bgo -ProjectDir "..." -ExeOutDir "..."`.
-  - Cross-compile for Linux: `bgol` or `GOOS=linux go build -o k2s ./k2s/cmd/k2s`.
+  - Cross-compile for Linux: `bgol` or `GOOS=linux go build -o k2s ./cmd/k2s`.
 - Run delta packaging: `powershell -File lib/scripts/k2s/system/package/New-K2sDeltaPackage.ps1 ...`.
 - Serve docs locally: `mkdocs serve` (ensure python + mkdocs installed).
 - Test PowerShell modules: Execute unit test files like `addons.module.unit.tests.ps1` with Pester.

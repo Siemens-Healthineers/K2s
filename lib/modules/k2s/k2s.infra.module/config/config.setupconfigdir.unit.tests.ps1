@@ -16,9 +16,7 @@
 
 BeforeAll {
     $script:ModulePath = "$PSScriptRoot\config.module.psm1"
-    $script:PathModulePath = "$PSScriptRoot\..\path\path.module.psm1"
-
-    Import-Module $script:PathModulePath -Force -DisableNameChecking
+    $script:PackageRoot = (Resolve-Path -LiteralPath (Join-Path $PSScriptRoot '..\..\..\..\..')).Path
 
     function Import-ConfigModuleFresh {
         Remove-Module -Name 'config.module' -Force -ErrorAction SilentlyContinue
@@ -26,8 +24,7 @@ BeforeAll {
     }
 
     function Get-PackageConfigDirK2s {
-        $kubePath = Get-KubePath
-        return (Get-Content "$kubePath\cfg\config.json" -Raw | ConvertFrom-Json).configDir.k2s
+        return (Get-Content "$script:PackageRoot\cfg\config.json" -Raw | ConvertFrom-Json).configDir.k2s
     }
 
     function New-SetupConfigFixture {
@@ -145,8 +142,7 @@ Describe 'Setup config dir override (K2S_SETUP_CONFIG_DIR)' -Tag 'unit', 'ci' {
 
     Context 'package configuration is read-only' {
         It 'never modifies cfg/config.json' {
-            $kubePath = Get-KubePath
-            $configFile = "$kubePath\cfg\config.json"
+            $configFile = "$script:PackageRoot\cfg\config.json"
             $before = Get-Content $configFile -Raw
 
             $fixtureDir = New-SetupConfigFixture

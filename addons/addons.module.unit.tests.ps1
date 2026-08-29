@@ -1336,7 +1336,7 @@ Describe 'Import-CACertificateToWindowsStore' -Tag 'unit', 'ci', 'addon' {
 Describe 'Install-CertManagerControllers' -Tag 'unit', 'ci', 'addon' {
     BeforeAll {
         Mock -ModuleName $moduleName Write-Log { }
-        Mock -ModuleName $moduleName Get-CertManagerConfig { return 'cert-manager.yaml' }
+        Mock -ModuleName $moduleName Invoke-CmdOnControlPlaneViaSSHKey { return [pscustomobject]@{ Success = $true; Output = 'ok' } }
         Mock -ModuleName $moduleName Invoke-Kubectl { return [pscustomobject]@{ Success = $true; Output = 'ok' } }
         Mock -ModuleName $moduleName Wait-ForCertManagerAvailable { return $true }
         Mock -ModuleName $moduleName Clear-KubectlDiscoveryCache { }
@@ -1347,7 +1347,7 @@ Describe 'Install-CertManagerControllers' -Tag 'unit', 'ci', 'addon' {
             Install-CertManagerControllers
 
             Should -Invoke Invoke-Kubectl -Times 1 -Scope It -ParameterFilter {
-                $Params -contains 'apply' -and $Params -contains '-f' -and $Params -contains 'cert-manager.yaml'
+                $Params -contains 'apply' -and $Params -contains '-f' -and $Params -like '*cert-manager.yaml'
             }
             Should -Invoke Wait-ForCertManagerAvailable -Times 1 -Scope It
             Should -Invoke Invoke-Kubectl -Times 1 -Scope It -ParameterFilter {

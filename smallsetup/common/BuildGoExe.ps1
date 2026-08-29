@@ -14,9 +14,9 @@ Provides options to inject flags for an executable.
 .EXAMPLE
 PS> .\common\BuildGoExe.ps1
 
-PS> .\common\BuildGoExe.ps1 -ProjectDir "c:\ws\k2s\k2s\cmd\httproxy"
+PS> .\common\BuildGoExe.ps1 -ProjectDir "c:\ws\k2s\cmd\httproxy"
 
-PS> .\common\BuildGoExe.ps1 -ProjectDir "c:\ws\k2s\k2s\cmd\devgon" -ExeOutDir "c:\ws\k2s\bin"
+PS> .\common\BuildGoExe.ps1 -ProjectDir "c:\ws\k2s\cmd\devgon" -ExeOutDir "c:\ws\k2s\bin"
 
 #>
 
@@ -48,7 +48,7 @@ function Add-GoExecutableToList($location, $outLocation) {
 $buildStopwatch = [system.diagnostics.stopwatch]::StartNew()
 
 $currentLocation = Get-Location
-$appsDir = [IO.Path]::Combine($global:KubernetesPath, 'k2s', 'cmd')
+$appsDir = [IO.Path]::Combine($global:KubernetesPath, 'cmd')
 $binDir = [IO.Path]::Combine($global:KubernetesPath, 'bin')
 $cniBinDir = [IO.Path]::Combine($binDir, 'cni')
 $appsOutputMapping = @{
@@ -144,18 +144,11 @@ for ($i = 0; $i -lt $goExecutables.Count; $i++) {
     Write-Output "Building GO executable under folder path: $($goExecutable.InDir) ..."
     Set-Location $($goExecutable.InDir)
 
-    # Determine output path: for non-Windows targets, specify the full file path
-    # to avoid collisions with directories of the same name (e.g. k2s/ vs k2s binary)
+    # Determine output path for non-Windows targets.
     $outPath = $goExecutable.OutDir
     if ($TargetOS -ne 'windows') {
         $appName = Split-Path $goExecutable.InDir -Leaf
-        $candidatePath = [IO.Path]::Combine($goExecutable.OutDir, $appName)
-        if (Test-Path -Path $candidatePath -PathType Container) {
-            $outPath = "${candidatePath}.${TargetOS}"
-        }
-        else {
-            $outPath = $candidatePath
-        }
+        $outPath = [IO.Path]::Combine($goExecutable.OutDir, $appName)
     }
 
     # GO BUILD

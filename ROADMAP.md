@@ -24,7 +24,7 @@ The project focuses on:
 
 - Continue improving the default Windows-host variant, where the Windows host is reused as a Kubernetes worker node and Linux workloads run through Hyper-V or WSL.
 - Mature the experimental Linux-host variant, where the control plane runs natively on Linux and an optional Windows worker VM can be provisioned through libvirt/KVM.
-- Improve the provider architecture in `k2s/internal/provider` so platform-specific behavior stays behind well-defined interfaces.
+- Improve the provider architecture in `internal/provider` so platform-specific behavior stays behind well-defined interfaces.
 - Strengthen offline installation packages, addon export/import, node packages, GPU-enabled node packages, and delta packages.
 - Harden lifecycle operations such as install, upgrade, backup, restore, status, diagnostics, reset, and uninstall.
 - Keep the addon catalog practical and curated for ingress, registry, monitoring, logging, GitOps rollout, storage, security, GPU support, KubeVirt, and selected domain-specific workloads.

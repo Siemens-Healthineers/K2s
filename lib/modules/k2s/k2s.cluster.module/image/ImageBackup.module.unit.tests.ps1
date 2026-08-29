@@ -233,13 +233,23 @@ Describe "ImageBackup Module Tests" -Tag 'unit', 'ci' {
             It 'does not call Get-CrictlExePath when CrictlExePath is supplied' {
                 InModuleScope $script:moduleName {
                     Mock Write-Log {}
-                    Mock New-BackupDirectoryStructure {}
+                    Mock New-BackupDirectoryStructure {
+                        param($BackupDirectory)
+                        New-Item -ItemType Directory -Path (Join-Path $BackupDirectory 'images') -Force | Out-Null
+                    }
                     Mock Get-CrictlExePath { 'C:\default\bin\crictl.exe' }
                     Mock Get-KubeBinPath { 'C:\default\bin' }
-                    Mock Test-Path { $true }
                     Mock Invoke-Expression {}
-                    Mock Out-File {}
                     Mock New-ImageProcessingLog {}
+                    Mock Get-ConfiguredLogDirectory { 'TestDrive:\logs' }
+
+                    $exportImageScriptPath = Join-Path $TestDrive 'Export-Image.ps1'
+                    Set-Content -Path $exportImageScriptPath -Value @'
+param(
+    [string] $ExportPath
+)
+New-Item -ItemType File -Path $ExportPath -Force | Out-Null
+'@
 
                     $images = @(@{ repository = 'nginx'; tag = 'latest'; imageid = 'abc123'; node = 'win'; size = '100MB' })
 
@@ -247,7 +257,8 @@ Describe "ImageBackup Module Tests" -Tag 'unit', 'ci' {
                         -BackupDirectory 'TestDrive:\backup' `
                         -Images $images `
                         -CrictlExePath 'C:\old\bin\crictl.exe' `
-                        -CrictlConfigPath 'C:\old\bin\crictl.yaml'
+                        -CrictlConfigPath 'C:\old\bin\crictl.yaml' `
+                        -ExportImageScriptPath $exportImageScriptPath
 
                     Should -Invoke Get-CrictlExePath -Exactly 0
                 }

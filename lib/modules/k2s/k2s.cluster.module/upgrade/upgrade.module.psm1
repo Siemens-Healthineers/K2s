@@ -5,8 +5,10 @@
 $infraModule = "$PSScriptRoot/../../k2s.infra.module/k2s.infra.module.psm1"
 $imageBackupModule = "$PSScriptRoot/../image/ImageBackup.module.psm1"
 $pvBackupModule = "$PSScriptRoot/BackupPersistentVolumes.psm1"
+$setupInfoModule = "$PSScriptRoot/../setupinfo/setupinfo.module.psm1"
+$runningStateModule = "$PSScriptRoot/../runningstate/runningstate.module.psm1"
 
-Import-Module $infraModule, $imageBackupModule, $pvBackupModule
+Import-Module $infraModule, $imageBackupModule, $pvBackupModule, $setupInfoModule, $runningStateModule
 
 $processTools = @'
 

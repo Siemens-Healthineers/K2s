@@ -70,14 +70,14 @@ while [[ $# -gt 0 ]]; do
 done
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-cd "$repo_root/k2s"
+cd "$repo_root"
 
 # The CI service is started by systemd, whose default PATH often omits the Go
 # installation used to build K2s. Keep the runner self-contained as well.
 export PATH="/usr/local/go/bin:$PATH"
 
-if [[ ! -x "$repo_root/k2s.linux" ]]; then
-  echo "error: native K2s CLI is missing: $repo_root/k2s.linux" >&2
+if [[ ! -x "$repo_root/k2s" ]]; then
+  echo "error: native K2s CLI is missing: $repo_root/k2s" >&2
   exit 1
 fi
 if ! command -v kubectl >/dev/null 2>&1; then
