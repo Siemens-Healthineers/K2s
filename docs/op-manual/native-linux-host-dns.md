@@ -89,9 +89,9 @@ flowchart TD
 Use normal K2s lifecycle commands:
 
 ```console
-sudo ./k2s.linux start
-sudo ./k2s.linux stop
-sudo ./k2s.linux uninstall
+sudo ./k2s start
+sudo ./k2s stop
+sudo ./k2s uninstall
 ```
 
 When running, inspect the K2s DNS proxy with:

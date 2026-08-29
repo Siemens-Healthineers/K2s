@@ -390,7 +390,7 @@ function Start-GinkgoTests {
             if ($splitResult) {
                 $result = $splitResult | ConvertFrom-Json
                 foreach ($label in @($result)) {
-                    $foundLabels.Add($label) | Out-Null
+                    [void] $foundLabels.Add($label)
                 }
             }
         }
