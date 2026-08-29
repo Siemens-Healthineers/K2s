@@ -210,7 +210,7 @@ function Start-LinuxWorkerNodeServices {
     }
 
     if (-not $sshProbeSucceeded) {
-        Write-Log "$LogPrefix Failed to establish SSH connection to '$workerNodeName' after retries: $($sshProbeResult.Output)"
+        Write-Log "$LogPrefix Failed to establish SSH connection to '$workerNodeName' after retries: $($sshProbeResult.Output)" -Console
 
         try {
             $tcpCheck = Test-NetConnection -ComputerName $IpAddress -Port 22 -WarningAction SilentlyContinue
@@ -237,7 +237,7 @@ function Start-LinuxWorkerNodeServices {
             Write-Log "$LogPrefix Failed to collect SSH failure diagnostics: $($_.Exception.Message)"
         }
 
-        return
+        throw "$LogPrefix Failed to establish SSH connection to node '$workerNodeName' ($IpAddress) after $maxSshRetries retries"
     }
 
     $startServicesResult = Invoke-CmdOnVmViaSSHKey -CmdToExecute $startServicesCmd -UserName $UserName -IpAddress $IpAddress -IgnoreErrors:$true -ExecutionTimeoutSeconds $startServicesTimeoutSeconds
@@ -246,11 +246,13 @@ function Start-LinuxWorkerNodeServices {
         Write-Log "$LogPrefix Started kubelet/runtime services on '$workerNodeName'"
 
         if ($WaitForReady) {
-            Write-Log "$LogPrefix Waiting for node '$workerNodeName' to transition to Ready (max ~60 seconds)..." -Console
             $maxRetries = 30
+            $retryIntervalSeconds = 2
+            $totalTimeoutSeconds = $maxRetries * $retryIntervalSeconds
+            Write-Log "$LogPrefix Waiting for node '$workerNodeName' to transition to Ready (max ~$totalTimeoutSeconds seconds)..." -Console
             $retryCount = 0
             while ($retryCount -lt $maxRetries) {
-                Start-Sleep -Seconds 2
+                Start-Sleep -Seconds $retryIntervalSeconds
                 $nodeStatusOutput = (Invoke-Kubectl -Params @('get', 'node', $workerNodeName, '--no-headers')).Output | Out-String
                 $nodeStatus = $nodeStatusOutput.Trim()
                 if (-not [string]::IsNullOrWhiteSpace($nodeStatus) -and $nodeStatus -match '\s+Ready(?:\s|,)') {
@@ -259,10 +261,57 @@ function Start-LinuxWorkerNodeServices {
                 }
                 $retryCount++
             }
-            Write-Log "$LogPrefix Timeout waiting for node to become Ready" -Console
+            Write-Log "$LogPrefix Timeout waiting for node '$workerNodeName' to become Ready" -Console
+            throw "$LogPrefix Node '$workerNodeName' did not transition to Ready within $totalTimeoutSeconds seconds after starting services"
         }
     } else {
-        Write-Log "$LogPrefix Failed to start kubelet/runtime services on '$workerNodeName': $($startServicesResult.Output)"
+        $errorOutput = ($startServicesResult.Output | Out-String).Trim()
+        Write-Log "$LogPrefix Service start command returned non-zero for '$workerNodeName': $errorOutput" -Console
+
+        # The systemctl start command may return non-zero even when services are already running.
+        # Verify actual service state before deciding to fail.
+        $verifyCmd = 'systemctl is-active kubelet 2>/dev/null'
+        $verifyResult = Invoke-CmdOnVmViaSSHKey -CmdToExecute $verifyCmd -UserName $UserName -IpAddress $IpAddress -IgnoreErrors:$true -ExecutionTimeoutSeconds 10
+        $kubeletStatus = ($verifyResult.Output | Out-String).Trim()
+
+        if ($kubeletStatus -eq 'active') {
+            Write-Log "$LogPrefix kubelet is active on '$workerNodeName' despite non-zero start exit code; continuing." -Console
+
+            if ($WaitForReady) {
+                $maxRetries = 30
+                $retryIntervalSeconds = 2
+                $totalTimeoutSeconds = $maxRetries * $retryIntervalSeconds
+                Write-Log "$LogPrefix Waiting for node '$workerNodeName' to transition to Ready (max ~$totalTimeoutSeconds seconds)..." -Console
+                $retryCount = 0
+                while ($retryCount -lt $maxRetries) {
+                    Start-Sleep -Seconds $retryIntervalSeconds
+                    $nodeStatusOutput = (Invoke-Kubectl -Params @('get', 'node', $workerNodeName, '--no-headers')).Output | Out-String
+                    $nodeStatus = $nodeStatusOutput.Trim()
+                    if (-not [string]::IsNullOrWhiteSpace($nodeStatus) -and $nodeStatus -match '\s+Ready(?:\s|,)') {
+                        Write-Log "$LogPrefix Node '$workerNodeName' is now Ready" -Console
+                        return
+                    }
+                    $retryCount++
+                }
+                Write-Log "$LogPrefix Timeout waiting for node '$workerNodeName' to become Ready" -Console
+                throw "$LogPrefix Node '$workerNodeName' did not transition to Ready within $totalTimeoutSeconds seconds after starting services"
+            }
+            return
+        }
+
+        # kubelet truly not running — collect diagnostics and throw
+        Write-Log "$LogPrefix Failed to start kubelet/runtime services on '$workerNodeName' (kubelet status: $kubeletStatus)" -Console
+        try {
+            $diagCmd = 'journalctl -u kubelet -u crio -u containerd --no-pager -n 50 2>/dev/null; echo "---SERVICE-STATUS---"; systemctl is-active kubelet crio containerd 2>/dev/null'
+            $diagResult = Invoke-CmdOnVmViaSSHKey -CmdToExecute $diagCmd -UserName $UserName -IpAddress $IpAddress -IgnoreErrors:$true -ExecutionTimeoutSeconds 15
+            $diagOutput = ($diagResult.Output | Out-String).Trim()
+            Write-Log "$LogPrefix Service diagnostics from '$workerNodeName':`n$diagOutput"
+        }
+        catch {
+            Write-Log "$LogPrefix Failed to collect service diagnostics from '$workerNodeName': $($_.Exception.Message)"
+        }
+
+        throw "$LogPrefix Failed to start kubelet/runtime services on '$workerNodeName': $errorOutput"
     }
 }
 
@@ -299,9 +348,15 @@ function Invoke-LinuxWorkerNodeStart {
     }
 
     if ($null -ne $nodeConfig -and -not [string]::IsNullOrWhiteSpace($nodeUserName) -and -not [string]::IsNullOrWhiteSpace($nodeConfig.IpAddress)) {
-        Start-LinuxWorkerNodeServices -NodeName $workerNodeName -IpAddress $nodeConfig.IpAddress -UserName $nodeUserName -WaitForReady:$WaitForReady -LogPrefix $LogPrefix
+        try {
+            Start-LinuxWorkerNodeServices -NodeName $workerNodeName -IpAddress $nodeConfig.IpAddress -UserName $nodeUserName -WaitForReady:$WaitForReady -LogPrefix $LogPrefix
+        }
+        catch {
+            Write-Log "$LogPrefix Error starting services on node '$workerNodeName': $($_.Exception.Message)" -Console
+            throw
+        }
     } else {
-        Write-Log "$LogPrefix Cannot start kubelet/runtime on node '$workerNodeName' because Username/IpAddress is missing in cluster config."
+        Write-Log "$LogPrefix Cannot start kubelet/runtime on node '$workerNodeName' because Username/IpAddress is missing in cluster config." -Console
     }
 }
 
