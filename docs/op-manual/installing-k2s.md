@@ -218,7 +218,7 @@ service forwards external traffic through `--proxy` when supplied. The given
 K2s services; the installer does not change global proxy environment settings.
 
 For workload pods, the same proxy is available at the configured
-`smallsetup.kubeSwitch` address from [cfg/config.json](../../cfg/config.json)
+`smallsetup.kubeSwitch` address from [cfg/config.json](https://github.com/Siemens-Healthineers/K2s/blob/main/cfg/config.json){target="_blank"}
 on port `8181`, matching the Windows-host and Linux-host topology. The proxy only accepts loopback, pod-CIDR, and service-CIDR clients.
 
 The following options are intentionally unavailable on a native Linux host:
