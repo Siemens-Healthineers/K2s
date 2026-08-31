@@ -971,6 +971,8 @@ You're not viewing the latest release version.
       
         
       
+        
+      
     
     
     
@@ -1525,6 +1527,34 @@ You're not viewing the latest release version.
   
   
     <li class="md-nav__item">
+      <a href="../../../op-manual/native-linux-host-dns/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Native Linux Host DNS
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../../../op-manual/extending-k2s-cluster/" class="md-nav__link">
         
   
@@ -1787,6 +1817,8 @@ You're not viewing the latest release version.
   
     
     
+      
+        
       
         
       
@@ -2326,6 +2358,34 @@ You're not viewing the latest release version.
   
   
     <li class="md-nav__item">
+      <a href="../../dns-host-topologies/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DNS Host Topologies
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../../architecture/" class="md-nav__link">
         
   
@@ -2820,7 +2880,7 @@ If you have not installed <em>K2s</em> yet, then your <code>PATH</code> is not u
 <a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="go">C:\ws\k2s\bin\bgo.cmd</span>
 </code></pre></div></p>
 <p>Building <code>httpproxy</code> <em>Go</em> project:
-<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="go">C:\ws\k2s\bin\bgo -ProjectDir "C:\ws\k2s\k2s\cmd\httpproxy\" -ExeOutDir "c:\ws\k2s\bin"</span>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="go">C:\ws\k2s\bin\bgo -ProjectDir "C:\ws\k2s\cmd\httpproxy\" -ExeOutDir "c:\ws\k2s\bin"</span>
 </code></pre></div></p>
 <div class="admonition info">
 <p class="admonition-title">Info</p>
@@ -2835,7 +2895,7 @@ If you have not installed <em>K2s</em> yet, then your <code>PATH</code> is not u
 <div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="go">C:\ws\k2s\bin\bgol</span>
 </code></pre></div></p>
 <p>If <em>K2s</em> is installed then just simply execute the command without the full path:
-<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="go">bgo -ProjectDir "C:\ws\k2s\k2s\cmd\httpproxy\" -ExeOutDir "c:\ws\k2s\bin"</span>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="go">bgo -ProjectDir "C:\ws\k2s\cmd\httpproxy\" -ExeOutDir "c:\ws\k2s\bin"</span>
 <a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a><span class="go">bgow</span>
 <a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a><span class="go">bgol</span>
 </code></pre></div></p>
@@ -2845,11 +2905,11 @@ If you have not installed <em>K2s</em> yet, then your <code>PATH</code> is not u
 </code></pre></div>
 <p>Alternatively, you can use standard Go tools directly:</p>
 <div class="highlight"><span class="filename">Bash</span><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="c1"># Build the Linux binary</span>
-<a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a><span class="nv">GOOS</span><span class="o">=</span>linux<span class="w"> </span>go<span class="w"> </span>build<span class="w"> </span>-o<span class="w"> </span>k2s<span class="w"> </span>./k2s/cmd/k2s
+<a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a><span class="nv">GOOS</span><span class="o">=</span>linux<span class="w"> </span>go<span class="w"> </span>build<span class="w"> </span>-o<span class="w"> </span>k2s<span class="w"> </span>./cmd/k2s
 <a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a>
 <a id="__codelineno-9-4" name="__codelineno-9-4" href="#__codelineno-9-4"></a><span class="c1"># Verify the build compiles for both platforms</span>
-<a id="__codelineno-9-5" name="__codelineno-9-5" href="#__codelineno-9-5"></a><span class="nv">GOOS</span><span class="o">=</span>windows<span class="w"> </span>go<span class="w"> </span>build<span class="w"> </span>./k2s/cmd/k2s
-<a id="__codelineno-9-6" name="__codelineno-9-6" href="#__codelineno-9-6"></a><span class="nv">GOOS</span><span class="o">=</span>linux<span class="w"> </span>go<span class="w"> </span>build<span class="w"> </span>./k2s/cmd/k2s
+<a id="__codelineno-9-5" name="__codelineno-9-5" href="#__codelineno-9-5"></a><span class="nv">GOOS</span><span class="o">=</span>windows<span class="w"> </span>go<span class="w"> </span>build<span class="w"> </span>./cmd/k2s
+<a id="__codelineno-9-6" name="__codelineno-9-6" href="#__codelineno-9-6"></a><span class="nv">GOOS</span><span class="o">=</span>linux<span class="w"> </span>go<span class="w"> </span>build<span class="w"> </span>./cmd/k2s
 </code></pre></div>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
@@ -2857,7 +2917,7 @@ If you have not installed <em>K2s</em> yet, then your <code>PATH</code> is not u
 </div>
 <h2 id="building-natively-on-linux-no-powershell">Building Natively on Linux (no PowerShell)</h2>
 <p>On a Linux developer machine you can build the Linux executables without PowerShell using the <code>build.sh</code> script (or the <code>Makefile</code> wrapper) in the repository root. Both mirror the same Go build flags and version metadata as <a href="https://github.com/Siemens-Healthineers/K2s/blob/main/smallsetup/common/BuildGoExe.ps1" target="_blank" rel="noopener">BuildGoExe.ps1</a>.</p>
-<p>Prerequisite: install <a href="https://go.dev/dl/" target="_blank" rel="noopener"><em>Go</em></a> (see <code>k2s/go.mod</code> for the required version).</p>
+<p>Prerequisite: install <a href="https://go.dev/dl/" target="_blank" rel="noopener"><em>Go</em></a> (see <code>go.mod</code> for the required version).</p>
 <p>After cloning, make the build script executable before running it:</p>
 <div class="highlight"><span class="filename">Bash</span><pre><span></span><code><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a>chmod<span class="w"> </span>+x<span class="w"> </span>./build.sh
 </code></pre></div>
@@ -2870,7 +2930,7 @@ If you have not installed <em>K2s</em> yet, then your <code>PATH</code> is not u
 <a id="__codelineno-11-7" name="__codelineno-11-7" href="#__codelineno-11-7"></a><span class="c1"># Remove the produced binaries</span>
 <a id="__codelineno-11-8" name="__codelineno-11-8" href="#__codelineno-11-8"></a>make<span class="w"> </span>clean
 </code></pre></div>
-<p>This builds the <abbr title="Command-Line Interface">CLI</abbr> as <code>k2s.linux</code> in the repository root and builds <code>cloudinitisobuilder</code>, <code>httpproxy</code>, and <code>yaml2json</code> into <code>bin/</code>. To route Go module downloads through a proxy, pass <code>./build.sh --proxy http://proxy.example.com:8080</code>.</p>
+<p>This builds the <abbr title="Command-Line Interface">CLI</abbr> as <code>k2s</code> in the repository root and builds <code>cloudinitisobuilder</code>, <code>httpproxy</code>, and <code>yaml2json</code> into <code>bin/</code>. To route Go module downloads through a proxy, pass <code>./build.sh --proxy http://proxy.example.com:8080</code>.</p>
 <!--
 SPDX-FileCopyrightText: © 2024 Siemens Healthineers AG
 SPDX-License-Identifier: MIT

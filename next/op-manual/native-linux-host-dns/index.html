@@ -13,13 +13,13 @@ SPDX-License-Identifier: MIT
       
       
       
-        <link rel="canonical" href="https://Siemens-Healthineers.github.io/K2s/next/op-manual/external-dns/">
+        <link rel="canonical" href="https://Siemens-Healthineers.github.io/K2s/next/op-manual/native-linux-host-dns/">
       
       
-        <link rel="prev" href="../gitops-addon-delivery/">
+        <link rel="prev" href="../external-dns/">
       
       
-        <link rel="next" href="../native-linux-host-dns/">
+        <link rel="next" href="../extending-k2s-cluster/">
       
       
         
@@ -30,7 +30,7 @@ SPDX-License-Identifier: MIT
     
     
       
-        <title>External DNS - K2s - Kubernetes distribution for Windows & Linux workloads</title>
+        <title>Native Linux Host DNS - K2s - Kubernetes distribution for Windows & Linux workloads</title>
       
     
     
@@ -83,7 +83,7 @@ SPDX-License-Identifier: MIT
     <div data-md-component="skip">
       
         
-        <a href="#external-dns" class="md-skip">
+        <a href="#native-linux-host-dns" class="md-skip">
           Skip to content
         </a>
       
@@ -134,7 +134,7 @@ You're not viewing the latest release version.
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              External DNS
+              Native Linux Host DNS
             
           </span>
         </div>
@@ -1499,6 +1499,34 @@ You're not viewing the latest release version.
                 
   
   
+  
+  
+    <li class="md-nav__item">
+      <a href="../external-dns/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    External DNS
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
     
   
   
@@ -1518,7 +1546,7 @@ You're not viewing the latest release version.
   <span class="md-ellipsis">
     
   
-    External DNS
+    Native Linux Host DNS
   
 
     
@@ -1536,7 +1564,7 @@ You're not viewing the latest release version.
   <span class="md-ellipsis">
     
   
-    External DNS
+    Native Linux Host DNS
   
 
     
@@ -1562,71 +1590,43 @@ You're not viewing the latest release version.
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#overview" class="md-nav__link">
+  <a href="#design" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Overview
+        Design
       
     </span>
   </a>
-  
-    <nav class="md-nav" aria-label="Overview">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#coredns" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        CoreDNS
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#externaldns" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        ExternalDNS
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#etcd" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        etcd
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#windows-host-physical-network-adapter-dns-configuration" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Windows Host Physical Network Adapter DNS Configuration
-      
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
   
 </li>
       
         <li class="md-nav__item">
-  <a href="#links" class="md-nav__link">
+  <a href="#lifecycle-picture" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Links
+        Lifecycle picture
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#resolver-safety-and-lifecycle" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Resolver safety and lifecycle
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#operations" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Operations
       
     </span>
   </a>
@@ -1637,34 +1637,6 @@ You're not viewing the latest release version.
   
 </nav>
       
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../native-linux-host-dns/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Native Linux Host DNS
-  
-
-    
-  </span>
-  
-  
-
-      </a>
     </li>
   
 
@@ -2778,71 +2750,43 @@ You're not viewing the latest release version.
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#overview" class="md-nav__link">
+  <a href="#design" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Overview
+        Design
       
     </span>
   </a>
-  
-    <nav class="md-nav" aria-label="Overview">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#coredns" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        CoreDNS
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#externaldns" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        ExternalDNS
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#etcd" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        etcd
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#windows-host-physical-network-adapter-dns-configuration" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Windows Host Physical Network Adapter DNS Configuration
-      
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
   
 </li>
       
         <li class="md-nav__item">
-  <a href="#links" class="md-nav__link">
+  <a href="#lifecycle-picture" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Links
+        Lifecycle picture
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#resolver-safety-and-lifecycle" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Resolver safety and lifecycle
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#operations" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Operations
       
     </span>
   </a>
@@ -2866,7 +2810,7 @@ You're not viewing the latest release version.
 
 
   
-    <a href="https://github.com/Siemens-Healthineers/K2s/edit/main/docs/op-manual/external-dns.md" title="Edit this page" class="md-content__button md-icon" rel="edit">
+    <a href="https://github.com/Siemens-Healthineers/K2s/edit/main/docs/op-manual/native-linux-host-dns.md" title="Edit this page" class="md-content__button md-icon" rel="edit">
       
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M10 20H6V4h7v5h5v3.1l2-2V8l-6-6H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h4zm10.2-7c.1 0 .3.1.4.2l1.3 1.3c.2.2.2.6 0 .8l-1 1-2.1-2.1 1-1c.1-.1.2-.2.4-.2m0 3.9L14.1 23H12v-2.1l6.1-6.1z"/></svg>
     </a>
@@ -2875,103 +2819,86 @@ You're not viewing the latest release version.
 
 
 <!--
-SPDX-FileCopyrightText: © 2024 Siemens Healthineers AG
+SPDX-FileCopyrightText: © 2026 Siemens Healthineers AG
 SPDX-License-Identifier: MIT
 -->
 
-<h1 id="external-dns">External <abbr title="Domain Name System">DNS</abbr></h1>
-<p>ExternalDNS synchronizes ingress endpoints with a <abbr title="Domain Name System">DNS</abbr> provider.
-In a Cloud environment, the <abbr title="Domain Name System">DNS</abbr> provider would be an external <abbr title="Domain Name System">DNS</abbr>.<br />
-For K2s, we re-use the CoreDNS and configure ExternalDNS to sync
-all hosts it finds in the ingresses to the same <abbr title="Domain Name System">DNS</abbr> which is used to
-resolve the internal k8s svc host names.</p>
-<h2 id="overview">Overview</h2>
-<p>Here is how <abbr title="Domain Name System">DNS</abbr> resolution work on K2s:</p>
-<p><img alt="overview" src="../assets/dns-overview.drawio.png" /></p>
-<h3 id="coredns">CoreDNS</h3>
-<p>CoreDNS is a <abbr title="Domain Name System">DNS</abbr> server part of the core kubernetes system. It monitors kubernetes
-services and pods, the relevant part of the default configuration is:</p>
-<div class="highlight"><span class="filename">YAML</span><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="l l-Scalar l-Scalar-Plain">k get cm coredns -n kube-system -o yaml</span>
-<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="nn">...</span>
-<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="w">        </span><span class="l l-Scalar l-Scalar-Plain">kubernetes cluster.local in-addr.arpa ip6.arpa {</span>
-<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="w">           </span><span class="l l-Scalar l-Scalar-Plain">pods insecure</span>
-<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="w">           </span><span class="l l-Scalar l-Scalar-Plain">fallthrough in-addr.arpa ip6.arpa</span>
-<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="w">           </span><span class="l l-Scalar l-Scalar-Plain">ttl 30</span>
-<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="w">        </span><span class="l l-Scalar l-Scalar-Plain">}</span>
-<a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a><span class="nn">...</span>
+<h1 id="native-linux-host-dns">Native Linux Host <abbr title="Domain Name System">DNS</abbr></h1>
+<p>Native Linux K2s makes Kubernetes <abbr title="Domain Name System">DNS</abbr> records available to host applications
+while K2s is running. This applies to normal Linux resolvers, including Go
+programs that read <code>/etc/resolv.conf</code> directly.</p>
+<h2 id="design">Design</h2>
+<p>K2s runs the pinned AdGuard <code>dnsproxy</code> binary as the <code>k2s-dnsproxy</code> systemd
+service. It listens on both <code>127.0.0.1:53</code> and the configured KubeSwitch
+address. The latter is reserved for future K2s worker-node use.</p>
+<pre class="mermaid"><code>flowchart LR
+    Host[Host applications] --&gt; Resolver[/etc/resolv.conf]
+    Resolver --&gt; Proxy[K2s dnsproxy]
+    Proxy --&gt;|Kubernetes zones| CoreDNS[kube-dns Service]
+    Proxy --&gt;|All other zones| External[Original external DNS servers]</code></pre>
+<p>At installation and <code>k2s start</code>, K2s discovers the <code>kube-dns</code> Service <abbr title="Internet Protocol">IP</abbr> and
+the Kubernetes zones from the active CoreDNS configuration. It forwards these
+zones, including service, pod, custom, and reverse zones served by CoreDNS, to
+CoreDNS. All other requests use the nameservers already present in
+<code>/etc/resolv.conf</code> before K2s starts. This mirrors the Windows-host flow, where
+physical NIC <abbr title="Domain Name System">DNS</abbr> servers become the normal <code>dnsproxy</code> upstreams.</p>
+<h2 id="lifecycle-picture">Lifecycle picture</h2>
+<pre class="mermaid"><code>sequenceDiagram
+    participant Host as Native Linux host
+    participant Resolver as /etc/resolv.conf
+    participant Proxy as k2s-dnsproxy
+    participant CoreDNS as CoreDNS
+    participant External as Existing external DNS
+
+    Note over Host,External: k2s install or k2s start
+    Host-&gt;&gt;Resolver: Save existing file or symlink state
+    Host-&gt;&gt;CoreDNS: Discover kube-dns Service and served zones
+    Host-&gt;&gt;Proxy: Start loopback and KubeSwitch listeners
+    Host-&gt;&gt;Resolver: Use 127.0.0.1 while K2s runs
+    Proxy-&gt;&gt;CoreDNS: Kubernetes DNS zones
+    Proxy-&gt;&gt;External: Non-Kubernetes DNS zones
+
+    Note over Host,External: k2s stop or k2s uninstall
+    Host-&gt;&gt;Resolver: Restore exact saved resolver state
+    Host-&gt;&gt;Proxy: Stop and remove K2s DNS service as applicable
+    Host-&gt;&gt;External: Continue pre-K2s external DNS behavior</code></pre>
+<h2 id="resolver-safety-and-lifecycle">Resolver safety and lifecycle</h2>
+<p>K2s does not alter <abbr title="Domain Name System">DNS</abbr> configuration on <abbr title="Local Area Network">LAN</abbr>, Wi-Fi, VPN, <abbr title="Dynamic Host Configuration Protocol">DHCP</abbr>, NetworkManager,
+or other host network interfaces.</p>
+<p>While K2s is running, it temporarily replaces <code>/etc/resolv.conf</code> with a
+K2s-owned file that points to <code>127.0.0.1</code>. Before this replacement, K2s saves
+the exact prior resolver state, including regular-file content or symlink
+target and file permissions, under the native K2s runtime directory.</p>
+<p>On <code>k2s stop</code> K2s restores that saved resolver state <strong>before</strong> it stops the
+<abbr title="Domain Name System">DNS</abbr> proxy. On <code>k2s uninstall</code> it also restores the saved state and removes only
+K2s-owned <abbr title="Domain Name System">DNS</abbr> service and configuration files. Consequently, external <abbr title="Domain Name System">DNS</abbr>
+returns to the same resolver state that existed before K2s started.</p>
+<p>If <abbr title="Domain Name System">DNS</abbr> proxy startup, CoreDNS discovery, or a host <abbr title="Domain Name System">DNS</abbr> validation fails, K2s
+restores the saved resolver configuration and fails installation or startup.</p>
+<pre class="mermaid"><code>flowchart TD
+    Start[Start native K2s DNS setup] --&gt; Save[Save existing resolver state]
+    Save --&gt; Discover[Discover kube-dns and CoreDNS zones]
+    Discover --&gt; Proxy[Start K2s DNS proxy]
+    Proxy --&gt; Activate[Activate loopback resolver]
+    Activate --&gt; Verify{Host and Kubernetes DNS work?}
+    Verify --&gt;|Yes| Ready[Native host DNS ready]
+    Verify --&gt;|No| Rollback[Restore resolver and remove K2s DNS state]
+    Rollback --&gt; Failed[Fail install or start]</code></pre>
+<h2 id="operations">Operations</h2>
+<p>Use normal K2s lifecycle commands:</p>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="go">sudo ./k2s start</span>
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="go">sudo ./k2s stop</span>
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="go">sudo ./k2s uninstall</span>
 </code></pre></div>
-<p>During the installation phase of K2s, we extend CodeDNS with the <code>etcd</code> CoreDNS plugin
-and we adjust the configuration like this:</p>
-<div class="highlight"><span class="filename">YAML</span><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="w">        </span><span class="l l-Scalar l-Scalar-Plain">kubernetes cluster.local in-addr.arpa ip6.arpa {</span>
-<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="w">           </span><span class="l l-Scalar l-Scalar-Plain">pods insecure</span>
-<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="w">           </span><span class="l l-Scalar l-Scalar-Plain">fallthrough</span>
-<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="w">           </span><span class="l l-Scalar l-Scalar-Plain">ttl 30</span>
-<a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a><span class="w">        </span><span class="l l-Scalar l-Scalar-Plain">}</span>
-<a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a><span class="w">        </span><span class="l l-Scalar l-Scalar-Plain">etcd cluster.local {</span>
-<a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a><span class="w">            </span><span class="l l-Scalar l-Scalar-Plain">path /skydns</span>
-<a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a><span class="w">            </span><span class="l l-Scalar l-Scalar-Plain">endpoint https://172.19.1.100:2379</span>
-<a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a><span class="w">            </span><span class="l l-Scalar l-Scalar-Plain">tls /etc/kubernetes/pki/etcd-client/tls.crt /etc/kubernetes/pki/etcd-client/tls.key /etc/kubernetes/pki/etcd-ca/tls.crt</span>
-<a id="__codelineno-1-10" name="__codelineno-1-10" href="#__codelineno-1-10"></a><span class="w">        </span><span class="l l-Scalar l-Scalar-Plain">}</span>
+<p>When running, inspect the K2s <abbr title="Domain Name System">DNS</abbr> proxy with:</p>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="go">systemctl status k2s-dnsproxy</span>
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="go">tail -f /var/log/dnsproxy/dnsproxy.log</span>
 </code></pre></div>
-<p>Observe the modified fallthrough in the kubernetes plugin, which gives a chance
-to the etcd plugin to serve the zone <code>cluster.local</code> as well.<br />
-The etcd plugin will serve all entries it finds in the <code>etcd</code> database under the
-prefix <code>/skydns</code>,  in SkyDNS Format (done by ExternalDNS - see below).</p>
-<p>In this configuration, we use the same etcd instance used by kubernetes. For this,
-we import the etcd certificates as secrets and mount them to the CoreDNS
-deployment:</p>
-<div class="highlight"><span class="filename">YAML</span><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="l l-Scalar l-Scalar-Plain">k get deployment coredns -n kube-system -o yaml</span>
-<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="nn">...</span>
-<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="w">        </span><span class="nt">volumeMounts</span><span class="p">:</span>
-<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="w">        </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">mountPath</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">/etc/kubernetes/pki/etcd-ca</span>
-<a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="w">          </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">etcd-ca-cert</span>
-<a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a><span class="w">        </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">mountPath</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">/etc/kubernetes/pki/etcd-client</span>
-<a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a><span class="w">          </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">etcd-client-cert</span>
-<a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a><span class="nn">...</span>
-<a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a><span class="w">      </span><span class="nt">volumes</span><span class="p">:</span>
-<a id="__codelineno-2-10" name="__codelineno-2-10" href="#__codelineno-2-10"></a><span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">etcd-ca-cert</span>
-<a id="__codelineno-2-11" name="__codelineno-2-11" href="#__codelineno-2-11"></a><span class="w">        </span><span class="nt">secret</span><span class="p">:</span>
-<a id="__codelineno-2-12" name="__codelineno-2-12" href="#__codelineno-2-12"></a><span class="w">          </span><span class="nt">secretName</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">etcd-ca</span>
-<a id="__codelineno-2-13" name="__codelineno-2-13" href="#__codelineno-2-13"></a><span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">etcd-client-cert</span>
-<a id="__codelineno-2-14" name="__codelineno-2-14" href="#__codelineno-2-14"></a><span class="w">        </span><span class="nt">secret</span><span class="p">:</span>
-<a id="__codelineno-2-15" name="__codelineno-2-15" href="#__codelineno-2-15"></a><span class="w">          </span><span class="nt">secretName</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">etcd-client-for-core-dns</span>
-<a id="__codelineno-2-16" name="__codelineno-2-16" href="#__codelineno-2-16"></a><span class="nn">...</span>
+<p>To check Kubernetes service resolution from the native host:</p>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="go">getent hosts kubernetes.default.svc.cluster.local</span>
 </code></pre></div>
-<h3 id="externaldns">ExternalDNS</h3>
-<p>Both K2s ingress implementations `nginx' and 'traefik' will install ExternalDNS,
-which will observe all ingresses and populate the etcd /skydns path with
-<abbr title="Domain Name System">DNS</abbr> entries  corresponding to the identified endpoints.</p>
-<p>The External <abbr title="Domain Name System">DNS</abbr> Deployment uses the same credentials as CoreDNS to access the
-cluster etcd database.</p>
-<p>See [addons/common/manifests/external-dns]</p>
-<h3 id="etcd">etcd</h3>
-<p>As already mentioned, we use the kubernetes cluster etcd instance to store the
-<abbr title="Domain Name System">DNS</abbr> entries corresponding to the ingresses. The etcd certificates are generated
-during cluster installation and located under:</p>
-<div class="highlight"><span class="filename">Text Only</span><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>/etc/kubernetes/pki/etcd/*
-</code></pre></div>
-<p>At installation time, when we prepare the Linux <abbr title="Virtual Machine">VM</abbr>, we also import these
-certificates as kubernetes secrets:</p>
-<div class="highlight"><span class="filename">Text Only</span><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>kubectl create secret -n kube-system tls etcd-ca --cert=etcd/ca.crt --key=etcd/ca.key
-<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>kubectl create secret -n kube-system tls etcd-client-for-core-dns --cert=etcd/healthcheck-client.crt --key=etcd/healthcheck-client.key
-</code></pre></div>
-<h3 id="windows-host-physical-network-adapter-dns-configuration">Windows Host Physical Network Adapter <abbr title="Domain Name System">DNS</abbr> Configuration</h3>
-<p>At the end of <code>k2s start</code>, we change the <abbr title="Domain Name System">DNS</abbr> Server of all physical network interfaces
-to use the <code>dnsproxy</code> <abbr title="Domain Name System">DNS</abbr> service running on the host.
-At the end of <code>k2s stop</code> we reset the <abbr title="Domain Name System">DNS</abbr> Configuration of these adapters.</p>
-<p>Native Linux hosts use a separate, non-NIC-mutating <abbr title="Domain Name System">DNS</abbr> lifecycle. See
-<a href="../native-linux-host-dns/">Native Linux Host <abbr title="Domain Name System">DNS</abbr></a>.</p>
-<h2 id="links">Links</h2>
-<ul>
-<li><a href="https://kubernetes-sigs.github.io/external-dns/v0.14.2/">ExternalDNS</a>:
-  project overview</li>
-<li><a href="https://coredns.io/plugins/etcd/">CoreDNS etcd plugin</a>:
-  extends CoreDNS to answers <abbr title="Domain Name System">DNS</abbr> queries using data in SkyDNS format found in etcd.</li>
-<li><a href="https://github.com/kubernetes-sigs/external-dns/blob/master/docs/tutorials/coredns.md">ExternalDNS coredns plugin</a>:
-  extends ExternalDNS and saves all hosts in SkyDNS format to etcd.<br />
-<a href="https://github.com/kubernetes-sigs/external-dns/blob/master/provider/coredns/coredns.go#L212">Configuration Env. Variables</a>:
-  this will help us setting up the connection to a secured etcd.</li>
-</ul>
+<p><code>k2s stop</code> intentionally stops the proxy. Kubernetes <abbr title="Domain Name System">DNS</abbr> names should then no
+longer resolve, while external host <abbr title="Domain Name System">DNS</abbr> uses the restored resolver state.</p>
 <!--
 SPDX-FileCopyrightText: © 2024 Siemens Healthineers AG
 SPDX-License-Identifier: MIT
@@ -3011,7 +2938,7 @@ SPDX-License-Identifier: MIT
       <nav class="md-footer__inner md-grid" aria-label="Footer" >
         
           
-          <a href="../gitops-addon-delivery/" class="md-footer__link md-footer__link--prev" aria-label="Previous: GitOps Addon Delivery">
+          <a href="../external-dns/" class="md-footer__link md-footer__link--prev" aria-label="Previous: External DNS">
             <div class="md-footer__button md-icon">
               
               <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
@@ -3021,20 +2948,20 @@ SPDX-License-Identifier: MIT
                 Previous
               </span>
               <div class="md-ellipsis">
-                GitOps Addon Delivery
+                External DNS
               </div>
             </div>
           </a>
         
         
           
-          <a href="../native-linux-host-dns/" class="md-footer__link md-footer__link--next" aria-label="Next: Native Linux Host DNS">
+          <a href="../extending-k2s-cluster/" class="md-footer__link md-footer__link--next" aria-label="Next: Extending K2s cluster">
             <div class="md-footer__title">
               <span class="md-footer__direction">
                 Next
               </span>
               <div class="md-ellipsis">
-                Native Linux Host DNS
+                Extending K2s cluster
               </div>
             </div>
             <div class="md-footer__button md-icon">
