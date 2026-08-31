@@ -311,13 +311,11 @@ Describe "PerformClusterUpgrade" -Tag 'unit', 'ci', 'upgrade' {
 		}
 
 		# Mock the dependencies
-		Mock -ModuleName $moduleName Get-LogFilePath -MockWith { return "C:\Logs\logfile.log" }
+		Mock -ModuleName $moduleName Get-LogFilePath -MockWith { return 'TestDrive:\logfile.log' }
 		Mock -ModuleName $moduleName Get-Content -MockWith { return "log content" }
-		Mock -ModuleName $moduleName Set-Content
 		Mock -ModuleName $moduleName Remove-SetupConfigIfExisting
 		Mock -ModuleName $moduleName Start-Sleep
 		Mock -ModuleName $moduleName Invoke-ClusterInstall
-		Mock -ModuleName $moduleName Wait-ForAPIServer
 		Mock -ModuleName $moduleName Invoke-UpgradeBackupRestoreHooks
 		Mock -ModuleName $moduleName Get-KubeToolsPath -MockWith { return "C:\KubeTools" }
 		Mock -ModuleName $moduleName Import-NotNamespacedResources
@@ -328,7 +326,6 @@ Describe "PerformClusterUpgrade" -Tag 'unit', 'ci', 'upgrade' {
 		Mock -ModuleName $moduleName Get-ProductVersion -MockWith { return "1.0.0" }
 		Mock -ModuleName $moduleName Get-KubePath -MockWith { return "C:\KubePath" }
 		Mock -ModuleName $moduleName Write-RefreshEnvVariables
-		Mock -ModuleName $moduleName Out-File
 		Mock -ModuleName $moduleName Wait-ForAPIServerInGivenKubePath
 		Mock -ModuleName $moduleName Get-KubeBinPathGivenKubePath -MockWith { return "C:\KubeBinPath" }
 		Mock -ModuleName $moduleName Enable-AddonFromConfig

@@ -476,7 +476,10 @@ function Backup-K2sImages {
         [string] $CrictlExePath = '',
 
         [Parameter(Mandatory = $false)]
-        [string] $CrictlConfigPath = ''
+        [string] $CrictlConfigPath = '',
+
+        [Parameter(Mandatory = $false)]
+        [string] $ExportImageScriptPath = "$PSScriptRoot\..\..\..\..\scripts\k2s\image\Export-Image.ps1"
     )
     
     Write-Log "Starting image backup to directory: $BackupDirectory" -Console
@@ -491,7 +494,7 @@ function Backup-K2sImages {
         
         $imagesDir = Join-Path $BackupDirectory "images"
         
-        $exportImageScript = "$PSScriptRoot\..\..\..\..\scripts\k2s\image\Export-Image.ps1"
+        $exportImageScript = $ExportImageScriptPath
         if (-not (Test-Path $exportImageScript)) {
             throw "Export-Image.ps1 not found at '$exportImageScript'"
         }

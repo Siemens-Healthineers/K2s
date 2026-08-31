@@ -108,7 +108,7 @@ try {
 	$manifestPath = "$PSScriptRoot\addon.manifest.yaml"
     $k2sRoot = "$PSScriptRoot\..\.."
     Install-CmctlCli -ManifestPath $manifestPath -K2sRoot $k2sRoot -Proxy $Proxy
-	if (Wait-ForCertManagerAvailable) {
+	if (Wait-ForCertManagerAvailable -WaitTimeout '30s') {
 		Write-Log 'cert-manager is already installed and ready' -Console
 	} else {
 		Write-Log 'Installing cert-manager' -Console
@@ -311,11 +311,31 @@ try {
 			throw $errMsg
 		}
 
+		# Clean up stale linkerd PKI resources to prevent cert-manager key mismatch race condition.
+		# When re-enabling after a prior disable, leftover secrets/certificates can cause
+		# ErrorKeyMatch ("CSR not signed by referenced private key") because cert-manager
+		# finds an existing private key that doesn't match the new CSR.
+		Write-Log 'Cleaning up stale linkerd PKI resources' -Console
+		(Invoke-Kubectl -Params 'delete', 'certificate', 'linkerd-trust-anchor', '-n', 'cert-manager', '--ignore-not-found').Output | Write-Log
+		(Invoke-Kubectl -Params 'delete', 'certificate', 'linkerd-identity-issuer', '-n', 'linkerd', '--ignore-not-found').Output | Write-Log
+		(Invoke-Kubectl -Params 'delete', 'secret', 'linkerd-trust-anchor', '-n', 'cert-manager', '--ignore-not-found').Output | Write-Log
+		(Invoke-Kubectl -Params 'delete', 'secret', 'linkerd-identity-issuer', '-n', 'linkerd', '--ignore-not-found').Output | Write-Log
+		(Invoke-Kubectl -Params 'delete', 'secret', 'linkerd-previous-anchor', '-n', 'cert-manager', '--ignore-not-found').Output | Write-Log
+
 		# install cert-manager addons
 		Write-Log 'Install trust manager and cert-manager resources, creating bundle' -Console
 		Clear-KubectlDiscoveryCache
 		$linkerdYamlCertManager = Get-LinkerdConfigCertManager
 		(Invoke-Kubectl -Params 'apply', '--server-side', '--force-conflicts', '-f', $linkerdYamlCertManager).Output | Write-Log
+
+		# Wait for the self-signed Issuer to be Ready before expecting Certificate issuance.
+		# cert-manager must reconcile the Issuer first; without this, the Certificate stays
+		# in an empty status state because its Issuer is not yet available.
+		Write-Log 'Waiting for linkerd-trust-root-issuer to be Ready' -Console
+		$issuerReady = Wait-ForIssuerReady -IssuerName 'linkerd-trust-root-issuer' -Namespace 'cert-manager' -TimeoutSeconds 60 -KubeToolsPath (Get-KubeToolsPath)
+		if ($issuerReady -ne $true) {
+			Write-Log 'WARNING: Issuer linkerd-trust-root-issuer not Ready yet, Certificate issuance may be delayed' -Console
+		}
 
 		# wait for secret linkerd-trust-anchor to be available
 		Write-Log 'Waiting for secret linkerd-trust-anchor to be available' -Console
@@ -334,6 +354,24 @@ try {
 		# create previous anchor secret
 		Write-Log 'Create previous anchor secret' -Console
         $kubeToolsPath = Get-KubeToolsPath
+
+		# Verify the Certificate resource is Ready (not just that the secret exists).
+		# This prevents using a stale or partially-issued certificate that could cause
+		# x509 verification failures in linkerd-identity.
+		Write-Log 'Verifying linkerd-trust-anchor certificate is Ready' -Console
+		$certReady = Wait-ForCertificateReady -CertificateName 'linkerd-trust-anchor' -Namespace 'cert-manager' -TimeoutSeconds 300 -KubeToolsPath $kubeToolsPath
+		if ($certReady -ne $true) {
+			$errMsg = "Certificate linkerd-trust-anchor did not reach Ready state. Check cert-manager logs for details.`nInstallation of security addon failed."
+			if ($EncodeStructuredOutput -eq $true) {
+				$err = New-Error -Code (Get-ErrCodeAddonEnableFailed) -Message $errMsg
+				Send-ToCli -MessageType $MessageType -Message @{Error = $err }
+				return
+			}
+
+			Write-Log $errMsg -Error
+			throw $errMsg
+		}
+
 		$secretYaml = &"$kubeToolsPath\kubectl.exe" get secret -n cert-manager linkerd-trust-anchor -o yaml | Out-String
 		$modifiedYaml = $secretYaml -replace 'linkerd-trust-anchor', 'linkerd-previous-anchor'
 		$filteredYamlLines = $modifiedYaml.Split("`n") | Where-Object {

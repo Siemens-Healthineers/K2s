@@ -114,6 +114,11 @@ $linkerdYamlCNI = Get-LinkerdConfigCNI
 $linkerdYamlCertManager = Get-LinkerdConfigCertManager
 (Invoke-Kubectl -Params 'delete', '--ignore-not-found', '-f', $linkerdYamlCertManager).Output | Write-Log
 
+# Clean up linkerd PKI secrets to prevent cert-manager key mismatch on re-enable
+(Invoke-Kubectl -Params 'delete', 'secret', 'linkerd-trust-anchor', '-n', 'cert-manager', '--ignore-not-found').Output | Write-Log
+(Invoke-Kubectl -Params 'delete', 'secret', 'linkerd-previous-anchor', '-n', 'cert-manager', '--ignore-not-found').Output | Write-Log
+(Invoke-Kubectl -Params 'delete', 'secret', 'linkerd-identity-issuer', '-n', 'linkerd', '--ignore-not-found').Output | Write-Log
+
 $linkerdYamlTrustManager = Get-LinkerdConfigTrustManager
 (Invoke-Kubectl -Params 'delete', '--ignore-not-found', '-f', $linkerdYamlTrustManager).Output | Write-Log
 
