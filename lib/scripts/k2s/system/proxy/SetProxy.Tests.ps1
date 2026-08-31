@@ -48,6 +48,7 @@ BeforeAll {
         & ([scriptblock]::Create($scriptContent)) @invokeParams
     }
     
+    Mock -CommandName Import-Module { }
     Mock -CommandName Initialize-Logging { }
 }
 

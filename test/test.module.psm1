@@ -389,7 +389,9 @@ function Start-GinkgoTests {
             $splitResult = $labelsResult.Trim().Replace(' ', '').Split(':')[1]
             if ($splitResult) {
                 $result = $splitResult | ConvertFrom-Json
-                $foundLabels.AddRange($result) | Out-Null
+                foreach ($label in @($result)) {
+                    [void] $foundLabels.Add($label)
+                }
             }
         }
 

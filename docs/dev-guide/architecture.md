@@ -128,7 +128,7 @@ The Go CLI uses a **provider pattern** to abstract all platform-specific operati
 
 ```
 ┌──────────────────────────────────────────────────────────┐
-│  Command Layer (cmd/k2s/cmd/)                            │
+│  Command Layer (cmd/k2s/cmd/)                        │
 │  install.go, start.go, stop.go, uninstall.go, ...       │
 │                                                          │
 │  context.Providers().Cluster.Install(config)             │
@@ -192,43 +192,43 @@ The Go CLI uses a **provider pattern** to abstract all platform-specific operati
 
 ## Bundled Tools
 
-*K2s* ships several supporting executables beyond the main `k2s.exe` CLI. All are built from Go source under `k2s/cmd/` and placed in the `bin/` directory.
+*K2s* ships several supporting executables beyond the main `k2s.exe` CLI. All are built from Go source under `cmd/` and placed in the `bin/` directory.
 
 ### Networking Tools
 
 | Tool | Source | Purpose |
 |------|--------|---------|
-| **httpproxy.exe** | `k2s/cmd/httpproxy/` | HTTP forward proxy running on the Windows host. Transparently proxies internet traffic for the Linux VM when a corporate proxy is configured. |
-| **vfprules.exe** | `k2s/cmd/vfprules/` | Manages Virtual Filtering Platform (VFP) rules on the `cbr0` Hyper-V external switch. Routes pod and service traffic between the host and the Linux VM. |
-| **bridge.exe** | `k2s/cmd/bridge/` | Windows CNI bridge plugin (based on Microsoft's windows-container-networking). Creates the `cbr0` bridge for pod networking on the Windows worker. |
-| **l4proxy.exe** | `k2s/cmd/l4proxy/` | Layer 4 (TCP/UDP) proxy used in CNI networking for forwarding traffic between network namespaces. |
+| **httpproxy.exe** | `cmd/httpproxy/` | HTTP forward proxy running on the Windows host. Transparently proxies internet traffic for the Linux VM when a corporate proxy is configured. |
+| **vfprules.exe** | `cmd/vfprules/` | Manages Virtual Filtering Platform (VFP) rules on the `cbr0` Hyper-V external switch. Routes pod and service traffic between the host and the Linux VM. |
+| **bridge.exe** | `cmd/bridge/` | Windows CNI bridge plugin (based on Microsoft's windows-container-networking). Creates the `cbr0` bridge for pod networking on the Windows worker. |
+| **l4proxy.exe** | `cmd/l4proxy/` | Layer 4 (TCP/UDP) proxy used in CNI networking for forwarding traffic between network namespaces. |
 
 ### VM & Provisioning Tools
 
 | Tool | Source | Purpose |
 |------|--------|---------|
-| **cloudinitisobuilder.exe** | `k2s/cmd/cloudinitisobuilder/` | Builds cloud-init ISO images (ISO 9660) for provisioning the Linux VM with network config, SSH keys, and initial setup scripts. |
-| **devgon.exe** | `k2s/cmd/devgon/` | Go reimplementation of Microsoft's `devcon.exe` (Device Console). Manages network adapters without requiring the VC Runtime (`vcruntime140.dll`). |
+| **cloudinitisobuilder.exe** | `cmd/cloudinitisobuilder/` | Builds cloud-init ISO images (ISO 9660) for provisioning the Linux VM with network config, SSH keys, and initial setup scripts. |
+| **devgon.exe** | `cmd/devgon/` | Go reimplementation of Microsoft's `devcon.exe` (Device Console). Manages network adapters without requiring the VC Runtime (`vcruntime140.dll`). |
 
 ### Service Mesh & Security Tools
 
 | Tool | Source | Purpose |
 |------|--------|---------|
-| **cplauncher.exe** | `k2s/cmd/cplauncher/` | Compartment Launcher — starts Windows processes inside a specific network compartment, enabling Linkerd service mesh on Windows. Resolves compartments from Kubernetes pod labels and optionally injects a DLL for per-thread compartment switching. |
-| **login.exe** | `k2s/cmd/login/` | OAuth2/OIDC login provider using Ory Hydra. Provides Windows-logon-based authentication for the security addon's zero-trust mode. |
+| **cplauncher.exe** | `cmd/cplauncher/` | Compartment Launcher — starts Windows processes inside a specific network compartment, enabling Linkerd service mesh on Windows. Resolves compartments from Kubernetes pod labels and optionally injects a DLL for per-thread compartment switching. |
+| **login.exe** | `cmd/login/` | OAuth2/OIDC login provider using Ory Hydra. Provides Windows-logon-based authentication for the security addon's zero-trust mode. |
 
 ### Container Tools
 
 | Tool | Source | Purpose |
 |------|--------|---------|
-| **pause.exe** | `k2s/cmd/pause/` | Windows pause container. Every Windows pod includes this as the infrastructure container (holds the network namespace). Ships with its own Dockerfile. |
+| **pause.exe** | `cmd/pause/` | Windows pause container. Every Windows pod includes this as the infrastructure container (holds the network namespace). Ships with its own Dockerfile. |
 
 ### Utilities
 
 | Tool | Source | Purpose |
 |------|--------|---------|
-| **yaml2json.exe** | `k2s/cmd/yaml2json/` | Converts YAML to JSON. Used internally by scripts that need JSON input from YAML sources. |
-| **zap.exe** | `k2s/cmd/zap/` | Forcefully removes directories that Windows file locks prevent from being deleted (used by `k2s image reset-win-storage --force-zap`). |
+| **yaml2json.exe** | `cmd/yaml2json/` | Converts YAML to JSON. Used internally by scripts that need JSON input from YAML sources. |
+| **zap.exe** | `cmd/zap/` | Forcefully removes directories that Windows file locks prevent from being deleted (used by `k2s image reset-win-storage --force-zap`). |
 
 ### Building Tools from Source
 
@@ -245,7 +245,7 @@ bgol
 bgo
 
 # Build a specific tool
-bgo -ProjectDir "k2s\cmd\httpproxy" -ExeOutDir "bin"
+bgo -ProjectDir "cmd\httpproxy" -ExeOutDir "bin"
 ```
 
 See [Building Locally](contributing/building-locally.md) for prerequisites.
