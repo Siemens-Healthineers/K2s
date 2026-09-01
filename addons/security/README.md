@@ -159,7 +159,7 @@ This is the only mandatory annotation to use, please check other annotations fro
 Linkerd automatically injects two sidecar containers into every annotated pod:
 
 - `linkerd-proxy` — the data-plane proxy (Rust-based) that handles all mTLS traffic
-- `linkerd-init` — an init container that configures iptables routing rules
+- `linkerd-init` — an init container that sets up the traffic redirection
 
 Both containers are configured with the following resource constraints:
 
@@ -169,6 +169,28 @@ Both containers are configured with the following resource constraints:
 | `linkerd-init` | `100m` | `100m` | `20Mi` |
 
 This ensures compatibility with Kubernetes `ResourceQuota` policies that require CPU limits and requests on all containers in a namespace. If your workloads require higher proxy throughput, re-enable the addon after adjusting the limits in `Enable.ps1`.
+
+#### Traffic redirection on Linux and Windows nodes
+
+The redirection is implemented differently per node OS:
+
+| Node OS | Mechanism | Owner |
+|---------|-----------|-------|
+| Linux | `iptables-nft` rules in the pod network namespace | upstream `linkerd2-proxy-init`, run by the `linkerd-init` container |
+| Windows | HNS `L4WFPPROXY` endpoint policy on the pod endpoint | K2s CNI bridge plugin, applied when the pod endpoint is created |
+
+On Windows there is no `iptables`, and upstream publishes no Windows init binary. K2s therefore programs the equivalent HNS policy from its CNI plugin and ships `cmd/linkerdinit` as the `linkerd-init` binary inside the Windows proxy image. That binary performs no networking changes; it verifies that the ports Linkerd requests still match the K2s configuration and then exits successfully.
+
+Both sides read the same values, so they must stay aligned:
+
+| `cfg/config.json` → `smallsetup.vfprules-k2s.hnsproxyconfig` | `linkerd-init` argument |
+|---|---|
+| `inboundproxyport` | `--incoming-proxy-port` |
+| `outboundproxyport` | `--outgoing-proxy-port` |
+| `inboundportexceptions` | `--inbound-ports-to-ignore` |
+| `outboundportexceptions` | `--outbound-ports-to-ignore` |
+
+If they drift apart, the `linkerd-init` container on Windows fails with a message naming the file to update instead of silently meshing onto the wrong ports.
 
 For using the linkerd dashboard please first install the dashboard resources:
 
