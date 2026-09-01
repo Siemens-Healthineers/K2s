@@ -96,7 +96,7 @@ function Add-TestFolderExclusions {
         [hashtable]$AllAddonPaths
     )
     
-    $testAddonsPath = Join-Path $KubePath 'k2s/test/e2e/addons'
+    $testAddonsPath = Join-Path $KubePath 'test/e2e/addons'
     if (-not (Test-Path $testAddonsPath)) {
         return
     }
@@ -146,7 +146,7 @@ function Add-TestFolderExclusions {
         }
         
         if ($shouldInclude) {
-            Write-Log "[Addons] Including test folder for addon: k2s/test/e2e/addons/$testDirName" -Console
+            Write-Log "[Addons] Including test folder for addon: test/e2e/addons/$testDirName" -Console
             
             # For multi-implementation addons, check if we need to exclude specific subdirectories
             if ($selectedImplsByAddon.ContainsKey($testDirName)) {
@@ -163,24 +163,24 @@ function Add-TestFolderExclusions {
                         # This is an implementation-specific subdirectory
                         if ($selectedImpls -notcontains $implSubdirName) {
                             # Exclude this unselected implementation subdirectory
-                            $subdirFullPath = Join-Path $KubePath "k2s/test/e2e/addons/$testDirName/$implSubdirName"
+                            $subdirFullPath = Join-Path $KubePath "test/e2e/addons/$testDirName/$implSubdirName"
                             if (-not ($ExclusionListRef.Value -contains $subdirFullPath)) {
                                 $ExclusionListRef.Value += $subdirFullPath
                             }
-                            Write-Log "[Addons] Excluding test subdirectory: k2s/test/e2e/addons/$testDirName/$implSubdirName" -Console
+                            Write-Log "[Addons] Excluding test subdirectory: test/e2e/addons/$testDirName/$implSubdirName" -Console
                         } else {
-                            Write-Log "[Addons] Including test subdirectory: k2s/test/e2e/addons/$testDirName/$implSubdirName" -Console
+                            Write-Log "[Addons] Including test subdirectory: test/e2e/addons/$testDirName/$implSubdirName" -Console
                         }
                     }
                 }
             }
         } else {
             # Exclude this test folder since it doesn't match any selected addon
-            $testDirFullPath = Join-Path $KubePath "k2s/test/e2e/addons/$testDirName"
+            $testDirFullPath = Join-Path $KubePath "test/e2e/addons/$testDirName"
             if (-not ($ExclusionListRef.Value -contains $testDirFullPath)) {
                 $ExclusionListRef.Value += $testDirFullPath
             }
-            Write-Log "[Addons] Excluding test folder: k2s/test/e2e/addons/$testDirName" -Console
+            Write-Log "[Addons] Excluding test folder: test/e2e/addons/$testDirName" -Console
         }
     }
 }
