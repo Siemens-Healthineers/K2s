@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText:  © 2026 Siemens Healthineers AG
+// SPDX-FileCopyrightText:  Â© 2026 Siemens Healthineers AG
 // SPDX-License-Identifier:   MIT
 
 package importcmd
@@ -120,6 +120,67 @@ var _ = Describe("importcmd pkg", func() {
 					expectedArtifact(),
 					" -Nodes 'worker-1'",
 				))
+			})
+		})
+
+		When("no omit flag is provided", func() {
+			It("does not append -Omit (default behavior preserved)", func() {
+				Expect(cmd.Flags().Set(fileLabel, "myAddons.tar")).To(Succeed())
+
+				_, params, err := buildPsCmd(cmd)
+
+				Expect(err).ToNot(HaveOccurred())
+				Expect(params).ToNot(ContainElement(ContainSubstring("-Omit")))
+			})
+		})
+
+		When("a single omit flag is provided", func() {
+			It("forwards -Omit with the quoted option", func() {
+				Expect(cmd.Flags().Set(fileLabel, "myAddons.tar")).To(Succeed())
+				Expect(cmd.Flags().Set(omitFlagName, "omitKeycloak")).To(Succeed())
+
+				_, params, err := buildPsCmd(cmd)
+
+				Expect(err).ToNot(HaveOccurred())
+				Expect(params).To(ContainElement(" -Omit 'omitKeycloak'"))
+			})
+		})
+
+		When("multiple omit flags are provided", func() {
+			It("forwards them as a comma-separated list", func() {
+				Expect(cmd.Flags().Set(fileLabel, "myAddons.tar")).To(Succeed())
+				Expect(cmd.Flags().Set(omitFlagName, "omitKeycloak")).To(Succeed())
+				Expect(cmd.Flags().Set(omitFlagName, "ingress/nginx:omitCertMgr")).To(Succeed())
+
+				_, params, err := buildPsCmd(cmd)
+
+				Expect(err).ToNot(HaveOccurred())
+				Expect(params).To(ContainElement(" -Omit 'omitKeycloak','ingress/nginx:omitCertMgr'"))
+			})
+		})
+
+		When("omit flags contain surrounding whitespace or are blank", func() {
+			It("trims them and drops empty ones", func() {
+				Expect(cmd.Flags().Set(fileLabel, "myAddons.tar")).To(Succeed())
+				Expect(cmd.Flags().Set(omitFlagName, "  omitGrafana  ")).To(Succeed())
+				Expect(cmd.Flags().Set(omitFlagName, "   ")).To(Succeed())
+
+				_, params, err := buildPsCmd(cmd)
+
+				Expect(err).ToNot(HaveOccurred())
+				Expect(params).To(ContainElement(" -Omit 'omitGrafana'"))
+			})
+		})
+
+		When("only blank omit flags are provided", func() {
+			It("does not append -Omit", func() {
+				Expect(cmd.Flags().Set(fileLabel, "myAddons.tar")).To(Succeed())
+				Expect(cmd.Flags().Set(omitFlagName, "   ")).To(Succeed())
+
+				_, params, err := buildPsCmd(cmd)
+
+				Expect(err).ToNot(HaveOccurred())
+				Expect(params).ToNot(ContainElement(ContainSubstring("-Omit")))
 			})
 		})
 	})

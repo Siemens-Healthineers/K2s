@@ -14,6 +14,8 @@ Param (
     [string[]] $Names,
     [parameter(Mandatory = $false, HelpMessage = 'Target node name for addon image import (e.g. worker-1); defaults to control-plane and local Windows host when omitted')]
     [string] $Nodes = '',
+    [parameter(Mandatory = $false, HelpMessage = "Addon omit options, e.g. 'omitCertMgr' or 'ingress/nginx:omitCertMgr'. Images belonging to the omitted functionality are not imported.")]
+    [string[]] $Omit = @(),
     [parameter(Mandatory = $false, HelpMessage = 'If set to true, will encode and send result as structured data to the CLI.')]
     [switch] $EncodeStructuredOutput,
     [parameter(Mandatory = $false, HelpMessage = 'Message type of the encoded structure; applies only if EncodeStructuredOutput was set to $true')]
@@ -23,10 +25,11 @@ $infraModule = "$PSScriptRoot\..\lib\modules\k2s\k2s.infra.module\k2s.infra.modu
 $clusterModule = "$PSScriptRoot\..\lib\modules\k2s\k2s.cluster.module\k2s.cluster.module.psm1"
 $addonsModule = "$PSScriptRoot\addons.module.psm1"
 $ociModule = "$PSScriptRoot\oci.module.psm1"
+$imagePruneModule = "$PSScriptRoot\imageprune.module.psm1"
 $importImageScript = "$PSScriptRoot\..\lib\scripts\k2s\image\Import-Image.ps1"
 $imageCommonModule = "$PSScriptRoot\..\lib\scripts\k2s\image\Image-Common.module.psm1"
 
-Import-Module $infraModule, $clusterModule, $addonsModule, $ociModule, $imageCommonModule
+Import-Module $infraModule, $clusterModule, $addonsModule, $ociModule, $imagePruneModule, $imageCommonModule
 
 Initialize-Logging -ShowLogs:$ShowLogs
 
@@ -317,6 +320,11 @@ else {
     $addonsToImport = $exportedAddons
 }
 
+# Phase 1: extract the non-image layers of every selected addon and collect the data needed
+# to compute a GLOBAL image pruning plan. Image layers are only referenced here (never copied),
+# the actual image import happens in phase 3.
+$importPlan = @()
+
 foreach ($addon in $addonsToImport) {
     Write-Log "Importing addon: $($addon.name)" -Console
     
@@ -370,10 +378,45 @@ foreach ($addon in $addonsToImport) {
             New-Item -ItemType Directory -Path $implementationPath -Force | Out-Null
         }
         
-        # Create temp directory for extracting layers from blobs
-        $tempLayerDir = Join-Path $tmpDir "layer-temp-$($addon.name)"
+        # Create temp directory for extracting layers from blobs.
+        # The key must include the implementation, otherwise multi-implementation addons
+        # (e.g. ingress nginx/traefik/nginx-gw) would all share one directory and leak
+        # layer content into each other.
+        $addonKey = $addon.name
+        if (-not [string]::IsNullOrWhiteSpace($addon.implementation) -and $addon.implementation -ne $addon.name) {
+            $addonKey = "$($addon.name)/$($addon.implementation)"
+        }
+        $tempLayerDirName = 'layer-temp-' + ($addonKey -replace '[\\/\s]', '-')
+        $tempLayerDir = Join-Path $tmpDir $tempLayerDirName
+        Remove-Item -Path $tempLayerDir -Recurse -Force -ErrorAction SilentlyContinue
         New-Item -ItemType Directory -Path $tempLayerDir -Force | Out-Null
-        
+
+        # Snapshot the addon manifest of the local installation BEFORE any config-layer
+        # processing runs. The config/manifest handling further down replaces that file with
+        # the manifest carried in the artifact (directly for single-level addons, and via the
+        # 'yq not found' fallback for the merge paths). Without this snapshot the installed
+        # manifest would no longer be available as fallback source for the omit options, which
+        # would silently disable '--omit' for artifacts exported before 'omittedImages' existed.
+        $installedManifestSnapshot = $null
+        $installedManifestCandidates = @(Join-Path $destinationPath 'addon.manifest.yaml')
+        if ($folderParts.Count -gt 1) {
+            # space-separated addon names keep their manifest in the parent folder
+            $installedManifestCandidates += (Join-Path (Split-Path -Path $destinationPath -Parent) 'addon.manifest.yaml')
+        }
+        foreach ($installedManifestCandidate in $installedManifestCandidates) {
+            if (Test-Path $installedManifestCandidate) {
+                $installedManifestSnapshot = Join-Path $tempLayerDir 'installed-addon.manifest.yaml'
+                Copy-Item -Path $installedManifestCandidate -Destination $installedManifestSnapshot -Force
+                Write-Log "[Prune] Snapshotted installed addon manifest from '$installedManifestCandidate'"
+                break
+            }
+        }
+
+        # Image layer blobs are referenced, not copied - copying would duplicate the largest
+        # blobs of the artifact in %TEMP%.
+        $linuxImagesBlob = $null
+        $windowsImagesBlob = $null
+
         # Process each layer from manifest by resolving from blobs
         foreach ($layer in $ociManifest.layers) {
             $layerTitle = $layer.annotations.'org.opencontainers.image.title'
@@ -430,16 +473,14 @@ foreach ($addon in $addonsToImport) {
                     break
                 }
                 '*images-windows*' {
-                    # Layer 5: Windows Images - copy to temp for later processing
-                    $tempWindowsImages = Join-Path $tempLayerDir 'images-windows.tar'
-                    Copy-Item -Path $blobPath -Destination $tempWindowsImages -Force
+                    # Layer 5: Windows Images - referenced for later processing
+                    $windowsImagesBlob = $blobPath
                     Write-Log "Staged Windows images layer for import"
                     break
                 }
                 '*image.layer*' {
-                    # Layer 4: Linux Images - copy to temp for later processing
-                    $tempLinuxImages = Join-Path $tempLayerDir 'images-linux.tar'
-                    Copy-Item -Path $blobPath -Destination $tempLinuxImages -Force
+                    # Layer 4: Linux Images - referenced for later processing
+                    $linuxImagesBlob = $blobPath
                     Write-Log "Staged Linux images layer for import"
                     break
                 }
@@ -650,10 +691,59 @@ foreach ($addon in $addonsToImport) {
         else {
             Write-Log "Warning: addon.manifest.yaml not found for $($addon.name)" -Console
         }
-        
-        # Import Layer 4: Linux Images (from staged temp location)
-        $linuxImagesLayer = Join-Path $tempLayerDir 'images-linux.tar'
-        if (Test-Path $linuxImagesLayer) {
+
+        # Resolve the omit options of this addon implementation.
+        # Preferred source is the manifest carried in the artifact; the SNAPSHOT of the local
+        # installation manifest (taken before the config-layer processing overwrote it) is used
+        # as fallback so that artifacts exported before an omit option existed can still be
+        # imported with '--omit'.
+        $planFlags = @(Get-OmitFlagsForAddon `
+                -ArtifactManifestPath $configManifestPath `
+                -InstalledManifestPath $installedManifestSnapshot `
+                -ImplementationName $addon.implementation)
+
+        # List the per-image tars without extracting them (tar -tf only reads the index).
+        $linuxTarNames = @(Get-TarEntryName -ArchivePath $linuxImagesBlob)
+        $windowsTarNames = @(Get-TarEntryName -ArchivePath $windowsImagesBlob)
+
+        $importPlan += [pscustomobject]@{
+            Key                = $addonKey
+            Name               = $addon.name
+            Implementation     = $addon.implementation
+            Addon              = $addon
+            TempLayerDir       = $tempLayerDir
+            ImplementationPath = $implementationPath
+            Flags              = $planFlags
+            LinuxImagesBlob    = $linuxImagesBlob
+            WindowsImagesBlob  = $windowsImagesBlob
+            LinuxTarNames      = $linuxTarNames
+            WindowsTarNames    = $windowsTarNames
+        }
+
+        Write-Log "Staged '$addonKey': $($linuxTarNames.Count) Linux image(s), $($windowsTarNames.Count) Windows image(s)"
+        Write-Log '---' -Console
+}
+
+# Phase 2: compute the global pruning plan.
+# An image may only be skipped when NO imported addon/implementation requires it after
+# applying the requested omit options.
+$prunePlan = New-AddonImagePrunePlan -Entries $importPlan -Omit $Omit
+Write-AddonImagePrunePlan -Plan $prunePlan
+
+
+# Phase 3: import the container images and packages of every selected addon.
+foreach ($planEntry in $importPlan) {
+        $addon = $planEntry.Addon
+        $addonKey = $planEntry.Key
+        $tempLayerDir = $planEntry.TempLayerDir
+        $skipForAddon = $prunePlan.SkipByKey[$addonKey]
+        if ($null -eq $skipForAddon) {
+            $skipForAddon = @{ Linux = @(); Windows = @() }
+        }
+
+        # Import Layer 4: Linux Images (referenced blob)
+        $linuxImagesLayer = $planEntry.LinuxImagesBlob
+        if (-not [string]::IsNullOrWhiteSpace($linuxImagesLayer) -and (Test-Path $linuxImagesLayer)) {
             Write-Log "Importing Linux images layer from blob" -Console
             
             # Check if this is a consolidated tar (tar of tars) or single image tar
@@ -677,7 +767,19 @@ foreach ($addon in $addonsToImport) {
             
             # Check if we extracted individual image tars or a single image
             $extractedTars = Get-ChildItem -Path $tempImagesDir -Filter '*.tar' -File
-            
+
+            # Drop the images that no imported addon requires (see prune plan)
+            if (@($skipForAddon.Linux).Count -gt 0) {
+                foreach ($tarToSkip in @($skipForAddon.Linux)) {
+                    $skipPath = Join-Path $tempImagesDir $tarToSkip
+                    if (Test-Path $skipPath) {
+                        Remove-Item -Path $skipPath -Force -ErrorAction SilentlyContinue
+                        Write-Log "[Prune] Not importing '$tarToSkip' for '$addonKey'" -Console
+                    }
+                }
+                $extractedTars = Get-ChildItem -Path $tempImagesDir -Filter '*.tar' -File
+            }
+
             Write-Log "Extracted files in $tempImagesDir`: $($extractedTars.Count) tars" -Console
             if ($extractedTars.Count -gt 0) {
                 foreach ($tar in $extractedTars) {
@@ -698,6 +800,9 @@ foreach ($addon in $addonsToImport) {
                     Write-Log "Importing extracted image files from directory" -Console
                     &$importImageScript -ImageDir $tempImagesDir -Nodes $Nodes -ShowLogs:$ShowLogs
                     $importExitCode = $LASTEXITCODE
+                } elseif (@($skipForAddon.Linux).Count -gt 0) {
+                    Write-Log "All Linux images of '$addonKey' were skipped due to the requested omit options" -Console
+                    $importExitCode = 0
                 } else {
                     Write-Log "Warning: No image files found after extraction" -Console
                     $importExitCode = 1
@@ -716,9 +821,9 @@ foreach ($addon in $addonsToImport) {
             Write-Log "No Linux images layer found for $($addon.name)"
         }
         
-        # Import Layer 5: Windows Images (from staged temp location)
-        $windowsImagesLayer = Join-Path $tempLayerDir 'images-windows.tar'
-        if ((Test-Path $windowsImagesLayer) -and (-not $setupInfo.LinuxOnly)) {
+        # Import Layer 5: Windows Images (referenced blob)
+        $windowsImagesLayer = $planEntry.WindowsImagesBlob
+        if ((-not [string]::IsNullOrWhiteSpace($windowsImagesLayer)) -and (Test-Path $windowsImagesLayer) -and (-not $setupInfo.LinuxOnly)) {
             Write-Log "Importing Windows images layer from blob" -Console
             
             # Check if this is a consolidated tar (tar of tars) or single image tar
@@ -742,7 +847,19 @@ foreach ($addon in $addonsToImport) {
             
             # Check if we extracted individual image tars
             $extractedTars = Get-ChildItem -Path $tempImagesDir -Filter '*.tar' -File
-            
+
+            # Drop the images that no imported addon requires (see prune plan)
+            if (@($skipForAddon.Windows).Count -gt 0) {
+                foreach ($tarToSkip in @($skipForAddon.Windows)) {
+                    $skipPath = Join-Path $tempImagesDir $tarToSkip
+                    if (Test-Path $skipPath) {
+                        Remove-Item -Path $skipPath -Force -ErrorAction SilentlyContinue
+                        Write-Log "[Prune] Not importing '$tarToSkip' for '$addonKey'" -Console
+                    }
+                }
+                $extractedTars = Get-ChildItem -Path $tempImagesDir -Filter '*.tar' -File
+            }
+
             Write-Log "Extracted files in $tempImagesDir`: $($extractedTars.Count) tars" -Console
             if ($extractedTars.Count -gt 0) {
                 foreach ($tar in $extractedTars) {
@@ -761,6 +878,9 @@ foreach ($addon in $addonsToImport) {
                     Write-Log "Importing extracted Windows image files from directory" -Console
                     &$importImageScript -ImageDir $tempImagesDir -Windows -Nodes $Nodes -ShowLogs:$ShowLogs
                     $importExitCode = $LASTEXITCODE
+                } elseif (@($skipForAddon.Windows).Count -gt 0) {
+                    Write-Log "All Windows images of '$addonKey' were skipped due to the requested omit options" -Console
+                    $importExitCode = 0
                 } else {
                     Write-Log "Warning: No Windows image files found after extraction" -Console
                     $importExitCode = 1
@@ -883,6 +1003,16 @@ Write-Log "  Layer 3: scripts.tar.gz      (Enable/Disable scripts)" -Console
 Write-Log "  Layer 4: images-linux.tar    (Linux container images)" -Console
 Write-Log "  Layer 5: images-windows.tar  (Windows container images)" -Console
 Write-Log "  Layer 6: packages.tar.gz     (Offline packages)" -Console
+
+if (@($prunePlan.Pruned).Count -gt 0) {
+    Write-Log '---' -Console
+    Write-Log "Omit options were applied: $(@($prunePlan.Pruned).Count) image(s) were not imported." -Console
+    foreach ($prunedImage in @($prunePlan.Pruned)) {
+        Write-Log "  - $($prunedImage.Image)" -Console
+    }
+    Write-Log 'Enable the affected addons with the matching omit options, or re-run the import without' -Console
+    Write-Log 'the omit options to add these images later. The OCI artifact itself is unchanged.' -Console
+}
 
 if ($EncodeStructuredOutput -eq $true) {
     Send-ToCli -MessageType $MessageType -Message @{Error = $null }

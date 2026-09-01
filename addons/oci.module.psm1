@@ -356,6 +356,106 @@ function Expand-TarGzArchive {
     return $true
 }
 
+function ConvertTo-ImageTarFileName {
+    <#
+    .SYNOPSIS
+    Converts a container image reference into the deterministic tar file name used inside
+    the images-linux.tar / images-windows.tar layers.
+
+    .DESCRIPTION
+    Single source of truth for the sanitization rule. Both the exporter (when writing the
+    per-image tars) and the importer (when deciding which tars to skip) must use this
+    function so the names can never drift apart.
+
+    The conversion is intentionally forward-only: 'repo/name:tag' -> 'repo_name_tag.tar'.
+    It is lossy (both ':' and '/' collapse to '_'), therefore callers must never try to
+    reconstruct a reference from a file name.
+
+    .PARAMETER Image
+    The container image reference, e.g. 'quay.io/keycloak/keycloak:26.7.2'.
+
+    .PARAMETER Windows
+    Produce the Windows variant of the name (prefixed with 'windows_').
+
+    .EXAMPLE
+    ConvertTo-ImageTarFileName -Image 'quay.io/keycloak/keycloak:26.7.2'
+    # -> quay.io_keycloak_keycloak_26.7.2.tar
+    #>
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$Image,
+        [Parameter(Mandatory = $false)]
+        [switch]$Windows
+    )
+
+    $sanitizedImageName = ($Image -replace '[:/]', '_') -replace '[^a-zA-Z0-9_.-]', ''
+
+    if ($Windows) {
+        return "windows_${sanitizedImageName}.tar"
+    }
+
+    return "${sanitizedImageName}.tar"
+}
+
+function Get-TarEntryName {
+    <#
+    .SYNOPSIS
+    Lists the file entry names contained in a tar archive without extracting it.
+
+    .DESCRIPTION
+    Uses 'tar -tf' which only reads the archive index, so this is cheap even for
+    multi-GB image layers. Returns normalized leaf names (directory entries and any
+    leading './' are stripped).
+
+    .PARAMETER ArchivePath
+    Path to the tar archive. May be null or empty (an addon layer that does not exist,
+    e.g. a Linux-only addon has no Windows images layer); an empty result is returned then.
+    #>
+    param(
+        [Parameter(Mandatory = $false)]
+        [AllowNull()]
+        [AllowEmptyString()]
+        [string]$ArchivePath
+    )
+
+    if ([string]::IsNullOrWhiteSpace($ArchivePath) -or -not (Test-Path $ArchivePath)) {
+        return @()
+    }
+
+    $listing = & tar -tf $ArchivePath 2>&1
+    if ($LASTEXITCODE -ne 0) {
+        Write-Log "[OCI] Warning: unable to list entries of '$ArchivePath': $listing"
+        return @()
+    }
+
+    $names = @()
+    foreach ($line in @($listing)) {
+        $name = "$line".Trim()
+        if ($name -eq '') {
+            continue
+        }
+
+        $name = $name -replace '\\', '/'
+        $name = $name -replace '^\./', ''
+
+        # skip directory entries
+        if ($name.EndsWith('/')) {
+            continue
+        }
+
+        $separatorIndex = $name.LastIndexOf('/')
+        if ($separatorIndex -ge 0) {
+            $name = $name.Substring($separatorIndex + 1)
+        }
+
+        if ($name -ne '') {
+            $names += $name
+        }
+    }
+
+    return @($names | Select-Object -Unique)
+}
+
 function Expand-TarArchive {
     <#
     .SYNOPSIS
@@ -391,4 +491,5 @@ function Expand-TarArchive {
 Export-ModuleMember -Function Get-OciMediaTypes,
     New-OciLayoutFile, New-OciBlobsDirectory, Add-ContentToBlobs, Add-JsonContentToBlobs,
     Get-BlobByDigest, Get-JsonBlobByDigest,
-    New-TarGzArchive, New-TarArchive, Expand-TarGzArchive, Expand-TarArchive
+    New-TarGzArchive, New-TarArchive, Expand-TarGzArchive, Expand-TarArchive,
+    ConvertTo-ImageTarFileName, Get-TarEntryName

@@ -524,9 +524,8 @@ try {
                     
                     if ($linuxImageToExportArray -and $linuxImageToExportArray.Count -gt 0) {
                         $imageToExport = $linuxImageToExportArray[0]
-                        # Create meaningful tar filename from image name (sanitize special chars)
-                        $sanitizedImageName = ($image -replace '[:/]', '_') -replace '[^a-zA-Z0-9_.-]', ''
-                        $linuxImageTarPath = "${imagesStaging}\${sanitizedImageName}.tar"
+                        # Create meaningful tar filename from image name (shared sanitizer, see oci.module.psm1)
+                        $linuxImageTarPath = Join-Path $imagesStaging (ConvertTo-ImageTarFileName -Image $image)
                         &$exportImageScript -Id $imageToExport.ImageId -ExportPath $linuxImageTarPath -ShowLogs:$ShowLogs
 
                         if (!$?) {
@@ -545,9 +544,8 @@ try {
 
                     if ($windowsImageToExportArray -and $windowsImageToExportArray.Count -gt 0) {
                         $imageToExport = $windowsImageToExportArray[0]
-                        # Create meaningful tar filename from image name (sanitize special chars)
-                        $sanitizedImageName = ($image -replace '[:/]', '_') -replace '[^a-zA-Z0-9_.-]', ''
-                        $windowsImageTarPath = "${imagesStaging}\windows_${sanitizedImageName}.tar"
+                        # Create meaningful tar filename from image name (shared sanitizer, see oci.module.psm1)
+                        $windowsImageTarPath = Join-Path $imagesStaging (ConvertTo-ImageTarFileName -Image $image -Windows)
                         &$exportImageScript -Id $imageToExport.ImageId -ExportPath $windowsImageTarPath -ShowLogs:$ShowLogs
 
                         if (!$?) {
