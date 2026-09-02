@@ -199,5 +199,4 @@ bin/debian-13-genericcloud-amd64.qcow2
 # AI assistant context
 claude.md
 testResults.xml
-docs/dev-guide/host-automation-option-3-migration-plan.md
-docs/dev-guide/host-automation-migration-inventory.md
+
