@@ -157,6 +157,9 @@ if (!$kubectlCmd.Success) {
     exit 1
 }
 
+$allPodsAreUp = (Wait-ForPodCondition -Condition Ready -Label 'app.kubernetes.io/name=alertmanager' -Namespace 'monitoring' -TimeoutSeconds 600)
+if ($allPodsAreUp -ne $true) {
+    $errMsg = "Alertmanager could not be deployed!"
 $kubectlCmd = (Invoke-Kubectl -Params 'rollout', 'status', 'statefulsets', '-n', 'monitoring', '--timeout=600s')
 Write-Log $kubectlCmd.Output
 if ($kubectlCmd.Output -match 'No resources found in monitoring namespace\.') {
@@ -174,7 +177,7 @@ if (!$kubectlCmd.Success) {
     exit 1
 }
 
-$allPodsAreUp = (Wait-ForPodCondition -Condition Ready -Label 'app.kubernetes.io/name=alertmanager' -Namespace 'monitoring' -TimeoutSeconds 300)
+$allPodsAreUp = (Wait-ForPodCondition -Condition Ready -Label 'app.kubernetes.io/name=prometheus' -Namespace 'monitoring' -TimeoutSeconds 600)
 if ($allPodsAreUp -ne $true) {
     $errMsg = "Alertmanager could not be deployed!"
     if ($EncodeStructuredOutput -eq $true) {
