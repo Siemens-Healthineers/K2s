@@ -102,7 +102,7 @@ func (p *windowsClusterProvider) Uninstall(cfg ClusterUninstallConfig) error {
 
 	switch cfg.SetupName {
 	case definitions.SetupNameBuildOnlyEnv:
-		path := filepath.Join(p.installDir, "lib", "scripts", "buildonly", "uninstall", "uninstall.ps1")
+		path := filepath.Join(p.installDir, "lib", "scripts", "windows", "buildonly", "uninstall", "uninstall.ps1")
 		cmd = utils.FormatScriptFilePath(path)
 		if cfg.ShowLogs {
 			cmd += " -ShowLogs"
