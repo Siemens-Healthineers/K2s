@@ -157,7 +157,7 @@ if (!$kubectlCmd.Success) {
     exit 1
 }
 
-$allPodsAreUp = (Wait-ForPodCondition -Condition Ready -Label 'app.kubernetes.io/name=alertmanager' -Namespace 'monitoring' -TimeoutSeconds 120)
+$allPodsAreUp = (Wait-ForPodCondition -Condition Ready -Label 'app.kubernetes.io/name=alertmanager' -Namespace 'monitoring' -TimeoutSeconds 600)
 if ($allPodsAreUp -ne $true) {
     $errMsg = "Alertmanager could not be deployed!"
     if ($EncodeStructuredOutput -eq $true) {
@@ -170,7 +170,7 @@ if ($allPodsAreUp -ne $true) {
     exit 1  
 }
 
-$allPodsAreUp = (Wait-ForPodCondition -Condition Ready -Label 'app.kubernetes.io/name=prometheus' -Namespace 'monitoring' -TimeoutSeconds 120)
+$allPodsAreUp = (Wait-ForPodCondition -Condition Ready -Label 'app.kubernetes.io/name=prometheus' -Namespace 'monitoring' -TimeoutSeconds 600)
 if ($allPodsAreUp -ne $true) {
     $errMsg = "Prometheus could not be deployed!"
     if ($EncodeStructuredOutput -eq $true) {
