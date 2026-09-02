@@ -181,7 +181,7 @@ func (p *windowsClusterProvider) resolveSetupDir(setupName string, linuxOnly boo
 	switch setupName {
 	case definitions.SetupNameK2s:
 		if linuxOnly {
-			return "linuxonly"
+			return filepath.Join("windows", "linuxonly")
 		}
 		return "k2s"
 	default:
