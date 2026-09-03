@@ -113,6 +113,15 @@ function Get-RootConfig {
 }
 
 function Get-SshConfigDir {
+    if (Test-Path $sshConfigDir) {
+        return $sshConfigDir
+    }
+
+    $keyPath = Get-SSHKeyControlPlane
+    if (Test-Path $keyPath) {
+        return (Split-Path -Parent (Split-Path -Parent $keyPath))
+    }
+
     return $sshConfigDir
 }
 
@@ -141,6 +150,15 @@ function Get-ProductVersion {
 }
 
 function Get-SSHKeyControlPlane {
+    if (Test-Path $sshKeyControlPlane) {
+        return $sshKeyControlPlane
+    }
+
+    $existingKey = Get-ChildItem -Path "$env:SystemDrive\Users\*\.ssh\k2s\$sshKeyFileName" -ErrorAction SilentlyContinue | Select-Object -ExpandProperty FullName -First 1
+    if ($existingKey) {
+        return $existingKey
+    }
+
     return $sshKeyControlPlane
 }
 

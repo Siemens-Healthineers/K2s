@@ -17,3 +17,19 @@ Describe "Get-MinimalProvisioningBaseImageDiskSize" {
         $result | Should -Be 10GB
     }
 }
+
+Describe "Get-SSHKeyControlPlane" {
+    It "should return a valid string path for SSH control plane key" {
+        $keyPath = Get-SSHKeyControlPlane
+        $keyPath | Should -Not -BeNullOrEmpty
+        $keyPath | Should -BeLike "*id_rsa"
+    }
+}
+
+Describe "Get-SshConfigDir" {
+    It "should return a valid string path for SSH config directory" {
+        $sshDir = Get-SshConfigDir
+        $sshDir | Should -Not -BeNullOrEmpty
+        $sshDir | Should -BeLike "*.ssh*"
+    }
+}
