@@ -38,10 +38,10 @@ Param(
     [string] $AddonsList = ''
 )
 
-$infraModule = "$PSScriptRoot/../../../../modules/k2s/k2s.infra.module/k2s.infra.module.psm1"
-$nodeModule = "$PSScriptRoot/../../../../modules/k2s/k2s.node.module/k2s.node.module.psm1"
-$clusterModule = "$PSScriptRoot/../../../../modules/k2s/k2s.cluster.module/k2s.cluster.module.psm1"
-$signingModule = "$PSScriptRoot/../../../../modules/k2s/k2s.signing.module/k2s.signing.module.psm1"
+$infraModule = "$PSScriptRoot\..\..\..\..\..\modules\k2s\k2s.infra.module\k2s.infra.module.psm1"
+$nodeModule = "$PSScriptRoot\..\..\..\..\..\modules\k2s\k2s.node.module\k2s.node.module.psm1"
+$clusterModule = "$PSScriptRoot\..\..\..\..\..\modules\k2s\k2s.cluster.module\k2s.cluster.module.psm1"
+$signingModule = "$PSScriptRoot\..\..\..\..\..\modules\k2s\k2s.signing.module\k2s.signing.module.psm1"
 Import-Module $infraModule, $nodeModule, $clusterModule, $signingModule
 
 # Load helper scripts
@@ -141,7 +141,7 @@ if ($Profile -eq 'Lite') {
         (Join-Path $kubePath 'build'),
         (Join-Path $kubePath 'bin/Kubemaster-Base.rootfs.tar.gz')
     )
-    
+
     # Handle addon selection for Lite profile
     if ($excludeAllAddons) {
         # Exclude individual addon subdirectories but keep root-level module files and common/
@@ -164,22 +164,22 @@ if ($Profile -eq 'Lite') {
                 Write-Log "[Addons] Warning: Unknown addon '$addon' - will be ignored" -Console
             }
         }
-        
+
         # Exclude all addon paths NOT in the include list
         foreach ($addonPath in $allAddonPaths.Values) {
             if ($pathsToInclude -notcontains $addonPath) {
                 $liteExclude += (Join-Path $kubePath $addonPath)
             }
         }
-        
+
         # Exclude manifests for multi-implementation addons where no implementations are selected
         Add-UnselectedAddonManifestExclusions -KubePath $kubePath -AddonsRootPath $addonsRootPath `
             -SelectedAddons $selectedAddons -ExclusionListRef ([ref]$liteExclude)
-        
+
         # Exclude test folders for NON-selected addons
         Add-TestFolderExclusions -KubePath $kubePath -SelectedAddons $selectedAddons `
             -ExclusionListRef ([ref]$liteExclude) -AllAddonPaths $allAddonPaths
-        
+
         # Include test folders for selected addons
         $testAddonsPath = Join-Path $kubePath 'test/e2e/addons'
         if (Test-Path $testAddonsPath) {
@@ -187,7 +187,7 @@ if ($Profile -eq 'Lite') {
             foreach ($testDir in $testAddonDirs) {
                 $testDirName = $testDir.Name
                 $shouldInclude = $false
-                
+
                 # Check if this test directory matches any selected addon
                 foreach ($addon in $selectedAddons) {
                     # Extract base addon name (remove implementation suffix for multi-impl addons)
@@ -196,10 +196,10 @@ if ($Profile -eq 'Lite') {
                         # Multi-implementation addon like "ingress nginx"
                         $addonBaseName = $matches[1]
                         $implName = $matches[2]
-                        
+
                         # Check if test dir matches base name or full implementation name
                         # e.g., "ingress" or "ingress-nginx" for "ingress nginx"
-                        if ($testDirName -eq $addonBaseName -or 
+                        if ($testDirName -eq $addonBaseName -or
                             $testDirName -eq "$addonBaseName-$implName" -or
                             $testDirName -like "$addonBaseName*") {
                             $shouldInclude = $true
@@ -213,7 +213,7 @@ if ($Profile -eq 'Lite') {
                         }
                     }
                 }
-                
+
                 if ($shouldInclude) {
                     $testDirFullPath = Join-Path $kubePath "test/e2e/addons/$testDirName"
                     $inclusionList += $testDirFullPath
@@ -221,13 +221,13 @@ if ($Profile -eq 'Lite') {
                 }
             }
         }
-        
+
         Write-Log "[Profile+Addons] Lite profile with selected addons: $($selectedAddons -join ', ')" -Console
     } else {
         # No addons list specified: include ALL addons and their tests (default behavior)
         Write-Log "[Profile] Lite profile: including all addons and addon tests (default)" -Console
     }
-    
+
     foreach ($p in $liteExclude) {
         if (-not ($exclusionList -contains $p)) { $exclusionList += $p }
     }
@@ -251,7 +251,7 @@ if ($Profile -eq 'Lite') {
     Write-Log '[Addons] Dev profile: excluding all addons (keeping addons module files and common/)' -Console
 } elseif ($selectedAddons.Count -gt 0) {
     Write-Log "[Addons] Dev profile with custom addon list: $($selectedAddons -join ', ')" -Console
-    
+
     $pathsToInclude = @()
     foreach ($addon in $selectedAddons) {
         if ($allAddonPaths.ContainsKey($addon)) {
@@ -260,21 +260,21 @@ if ($Profile -eq 'Lite') {
             Write-Log "[Addons] Warning: Unknown addon '$addon' - will be ignored" -Console
         }
     }
-    
+
     # Exclude all addon paths NOT in the include list
     foreach ($addonPath in $allAddonPaths.Values) {
         if ($pathsToInclude -notcontains $addonPath) {
             $fullPath = Join-Path $kubePath $addonPath
-            if (-not ($exclusionList -contains $fullPath)) { 
-                $exclusionList += $fullPath 
+            if (-not ($exclusionList -contains $fullPath)) {
+                $exclusionList += $fullPath
             }
         }
     }
-    
+
     # Exclude manifests for multi-implementation addons where no implementations are selected
     Add-UnselectedAddonManifestExclusions -KubePath $kubePath -AddonsRootPath $addonsRootPath `
         -SelectedAddons $selectedAddons -ExclusionListRef ([ref]$exclusionList)
-    
+
     # Exclude test folders for NON-selected addons
     Add-TestFolderExclusions -KubePath $kubePath -SelectedAddons $selectedAddons `
         -ExclusionListRef ([ref]$exclusionList) -AllAddonPaths $allAddonPaths
@@ -311,7 +311,7 @@ if ($ForOfflineInstallation) {
                 Send-ToCli -MessageType $MessageType -Message @{Error = $err }
                 return
             }
-        
+
             Write-Log $_ -Error
             exit 1
         }
@@ -335,7 +335,7 @@ if ($ForOfflineInstallation) {
                 Send-ToCli -MessageType $MessageType -Message @{Error = $err }
                 return
             }
-        
+
             Write-Log $_ -Error
             exit 1
         }
@@ -374,32 +374,32 @@ if ($CertificatePath) {
         -ForOfflineInstallation $ForOfflineInstallation -WindowsNodeArtifactsZipFilePath $winNodeArtifactsZipFilePath `
         -EncodeStructuredOutput $EncodeStructuredOutput -MessageType $MessageType `
         -SelectedAddons $selectedAddons -AllAddonPaths $allAddonPaths
-    
+
     if (-not $signingResult) {
         Write-Log "Code signing failed or was incomplete" -Error
         exit 1
     }
 } else {
     Write-Log 'No code signing requested - creating standard package.' -Console
-    
+
     # Filter addon manifests if custom addon selection
     if ($selectedAddons.Count -gt 0) {
         Write-Log 'Custom addon selection detected - creating temporary copy for manifest filtering...' -Console
         $tempPackagePath = Join-Path $env:TEMP "k2s-package-temp-$(Get-Random)"
-        
+
         try {
             # Copy files to temp directory for manifest filtering
             $copiedCount = Copy-FilesForSigning -SourcePath $kubePath -DestinationPath $tempPackagePath `
                 -ExclusionList $exclusionList -IsOfflineInstallation $ForOfflineInstallation
-            
+
             if ($copiedCount -eq 0) {
                 Write-Log "WARNING: No files were copied!" -Error
                 exit 1
             }
-            
+
             # Filter addon manifests in temp directory
             Update-AddonManifestsInPackage -PackageRootPath $tempPackagePath -SelectedAddons $selectedAddons -AllAddonPaths $allAddonPaths
-            
+
             Write-Log 'Start creation of zip package from filtered files...' -Console
             New-ZipArchive -ExclusionList @() -BaseDirectory $tempPackagePath -TargetPath "$zipPackagePath"
         }

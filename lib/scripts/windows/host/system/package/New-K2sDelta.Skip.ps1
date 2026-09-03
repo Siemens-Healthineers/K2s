@@ -9,12 +9,12 @@ function Test-SpecialSkippedFile {
         [string[]] $List
     )
     $leaf = [IO.Path]::GetFileName($Path)
-    
+
     # Check explicit skip list
     foreach ($f in $List) {
         if ($leaf -ieq $f) { return $true }
     }
-    
+
     # Skip entire addons directory - addons are not handled by delta upgrades.
     # Users manage addons separately via 'k2s addons enable/disable' commands.
     # Including addon files in delta could cause inconsistencies since addon
@@ -22,7 +22,7 @@ function Test-SpecialSkippedFile {
     if ($Path -match '^addons/') {
         return $true
     }
-    
+
     return $false
 }
 
@@ -49,27 +49,27 @@ function Test-ClusterConfigSkippedPath {
         [string] $Path,
         [string[]] $Patterns
     )
-    
+
     if (-not $Patterns -or $Patterns.Count -eq 0) { return $false }
-    
+
     # Normalize path to forward slashes
     $normalizedPath = $Path -replace '\\', '/'
     $normalizedPath = $normalizedPath -replace '^/', ''  # Remove leading slash if present
-    
+
     foreach ($pattern in $Patterns) {
         if ([string]::IsNullOrWhiteSpace($pattern)) { continue }
-        
+
         # Normalize pattern
         $normalizedPattern = $pattern -replace '\\', '/'
         $normalizedPattern = $normalizedPattern -replace '^/', ''
-        
+
         # Use -like for wildcard matching
         if ($normalizedPath -like $normalizedPattern) {
             Write-Log "[SkipList] Excluding cluster config file from diff: $Path (matches pattern: $pattern)" -Console
             return $true
         }
     }
-    
+
     return $false
 }
 

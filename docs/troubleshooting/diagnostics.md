@@ -38,7 +38,7 @@ The dump collects logs, configuration, and cluster state into a zip file at `C:\
 
 ## Network Diagnostics Dump
 
-A dedicated network diagnostics dump is also available. It collects network-specific information (adapter states, routes, HNS networks, firewall rules) separately from the general system dump. The network dump script is located at `lib\scripts\k2s\system\dump\network_dump.ps1`.
+A dedicated network diagnostics dump is also available. It collects network-specific information (adapter states, routes, HNS networks, firewall rules) separately from the general system dump. The network dump script is located at `lib\scripts\windows\host\system\dump\network_dump.ps1`.
 
 ## Packet Capture
 

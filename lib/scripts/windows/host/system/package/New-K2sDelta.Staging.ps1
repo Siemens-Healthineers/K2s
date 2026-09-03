@@ -218,11 +218,11 @@ function Write-StagingSummary {
 .DESCRIPTION
     The K2s offline package contains WindowsNodeArtifacts.zip which holds Windows Kubernetes
     binaries. During installation, these are extracted to various bin/ subdirectories.
-    
+
     For delta packages, we need to extract these binaries and stage them so that the delta
     update can replace the Windows node binaries. Without this, Windows nodes would keep
     old versions after a delta upgrade.
-    
+
     Mapping from WindowsNodeArtifacts.zip folders to installed paths:
     - kubetools/       -> bin/kube/       (kubelet.exe, kubectl.exe, kubeadm.exe, kube-proxy.exe)
     - docker/          -> bin/docker/     (docker.exe, dockerd.exe)
@@ -275,7 +275,7 @@ function Copy-WindowsNodeArtifactsToStaging {
 
     # Mapping from ZIP folder names to target bin/ folder names
     # Each entry: SourceFolder = @{ Target = 'target/path'; Subdir = 'optional/subdir'; Rename = @{'old.exe'='new.exe'} }
-    # 
+    #
     # Complete mapping based on Invoke-Deploy*Artifacts functions in downloader modules:
     # - kubetools/        -> bin/kube/       (kubelet, kubectl, kubeadm, kube-proxy)
     # - docker/           -> bin/docker/     (docker, dockerd)
@@ -315,7 +315,7 @@ function Copy-WindowsNodeArtifactsToStaging {
 
     $winArtifactsZip = Join-Path $Context.NewExtract 'bin\WindowsNodeArtifacts.zip'
     $oldWinArtifactsZip = Join-Path $Context.OldExtract 'bin\WindowsNodeArtifacts.zip'
-    
+
     if (-not (Test-Path $winArtifactsZip)) {
         $result.ErrorMessage = "WindowsNodeArtifacts.zip not found at: $winArtifactsZip"
         Write-Log "[WinArtifacts] $($result.ErrorMessage)" -Console
@@ -368,14 +368,14 @@ function Copy-WindowsNodeArtifactsToStaging {
                 $targetPath = Join-Path $Context.StageDir $targetFolder
 
                 # Build the source path pattern (may include subdir like containerd/bin/)
-                $sourcePattern = if ($sourceSubdir) { 
-                    "^$sourceFolder[/\\]$sourceSubdir[/\\]" 
-                } else { 
-                    "^$sourceFolder[/\\]" 
+                $sourcePattern = if ($sourceSubdir) {
+                    "^$sourceFolder[/\\]$sourceSubdir[/\\]"
+                } else {
+                    "^$sourceFolder[/\\]"
                 }
 
                 # Find all entries in this source folder
-                $entries = $zip.Entries | Where-Object { 
+                $entries = $zip.Entries | Where-Object {
                     $_.FullName -match $sourcePattern -and -not $_.FullName.EndsWith('/')
                 }
 
@@ -397,7 +397,7 @@ function Copy-WindowsNodeArtifactsToStaging {
                     if ($sourceSubdir) {
                         $relativePath = $relativePath -replace "^$sourceSubdir[/\\]", ''
                     }
-                    
+
                     # Skip if it's just a directory entry
                     if ([string]::IsNullOrEmpty($relativePath) -or $entry.FullName.EndsWith('/')) {
                         continue

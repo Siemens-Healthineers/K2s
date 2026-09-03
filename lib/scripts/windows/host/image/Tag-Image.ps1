@@ -18,7 +18,7 @@ The image id of the image to be exported
 The image name of the image to be tagged
 
 .PARAMETER TargetImageName
-The new image name 
+The new image name
 
 .EXAMPLE
 # Tag container image "image:v1" with new name "image:v2" in K2s

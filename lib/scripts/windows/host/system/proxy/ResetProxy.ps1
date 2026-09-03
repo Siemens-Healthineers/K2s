@@ -16,8 +16,8 @@ Param(
     [string] $MessageType
 )
 
-$infraModule = "$PSScriptRoot/../../../../modules/k2s/k2s.infra.module/k2s.infra.module.psm1"
-$nodeModule = "$PSScriptRoot/../../../../modules/k2s/k2s.node.module/k2s.node.module.psm1"
+$infraModule = "$PSScriptRoot\..\..\..\..\..\modules\k2s\k2s.infra.module\k2s.infra.module.psm1"
+$nodeModule = "$PSScriptRoot\..\..\..\..\..\modules\k2s\k2s.node.module\k2s.node.module.psm1"
 
 Import-Module $infraModule, $nodeModule
 Initialize-Logging
@@ -26,7 +26,7 @@ try {
     Reset-ProxyConfig
     Stop-WinHttpProxy
     $updatedProxyConfig = Get-ProxyConfig
-    
+
     $k2sHosts = Get-K2sHosts
     Set-ProxyConfigInHttpProxy -Proxy $updatedProxyConfig.HttpProxy -ProxyOverrides $k2sHosts
     Start-WinHttpProxy

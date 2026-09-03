@@ -21,7 +21,7 @@ The image name of the image to be removed
 Remove image from local storage as well as from local container registry
 
 .EXAMPLE
-# Remove image with image name 
+# Remove image with image name
 PS> .\Remove-Image.ps1 -ImageName "image:v1"
 
 .EXAMPLE

@@ -71,9 +71,9 @@ param (
     [string] $MessageType
 )
 
-$infraModule = "$PSScriptRoot/../../../../modules/k2s/k2s.infra.module/k2s.infra.module.psm1"
-$nodeModule  = "$PSScriptRoot/../../../../modules/k2s/k2s.node.module/k2s.node.module.psm1"
-$clusterModule = "$PSScriptRoot/../../../../modules/k2s/k2s.cluster.module/k2s.cluster.module.psm1"
+$infraModule = "$PSScriptRoot\..\..\..\..\..\modules\k2s\k2s.infra.module\k2s.infra.module.psm1"
+$nodeModule  = "$PSScriptRoot\..\..\..\..\..\modules\k2s\k2s.node.module\k2s.node.module.psm1"
+$clusterModule = "$PSScriptRoot\..\..\..\..\..\modules\k2s\k2s.cluster.module\k2s.cluster.module.psm1"
 $vmProvisioningHelper = "$PSScriptRoot\New-K2sNodePackage.VmProvisioning.ps1"
 $puttyToolsHelper = "$PSScriptRoot\New-K2sPackage.PuttyTools.ps1"
 
@@ -417,7 +417,7 @@ try {
             -IpAddress $guestIp `
             -UserName  $sshUser `
             -UserPwd   $sshPwd
-        
+
         $localGpuDebCount = @(Get-ChildItem -Path $gpuPkgDir -Filter '*.deb' -File -ErrorAction SilentlyContinue).Count
         Write-Log "[NodePkg] Local GPU package count: $localGpuDebCount" -Console
     }
@@ -431,13 +431,13 @@ try {
     New-Item -Path $TargetDirectory -ItemType Directory -Force | Out-Null
     $zipTarget = Join-Path $TargetDirectory $ZipPackageFileName
     if (Test-Path $zipTarget) { Remove-Item $zipTarget -Force }
-    
+
     $zipContents = @($packagesDir, $imagesDir)
     $gpuIncludedMsg = ''
     if ($IncludeGpu) {
         $gpuIncludedMsg = ' (with GPU support)'
     }
-    
+
     Compress-Archive -Path $zipContents -DestinationPath $zipTarget -Force
     Write-Log "[NodePkg] Node package zip created${gpuIncludedMsg}: $zipTarget" -Console
     Write-Log "[NodePkg] Package creation for '$distributionKey' completed successfully." -Console

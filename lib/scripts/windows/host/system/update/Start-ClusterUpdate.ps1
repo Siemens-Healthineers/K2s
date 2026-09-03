@@ -33,7 +33,7 @@ $runningFromDelta = Test-Path -LiteralPath $deltaManifestPath
 if ($runningFromDelta) {
 	# Running from delta package - reference modules from target installation
 	Write-Host "[Update] Detected delta package context - loading modules from target installation" -ForegroundColor Cyan
-	
+
 	# Get target installation path from setup.json
 	$setupConfigPath = "$env:SystemDrive\ProgramData\k2s\setup.json"
 	if (Test-Path -LiteralPath $setupConfigPath) {
@@ -42,16 +42,16 @@ if ($runningFromDelta) {
 	} else {
 		$targetInstallPath = 'C:\k'
 	}
-	
+
 	if (-not (Test-Path -LiteralPath $targetInstallPath)) {
 		Write-Host "[Update][Error] Target installation not found at: $targetInstallPath" -ForegroundColor Red
 		exit 1
 	}
-	
+
 	$infraModule = Join-Path $targetInstallPath 'lib\modules\k2s\k2s.infra.module\k2s.infra.module.psm1'
 	$clusterModule = Join-Path $targetInstallPath 'lib\modules\k2s\k2s.cluster.module\k2s.cluster.module.psm1'
 	$addonsModule = Join-Path $targetInstallPath 'addons\addons.module.psm1'
-	
+
 	# Load update module from DELTA PACKAGE (it's new/updated and may not exist in target installation)
 	# Infrastructure modules are loaded from target installation so paths resolve correctly via Get-KubePath.
 	# NOTE: When the delta update relocates the installation to the new folder, PerformClusterUpdate
@@ -62,10 +62,10 @@ if ($runningFromDelta) {
 	$updateModule = Join-Path $possibleDeltaRoot 'lib\modules\k2s\k2s.cluster.module\update\update.module.psm1'
 } else {
 	# Running from installed k2s - use relative paths
-	$infraModule = "$PSScriptRoot/../../../../modules/k2s/k2s.infra.module/k2s.infra.module.psm1"
-	$clusterModule = "$PSScriptRoot/../../../../modules/k2s/k2s.cluster.module/k2s.cluster.module.psm1"
-	$addonsModule = "$PSScriptRoot/../../../../../addons\addons.module.psm1"
-	$updateModule = "$PSScriptRoot/../../../../modules/k2s/k2s.cluster.module/update/update.module.psm1"
+	$infraModule = "$PSScriptRoot\..\..\..\..\..\modules\k2s\k2s.infra.module\k2s.infra.module.psm1"
+	$clusterModule = "$PSScriptRoot\..\..\..\..\..\modules\k2s\k2s.cluster.module\k2s.cluster.module.psm1"
+	$addonsModule = "$PSScriptRoot\..\..\..\..\..\..\addons\addons.module.psm1"
+	$updateModule = "$PSScriptRoot\..\..\..\..\..\modules\k2s\k2s.cluster.module\update\update.module.psm1"
 }
 
 Import-Module $infraModule, $clusterModule, $addonsModule, $updateModule
@@ -111,7 +111,7 @@ function Start-ClusterUpdate {
 		Write-Error 'System update failed, please check the logs for more information!'
 		return $false
 	}
-	
+
 	if ( $errUpdate ) {
 		return $false
 	}

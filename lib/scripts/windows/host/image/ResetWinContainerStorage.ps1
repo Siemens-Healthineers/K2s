@@ -42,9 +42,9 @@ Param(
     [parameter(Mandatory = $false, HelpMessage = 'Trigger clean-up of windows container storage without user prompts')]
     [switch]$Force = $false
 )
-$infraModule = "$PSScriptRoot\..\..\..\modules\k2s\k2s.infra.module\k2s.infra.module.psm1"
-$clusterModule = "$PSScriptRoot\..\..\..\modules\k2s\k2s.cluster.module\k2s.cluster.module.psm1"
-$nodeModule = "$PSScriptRoot\..\..\..\modules\k2s\k2s.node.module\k2s.node.module.psm1"
+$infraModule = "$PSScriptRoot\..\..\..\..\modules\k2s\k2s.infra.module\k2s.infra.module.psm1"
+$clusterModule = "$PSScriptRoot\..\..\..\..\modules\k2s\k2s.cluster.module\k2s.cluster.module.psm1"
+$nodeModule = "$PSScriptRoot\..\..\..\..\modules\k2s\k2s.node.module\k2s.node.module.psm1"
 
 Import-Module $infraModule, $clusterModule, $nodeModule
 
@@ -59,7 +59,7 @@ function Get-DockerStatus() {
 
 <#
 .SYNOPSIS
-Cleanup docker storage directory 
+Cleanup docker storage directory
 
 .DESCRIPTION
 Cleanup docker storage directory  from all reparse points which could lead to an inconsistent system.
@@ -268,7 +268,7 @@ if ($setupInfo.Name -eq 'k2s') {
             return
         }
         Write-Log $errMsg -Error
-        exit 1      
+        exit 1
     }
 }
 
@@ -290,7 +290,7 @@ if (!$Force) {
     if ($answer -ne 'y') {
         $msg = 'Resetting Windows container storage cancelled.'
 
-        if ($EncodeStructuredOutput -eq $true) {            
+        if ($EncodeStructuredOutput -eq $true) {
             $err = New-Error -Severity Warning -Code (Get-ErrCodeUserCancellation) -Message $msg
             Send-ToCli -MessageType $MessageType -Message @{Error = $err }
             return

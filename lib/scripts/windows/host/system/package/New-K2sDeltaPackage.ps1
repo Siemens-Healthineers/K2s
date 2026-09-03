@@ -9,13 +9,13 @@
     New-K2sDeltaPackage.ps1 orchestrates creation of a delta package that contains
     only the differences between two K2s offline packages. This dramatically reduces
     package size for updates.
-    
+
     The delta package includes:
     - Changed and added files (with hash-based comparison)
     - Debian package differences from Kubemaster VM base images
     - Container image layer differences (Linux and Windows)
     - Wholesale directory replacements as specified
-    
+
     Container Image Delta Processing:
     - Discovers images from buildah (Linux) and addon manifests (Windows)
     - Compares image versions between packages by image ID and digest
@@ -23,13 +23,13 @@
     - Achieves 80-95% size reduction for image-only updates
     - Linux images processed via buildah in temporary VM
     - Windows images marked for full export (layer extraction not yet implemented)
-    
+
     Requirements:
     - Hyper-V enabled for VM-based analysis
     - buildah 1.23+ (present in Kubemaster base image)
     - containerd 1.6+ (for image management)
     - Both input packages must be offline-installation packages with VHDX images
-    
+
     The generated delta manifest (v2.0) includes ContainerImageDiff metadata with
     added, removed, and changed image lists, plus extracted layer paths and sizes.
 
@@ -95,7 +95,7 @@
 .NOTES
     Container image delta processing adds 5-15 minutes to delta creation time
     but can reduce delta package size by 500MB-2GB for image-heavy updates.
-    
+
     Temporary VMs are created and cleaned up automatically during processing.
     Ensure sufficient disk space for temporary extraction directories.
 #>
@@ -136,10 +136,10 @@ $script:SuppressFinalErrorLog = $false
 $script:StructuredErrorSent = $false
 
 ### Import modules required for logging and signing
-$infraModule = "$PSScriptRoot/../../../../modules/k2s/k2s.infra.module/k2s.infra.module.psm1"
-$nodeModule = "$PSScriptRoot/../../../../modules/k2s/k2s.node.module/k2s.node.module.psm1"
-$clusterModule = "$PSScriptRoot/../../../../modules/k2s/k2s.cluster.module/k2s.cluster.module.psm1"
-$signingModule = "$PSScriptRoot/../../../../modules/k2s/k2s.signing.module/k2s.signing.module.psm1"
+$infraModule = "$PSScriptRoot\..\..\..\..\..\modules\k2s\k2s.infra.module\k2s.infra.module.psm1"
+$nodeModule = "$PSScriptRoot\..\..\..\..\..\modules\k2s\k2s.node.module\k2s.node.module.psm1"
+$clusterModule = "$PSScriptRoot\..\..\..\..\..\modules\k2s\k2s.cluster.module\k2s.cluster.module.psm1"
+$signingModule = "$PSScriptRoot\..\..\..\..\..\modules\k2s\k2s.signing.module\k2s.signing.module.psm1"
 Import-Module $infraModule, $nodeModule, $clusterModule, $signingModule
 
 # CRITICAL: When encoding structured output, suppress ALL console output to prevent base64 contamination
@@ -366,53 +366,53 @@ if ($SpecialSkippedFiles -contains 'Kubemaster-Base.vhdx') {
                 $debianPackageDiff = Get-SkippedFileDebianPackageDiff -OldRoot $oldExtract -NewRoot $newExtract -FileName 'Kubemaster-Base.vhdx' -QueryImages:(-not $SkipImageDelta) -QueryConfigHashes -KeepNewVmAlive:$true
         if ($debianPackageDiff.Processed) {
             Write-Log ("[VHDXAnalysis] Debian package diff: Added={0} Changed={1} Removed={2}" -f $debianPackageDiff.AddedCount, $debianPackageDiff.ChangedCount, $debianPackageDiff.RemovedCount) -Console
-            
+
             # Process image delta if enabled
             if (-not $SkipImageDelta) {
                 Write-Log '[ImageDiff] Processing container image delta...' -Console
                 $imagePhase = Start-Phase 'Image Delta'
-                
+
                 try {
                     # Get Windows images from both packages
                     Write-Log '[ImageDiff] Extracting Windows images from packages...' -Console
                     $oldWinImages = Get-WindowsImagesFromPackage -PackageRoot $oldExtract
                     $newWinImages = Get-WindowsImagesFromPackage -PackageRoot $newExtract
-                    
+
                     # Compare all images
                     $imageDiffResult = Compare-ContainerImages -OldLinuxImages $debianPackageDiff.OldLinuxImages `
                                                                 -NewLinuxImages $debianPackageDiff.NewLinuxImages `
                                                                 -OldWindowsImages $oldWinImages.Images `
                                                                 -NewWindowsImages $newWinImages.Images
-                    
+
                     Write-Log "[ImageDiff] Image comparison complete: Added=$($imageDiffResult.Added.Count), Removed=$($imageDiffResult.Removed.Count), Changed=$($imageDiffResult.Changed.Count)" -Console
-                    
+
                     # Extract layers for changed images (Added + Changed)
                     $imagesToProcess = @()
                     if ($imageDiffResult.Added) { $imagesToProcess += $imageDiffResult.Added }
                     if ($imageDiffResult.Changed) { $imagesToProcess += $imageDiffResult.Changed }
-                    
+
                     if ($imagesToProcess.Count -gt 0) {
                         Write-Log "[ImageAcq] Starting image export for $($imagesToProcess.Count) images..." -Console
-                        
+
                         # Debug: show platforms of all images
                         foreach ($img in $imagesToProcess) {
                             Write-Log "[ImageAcq] DEBUG: Image '$($img.FullName)' has Platform='$($img.Platform)'" -Console
                         }
-                        
+
                         # Separate Windows and Linux images (ensure array output)
                         $windowsImagesToProcess = @($imagesToProcess | Where-Object { $_.Platform -eq 'windows' })
                         $linuxImagesToProcess = @($imagesToProcess | Where-Object { $_.Platform -eq 'linux' })
-                        
+
                         Write-Log "[ImageAcq] Images to process: $($windowsImagesToProcess.Count) Windows, $($linuxImagesToProcess.Count) Linux" -Console
-                        
+
                         # Get path to new VHDX
                         $newVhdxPath = Join-Path $newExtract 'bin\Kubemaster-Base.vhdx'
-                        
+
                         # Always process Windows images (they don't need a VM)
                         # Process Linux images only if we have a VM context
                         $imagesToExport = @()
                         $imagesToExport += $windowsImagesToProcess
-                        
+
                         if ((Test-Path $newVhdxPath) -and $debianPackageDiff.NewVmContext) {
                             $imagesToExport += $linuxImagesToProcess
                             $vmContext = $debianPackageDiff.NewVmContext
@@ -422,7 +422,7 @@ if ($SpecialSkippedFiles -contains 'Kubemaster-Base.vhdx') {
                             }
                             $vmContext = $null
                         }
-                        
+
                         if ($imagesToExport.Count -gt 0) {
                             $layerExtractionResult = Export-ChangedImageLayers -NewPackageRoot $newExtract `
                                                                                 -NewVhdxPath $newVhdxPath `
@@ -430,10 +430,10 @@ if ($SpecialSkippedFiles -contains 'Kubemaster-Base.vhdx') {
                                                                                 -StagingDir $stageDir `
                                                                                 -ExistingVmContext $vmContext `
                                                                                 -ShowLogs:$false
-                            
+
                             if ($layerExtractionResult.Success) {
                                 Write-Log "[ImageAcq] Image export successful: Exported $($layerExtractionResult.ExtractedLayers.Count) image archives, Total size: $([math]::Round($layerExtractionResult.TotalSize / 1MB, 2)) MB" -Console
-                                
+
                                 if ($layerExtractionResult.FailedImages.Count -gt 0) {
                                     Write-Log "[ImageAcq] Warning: $($layerExtractionResult.FailedImages.Count) images failed extraction: $($layerExtractionResult.FailedImages -join ', ')" -Console
                                 }
@@ -441,34 +441,34 @@ if ($SpecialSkippedFiles -contains 'Kubemaster-Base.vhdx') {
                                 Write-Log "[ImageAcq] Warning: Image export failed: $($layerExtractionResult.ErrorMessage)" -Console
                             }
                         }
-                        
+
                         # VM cleanup moved to after guest config diff phase
                     } else {
                         Write-Log "[ImageAcq] No images to process for layer extraction" -Console
                         # VM cleanup moved to after guest config diff phase
                     }
-                    
+
                 } catch {
                     Write-Log "[ImageDiff] Warning: Image delta processing failed: $($_.Exception.Message)" -Console
                 } finally {
                     Stop-Phase 'Image Delta' $imagePhase
                 }
             }
-            
+
             # --- Guest configuration file diff (use hashes collected during deb diff phase) ---
             $configPhase = Start-Phase 'GuestConfigDiff'
             try {
                 Write-Log '[GuestConfig] Processing guest configuration file diff from collected hashes...' -Console
-                
+
                 $oldHashes = $debianPackageDiff.OldConfigHashes
                 $newHashes = $debianPackageDiff.NewConfigHashes
-                
+
                 if ($oldHashes.Count -gt 0 -or $newHashes.Count -gt 0) {
                     # Compute diff from collected hashes
                     $configAdded = @()
                     $configRemoved = @()
                     $configChanged = @()
-                    
+
                     foreach ($path in $newHashes.Keys) {
                         if (-not $oldHashes.ContainsKey($path)) {
                             $configAdded += $path
@@ -481,13 +481,13 @@ if ($SpecialSkippedFiles -contains 'Kubemaster-Base.vhdx') {
                             $configRemoved += $path
                         }
                     }
-                    
+
                     Write-Log "[GuestConfig] Guest config diff: Added=$($configAdded.Count), Changed=$($configChanged.Count), Removed=$($configRemoved.Count)" -Console
-                    
+
                     # Copy added/changed files from new VM if it's still alive
                     $filesToCopy = @($configAdded) + @($configChanged)
                     $copiedFiles = @()
-                    
+
                     if ($filesToCopy.Count -gt 0 -and $debianPackageDiff.NewVmContext) {
                         # Copy-GuestConfigFiles appends 'guest-config' to its -OutputDir (its documented
                         # contract: "guest-config/ will be the root"). Pass the staging ROOT here so the
@@ -500,7 +500,7 @@ if ($SpecialSkippedFiles -contains 'Kubemaster-Base.vhdx') {
                                                             -OldExtract $oldExtract `
                                                             -FilePaths $filesToCopy `
                                                             -OutputDir $stageDir
-                        
+
                         if ($copyResult.Error) {
                             Write-Log "[GuestConfig] Warning: File copy had errors: $($copyResult.Error)" -Console
                         }
@@ -509,7 +509,7 @@ if ($SpecialSkippedFiles -contains 'Kubemaster-Base.vhdx') {
                     } elseif ($filesToCopy.Count -gt 0) {
                         Write-Log "[GuestConfig] Warning: Cannot copy config files - new VM context not available" -Console
                     }
-                    
+
                     # Build result object for manifest
                     $guestConfigDiff = [pscustomobject]@{
                         Processed     = $true
@@ -531,14 +531,14 @@ if ($SpecialSkippedFiles -contains 'Kubemaster-Base.vhdx') {
                 $guestConfigDiff = [pscustomobject]@{ Processed = $false; Error = $_.Exception.Message }
             } finally {
                 Stop-Phase 'GuestConfigDiff' $configPhase
-                
+
                 # Clean up new VM now that all VM-based processing is done (old VM already shut down)
                 if ($debianPackageDiff.NewVmContext) {
                     Write-Log "[GuestConfig] Cleaning up new VM after config diff: $($debianPackageDiff.NewVmContext.VmName)" -Console
                     Remove-K2sHvEnvironment -Context $debianPackageDiff.NewVmContext
                 }
             }
-            
+
                         # --- Generate Debian delta artifact directory (lists + scripts) -----------------
             $debArtifactPhase = Start-Phase 'DebianArtifacts'
             try {
@@ -602,7 +602,7 @@ if ($SpecialSkippedFiles -contains 'Kubemaster-Base.vhdx') {
                 # Apply script (bash) - installs added + upgraded with explicit versions, removes removed
                 # Copy bash scripts from external files (maintained separately for readability)
                 $scriptsSourceDir = Join-Path $PSScriptRoot 'scripts'
-                
+
                 $applyScriptSource = Join-Path $scriptsSourceDir 'apply-debian-delta.sh'
                 $applyPath = Join-Path $debianDeltaDir 'apply-debian-delta.sh'
                 if (Test-Path -LiteralPath $applyScriptSource) {
@@ -610,7 +610,7 @@ if ($SpecialSkippedFiles -contains 'Kubemaster-Base.vhdx') {
                 } else {
                     throw "Required script not found: $applyScriptSource"
                 }
-                
+
                 $verifyScriptSource = Join-Path $scriptsSourceDir 'verify-debian-delta.sh'
                 $verifyPath = Join-Path $debianDeltaDir 'verify-debian-delta.sh'
                 if (Test-Path -LiteralPath $verifyScriptSource) {
@@ -618,7 +618,7 @@ if ($SpecialSkippedFiles -contains 'Kubemaster-Base.vhdx') {
                 } else {
                     throw "Required script not found: $verifyScriptSource"
                 }
-                
+
                 # Attempt offline .deb acquisition using a second VHDX scan pass (best effort)
                 try {
                     if ($offlineSpecs.Count -gt 0) {
@@ -703,7 +703,7 @@ if ($SpecialSkippedFiles -contains 'Kubemaster-Base.vhdx') {
                 }
                 else {
                     throw $_
-                }        
+                }
             }
             Stop-Phase 'VHDXAnalysis' $vhdxPhase
     } else {
@@ -717,7 +717,7 @@ if ($SpecialSkippedFiles -contains 'Kubemaster-Base.vhdx') {
                 if ($leftVMs) { Write-Log ("[Cleanup][Warning] Residual VM objects after diff failure: {0}" -f ($leftVMs.Name -join ', ')) -Console }
                 if ($leftSwitches) { Write-Log ("[Cleanup][Warning] Residual VMSwitch objects after diff failure: {0}" -f ($leftSwitches.Name -join ', ')) -Console }
             }
-        } catch { Write-Log "[Cleanup][Warning] Cleanup verification failed: $($_.Exception.Message)" -Console }        
+        } catch { Write-Log "[Cleanup][Warning] Cleanup verification failed: $($_.Exception.Message)" -Console }
         Write-Log $err -Error
         $script:SuppressFinalErrorLog = $true
         throw $err
@@ -792,7 +792,7 @@ if ($overallError) {
 
 if ($EncodeStructuredOutput -eq $true) {
     # Send CmdResult structure expected by Go CLI (lowercase 'error' field)
-    Send-ToCli -MessageType $MessageType -Message @{ 
+    Send-ToCli -MessageType $MessageType -Message @{
         error = $null
     }
 } else {

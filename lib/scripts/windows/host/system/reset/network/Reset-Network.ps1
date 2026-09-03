@@ -15,8 +15,8 @@ Param(
     [switch] $ShowLogs = $false
 )
 
-$infraModule = "$PSScriptRoot/../../../../../modules/k2s/k2s.infra.module/k2s.infra.module.psm1"
-$nodeModule = "$PSScriptRoot/../../../../../modules/k2s/k2s.node.module/k2s.node.module.psm1"
+$infraModule = "$PSScriptRoot\..\..\..\..\..\..\modules\k2s\k2s.infra.module\k2s.infra.module.psm1"
+$nodeModule = "$PSScriptRoot\..\..\..\..\..\..\modules\k2s\k2s.node.module\k2s.node.module.psm1"
 
 Import-Module $infraModule, $nodeModule
 
@@ -33,10 +33,10 @@ if ($Force -ne $true) {
         }
         Write-Log $errMsg -Error
         exit 1
-    }    
+    }
 }
 
-Write-Log 'Removing HNS Network' 
+Write-Log 'Removing HNS Network'
 $devgonPath = Get-DevgonExePath
 Get-NetAdapter | Where-Object InterfaceDescription -like 'Microsoft KM-TEST Loopback Adapter*' | ForEach-Object { Remove-LoopbackAdapter -Name $_.Name -DevConExe $devgonPath }
 

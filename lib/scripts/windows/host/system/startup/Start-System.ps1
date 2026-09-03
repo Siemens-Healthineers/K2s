@@ -15,8 +15,8 @@ Param(
     [string] $MessageType
 )
 
-$infraModule = "$PSScriptRoot/../../../../modules/k2s/k2s.infra.module/k2s.infra.module.psm1"
-$nodeModule = "$PSScriptRoot/../../../../modules/k2s/k2s.node.module/k2s.node.module.psm1"
+$infraModule = "$PSScriptRoot\..\..\..\..\..\modules\k2s\k2s.infra.module\k2s.infra.module.psm1"
+$nodeModule = "$PSScriptRoot\..\..\..\..\..\modules\k2s\k2s.node.module\k2s.node.module.psm1"
 
 Import-Module $infraModule, $nodeModule
 Initialize-Logging
@@ -452,9 +452,9 @@ try {
     }
     # check if there is an HNS network with l2 bridge
     $l2BridgeSwitchName = Get-L2BridgeSwitchName
-    $found = Invoke-HNSCommand -Command { 
+    $found = Invoke-HNSCommand -Command {
         param($l2BridgeSwitchName)
-        Get-HNSNetwork | Where-Object Name -Like $l2BridgeSwitchName 
+        Get-HNSNetwork | Where-Object Name -Like $l2BridgeSwitchName
     } -ArgumentList $l2BridgeSwitchName
     if ($found) {
         Write-Log "[$logUseCase] External switch with l2 bridge network already exists"
@@ -499,7 +499,7 @@ try {
                 Write-Log "[$logUseCase] Loopback Adapter is not disabled, must be a start of windows after no stop was done"
                 $adapterName = Get-L2BridgeName
                 $PodSubnetworkNumber = '1'
-                
+
                 # Stop k8s networking services to prevent race condition with L2 bridge recreation.
                 # All NSSM-managed services auto-started after unclean reboot and may have programmed
                 # HNS policies against a transient cbr0 that flannel created before Start-System ran.
@@ -514,10 +514,10 @@ try {
                 }
                 Wait-ForServiceStopped -ServiceName 'kubelet' -MaxRetries 10 -SleepSeconds 1
                 Wait-ForServiceStopped -ServiceName 'kubeproxy' -MaxRetries 10 -SleepSeconds 1
-                
+
                 # Additional delay to ensure flanneld releases all L2 bridge resources
                 Start-Sleep -Seconds 2
-                
+
                 Enable-NetAdapter -Name $adapterName -Confirm:$false -ErrorAction SilentlyContinue
                 $return = Wait-NetInterfaceAdapterUp -AdapterName $adapterName
                 if ($return -eq $true) {

@@ -21,9 +21,9 @@ param(
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
-Import-Module (Join-Path $PSScriptRoot "..\..\..\..\modules\k2s\k2s.infra.module\k2s.infra.module.psm1") -Force
-Import-Module (Join-Path $PSScriptRoot "..\..\..\..\modules\k2s\k2s.cluster.module\upgrade\upgrade.module.psm1") -Force
-Import-Module (Join-Path $PSScriptRoot "..\..\..\..\modules\k2s\k2s.cluster.module\setupinfo\setupinfo.module.psm1") -Force
+Import-Module (Join-Path $PSScriptRoot "..\\..\\..\..\..\modules\k2s\k2s.infra.module\k2s.infra.module.psm1") -Force
+Import-Module (Join-Path $PSScriptRoot "..\\..\\..\..\..\modules\k2s\k2s.cluster.module\upgrade\upgrade.module.psm1") -Force
+Import-Module (Join-Path $PSScriptRoot "..\\..\\..\..\..\modules\k2s\k2s.cluster.module\setupinfo\setupinfo.module.psm1") -Force
 
 # ------------------------------------------------------------
 # Verify K2s is installed

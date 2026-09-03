@@ -50,9 +50,9 @@ Param(
 
 $installStopwatch = [system.diagnostics.stopwatch]::StartNew()
 
-$infraModule =   "$PSScriptRoot\..\..\..\modules\k2s\k2s.infra.module\k2s.infra.module.psm1"
-$nodeModule =    "$PSScriptRoot\..\..\..\modules\k2s\k2s.node.module\k2s.node.module.psm1"
-$clusterModule = "$PSScriptRoot\..\..\..\modules\k2s\k2s.cluster.module\k2s.cluster.module.psm1"
+$infraModule =   "$PSScriptRoot\..\..\..\..\modules\k2s\k2s.infra.module\k2s.infra.module.psm1"
+$nodeModule =    "$PSScriptRoot\..\..\..\..\modules\k2s\k2s.node.module\k2s.node.module.psm1"
+$clusterModule = "$PSScriptRoot\..\..\..\..\modules\k2s\k2s.cluster.module\k2s.cluster.module.psm1"
 
 Import-Module $infraModule, $nodeModule, $clusterModule
 
@@ -114,7 +114,7 @@ $controlPlaneNodeParams = @{
     ShowLogs = $ShowLogs
     WSL = $WSL
 }
-& "$PSScriptRoot\..\..\control-plane\Install.ps1" @controlPlaneNodeParams
+& "$PSScriptRoot\..\..\..\control-plane\Install.ps1" @controlPlaneNodeParams
 
 $workerNodeParams = @{
     ShowLogs = $ShowLogs
@@ -125,7 +125,7 @@ $workerNodeParams = @{
     DnsAddresses = $dnsServers
     K8sBinsPath = $K8sBinsPath
 }
-& "$PSScriptRoot\..\..\worker\windows\windows-host\Install.ps1" @workerNodeParams
+& "$PSScriptRoot\..\..\..\worker\windows\windows-host\Install.ps1" @workerNodeParams
 
 # show results
 Write-Log "Current state of kubernetes nodes:`n"

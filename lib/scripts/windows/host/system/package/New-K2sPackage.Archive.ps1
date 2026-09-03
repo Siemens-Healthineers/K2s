@@ -22,35 +22,35 @@ function New-ZipArchive() {
         [AllowEmptyCollection()]
         [string[]] $InclusionList = @()
     )
-    
+
     Write-Log "Creating ZIP archive: $TargetPath from base directory: $BaseDirectory" -Console
-    
+
     # Normalize the base directory to its full path to avoid 8.3 vs long name issues
     $normalizedBaseDirectory = (Get-Item $BaseDirectory).FullName
     Write-Log "BaseDirectory normalized: $normalizedBaseDirectory" -Console
-    
+
     $files = Get-ChildItem -Path $BaseDirectory -Force -Recurse | ForEach-Object { $_.FullName }
     Write-Log "Found $($files.Count) total files and directories to process" -Console
-    
+
     $fileStreamMode = [System.IO.FileMode]::Create
     $zipMode = [System.IO.Compression.ZipArchiveMode]::Create
     $compressionLevel = [System.IO.Compression.CompressionLevel]::Optimal
 
     $zipFileStream = $null
     $zipFile = $null
-    
+
     try {
         $zipFileStream = [System.IO.File]::Open($TargetPath, $fileStreamMode)
         $zipFile = [System.IO.Compression.ZipArchive]::new($zipFileStream, $zipMode)
         Write-Log "ZIP archive opened successfully" -Console
-        
+
         $addedCount = 0
         $skippedCount = 0
-        
+
         foreach ($file in $files) {
             $sourceFileStream = $null
             $zipFileStreamEntry = $null
-            
+
             try {
                 # Check exclusion list
                 $shouldSkip = $false
@@ -82,13 +82,13 @@ function New-ZipArchive() {
                 }
 
                 $relativeFilePath = $file.Replace("$normalizedBaseDirectory\", '')
-                
+
                 # Debug: Check if the replacement worked properly
                 if ($relativeFilePath -eq $file) {
                     # Replacement didn't work, try alternative method
                     Write-Log "WARNING: Standard replacement failed for file: $file" -Console
                     Write-Log "BaseDirectory: $normalizedBaseDirectory" -Console
-                    
+
                     # Try using Resolve-Path or manual substring
                     try {
                         $filePathResolved = (Resolve-Path $file).Path
@@ -106,9 +106,9 @@ function New-ZipArchive() {
                         continue
                     }
                 }
-                
+
                 $isDirectory = (Get-Item $file) -is [System.IO.DirectoryInfo]
-                
+
                 if ($isDirectory) {
                     Write-Log "Adding directory: $relativeFilePath"
                     $zipFileEntry = $zipFile.CreateEntry("$relativeFilePath\")
@@ -120,7 +120,7 @@ function New-ZipArchive() {
                         Write-Log "Warning: File not found or not accessible: $file" -Console
                         continue
                     }
-                    
+
                     Write-Log "Adding file: $relativeFilePath (Size: $((Get-Item $file).Length) bytes)"
                     $zipFileEntry = $zipFile.CreateEntry($relativeFilePath, $compressionLevel)
                     $zipFileStreamEntry = $zipFileEntry.Open()
@@ -140,13 +140,13 @@ function New-ZipArchive() {
                 if ($zipFileStreamEntry) { $zipFileStreamEntry.Dispose() }
             }
         }
-        
+
         Write-Log "ZIP creation completed. Added: $addedCount, Skipped: $skippedCount" -Console
-        
+
     }
     catch {
         Write-Log "CRITICAL ERROR in New-ZipArchive: $_" -Error
-        
+
         # Clean up the partial ZIP file
         if ($zipFile) { $zipFile.Dispose() }
         if ($zipFileStream) { $zipFileStream.Dispose() }
@@ -159,27 +159,27 @@ function New-ZipArchive() {
             Send-ToCli -MessageType $MessageType -Message @{Error = $err }
             return
         }
-    
+
         Write-Log "ZIP creation failed: $_" -Error
         exit 1
     }
     finally {
         # Properly dispose of main ZIP resources
-        if ($zipFile) { 
-            $zipFile.Dispose() 
+        if ($zipFile) {
+            $zipFile.Dispose()
             Write-Log "ZIP file disposed successfully" -Console
         }
-        if ($zipFileStream) { 
-            $zipFileStream.Dispose() 
+        if ($zipFileStream) {
+            $zipFileStream.Dispose()
             Write-Log "ZIP file stream disposed successfully" -Console
         }
     }
-    
+
     # Verify the created ZIP file
     if (Test-Path $TargetPath) {
         $zipSize = (Get-Item $TargetPath).Length
         Write-Log "ZIP file created successfully. Size: $zipSize bytes" -Console
-        
+
         # Quick verification that the ZIP is readable
         try {
             $testZip = [System.IO.Compression.ZipFile]::OpenRead($TargetPath)

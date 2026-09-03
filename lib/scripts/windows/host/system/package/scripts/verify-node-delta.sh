@@ -61,11 +61,11 @@ verify_pkg_from_deb_name() {
     # Decode URL-encoded characters and normalize all spaces to +
     ver="$(url_decode "$ver")"
     ver="$(normalize_version "$ver")"
-    
+
     # Also normalize the currently installed version for comparison
     cur="$(dpkg-query -W -f='${Version}' "$pkg" 2>/dev/null || echo missing)"
     cur="$(normalize_version "$cur")"
-    
+
     if [[ "$cur" != "$ver" ]]; then
         echo "[verify-node][error] Package mismatch: $pkg expected $ver got $cur"
         FAIL=1

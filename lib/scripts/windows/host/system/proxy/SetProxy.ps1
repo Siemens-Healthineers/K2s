@@ -18,8 +18,8 @@ Param(
     [string] $MessageType
 )
 
-$infraModule = "$PSScriptRoot/../../../../modules/k2s/k2s.infra.module/k2s.infra.module.psm1"
-$nodeModule = "$PSScriptRoot/../../../../modules/k2s/k2s.node.module/k2s.node.module.psm1"
+$infraModule = "$PSScriptRoot\..\..\..\..\..\modules\k2s\k2s.infra.module\k2s.infra.module.psm1"
+$nodeModule = "$PSScriptRoot\..\..\..\..\..\modules\k2s\k2s.node.module\k2s.node.module.psm1"
 
 Import-Module $infraModule, $nodeModule
 Initialize-Logging
@@ -28,7 +28,7 @@ try {
     Set-ProxyServer -Proxy $Uri
     Stop-WinHttpProxy
     $updatedProxyConfig = Get-ProxyConfig
-    
+
     $k2sHosts = Get-K2sHosts
     $allNoProxyHosts = @()
     if ($updatedProxyConfig.NoProxy.Count -gt 0) {
@@ -36,7 +36,7 @@ try {
     }
     $allNoProxyHosts += $k2sHosts
     $uniqueNoProxyHosts = $allNoProxyHosts | Sort-Object -Unique
-    
+
     Set-ProxyConfigInHttpProxy -Proxy $updatedProxyConfig.HttpProxy -ProxyOverrides $uniqueNoProxyHosts
     Start-WinHttpProxy
 

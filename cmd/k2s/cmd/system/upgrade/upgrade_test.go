@@ -48,7 +48,7 @@ var _ = Describe("upgrade", func() {
 	Describe("createUpgradeCommand", func() {
 		When("no flags set", func() {
 			It("creates the command", func() {
-				const staticPartOfExpectedCmd = `\lib\scripts\k2s\system\upgrade\Start-ClusterUpgrade.ps1`
+				const staticPartOfExpectedCmd = `\lib\scripts\windows\host\system\upgrade\Start-ClusterUpgrade.ps1`
 				expected := utils.FormatScriptFilePath(utils.InstallDir() + staticPartOfExpectedCmd)
 
 				actual := createUpgradeCommand(UpgradeCmd)
@@ -59,7 +59,7 @@ var _ = Describe("upgrade", func() {
 
 		When("flags set", func() {
 			It("creates the command", func() {
-				const staticPartOfExpectedCmd = `\lib\scripts\k2s\system\upgrade\Start-ClusterUpgrade.ps1`
+				const staticPartOfExpectedCmd = `\lib\scripts\windows\host\system\upgrade\Start-ClusterUpgrade.ps1`
 				const args = ` -ShowLogs -SkipResources  -DeleteFiles  -Config config.yaml -Proxy http://myproxy:81 -SkipImages -AdditionalHooksDir 'hookDir' -BackupDir 'backupDir'`
 				expected := utils.FormatScriptFilePath(utils.InstallDir()+staticPartOfExpectedCmd) + args
 
@@ -81,7 +81,7 @@ var _ = Describe("upgrade", func() {
 
 		When("force flag is set", func() {
 			It("creates the command with force flag", func() {
-				const staticPartOfExpectedCmd = `\lib\scripts\k2s\system\upgrade\Start-ClusterUpgrade.ps1`
+				const staticPartOfExpectedCmd = `\lib\scripts\windows\host\system\upgrade\Start-ClusterUpgrade.ps1`
 				const args = ` -Force`
 				expected := utils.FormatScriptFilePath(utils.InstallDir()+staticPartOfExpectedCmd) + args
 
