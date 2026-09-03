@@ -8,10 +8,10 @@ metadata:
   name: nginx-gw-controller
   namespace: nginx-gw
   labels:
-    helm.sh/chart: nginx-gateway-fabric-2.6.7
+    helm.sh/chart: nginx-gateway-fabric-2.7.0
     app.kubernetes.io/name: nginx-gw
     app.kubernetes.io/instance: nginx-gw
-    app.kubernetes.io/version: "2.6.7"
+    app.kubernetes.io/version: "2.7.0"
     app.kubernetes.io/managed-by: Helm
 spec:
   replicas: 1
@@ -37,6 +37,8 @@ spec:
             - --config=nginx-gw-config
             - --service=nginx-gw-controller
             - --agent-tls-secret=agent-tls
+            - --server-tls-domain=svc
+            - --cluster-domain=cluster.local
             - --metrics-port=9113
             - --health-port=8081
             - --leader-election-lock-name=nginx-gw-controller-leader-election
@@ -58,8 +60,8 @@ spec:
                 fieldRef:
                   fieldPath: metadata.labels['app.kubernetes.io/instance']
             - name: IMAGE_NAME
-              value: ghcr.io/nginx/nginx-gateway-fabric:2.6.7
-          image: ghcr.io/nginx/nginx-gateway-fabric:2.6.7
+              value: ghcr.io/nginx/nginx-gateway-fabric:2.7.0
+          image: ghcr.io/nginx/nginx-gateway-fabric:2.7.0
           imagePullPolicy: IfNotPresent
           name: nginx-gateway
           ports:
