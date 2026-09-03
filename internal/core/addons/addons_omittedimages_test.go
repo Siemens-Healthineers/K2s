@@ -12,12 +12,26 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-// repoRoot resolves the repository root relative to this package (k2s/internal/core/addons).
+// repoRoot resolves the repository root by walking up from this package directory until the shipped
+// addon manifest schema is found.
+//
+// Deriving the root from a fixed number of '..' segments silently breaks when the package is moved:
+// loadAddons then resolves the schema outside the repository and every spec below fails during setup
+// instead of validating the manifests.
 func repoRoot() string {
-	root, err := filepath.Abs(filepath.Join("..", "..", "..", ".."))
+	dir, err := filepath.Abs(".")
 	Expect(err).ToNot(HaveOccurred())
 
-	return root
+	for {
+		if _, err := os.Stat(filepath.Join(dir, "addons", "addon.manifest.schema.json")); err == nil {
+			return dir
+		}
+
+		parent := filepath.Dir(dir)
+		Expect(parent).ToNot(Equal(dir), "could not locate the repository root (addons/addon.manifest.schema.json) above %q", dir)
+
+		dir = parent
+	}
 }
 
 // loadRealAddons loads (and schema-validates) the addon manifests that ship with the repo.

@@ -263,6 +263,89 @@ func (info *AddonsAdditionalInfo) GetImagesForAddonImplementation(implementation
 	return result, nil
 }
 
+// GetOmittedImagesForFlag resolves the container images declared by the 'omittedImages' block of
+// the given enable-command CLI flag. It mirrors exactly what 'k2s addons import --omit <flag>'
+// considers prunable: the images referenced by the Kubernetes manifests listed in 'fromFiles'
+// plus the 'explicit' escape-hatch entries.
+//
+// Resolving the images from the shipped manifests instead of hard-coding tags keeps the E2E
+// expectations in sync with the addon definitions - an image version bump must not require a
+// test change.
+func (info *AddonsAdditionalInfo) GetOmittedImagesForFlag(implementation addons.Implementation, flagName string) []string {
+	flag := findEnableCliFlag(implementation, flagName)
+	Expect(flag).ToNot(BeNil(), "implementation '%s' must declare the enable flag '--%s'", implementation.Name, flagName)
+	Expect(flag.OmittedImages).ToNot(BeNil(), "enable flag '--%s' of '%s' must declare omittedImages", flagName, implementation.Name)
+
+	var images []string
+
+	for _, relativePath := range flag.OmittedImages.FromFiles {
+		absolutePath := relativePath
+		if !filepath.IsAbs(relativePath) {
+			absolutePath = filepath.Join(implementation.Directory, relativePath)
+		}
+		images = append(images, imagesFromYamlFile(absolutePath)...)
+	}
+
+	images = append(images, flag.OmittedImages.Explicit...)
+
+	images = lo.Uniq(lo.FilterMap(images, func(image string, _ int) (string, bool) {
+		trimmed := strings.Trim(strings.TrimSpace(image), `"'`)
+		return trimmed, trimmed != ""
+	}))
+
+	Expect(images).ToNot(BeEmpty(),
+		"omittedImages of '--%s' (%s) must resolve to at least one image, otherwise '--omit %s' would prune nothing",
+		flagName, implementation.Name, flagName)
+
+	GinkgoWriter.Printf("Resolved %d omitted image(s) for '%s --%s': %v\n", len(images), implementation.Name, flagName, images)
+
+	return images
+}
+
+// findEnableCliFlag returns the 'enable' command CLI flag with the given name, or nil.
+func findEnableCliFlag(implementation addons.Implementation, flagName string) *addons.CliFlag {
+	if implementation.Commands == nil {
+		return nil
+	}
+
+	enableCmd, found := (*implementation.Commands)["enable"]
+	if !found || enableCmd.Cli == nil {
+		return nil
+	}
+
+	for i := range enableCmd.Cli.Flags {
+		if enableCmd.Cli.Flags[i].Name == flagName {
+			return &enableCmd.Cli.Flags[i]
+		}
+	}
+
+	return nil
+}
+
+// imagesFromYamlFile extracts the container images declared in a (possibly multi-document)
+// Kubernetes manifest file.
+func imagesFromYamlFile(path string) []string {
+	content, err := os.ReadFile(path)
+	Expect(err).ToNot(HaveOccurred(), "should be able to read manifest '%s'", path)
+
+	var images []string
+	decoder := yaml.NewDecoder(strings.NewReader(string(content)))
+
+	for {
+		var doc interface{}
+		if err := decoder.Decode(&doc); err != nil {
+			if err == io.EOF {
+				break
+			}
+			GinkgoWriter.Printf("Warning: Failed to parse YAML document in file %s: %v\n", path, err)
+			break
+		}
+		images = append(images, extractImagesFromYAMLContent(doc)...)
+	}
+
+	return images
+}
+
 // recursively extracts container image references from parsed YAML content
 func extractImagesFromYAMLContent(content interface{}) []string {
 	var images []string
