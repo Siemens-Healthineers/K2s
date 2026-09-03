@@ -119,7 +119,7 @@ func BuildCmd(flags *pflag.FlagSet, out bool, targetDir, zipName, proxy string) 
 		}
 
 		scriptPath := utils.FormatScriptFilePath(
-			filepath.Join(utils.InstallDir(), "lib", "scripts", "k2s", "system", "package", "New-K2sNodeDeltaPackage.ps1"),
+			filepath.Join(utils.InstallDir(), "lib", "scripts", "windows", "host", "system", "package", "New-K2sNodeDeltaPackage.ps1"),
 		)
 		return scriptPath, params, nil
 	}
@@ -135,7 +135,7 @@ func BuildCmd(flags *pflag.FlagSet, out bool, targetDir, zipName, proxy string) 
 	}
 
 	scriptPath := utils.FormatScriptFilePath(
-		filepath.Join(utils.InstallDir(), "lib", "scripts", "k2s", "system", "package", "New-K2sNodePackage.ps1"),
+		filepath.Join(utils.InstallDir(), "lib", "scripts", "windows", "host", "system", "package", "New-K2sNodePackage.ps1"),
 	)
 	return scriptPath, params, nil
 }

@@ -106,7 +106,7 @@ var _ = Describe("compact", func() {
 			actual, err := buildCompactCmd(false)
 
 			Expect(err).ToNot(HaveOccurred())
-			Expect(actual).To(ContainSubstring(filepath.Join("lib", "scripts", "k2s", "system", "compact", "Invoke-VhdxCompaction.ps1")))
+			Expect(actual).To(ContainSubstring(filepath.Join("lib", "scripts", "windows", "host", "system", "compact", "Invoke-VhdxCompaction.ps1")))
 		})
 	})
 })
