@@ -99,6 +99,10 @@ func newAddonCmd(addon addons.Addon, cmdName string) (*cobra.Command, error) {
 		}
 	}
 
+	if addonHasOmitFlags(addon, cmdName) {
+		addOmitNote(cmd)
+	}
+
 	return cmd, nil
 }
 
@@ -124,7 +128,49 @@ func newImplementationCmd(addon addons.Addon, cmdName string, implementation add
 	cmd.Flags().SortFlags = false
 	cmd.Flags().PrintDefaults()
 
+	if cmdConfigHasOmitFlags(cmdConfig) {
+		addOmitNote(cmd)
+	}
+
 	return cmd, nil
+}
+
+// omitEnableNote informs users that an addon imported without the images of an omitted
+// functionality has to be enabled with the same omit option, since the import-time omit
+// selection is not persisted.
+const omitEnableNote = "Note: When using an addon imported with omitted images, use the same omit option during enable."
+
+// addonHasOmitFlags reports whether any implementation of the addon declares a CLI flag
+// with omittable images for the given command.
+func addonHasOmitFlags(addon addons.Addon, cmdName string) bool {
+	for _, implementation := range addon.Spec.Implementations {
+		if implementation.Commands == nil {
+			continue
+		}
+		if cmdConfigHasOmitFlags((*implementation.Commands)[cmdName]) {
+			return true
+		}
+	}
+
+	return false
+}
+
+func cmdConfigHasOmitFlags(cmdConfig addons.AddonCmd) bool {
+	if cmdConfig.Cli == nil {
+		return false
+	}
+
+	return lo.SomeBy(cmdConfig.Cli.Flags, func(flag addons.CliFlag) bool {
+		return flag.OmittedImages != nil
+	})
+}
+
+func addOmitNote(cmd *cobra.Command) {
+	if cmd.Long == "" {
+		cmd.Long = cmd.Short
+	}
+
+	cmd.Long += "\n\n" + omitEnableNote
 }
 
 func addFlags(flags []addons.CliFlag, cmd *cobra.Command) error {
