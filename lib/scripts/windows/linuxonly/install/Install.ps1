@@ -39,9 +39,9 @@ Param(
 
 $installStopwatch = [system.diagnostics.stopwatch]::StartNew()
 
-$infraModule = "$PSScriptRoot\..\..\..\modules\k2s\k2s.infra.module\k2s.infra.module.psm1"
-$nodeModule = "$PSScriptRoot\..\..\..\modules\k2s\k2s.node.module\k2s.node.module.psm1"
-$clusterModule = "$PSScriptRoot\..\..\..\modules\k2s\k2s.cluster.module\k2s.cluster.module.psm1"
+$infraModule = "$PSScriptRoot\..\..\..\..\modules\k2s\k2s.infra.module\k2s.infra.module.psm1"
+$nodeModule = "$PSScriptRoot\..\..\..\..\modules\k2s\k2s.node.module\k2s.node.module.psm1"
+$clusterModule = "$PSScriptRoot\..\..\..\..\modules\k2s\k2s.cluster.module\k2s.cluster.module.psm1"
 
 Import-Module $infraModule, $nodeModule, $clusterModule
 
@@ -101,7 +101,7 @@ $controlPlaneParams = @{
     WSL                               = $false
 }
 
-& "$PSScriptRoot\..\..\control-plane\Install.ps1" @controlPlaneParams
+& "$PSScriptRoot\..\..\..\control-plane\Install.ps1" @controlPlaneParams
 
 # show results
 Write-Log "Current state of kubernetes nodes:`n"

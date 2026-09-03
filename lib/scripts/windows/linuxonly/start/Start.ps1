@@ -13,10 +13,10 @@ param(
     [string] $AdditionalHooksDir = ''
 )
 
-$infraModule = "$PSScriptRoot\..\..\..\modules\k2s\k2s.infra.module\k2s.infra.module.psm1"
-$nodeModule = "$PSScriptRoot\..\..\..\modules\k2s\k2s.node.module\k2s.node.module.psm1"
-$clusterModule = "$PSScriptRoot\..\..\..\modules\k2s\k2s.cluster.module\k2s.cluster.module.psm1"
-$addonsModule = "$PSScriptRoot\..\..\..\..\addons\addons.module.psm1"
+$infraModule = "$PSScriptRoot\..\..\..\..\modules\k2s\k2s.infra.module\k2s.infra.module.psm1"
+$nodeModule = "$PSScriptRoot\..\..\..\..\modules\k2s\k2s.node.module\k2s.node.module.psm1"
+$clusterModule = "$PSScriptRoot\..\..\..\..\modules\k2s\k2s.cluster.module\k2s.cluster.module.psm1"
+$addonsModule = "$PSScriptRoot\..\..\..\..\..\addons\addons.module.psm1"
 Import-Module $infraModule, $nodeModule, $clusterModule, $addonsModule
 
 Initialize-Logging -ShowLogs:$ShowLogs
@@ -41,7 +41,7 @@ if ($HideHeaders.IsPresent) {
 if ($ShowLogs.IsPresent) {
     $controlPlaneParams += ' -ShowLogs'
 }
-& powershell.exe "$PSScriptRoot\..\..\control-plane\Start.ps1" $controlPlaneParams
+& powershell.exe "$PSScriptRoot\..\..\..\control-plane\Start.ps1" $controlPlaneParams
 
 Write-Log 'Waiting for control-plane pods to be ready'
 Wait-ForControlPlanePodsReady
