@@ -33,7 +33,7 @@ $configuredStorageLocalDriveLetter = $smallsetup.psobject.properties['storageLoc
 $configuredstorageLocalDriveFolder = $smallsetup.psobject.properties['storageLocalDriveFolder'].value
 
 $kubeConfigDir = Expand-Path $configDir.psobject.properties['kube'].value
-$sshConfigDir = Expand-Path $configDir.psobject.properties['ssh'].value
+$script:sshConfigDir = Expand-Path $configDir.psobject.properties['ssh'].value
 $dockerConfigDir = Expand-Path $configDir.psobject.properties['docker'].value
 
 # Resolves the K2s setup config directory ('configDir.k2s').
@@ -58,7 +58,7 @@ $script:k2sConfigDir = Resolve-K2sSetupConfigDir
 
 $script:sshKeyFileName = 'id_rsa'
 $script:kubernetesImagesJsonFile = "$script:k2sConfigDir\kubernetes_images.json"
-$script:sshKeyControlPlane = "$sshConfigDir\k2s\$script:sshKeyFileName"
+$script:sshKeyControlPlane = "$script:sshConfigDir\k2s\$script:sshKeyFileName"
 
 #NETWORKING
 $ipControlPlane = $smallsetup.psobject.properties['masterIP'].value
@@ -113,8 +113,8 @@ function Get-RootConfig {
 }
 
 function Get-SshConfigDir {
-    if (Test-Path $sshConfigDir) {
-        return $sshConfigDir
+    if (Test-Path $script:sshConfigDir) {
+        return $script:sshConfigDir
     }
 
     $keyPath = Get-SSHKeyControlPlane
@@ -122,15 +122,20 @@ function Get-SshConfigDir {
         return (Split-Path -Parent (Split-Path -Parent $keyPath))
     }
 
-    $userSshDir = Get-ChildItem -Path "$env:SystemDrive\Users\*\.ssh" -ErrorAction SilentlyContinue |
-        Where-Object { $_.PSIsContainer -and $_.FullName -notmatch 'systemprofile' } |
-        Select-Object -ExpandProperty FullName -First 1
+    $usersDir = "$env:SystemDrive\Users"
+    if (Test-Path $usersDir) {
+        $userProfiles = Get-ChildItem -Path $usersDir -Directory -ErrorAction SilentlyContinue |
+            Where-Object { $_.Name -notmatch '^(systemprofile|LocalService|NetworkService|Public|Default|Default User)$' }
 
-    if ($userSshDir -and (Test-Path $userSshDir)) {
-        return $userSshDir
+        foreach ($profile in $userProfiles) {
+            $userSshDir = Join-Path $profile.FullName '.ssh'
+            if (Test-Path $userSshDir) {
+                return $userSshDir
+            }
+        }
     }
 
-    return $sshConfigDir
+    return $script:sshConfigDir
 }
 
 function Get-ConfiguredKubeConfigDir {
@@ -163,21 +168,26 @@ function Get-SSHKeyControlPlane {
     }
 
     $keyFileName = if ($script:sshKeyFileName) { $script:sshKeyFileName } else { 'id_rsa' }
-    $existingKey = Get-ChildItem -Path "$env:SystemDrive\Users\*\.ssh\k2s\$keyFileName" -ErrorAction SilentlyContinue |
-        Where-Object { $_.FullName -notmatch 'systemprofile' } |
-        Select-Object -ExpandProperty FullName -First 1
+    $usersDir = "$env:SystemDrive\Users"
 
-    if ($existingKey -and (Test-Path $existingKey)) {
-        return $existingKey
-    }
+    if (Test-Path $usersDir) {
+        $userProfiles = Get-ChildItem -Path $usersDir -Directory -ErrorAction SilentlyContinue |
+            Where-Object { $_.Name -notmatch '^(systemprofile|LocalService|NetworkService|Public|Default|Default User)$' }
 
-    if ($script:sshKeyControlPlane -match 'systemprofile') {
-        $userSshDir = Get-ChildItem -Path "$env:SystemDrive\Users\*\.ssh" -ErrorAction SilentlyContinue |
-            Where-Object { $_.PSIsContainer -and $_.FullName -notmatch 'systemprofile' } |
-            Select-Object -ExpandProperty FullName -First 1
+        foreach ($profile in $userProfiles) {
+            $candidateKey = Join-Path $profile.FullName ".ssh\k2s\$keyFileName"
+            if (Test-Path $candidateKey) {
+                return $candidateKey
+            }
+        }
 
-        if ($userSshDir) {
-            return "$userSshDir\k2s\$keyFileName"
+        if ($script:sshKeyControlPlane -match 'systemprofile') {
+            foreach ($profile in $userProfiles) {
+                $userSshDir = Join-Path $profile.FullName '.ssh'
+                if (Test-Path $userSshDir) {
+                    return "$userSshDir\k2s\$keyFileName"
+                }
+            }
         }
     }
 

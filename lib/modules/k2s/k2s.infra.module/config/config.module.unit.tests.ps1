@@ -32,12 +32,12 @@ Describe "Get-SSHKeyControlPlane" {
         It "should return the existing key path from the user directory" {
             Mock Test-Path -ModuleName 'config.module' {
                 param($Path)
-                if ($Path -eq 'C:\Users\user1\.ssh\k2s\id_rsa') { return $true }
+                if ($Path -like "*Users" -or $Path -eq 'C:\Users\user1\.ssh\k2s\id_rsa') { return $true }
                 return $false
             }
             Mock Get-ChildItem -ModuleName 'config.module' {
-                return @([PSCustomObject]@{ FullName = 'C:\Users\user1\.ssh\k2s\id_rsa' })
-            } -ParameterFilter { $Path -like "*Users*\.ssh\k2s\*" }
+                return @([PSCustomObject]@{ Name = 'user1'; FullName = 'C:\Users\user1' })
+            } -ParameterFilter { $Path -like "*Users" }
 
             $keyPath = Get-SSHKeyControlPlane
             $keyPath | Should -Be 'C:\Users\user1\.ssh\k2s\id_rsa'
@@ -46,11 +46,14 @@ Describe "Get-SSHKeyControlPlane" {
 
     Context "When default key points to systemprofile, key does not exist, but user .ssh directory exists" {
         It "should return the derived key path in the user directory" {
-            Mock Test-Path -ModuleName 'config.module' { return $false }
-            Mock Get-ChildItem -ModuleName 'config.module' { return @() } -ParameterFilter { $Path -like "*Users*\.ssh\k2s\*" }
+            Mock Test-Path -ModuleName 'config.module' {
+                param($Path)
+                if ($Path -like "*Users" -or $Path -eq 'C:\Users\user1\.ssh') { return $true }
+                return $false
+            }
             Mock Get-ChildItem -ModuleName 'config.module' {
-                return @([PSCustomObject]@{ PSIsContainer = $true; FullName = 'C:\Users\user1\.ssh' })
-            } -ParameterFilter { $Path -like "*Users*\.ssh" }
+                return @([PSCustomObject]@{ Name = 'user1'; FullName = 'C:\Users\user1' })
+            } -ParameterFilter { $Path -like "*Users" }
 
             InModuleScope 'config.module' {
                 $origKey = $script:sshKeyControlPlane
@@ -68,7 +71,11 @@ Describe "Get-SSHKeyControlPlane" {
 
     Context "When no key or user directory exists" {
         It "should return default sshKeyControlPlane path" {
-            Mock Test-Path -ModuleName 'config.module' { return $false }
+            Mock Test-Path -ModuleName 'config.module' {
+                param($Path)
+                if ($Path -like "*Users") { return $true }
+                return $false
+            }
             Mock Get-ChildItem -ModuleName 'config.module' { return @() }
 
             $keyPath = Get-SSHKeyControlPlane
@@ -91,12 +98,12 @@ Describe "Get-SshConfigDir" {
         It "should return parent .ssh folder of the found key" {
             Mock Test-Path -ModuleName 'config.module' {
                 param($Path)
-                if ($Path -eq 'C:\Users\user1\.ssh\k2s\id_rsa') { return $true }
+                if ($Path -like "*Users" -or $Path -eq 'C:\Users\user1\.ssh\k2s\id_rsa') { return $true }
                 return $false
             }
             Mock Get-ChildItem -ModuleName 'config.module' {
-                return @([PSCustomObject]@{ FullName = 'C:\Users\user1\.ssh\k2s\id_rsa' })
-            } -ParameterFilter { $Path -like "*Users*\.ssh\k2s\*" }
+                return @([PSCustomObject]@{ Name = 'user1'; FullName = 'C:\Users\user1' })
+            } -ParameterFilter { $Path -like "*Users" }
 
             $sshDir = Get-SshConfigDir
             $sshDir | Should -Be 'C:\Users\user1\.ssh'
@@ -107,13 +114,12 @@ Describe "Get-SshConfigDir" {
         It "should return user .ssh directory" {
             Mock Test-Path -ModuleName 'config.module' {
                 param($Path)
-                if ($Path -eq 'C:\Users\user1\.ssh') { return $true }
+                if ($Path -like "*Users" -or $Path -eq 'C:\Users\user1\.ssh') { return $true }
                 return $false
             }
-            Mock Get-ChildItem -ModuleName 'config.module' { return @() } -ParameterFilter { $Path -like "*Users*\.ssh\k2s\*" }
             Mock Get-ChildItem -ModuleName 'config.module' {
-                return @([PSCustomObject]@{ PSIsContainer = $true; FullName = 'C:\Users\user1\.ssh' })
-            } -ParameterFilter { $Path -like "*Users*\.ssh" }
+                return @([PSCustomObject]@{ Name = 'user1'; FullName = 'C:\Users\user1' })
+            } -ParameterFilter { $Path -like "*Users" }
 
             $sshDir = Get-SshConfigDir
             $sshDir | Should -Be 'C:\Users\user1\.ssh'
@@ -122,7 +128,11 @@ Describe "Get-SshConfigDir" {
 
     Context "When no dir or key exists anywhere" {
         It "should return default sshConfigDir" {
-            Mock Test-Path -ModuleName 'config.module' { return $false }
+            Mock Test-Path -ModuleName 'config.module' {
+                param($Path)
+                if ($Path -like "*Users") { return $true }
+                return $false
+            }
             Mock Get-ChildItem -ModuleName 'config.module' { return @() }
 
             $sshDir = Get-SshConfigDir
