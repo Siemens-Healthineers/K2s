@@ -55,7 +55,7 @@ Deploying individual workloads (e.g., manually installing an ingress controller,
 | **registry** | Private image registry on `k2s.registry.local` |
 | **rollout** | GitOps deployment automation (ArgoCD or Flux CD) |
 | **security** | Secure communication inside the cluster |
-| **storage** | SMB-based StorageClass provisioning between K8s nodes |
+| **storage** | Persistent StorageClass provisioning (`smb` file shares between K8s nodes, or `ceph` CephFS storage using ceph and ceph-smb provisioner) |
 | **viewer** | Clinical image viewer |
 
 !!! tip
@@ -176,7 +176,14 @@ k2s addons enable rollout fluxcd --ingress traefik
 
 ### storage
 
-Implementation: `smb` (SMB file sharing between K8s nodes).
+Two mutually exclusive storage implementations are available:
+
+- `storage smb` for SMB file sharing between K8s nodes
+- `storage ceph` for CephFS storage (Linux) and optional Ceph SMB access (Windows)
+
+Only one can be enabled at a time.
+
+**smb:**
 
 | Enable Flag | Short | Type | Default | Description |
 |-------------|-------|------|---------|-------------|
@@ -194,6 +201,40 @@ Implementation: `smb` (SMB file sharing between K8s nodes).
 k2s addons enable storage smb --smbHostType linux
 k2s addons disable storage smb --keep
 ```
+
+**ceph:**
+
+Provisions a Ceph cluster on a **Debian 13** K2s node and wires up CephFS via the upstream `ceph-csi-operator`.
+
+- `ceph-cephfs` StorageClass (`cephfs.csi.ceph.com`) for Linux workloads
+- optional `ceph-smb` StorageClass (`smb.csi.k8s.io`) for Windows workloads when enabled with `-w`
+
+Cluster host and OSD sizing are read from `addons/storage/ceph/config/ceph-config.json`.
+
+Ceph enable commands:
+
+```console
+# Linux CephFS only
+k2s addons enable storage ceph
+
+# Linux CephFS + Windows Ceph SMB path
+k2s addons enable storage ceph -w
+```
+
+When `-w` is used, K2s configures Ceph `mgr/smb`, creates SMB CSI resources, and creates Secret `smbcreds` (in namespace `storage-smb-ceph` by default) with `username` and `password` for the `ceph-smb` StorageClass.
+
+| Disable Flag | Short | Type | Default | Description |
+|--------------|-------|------|---------|-------------|
+| `--force` | `-f` | boolean | `false` | Disable without confirmation prompt |
+
+!!! warning
+    Disabling Ceph always tears down the provisioned Ceph cluster, including OSD resources and Ceph-backed PVs from this setup. Ceph data is permanently lost after disable.
+
+```console
+k2s addons disable storage ceph
+k2s addons disable storage ceph -f
+```
+
 
 ### dicom
 
