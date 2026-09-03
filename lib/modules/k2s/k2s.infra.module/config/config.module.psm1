@@ -56,9 +56,9 @@ function Resolve-K2sSetupConfigDir {
 
 $script:k2sConfigDir = Resolve-K2sSetupConfigDir
 
-$sshKeyFileName = 'id_rsa'
+$script:sshKeyFileName = 'id_rsa'
 $script:kubernetesImagesJsonFile = "$script:k2sConfigDir\kubernetes_images.json"
-$sshKeyControlPlane = "$sshConfigDir\k2s\$sshKeyFileName"
+$script:sshKeyControlPlane = "$sshConfigDir\k2s\$script:sshKeyFileName"
 
 #NETWORKING
 $ipControlPlane = $smallsetup.psobject.properties['masterIP'].value
@@ -118,8 +118,16 @@ function Get-SshConfigDir {
     }
 
     $keyPath = Get-SSHKeyControlPlane
-    if (Test-Path $keyPath) {
+    if ($keyPath -and (Test-Path $keyPath)) {
         return (Split-Path -Parent (Split-Path -Parent $keyPath))
+    }
+
+    $userSshDir = Get-ChildItem -Path "$env:SystemDrive\Users\*\.ssh" -ErrorAction SilentlyContinue |
+        Where-Object { $_.PSIsContainer -and $_.FullName -notmatch 'systemprofile' } |
+        Select-Object -ExpandProperty FullName -First 1
+
+    if ($userSshDir -and (Test-Path $userSshDir)) {
+        return $userSshDir
     }
 
     return $sshConfigDir
@@ -150,20 +158,34 @@ function Get-ProductVersion {
 }
 
 function Get-SSHKeyControlPlane {
-    if (Test-Path $sshKeyControlPlane) {
-        return $sshKeyControlPlane
+    if (Test-Path $script:sshKeyControlPlane) {
+        return $script:sshKeyControlPlane
     }
 
-    $existingKey = Get-ChildItem -Path "$env:SystemDrive\Users\*\.ssh\k2s\$sshKeyFileName" -ErrorAction SilentlyContinue | Select-Object -ExpandProperty FullName -First 1
-    if ($existingKey) {
+    $keyFileName = if ($script:sshKeyFileName) { $script:sshKeyFileName } else { 'id_rsa' }
+    $existingKey = Get-ChildItem -Path "$env:SystemDrive\Users\*\.ssh\k2s\$keyFileName" -ErrorAction SilentlyContinue |
+        Where-Object { $_.FullName -notmatch 'systemprofile' } |
+        Select-Object -ExpandProperty FullName -First 1
+
+    if ($existingKey -and (Test-Path $existingKey)) {
         return $existingKey
     }
 
-    return $sshKeyControlPlane
+    if ($script:sshKeyControlPlane -match 'systemprofile') {
+        $userSshDir = Get-ChildItem -Path "$env:SystemDrive\Users\*\.ssh" -ErrorAction SilentlyContinue |
+            Where-Object { $_.PSIsContainer -and $_.FullName -notmatch 'systemprofile' } |
+            Select-Object -ExpandProperty FullName -First 1
+
+        if ($userSshDir) {
+            return "$userSshDir\k2s\$keyFileName"
+        }
+    }
+
+    return $script:sshKeyControlPlane
 }
 
 function Get-SSHKeyFileName {
-    return $sshKeyFileName
+    return $script:sshKeyFileName
 }
 
 function Get-ConfiguredIPControlPlane {
