@@ -33,7 +33,7 @@ $configuredStorageLocalDriveLetter = $smallsetup.psobject.properties['storageLoc
 $configuredstorageLocalDriveFolder = $smallsetup.psobject.properties['storageLocalDriveFolder'].value
 
 $kubeConfigDir = Expand-Path $configDir.psobject.properties['kube'].value
-$sshConfigDir = Expand-Path $configDir.psobject.properties['ssh'].value
+$script:sshConfigDir = Expand-Path $configDir.psobject.properties['ssh'].value
 $dockerConfigDir = Expand-Path $configDir.psobject.properties['docker'].value
 
 # Resolves the K2s setup config directory ('configDir.k2s').
@@ -56,9 +56,9 @@ function Resolve-K2sSetupConfigDir {
 
 $script:k2sConfigDir = Resolve-K2sSetupConfigDir
 
-$sshKeyFileName = 'id_rsa'
+$script:sshKeyFileName = 'id_rsa'
 $script:kubernetesImagesJsonFile = "$script:k2sConfigDir\kubernetes_images.json"
-$sshKeyControlPlane = "$sshConfigDir\k2s\$sshKeyFileName"
+$script:sshKeyControlPlane = "$script:sshConfigDir\k2s\$script:sshKeyFileName"
 
 #NETWORKING
 $ipControlPlane = $smallsetup.psobject.properties['masterIP'].value
@@ -113,7 +113,29 @@ function Get-RootConfig {
 }
 
 function Get-SshConfigDir {
-    return $sshConfigDir
+    if (Test-Path $script:sshConfigDir) {
+        return $script:sshConfigDir
+    }
+
+    $keyPath = Get-SSHKeyControlPlane
+    if ($keyPath -and (Test-Path $keyPath)) {
+        return (Split-Path -Parent (Split-Path -Parent $keyPath))
+    }
+
+    $usersDir = "$env:SystemDrive\Users"
+    if (Test-Path $usersDir) {
+        $userProfiles = Get-ChildItem -Path $usersDir -Directory -ErrorAction SilentlyContinue |
+            Where-Object { $_.Name -notmatch '^(systemprofile|LocalService|NetworkService|Public|Default|Default User)$' }
+
+        foreach ($profile in $userProfiles) {
+            $userSshDir = Join-Path $profile.FullName '.ssh'
+            if (Test-Path $userSshDir) {
+                return $userSshDir
+            }
+        }
+    }
+
+    return $script:sshConfigDir
 }
 
 function Get-ConfiguredKubeConfigDir {
@@ -141,11 +163,39 @@ function Get-ProductVersion {
 }
 
 function Get-SSHKeyControlPlane {
-    return $sshKeyControlPlane
+    if (Test-Path $script:sshKeyControlPlane) {
+        return $script:sshKeyControlPlane
+    }
+
+    $keyFileName = if ($script:sshKeyFileName) { $script:sshKeyFileName } else { 'id_rsa' }
+    $usersDir = "$env:SystemDrive\Users"
+
+    if (Test-Path $usersDir) {
+        $userProfiles = Get-ChildItem -Path $usersDir -Directory -ErrorAction SilentlyContinue |
+            Where-Object { $_.Name -notmatch '^(systemprofile|LocalService|NetworkService|Public|Default|Default User)$' }
+
+        foreach ($profile in $userProfiles) {
+            $candidateKey = Join-Path $profile.FullName ".ssh\k2s\$keyFileName"
+            if (Test-Path $candidateKey) {
+                return $candidateKey
+            }
+        }
+
+        if ($script:sshKeyControlPlane -match 'systemprofile') {
+            foreach ($profile in $userProfiles) {
+                $userSshDir = Join-Path $profile.FullName '.ssh'
+                if (Test-Path $userSshDir) {
+                    return "$userSshDir\k2s\$keyFileName"
+                }
+            }
+        }
+    }
+
+    return $script:sshKeyControlPlane
 }
 
 function Get-SSHKeyFileName {
-    return $sshKeyFileName
+    return $script:sshKeyFileName
 }
 
 function Get-ConfiguredIPControlPlane {
