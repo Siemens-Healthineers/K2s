@@ -101,7 +101,7 @@ func removeRegistry(cmd *cobra.Command, args []string) error {
 }
 
 func buildRemovePsCmd(registryName string, cmd *cobra.Command) (psCmd string, params []string, err error) {
-	psCmd = utils.FormatScriptFilePath(filepath.Join(utils.InstallDir(), "lib", "scripts", "k2s", "image", "registry", "Remove-Registry.ps1"))
+	psCmd = utils.FormatScriptFilePath(filepath.Join(utils.InstallDir(), "lib", "scripts", "windows", "host", "image", "registry", "Remove-Registry.ps1"))
 
 	showOutput, err := strconv.ParseBool(cmd.Flags().Lookup(common.OutputFlagName).Value.String())
 	if err != nil {

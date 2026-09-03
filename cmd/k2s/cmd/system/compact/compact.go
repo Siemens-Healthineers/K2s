@@ -110,7 +110,7 @@ func compactVhdx(cmd *cobra.Command, args []string) error {
 }
 
 func buildCompactCmd(outputFlag bool) (string, error) {
-	scriptPath := utils.FormatScriptFilePath(filepath.Join(utils.InstallDir(), "lib", "scripts", "k2s", "system", "compact", "Invoke-VhdxCompaction.ps1"))
+	scriptPath := utils.FormatScriptFilePath(filepath.Join(utils.InstallDir(), "lib", "scripts", "windows", "host", "system", "compact", "Invoke-VhdxCompaction.ps1"))
 
 	params := ""
 	if noRestartFlag {

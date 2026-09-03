@@ -32,14 +32,14 @@ const (
 
 func buildSystemShutdownCmd() (string, []string, error) {
 	params := []string{}
-	systemPackageCommand := utils.FormatScriptFilePath(filepath.Join(utils.InstallDir(), "..", "lib", "scripts", "k2s", "system", "shutdown", "Stop-System.ps1"))
+	systemPackageCommand := utils.FormatScriptFilePath(filepath.Join(utils.InstallDir(), "..", "lib", "scripts", "windows", "host", "system", "shutdown", "Stop-System.ps1"))
 	params = append(params, " -ShowLogs")
 	return systemPackageCommand, params, nil
 }
 
 func buildSystemStartupCmd() (string, []string, error) {
 	params := []string{}
-	systemPackageCommand := utils.FormatScriptFilePath(filepath.Join(utils.InstallDir(), "..", "lib", "scripts", "k2s", "system", "startup", "Start-System.ps1"))
+	systemPackageCommand := utils.FormatScriptFilePath(filepath.Join(utils.InstallDir(), "..", "lib", "scripts", "windows", "host", "system", "startup", "Start-System.ps1"))
 	params = append(params, " -ShowLogs")
 	return systemPackageCommand, params, nil
 }
