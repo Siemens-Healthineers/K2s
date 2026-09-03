@@ -6,4 +6,4 @@
 # This file is still dot-sourced by delta-package helpers so we re-import the
 # module to make the functions available in the caller's scope.
 
-Import-Module "$PSScriptRoot/../../../../modules/k2s/k2s.infra.module/k2s.infra.module.psm1" -Force
+Import-Module "$PSScriptRoot\..\..\..\..\..\modules\k2s\k2s.infra.module\k2s.infra.module.psm1" -Force

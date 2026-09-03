@@ -35,47 +35,47 @@ function Get-WindowsImagesFromPackage {
         [Parameter(Mandatory = $true)]
         [string]$PackageRoot
     )
-    
+
     $result = @{
         Success      = $false
         Images       = @()
         ErrorMessage = ''
     }
-    
+
     try {
         $winArtifactsZip = Join-Path $PackageRoot 'bin\WindowsNodeArtifacts.zip'
-        
+
         if (-not (Test-Path $winArtifactsZip)) {
             $result.ErrorMessage = "WindowsNodeArtifacts.zip not found at: $winArtifactsZip"
             Write-Log "[ImageDiff] $($result.ErrorMessage)" -Console
             return $result
         }
-        
+
         Write-Log "[ImageDiff] Extracting Windows image list from WindowsNodeArtifacts.zip..." -Console
-        
+
         # Load the zip file
         Add-Type -AssemblyName System.IO.Compression.FileSystem
         $zip = [System.IO.Compression.ZipFile]::OpenRead($winArtifactsZip)
-        
+
         try {
             # Find all .tar files in the images/ folder (handle both / and \ path separators)
-            $imageTars = $zip.Entries | Where-Object { 
-                $_.FullName -match '^images[/\\][^/\\]+\.tar$' 
+            $imageTars = $zip.Entries | Where-Object {
+                $_.FullName -match '^images[/\\][^/\\]+\.tar$'
             }
-            
+
             foreach ($entry in $imageTars) {
                 $fileName = [System.IO.Path]::GetFileName($entry.FullName)
-                
+
                 # Parse image name from filename
                 # Expected format: registry.domain__repo__subpath_tag.tar
                 # Example: shsk2s.azurecr.io__pause-win_v1.5.0.tar
                 # Double underscore (__) separates registry from image path
                 # Single underscore (_) before version is the tag separator
                 $imageName = $fileName -replace '\.tar$', ''
-                
+
                 # Replace __ with / for registry/path separators
                 $imageName = $imageName -replace '__', '/'
-                
+
                 # Find the last underscore followed by 'v' which indicates version tag
                 # This handles cases like: registry/image_vtag
                 if ($imageName -match '^(.+)_v(.+)$') {
@@ -85,26 +85,26 @@ function Get-WindowsImagesFromPackage {
                     # Tag doesn't start with 'v', use as-is
                     $imageName = "$($matches[1]):$($matches[2])"
                 }
-                
+
                 $result.Images += [PSCustomObject]@{
                     FullName = $imageName
                     FileName = $fileName
                     Size     = $entry.Length
                 }
             }
-            
+
             $result.Success = $true
             Write-Log "[ImageDiff] Found $($result.Images.Count) Windows images in WindowsNodeArtifacts.zip" -Console
-            
+
         } finally {
             $zip.Dispose()
         }
-        
+
     } catch {
         $result.ErrorMessage = "Failed to extract Windows images: $_"
         Write-Log "[ImageDiff] $($result.ErrorMessage)" -Console
     }
-    
+
     return $result
 }
 
@@ -135,25 +135,25 @@ function Compare-ContainerImages {
     param(
         [Parameter(Mandatory = $false)]
         [array]$OldLinuxImages = @(),
-        
+
         [Parameter(Mandatory = $false)]
         [array]$NewLinuxImages = @(),
-        
+
         [Parameter(Mandatory = $false)]
         [array]$OldWindowsImages = @(),
-        
+
         [Parameter(Mandatory = $false)]
         [array]$NewWindowsImages = @()
     )
-    
+
     $result = @{
         Added   = @()
         Removed = @()
         Changed = @()
     }
-    
+
     Write-Log "[ImageDiff] Comparing container images between packages..." -Console
-    
+
     # Compare Linux images
     if ($OldLinuxImages.Count -gt 0 -or $NewLinuxImages.Count -gt 0) {
         Write-Log "[ImageDiff] Comparing Linux images (buildah)..." -Console
@@ -162,7 +162,7 @@ function Compare-ContainerImages {
                                     -Platform 'linux' `
                                     -Result $result
     }
-    
+
     # Compare Windows images
     if ($OldWindowsImages.Count -gt 0 -or $NewWindowsImages.Count -gt 0) {
         Write-Log "[ImageDiff] Comparing Windows images..." -Console
@@ -171,9 +171,9 @@ function Compare-ContainerImages {
                                     -Platform 'windows' `
                                     -Result $result
     }
-    
+
     Write-Log "[ImageDiff] Comparison complete. Added: $($result.Added.Count), Removed: $($result.Removed.Count), Changed: $($result.Changed.Count)" -Console
-    
+
     return $result
 }
 
@@ -201,29 +201,29 @@ function Compare-ImageSets {
         [Parameter(Mandatory = $true)]
         [AllowEmptyCollection()]
         [array]$OldImageSet,
-        
+
         [Parameter(Mandatory = $true)]
         [AllowEmptyCollection()]
         [array]$NewImageSet,
-        
+
         [Parameter(Mandatory = $true)]
         [string]$Platform,
-        
+
         [Parameter(Mandatory = $true)]
         [hashtable]$Result
     )
-    
+
     # Build lookup maps by full name (repository:tag)
     $oldMap = @{}
     foreach ($img in $OldImageSet) {
         $oldMap[$img.FullName] = $img
     }
-    
+
     $newMap = @{}
     foreach ($img in $NewImageSet) {
         $newMap[$img.FullName] = $img
     }
-    
+
     # Find added images (in new but not in old)
     foreach ($imgName in $newMap.Keys) {
         if (-not $oldMap.ContainsKey($imgName)) {
@@ -235,7 +235,7 @@ function Compare-ImageSets {
             Write-Log "[ImageDiff] Added: $imgName ($Platform)" -Console
         }
     }
-    
+
     # Find removed images (in old but not in new)
     foreach ($imgName in $oldMap.Keys) {
         if (-not $newMap.ContainsKey($imgName)) {
@@ -247,18 +247,18 @@ function Compare-ImageSets {
             Write-Log "[ImageDiff] Removed: $imgName ($Platform)" -Console
         }
     }
-    
+
     # Find changed images (same name but different ID/digest)
     foreach ($imgName in $newMap.Keys) {
         if ($oldMap.ContainsKey($imgName)) {
             $oldImg = $oldMap[$imgName]
             $newImg = $newMap[$imgName]
-            
+
             # For Linux images, compare by ImageId
             if ($Platform -eq 'linux') {
                 $oldId = if ($oldImg.ImageId) { $oldImg.ImageId } elseif ($oldImg.Id) { $oldImg.Id } else { '' }
                 $newId = if ($newImg.ImageId) { $newImg.ImageId } elseif ($newImg.Id) { $newImg.Id } else { '' }
-                
+
                 if ($oldId -and $newId -and $oldId -ne $newId) {
                     $Result.Changed += [PSCustomObject]@{
                         FullName = $imgName
@@ -273,7 +273,7 @@ function Compare-ImageSets {
             elseif ($Platform -eq 'windows') {
                 $oldSize = if ($oldImg.Size) { $oldImg.Size } else { 0 }
                 $newSize = if ($newImg.Size) { $newImg.Size } else { 0 }
-                
+
                 if ($oldSize -ne $newSize) {
                     $Result.Changed += [PSCustomObject]@{
                         FullName = $imgName
@@ -286,6 +286,6 @@ function Compare-ImageSets {
             }
         }
     }
-    
+
     return $Result
 }

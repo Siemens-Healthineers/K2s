@@ -49,9 +49,9 @@ if ($Trace) {
     Set-PSDebug -Trace 1
 }
 
-$infraModule = "$PSScriptRoot/../../../../modules/k2s/k2s.infra.module/k2s.infra.module.psm1"
-$nodeModule = "$PSScriptRoot/../../../../modules/k2s/k2s.node.module/k2s.node.module.psm1"
-$runningStateModule = "$PSScriptRoot/../../../../modules/k2s/k2s.cluster.module/runningstate/runningstate.module.psm1"
+$infraModule = "$PSScriptRoot\..\..\..\..\..\modules\k2s\k2s.infra.module\k2s.infra.module.psm1"
+$nodeModule = "$PSScriptRoot\..\..\..\..\..\modules\k2s\k2s.node.module\k2s.node.module.psm1"
+$runningStateModule = "$PSScriptRoot\..\..\..\..\..\modules\k2s\k2s.cluster.module\runningstate\runningstate.module.psm1"
 Import-Module $infraModule, $nodeModule, $runningStateModule
 
 Initialize-Logging -ShowLogs:$ShowLogs

@@ -5,11 +5,11 @@
 BeforeAll {
     $scriptPath = "$PSScriptRoot\SetProxy.ps1"
     $scriptContent = (Get-Content -Path $scriptPath | Where-Object { $_ -notmatch '^#Requires\b' }) -join [Environment]::NewLine
-    
+
     function global:Initialize-Logging { }
-    
+
     function global:Set-ProxyServer { param($Proxy) }
-    function global:Get-ProxyConfig { 
+    function global:Get-ProxyConfig {
         return [PSCustomObject]@{
             HttpProxy = 'http://proxy.example.com:8080'
             HttpsProxy = 'http://proxy.example.com:8080'
@@ -47,18 +47,18 @@ BeforeAll {
 
         & ([scriptblock]::Create($scriptContent)) @invokeParams
     }
-    
+
     Mock -CommandName Import-Module { }
     Mock -CommandName Initialize-Logging { }
 }
 
 Describe 'SetProxy.ps1' -Tag 'unit', 'ci', 'proxy' {
-    
+
     Context 'Parameter validation' {
         BeforeEach {
             Mock -CommandName Set-ProxyServer { }
             Mock -CommandName Stop-WinHttpProxy { }
-            Mock -CommandName Get-ProxyConfig { 
+            Mock -CommandName Get-ProxyConfig {
                 return [PSCustomObject]@{
                     HttpProxy = 'http://proxy.example.com:8080'
                     NoProxy = @('localhost')
@@ -75,7 +75,7 @@ Describe 'SetProxy.ps1' -Tag 'unit', 'ci', 'proxy' {
             Mock -CommandName Send-ToCli { }
             Mock -CommandName Write-Log { }
         }
-        
+
         It 'accepts valid Uri parameter' {
             { Invoke-SetProxyScript -Uri 'http://proxy.test.com:8080' } | Should -Not -Throw
         }
@@ -94,7 +94,7 @@ Describe 'SetProxy.ps1' -Tag 'unit', 'ci', 'proxy' {
             Mock -CommandName Import-Module { }
             Mock -CommandName Set-ProxyServer { }
             Mock -CommandName Stop-WinHttpProxy { }
-            Mock -CommandName Get-ProxyConfig { 
+            Mock -CommandName Get-ProxyConfig {
                 return [PSCustomObject]@{ HttpProxy = 'http://test.proxy:8080'; NoProxy = @() }
             }
             Mock -CommandName Get-K2sHosts { return @('localhost') }
@@ -108,10 +108,10 @@ Describe 'SetProxy.ps1' -Tag 'unit', 'ci', 'proxy' {
             Mock -CommandName Send-ToCli { }
             Mock -CommandName Write-Log { }
         }
-        
+
         It 'imports infra module' {
             Invoke-SetProxyScript -Uri 'http://proxy.test.com:8080'
-            
+
             Should -Invoke Import-Module -ParameterFilter {
                 $Name -like '*k2s.infra.module.psm1'
             }
@@ -119,7 +119,7 @@ Describe 'SetProxy.ps1' -Tag 'unit', 'ci', 'proxy' {
 
         It 'imports node module' {
             Invoke-SetProxyScript -Uri 'http://proxy.test.com:8080'
-            
+
             Should -Invoke Import-Module -ParameterFilter {
                 $Name -like '*k2s.node.module.psm1'
             }
@@ -127,7 +127,7 @@ Describe 'SetProxy.ps1' -Tag 'unit', 'ci', 'proxy' {
 
         It 'initializes logging' {
             Invoke-SetProxyScript -Uri 'http://proxy.test.com:8080'
-            
+
             Should -Invoke Initialize-Logging -Exactly 1
         }
     }
@@ -135,7 +135,7 @@ Describe 'SetProxy.ps1' -Tag 'unit', 'ci', 'proxy' {
     Context 'Proxy configuration' {
         BeforeEach {
             Mock -CommandName Stop-WinHttpProxy { }
-            Mock -CommandName Get-ProxyConfig { 
+            Mock -CommandName Get-ProxyConfig {
                 return [PSCustomObject]@{
                     HttpProxy = 'http://proxy.example.com:8080'
                     NoProxy = @('localhost')
@@ -152,13 +152,13 @@ Describe 'SetProxy.ps1' -Tag 'unit', 'ci', 'proxy' {
             Mock -CommandName Send-ToCli { }
             Mock -CommandName Write-Log { }
         }
-        
+
         It 'calls Set-ProxyServer with provided Uri' {
             Mock -CommandName Set-ProxyServer { }
             $testUri = 'http://custom.proxy.com:9090'
-            
+
             Invoke-SetProxyScript -Uri $testUri
-            
+
             Should -Invoke Set-ProxyServer -Exactly 1 -ParameterFilter {
                 $Proxy -eq $testUri
             }
@@ -166,25 +166,25 @@ Describe 'SetProxy.ps1' -Tag 'unit', 'ci', 'proxy' {
 
         It 'stops WinHttpProxy service' {
             Mock -CommandName Set-ProxyServer { }
-            
+
             Invoke-SetProxyScript -Uri 'http://proxy.test.com:8080'
-            
+
             Should -Invoke Stop-WinHttpProxy -Exactly 1
         }
 
         It 'retrieves updated proxy configuration' {
             Mock -CommandName Set-ProxyServer { }
-            
+
             Invoke-SetProxyScript -Uri 'http://proxy.test.com:8080'
-            
+
             Should -Invoke Get-ProxyConfig -Exactly 1
         }
 
         It 'retrieves K2s hosts for NoProxy' {
             Mock -CommandName Set-ProxyServer { }
-            
+
             Invoke-SetProxyScript -Uri 'http://proxy.test.com:8080'
-            
+
             Should -Invoke Get-K2sHosts -Exactly 1
         }
     }
@@ -202,9 +202,9 @@ Describe 'SetProxy.ps1' -Tag 'unit', 'ci', 'proxy' {
             Mock -CommandName Send-ToCli { }
             Mock -CommandName Write-Log { }
         }
-        
+
         It 'merges existing NoProxy with K2s hosts' {
-            Mock -CommandName Get-ProxyConfig { 
+            Mock -CommandName Get-ProxyConfig {
                 return [PSCustomObject]@{
                     HttpProxy = 'http://proxy.example.com:8080'
                     NoProxy = @('example.com', 'test.local')
@@ -212,9 +212,9 @@ Describe 'SetProxy.ps1' -Tag 'unit', 'ci', 'proxy' {
             }
             Mock -CommandName Get-K2sHosts { return @('localhost', '127.0.0.1') }
             Mock -CommandName Set-ProxyConfigInHttpProxy { }
-            
+
             Invoke-SetProxyScript -Uri 'http://proxy.test.com:8080'
-            
+
             Should -Invoke Set-ProxyConfigInHttpProxy -Exactly 1 -ParameterFilter {
                 $ProxyOverrides -contains 'example.com' -and
                 $ProxyOverrides -contains 'test.local' -and
@@ -224,7 +224,7 @@ Describe 'SetProxy.ps1' -Tag 'unit', 'ci', 'proxy' {
         }
 
         It 'removes duplicate entries from NoProxy list' {
-            Mock -CommandName Get-ProxyConfig { 
+            Mock -CommandName Get-ProxyConfig {
                 return [PSCustomObject]@{
                     HttpProxy = 'http://proxy.example.com:8080'
                     NoProxy = @('localhost', 'example.com')
@@ -232,9 +232,9 @@ Describe 'SetProxy.ps1' -Tag 'unit', 'ci', 'proxy' {
             }
             Mock -CommandName Get-K2sHosts { return @('localhost', '127.0.0.1') }
             Mock -CommandName Set-ProxyConfigInHttpProxy { }
-            
+
             Invoke-SetProxyScript -Uri 'http://proxy.test.com:8080'
-            
+
             Should -Invoke Set-ProxyConfigInHttpProxy -Exactly 1 -ParameterFilter {
                 # Count occurrences of 'localhost' - should be only 1
                 ($ProxyOverrides | Where-Object { $_ -eq 'localhost' } | Measure-Object).Count -eq 1
@@ -242,7 +242,7 @@ Describe 'SetProxy.ps1' -Tag 'unit', 'ci', 'proxy' {
         }
 
         It 'handles empty NoProxy from config' {
-            Mock -CommandName Get-ProxyConfig { 
+            Mock -CommandName Get-ProxyConfig {
                 return [PSCustomObject]@{
                     HttpProxy = 'http://proxy.example.com:8080'
                     NoProxy = @()
@@ -250,9 +250,9 @@ Describe 'SetProxy.ps1' -Tag 'unit', 'ci', 'proxy' {
             }
             Mock -CommandName Get-K2sHosts { return @('localhost', '127.0.0.1') }
             Mock -CommandName Set-ProxyConfigInHttpProxy { }
-            
+
             Invoke-SetProxyScript -Uri 'http://proxy.test.com:8080'
-            
+
             Should -Invoke Set-ProxyConfigInHttpProxy -Exactly 1 -ParameterFilter {
                 $ProxyOverrides -contains 'localhost' -and
                 $ProxyOverrides -contains '127.0.0.1'
@@ -264,7 +264,7 @@ Describe 'SetProxy.ps1' -Tag 'unit', 'ci', 'proxy' {
         BeforeEach {
             Mock -CommandName Set-ProxyServer { }
             Mock -CommandName Stop-WinHttpProxy { }
-            Mock -CommandName Get-ProxyConfig { 
+            Mock -CommandName Get-ProxyConfig {
                 return [PSCustomObject]@{
                     HttpProxy = 'http://proxy.example.com:8080'
                     NoProxy = @('localhost')
@@ -280,19 +280,19 @@ Describe 'SetProxy.ps1' -Tag 'unit', 'ci', 'proxy' {
             Mock -CommandName Send-ToCli { }
             Mock -CommandName Write-Log { }
         }
-        
+
         It 'configures WinHttpProxy with merged NoProxy hosts' {
             Invoke-SetProxyScript -Uri 'http://proxy.test.com:8080'
-            
+
             Should -Invoke Set-ProxyConfigInHttpProxy -Exactly 1
         }
 
         It 'starts WinHttpProxy service after configuration' {
             Mock -CommandName Set-ProxyConfigInHttpProxy { }
             Mock -CommandName Start-WinHttpProxy { }
-            
+
             Invoke-SetProxyScript -Uri 'http://proxy.test.com:8080'
-            
+
             Should -Invoke Start-WinHttpProxy -Exactly 1
         }
     }
@@ -301,7 +301,7 @@ Describe 'SetProxy.ps1' -Tag 'unit', 'ci', 'proxy' {
         BeforeEach {
             Mock -CommandName Set-ProxyServer { }
             Mock -CommandName Stop-WinHttpProxy { }
-            Mock -CommandName Get-ProxyConfig { 
+            Mock -CommandName Get-ProxyConfig {
                 return [PSCustomObject]@{
                     HttpProxy = 'http://proxy.example.com:8080'
                     NoProxy = @('localhost')
@@ -317,12 +317,12 @@ Describe 'SetProxy.ps1' -Tag 'unit', 'ci', 'proxy' {
             Mock -CommandName Set-ProxySettingsOnKubenode { }
             Mock -CommandName Write-Log { }
         }
-        
+
         It 'sends structured output when EncodeStructuredOutput is set' {
             Mock -CommandName Send-ToCli { }
-            
+
             Invoke-SetProxyScript -Uri 'http://proxy.test.com:8080' -EncodeStructuredOutput -MessageType 'ProxyResult'
-            
+
             Should -Invoke Send-ToCli -Exactly 1 -ParameterFilter {
                 $MessageType -eq 'ProxyResult' -and
                 $Message.Error -eq $null
@@ -331,9 +331,9 @@ Describe 'SetProxy.ps1' -Tag 'unit', 'ci', 'proxy' {
 
         It 'does not send structured output by default' {
             Mock -CommandName Send-ToCli { }
-            
+
             Invoke-SetProxyScript -Uri 'http://proxy.test.com:8080'
-            
+
             Should -Invoke Send-ToCli -Exactly 0
         }
     }
@@ -384,7 +384,7 @@ Describe 'SetProxy.ps1' -Tag 'unit', 'ci', 'proxy' {
     Context 'Error handling' {
         BeforeEach {
             Mock -CommandName Stop-WinHttpProxy { }
-            Mock -CommandName Get-ProxyConfig { 
+            Mock -CommandName Get-ProxyConfig {
                 return [PSCustomObject]@{
                     HttpProxy = 'http://proxy.example.com:8080'
                     NoProxy = @('localhost')
@@ -401,24 +401,24 @@ Describe 'SetProxy.ps1' -Tag 'unit', 'ci', 'proxy' {
             Mock -CommandName Send-ToCli { }
             Mock -CommandName Write-Log { }
         }
-        
+
         It 'throws exception when Set-ProxyServer fails' {
             Mock -CommandName Set-ProxyServer { throw 'Proxy configuration failed' }
-            
+
             { Invoke-SetProxyScript -Uri 'http://proxy.test.com:8080' } | Should -Throw '*Proxy configuration failed*'
         }
 
         It 'throws exception when Get-ProxyConfig fails' {
             Mock -CommandName Set-ProxyServer { }
             Mock -CommandName Get-ProxyConfig { throw 'Failed to read config' }
-            
+
             { Invoke-SetProxyScript -Uri 'http://proxy.test.com:8080' } | Should -Throw '*Failed to read config*'
         }
 
         It 'throws exception when WinHttpProxy operations fail' {
             Mock -CommandName Set-ProxyServer { }
             Mock -CommandName Stop-WinHttpProxy { throw 'Service stop failed' }
-            
+
             { Invoke-SetProxyScript -Uri 'http://proxy.test.com:8080' } | Should -Throw '*Service stop failed*'
         }
     }

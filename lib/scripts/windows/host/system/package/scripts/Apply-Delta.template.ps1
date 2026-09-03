@@ -67,12 +67,12 @@ Write-Host "Delta root: $scriptRoot" -ForegroundColor Gray
 try {
     # Change to the script root directory (where delta-manifest.json is)
     Push-Location $scriptRoot
-    
+
     # Execute the update - it will detect delta-manifest.json in current directory
     $result = PerformClusterUpdate -ShowLogs:$ShowLogs -ShowProgress:$ShowProgress
-    
+
     Pop-Location
-    
+
     if ($result) {
         Write-Host ""
         Write-Host "========================================" -ForegroundColor Green

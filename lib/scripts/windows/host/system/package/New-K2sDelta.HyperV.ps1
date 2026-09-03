@@ -31,26 +31,26 @@ function New-K2sHvNetwork {
         [int]    $PrefixLen
     )
     Write-Log ("[DebPkg] Creating internal switch '{0}' with host IP {1}/{2}" -f $SwitchName, $HostSwitchIp, $PrefixLen) -Console
-    
+
     # Pre-cleanup: remove any existing resources with matching names to ensure clean state
     $existingSwitch = Get-VMSwitch -Name $SwitchName -ErrorAction SilentlyContinue
     if ($existingSwitch) {
         Write-Log "[DebPkg] Removing pre-existing switch '$SwitchName'" -Console
-        try { 
-            Remove-VMSwitch -Name $SwitchName -Force -ErrorAction Stop 
+        try {
+            Remove-VMSwitch -Name $SwitchName -Force -ErrorAction Stop
             Start-Sleep -Milliseconds 500  # Brief pause for system to release resources
-        } catch { 
+        } catch {
             Write-Log "[DebPkg][Warning] Failed to remove existing switch: $($_.Exception.Message)" -Console
         }
     }
-    
+
     # Also clean up any existing IP binding on the target address
     $existingIp = Get-NetIPAddress -IPAddress $HostSwitchIp -ErrorAction SilentlyContinue
     if ($existingIp) {
         Write-Log "[DebPkg] Removing pre-existing IP binding on $HostSwitchIp" -Console
         try { $existingIp | Remove-NetIPAddress -Confirm:$false -ErrorAction SilentlyContinue } catch { }
     }
-    
+
     $created = $false; $attempt = 0; $baseName = $SwitchName
     while (-not $created -and $attempt -lt 3) {
         try {
@@ -90,7 +90,7 @@ function New-K2sHvTempVm {
         [string] $SwitchName
     )
     Write-Log ("[DebPkg] Creating temporary VM '{0}' attached to '{1}' from path '{2}'" -f $VmName, $SwitchName, $VhdxPath) -Console
-    
+
     # Pre-cleanup: remove any existing VM with this name
     $existingVm = Get-VM -Name $VmName -ErrorAction SilentlyContinue
     if ($existingVm) {
@@ -102,7 +102,7 @@ function New-K2sHvTempVm {
         Remove-VM -Name $VmName -Force -ErrorAction SilentlyContinue
         Start-Sleep -Milliseconds 500
     }
-    
+
     New-VM -Name $VmName -MemoryStartupBytes (2GB) -VHDPath $VhdxPath -SwitchName $SwitchName -ErrorAction Stop | Out-Null
     Start-VM -Name $VmName -ErrorAction Stop | Out-Null
     Write-Log ("[DebPkg] VM '{0}' started" -f $VmName) -Console
@@ -348,33 +348,33 @@ function Invoke-K2sGuestCmd {
     param(
         [Parameter(Mandatory = $true)]
         [string]$GuestIp,
-        
+
         [Parameter(Mandatory = $true)]
         [string]$Command,
-        
+
         [Parameter(Mandatory = $false)]
         [int]$Timeout = 30
     )
-    
+
     $result = @{
         Success      = $false
         Output       = $null
         ExitCode     = -1
         ErrorMessage = ''
     }
-    
+
     try {
         if ([string]::IsNullOrWhiteSpace($GuestIp)) {
             $result.ErrorMessage = "GuestIp parameter is required"
             return $result
         }
-        
+
         # Get SSH client from known locations
         # Resolve script root to absolute path first
-        # Path: lib/scripts/k2s/system/package -> need 5 levels up to reach repo root
+        # Path: lib/scripts/windows/host/system/package -> need 5 levels up to reach repo root
         $scriptDir = if ($PSScriptRoot) { $PSScriptRoot } else { Split-Path -Parent $MyInvocation.MyCommand.Path }
         $binDir = [System.IO.Path]::GetFullPath((Join-Path $scriptDir '..\..\..\..\..\bin'))
-        
+
         $sshCandidates = @(
             (Join-Path $binDir 'plink.exe'),
             (Join-Path $binDir 'ssh.exe'),
@@ -382,9 +382,9 @@ function Invoke-K2sGuestCmd {
             'ssh.exe',
             'plink.exe'
         )
-        
+
         Write-Log "[ImageAcq] Looking for SSH client in: $($sshCandidates -join ', ')" -Console
-        
+
         $sshClient = $null
         foreach ($candidate in $sshCandidates) {
             if (Test-Path -LiteralPath $candidate -ErrorAction SilentlyContinue) {
@@ -392,19 +392,19 @@ function Invoke-K2sGuestCmd {
                 break
             }
         }
-        
+
         if (-not $sshClient) {
             $result.ErrorMessage = "No SSH client found. Searched: $($sshCandidates -join ', ')"
             return $result
         }
-        
+
         Write-Log "[ImageAcq] Using SSH client: $sshClient" -Console
         $usingPlink = $sshClient.ToLower().EndsWith('plink.exe')
-        
+
         # SSH credentials (hardcoded for K2s VMs)
         $sshUser = 'remote'
         $sshPwd = 'admin'
-        
+
         # Build SSH args
         if ($usingPlink) {
             $plinkHostKey = Get-K2sPlinkHostKey -GuestIp $GuestIp -SshClient $sshClient -SshUser $sshUser -SshPassword $sshPwd
@@ -423,14 +423,14 @@ function Invoke-K2sGuestCmd {
             $sshArgs += ("$sshUser@$GuestIp")
             $sshArgs += $Command
         }
-        
+
         Write-Log "[ImageAcq] Executing SSH command (timeout=${Timeout}s): $($sshArgs[0..2] -join ' ')... $Command" -Console
-        
+
         # Execute command directly without job for reliability
         # Use Start-Process for timeout control
         $tempOutFile = [System.IO.Path]::GetTempFileName()
         $tempErrFile = [System.IO.Path]::GetTempFileName()
-        
+
         try {
             $processInfo = New-Object System.Diagnostics.ProcessStartInfo
             $processInfo.FileName = $sshClient
@@ -439,36 +439,36 @@ function Invoke-K2sGuestCmd {
             $processInfo.RedirectStandardError = $true
             $processInfo.UseShellExecute = $false
             $processInfo.CreateNoWindow = $true
-            
+
             $process = New-Object System.Diagnostics.Process
             $process.StartInfo = $processInfo
-            
+
             # Capture output asynchronously
             $outputBuilder = New-Object System.Text.StringBuilder
             $errorBuilder = New-Object System.Text.StringBuilder
-            
+
             $outputEvent = Register-ObjectEvent -InputObject $process -EventName OutputDataReceived -Action {
                 if ($EventArgs.Data) { $Event.MessageData.AppendLine($EventArgs.Data) }
             } -MessageData $outputBuilder
-            
+
             $errorEvent = Register-ObjectEvent -InputObject $process -EventName ErrorDataReceived -Action {
                 if ($EventArgs.Data) { $Event.MessageData.AppendLine($EventArgs.Data) }
             } -MessageData $errorBuilder
-            
+
             $null = $process.Start()
             $process.BeginOutputReadLine()
             $process.BeginErrorReadLine()
-            
+
             $completed = $process.WaitForExit($Timeout * 1000)
-            
+
             if ($completed) {
                 # Wait a bit for async events to complete
                 Start-Sleep -Milliseconds 500
-                
+
                 $result.Output = $outputBuilder.ToString() + $errorBuilder.ToString()
                 $result.ExitCode = $process.ExitCode
                 $result.Success = ($process.ExitCode -eq 0)
-                
+
                 if (-not $result.Success) {
                     $result.ErrorMessage = "Command failed with exit code $($process.ExitCode). Output: $($result.Output)"
                 }
@@ -476,20 +476,20 @@ function Invoke-K2sGuestCmd {
                 $process.Kill()
                 $result.ErrorMessage = "Command timed out after $Timeout seconds"
             }
-            
+
             Unregister-Event -SourceIdentifier $outputEvent.Name -ErrorAction SilentlyContinue
             Unregister-Event -SourceIdentifier $errorEvent.Name -ErrorAction SilentlyContinue
             $process.Dispose()
-            
+
         } finally {
             Remove-Item -Path $tempOutFile -Force -ErrorAction SilentlyContinue
             Remove-Item -Path $tempErrFile -Force -ErrorAction SilentlyContinue
         }
-        
+
     } catch {
         $result.ErrorMessage = "Exception: $($_.Exception.Message)"
     }
-    
+
     return $result
 }
 
@@ -513,40 +513,40 @@ function Copy-K2sGuestFile {
     param(
         [Parameter(Mandatory = $true)]
         [string]$GuestIp,
-        
+
         [Parameter(Mandatory = $true)]
         [string]$RemotePath,
-        
+
         [Parameter(Mandatory = $true)]
         [string]$LocalPath
     )
-    
+
     $result = @{
         Success      = $false
         ErrorMessage = ''
     }
-    
+
     try {
         if ([string]::IsNullOrWhiteSpace($GuestIp)) {
             $result.ErrorMessage = "GuestIp parameter is required"
             return $result
         }
-        
+
         # SSH credentials
         $sshUser = 'remote'
         $sshPwd = 'admin'
-        
+
         # Resolve script root to absolute path first
-        # Path: lib/scripts/k2s/system/package -> need 5 levels up to reach repo root
+        # Path: lib/scripts/windows/host/system/package -> need 5 levels up to reach repo root
         $scriptDir = if ($PSScriptRoot) { $PSScriptRoot } else { Split-Path -Parent $MyInvocation.MyCommand.Path }
         $binDir = [System.IO.Path]::GetFullPath((Join-Path $scriptDir '..\..\..\..\..\bin'))
-        
+
         # Use pscp (PuTTY's scp) if available, otherwise scp
         $pscpPath = Join-Path $binDir 'pscp.exe'
         if (Test-Path $pscpPath -ErrorAction SilentlyContinue) {
             $plinkPath = Join-Path $binDir 'plink.exe'
             $plinkHostKey = Get-K2sPlinkHostKey -GuestIp $GuestIp -SshClient $plinkPath -SshUser $sshUser -SshPassword $sshPwd
-            
+
             $scpArgs = @('-batch','-P','22')
             if ($plinkHostKey) {
                 $scpArgs += @('-hostkey', $plinkHostKey)
@@ -554,7 +554,7 @@ function Copy-K2sGuestFile {
             $scpArgs += @('-pw', $sshPwd)
             $scpArgs += "$sshUser@${GuestIp}:$RemotePath"
             $scpArgs += $LocalPath
-            
+
             $scpOutput = & $pscpPath @scpArgs 2>&1
         } else {
             # Fallback to scp (try OpenSSH)
@@ -565,20 +565,20 @@ function Copy-K2sGuestFile {
             $scpArgs = @('-P','22','-o','StrictHostKeyChecking=no','-o','UserKnownHostsFile=/dev/null')
             $scpArgs += "$sshUser@${GuestIp}:$RemotePath"
             $scpArgs += $LocalPath
-            
+
             $scpOutput = & $sshPath @scpArgs 2>&1
         }
-        
+
         if ($LASTEXITCODE -eq 0 -and (Test-Path $LocalPath)) {
             $result.Success = $true
         } else {
             $result.ErrorMessage = "Copy failed with exit code $LASTEXITCODE. Output: $($scpOutput -join ' ')"
         }
-        
+
     } catch {
         $result.ErrorMessage = "Exception: $($_.Exception.Message)"
     }
-    
+
     return $result
 }
 
@@ -589,64 +589,64 @@ function Remove-K2sHvEnvironment {
     Write-Log '[DebPkg] Beginning cleanup (VM, switch, IP, NAT)' -Console
     $cleanupErrors = @()
     $vmName = $Context.VmName
-    
+
     # Stop and remove VM with proper wait
     if ($Context.CreatedVm) {
-        try { 
+        try {
             $vm = Get-VM -Name $vmName -ErrorAction SilentlyContinue
             if ($vm -and $vm.State -ne 'Off') {
                 Stop-VM -Name $vmName -Force -TurnOff -ErrorAction SilentlyContinue | Out-Null
                 Start-Sleep -Seconds 2  # Wait for VM to fully stop
             }
         } catch { $cleanupErrors += "Stop-VM: $($_.Exception.Message)" }
-        try { 
-            Remove-VM -Name $vmName -Force -ErrorAction SilentlyContinue | Out-Null 
+        try {
+            Remove-VM -Name $vmName -Force -ErrorAction SilentlyContinue | Out-Null
             Start-Sleep -Milliseconds 500  # Brief pause after VM removal
         } catch { $cleanupErrors += "Remove-VM: $($_.Exception.Message)" }
     }
-    
+
     # Remove switch
-    try { 
-        Remove-VMSwitch -Name $Context.SwitchName -Force -ErrorAction SilentlyContinue | Out-Null 
+    try {
+        Remove-VMSwitch -Name $Context.SwitchName -Force -ErrorAction SilentlyContinue | Out-Null
         Start-Sleep -Milliseconds 500  # Brief pause for system to release resources
     } catch { $cleanupErrors += "Remove-VMSwitch: $($_.Exception.Message)" }
-    
+
     # Remove NAT
-    try { 
+    try {
         $natObj = Get-NetNat -Name $Context.NatName -ErrorAction SilentlyContinue
-        if ($natObj) { Remove-NetNat -Name $Context.NatName -Confirm:$false -ErrorAction SilentlyContinue | Out-Null } 
+        if ($natObj) { Remove-NetNat -Name $Context.NatName -Confirm:$false -ErrorAction SilentlyContinue | Out-Null }
     } catch { $cleanupErrors += "Remove-NetNat: $($_.Exception.Message)" }
-    
+
     # Remove IP binding
-    try { 
+    try {
         $existing = Get-NetIPAddress -IPAddress $Context.HostSwitchIp -ErrorAction SilentlyContinue
-        if ($existing) { $existing | Remove-NetIPAddress -Confirm:$false -ErrorAction SilentlyContinue } 
+        if ($existing) { $existing | Remove-NetIPAddress -Confirm:$false -ErrorAction SilentlyContinue }
     } catch { $cleanupErrors += "Remove-NetIPAddress: $($_.Exception.Message)" }
-    
+
     # Verify cleanup with retries
     $leftVm = Get-VM -Name $vmName -ErrorAction SilentlyContinue
-    if ($leftVm) { 
+    if ($leftVm) {
         Start-Sleep -Seconds 1
-        try { 
+        try {
             if ($leftVm.State -ne 'Off') { Stop-VM -Name $vmName -Force -TurnOff -ErrorAction SilentlyContinue | Out-Null; Start-Sleep -Seconds 2 }
-            Remove-VM -Name $vmName -Force -ErrorAction SilentlyContinue | Out-Null 
+            Remove-VM -Name $vmName -Force -ErrorAction SilentlyContinue | Out-Null
         } catch { $cleanupErrors += "Retry Remove-VM: $($_.Exception.Message)" }
         $leftVm = Get-VM -Name $vmName -ErrorAction SilentlyContinue
-        if ($leftVm) { $cleanupErrors += 'VM remains after retry.' } 
+        if ($leftVm) { $cleanupErrors += 'VM remains after retry.' }
     }
-    
+
     $leftSwitch = Get-VMSwitch -Name $Context.SwitchName -ErrorAction SilentlyContinue
-    if ($leftSwitch) { 
+    if ($leftSwitch) {
         Start-Sleep -Seconds 1
         try { Remove-VMSwitch -Name $Context.SwitchName -Force -ErrorAction SilentlyContinue | Out-Null } catch { $cleanupErrors += "Retry Remove-VMSwitch: $($_.Exception.Message)" }
         $leftSwitch = Get-VMSwitch -Name $Context.SwitchName -ErrorAction SilentlyContinue
-        if ($leftSwitch) { $cleanupErrors += 'Switch remains after retry.' } 
+        if ($leftSwitch) { $cleanupErrors += 'Switch remains after retry.' }
     }
-    
-    if ($cleanupErrors.Count -gt 0) { 
-        Write-Log ("[DebPkg] Cleanup completed with warnings: {0}" -f ($cleanupErrors -join '; ')) -Console 
-    } else { 
-        Write-Log '[DebPkg] Cleanup complete' -Console 
+
+    if ($cleanupErrors.Count -gt 0) {
+        Write-Log ("[DebPkg] Cleanup completed with warnings: {0}" -f ($cleanupErrors -join '; ')) -Console
+    } else {
+        Write-Log '[DebPkg] Cleanup complete' -Console
     }
 }
 
@@ -713,27 +713,27 @@ function Get-DebianPackagesFromVHDX {
         # Read-Host "Press Enter to continue after verifying SSH server is running"
 
         # SSH login test
-        # Poll SSH login with dpkg self-test (every 10s up to 120s) - VM needs time to fully boot  
+        # Poll SSH login with dpkg self-test (every 10s up to 120s) - VM needs time to fully boot
         Write-Log "[DebPkg] Polling SSH login readiness (polling every 10s, timeout 120s)..." -Console
         $loginReadyDeadline = (Get-Date).AddSeconds(120)
         $dpkgTest = $null
         $loginSucceeded = $false
-        while ((Get-Date) -lt $loginReadyDeadline) {         
+        while ((Get-Date) -lt $loginReadyDeadline) {
             if ($usingPlink) { $plinkHostKey = Get-K2sPlinkHostKey -SshClient $sshClient -SshUser $sshUser -GuestIp $guestIp }
             $dpkgTest = Test-K2sDpkgQuery -SshClient $sshClient -UsingPlink:$usingPlink -PlinkHostKey $plinkHostKey -SshUser $sshUser -GuestIp $guestIp -SshKey '' -SshPassword $sshPwd
-            if ($dpkgTest.HostKeyMismatch) { 
+            if ($dpkgTest.HostKeyMismatch) {
                 $result.Error = 'Host key mismatch detected (plink security warning). Provide correct fingerprint or clear cached host key.'
-                return $result 
+                return $result
             }
-            if ($dpkgTest.Ok) { 
+            if ($dpkgTest.Ok) {
                 $loginSucceeded = $true
                 Write-Log "[DebPkg] SSH login successful with password, dpkg-query available" -Console
-                break 
+                break
             }
             $sampleOutput = ($dpkgTest.Output | Select-Object -First 3) -join ' | '
             # Retry on transient SSH/auth errors that will resolve as VM boots
-            if ($sampleOutput -match 'Permission denied' -or 
-                $sampleOutput -match 'Connection refused' -or 
+            if ($sampleOutput -match 'Permission denied' -or
+                $sampleOutput -match 'Connection refused' -or
                 $sampleOutput -match 'Connection timed out' -or
                 $sampleOutput -match 'No supported authentication methods' -or
                 $sampleOutput -match 'server sent: publickey') {
@@ -757,7 +757,7 @@ function Get-DebianPackagesFromVHDX {
                 return $result
             }
         }
-        
+
         # Query packages (use the auth method that worked)
         $pkgMap = Get-K2sDpkgPackageMap -SshClient $sshClient -UsingPlink:$usingPlink -PlinkHostKey $plinkHostKey -SshUser $sshUser -GuestIp $guestIp -SshKey $sshKey -SshPassword $sshPwd
         $result.Packages = $pkgMap
@@ -767,7 +767,7 @@ function Get-DebianPackagesFromVHDX {
             Write-Log '[ImageDiff] Querying buildah images from VM...' -Console
             # Use single quotes and escape for proper shell passing
             $buildahCmd = "sudo buildah images --format '{{.Name}}:{{.Tag}}|{{.ID}}|{{.Size}}'"
-            
+
             if ($usingPlink) {
                 Write-Log "[ImageDiff] Executing via plink: $sshUser@$guestIp" -Console
                 # Build plink args array the same way as dpkg query
@@ -783,9 +783,9 @@ function Get-DebianPackagesFromVHDX {
                 $sshArgs += ("$sshUser@$guestIp")
                 $buildahOut = & $sshClient @($sshArgs + $buildahCmd) 2>&1
             }
-            
+
             Write-Log "[ImageDiff] Buildah command exit code: $LASTEXITCODE" -Console
-            
+
             if ($buildahOut -and $buildahOut.Count -gt 0) {
                 Write-Log "[ImageDiff] Buildah returned $($buildahOut.Count) lines of output:" -Console
                 foreach ($line in $buildahOut) {
@@ -794,11 +794,11 @@ function Get-DebianPackagesFromVHDX {
             } else {
                 Write-Log "[ImageDiff] Buildah output is empty" -Console
             }
-            
+
             if ($LASTEXITCODE -eq 0) {
                 if (-not $buildahOut -or $buildahOut.Count -eq 0) {
                     Write-Log "[ImageDiff] Exit code 0 but no output - checking buildah store..." -Console
-                    
+
                     # Try simple buildah images command without format
                     $simpleCmd = "sudo buildah images"
                     if ($usingPlink) {
@@ -807,7 +807,7 @@ function Get-DebianPackagesFromVHDX {
                         $simpleOut = & $sshClient @($sshArgs + $simpleCmd) 2>&1
                     }
                     Write-Log "[ImageDiff] Simple 'sudo buildah images' output (exit=$LASTEXITCODE): $($simpleOut -join ' | ')" -Console
-                    
+
                     # Check if buildah is using root vs user store
                     $storeCmd = "ls -la ~/.local/share/containers/storage/overlay-images 2>&1 || echo 'User store not found'; sudo ls -la /var/lib/containers/storage/overlay-images 2>&1 || echo 'Root store not found'"
                     if ($usingPlink) {
@@ -816,7 +816,7 @@ function Get-DebianPackagesFromVHDX {
                         $storeOut = & $sshClient @($sshArgs + $storeCmd) 2>&1
                     }
                     Write-Log "[ImageDiff] Buildah storage check: $($storeOut -join ' | ')" -Console
-                    
+
                     $result.BuildahImages = @()
                 } else {
                     $images = @()
@@ -857,7 +857,7 @@ function Get-DebianPackagesFromVHDX {
         # Query config file hashes (optional) - collects SHA256 hashes of config files
         if ($QueryConfigHashes) {
             Write-Log '[GuestConfig] Querying config file hashes from VM...' -Console
-            
+
             $configPaths = @(
                 '/etc/kubernetes',
                 '/etc/cni',
@@ -872,7 +872,7 @@ function Get-DebianPackagesFromVHDX {
             $findScript = 'for p in __PATHS__; do if [ -d "$p" ]; then find "$p" -type f -exec sha256sum {} \; 2>/dev/null; fi; done'
             $findScript = $findScript -replace '__PATHS__', $pathList
             $configCmd = "sudo sh -c '$findScript'"
-            
+
             if ($usingPlink) {
                 $configHashOut = & $sshClient @($plinkArgs + $configCmd) 2>&1
             } else {
@@ -881,7 +881,7 @@ function Get-DebianPackagesFromVHDX {
                 $sshArgsConfig += ("$sshUser@$guestIp")
                 $configHashOut = & $sshClient @($sshArgsConfig + $configCmd) 2>&1
             }
-            
+
             # Parse sha256sum output: "hash  /path/to/file"
             $configHashes = @{}
             foreach ($line in $configHashOut) {
@@ -893,7 +893,7 @@ function Get-DebianPackagesFromVHDX {
                     $configHashes[$filePath] = $hash
                 }
             }
-            
+
             $result.ConfigHashes = $configHashes
             Write-Log "[GuestConfig] Collected $($configHashes.Count) config file hashes from VM" -Console
         }

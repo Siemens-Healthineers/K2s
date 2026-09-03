@@ -39,7 +39,7 @@ function Start-Phase {
         [Parameter(Mandatory)] [string] $Name
     )
     $script:DeltaPhaseNumber++
-    
+
     if ($script:DeltaTotalPhases -gt 0) {
         Write-Log ("[Phase {0}/{1}] {2} - start" -f $script:DeltaPhaseNumber, $script:DeltaTotalPhases, $Name) -Console
     } else {

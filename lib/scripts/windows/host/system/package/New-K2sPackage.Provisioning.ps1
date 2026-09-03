@@ -60,7 +60,7 @@ function New-ProvisionedKubemasterBaseImage($WindowsNodeArtifactsZip, $OutputPat
             VMDiskSize           = $VMDiskSize
         }
         New-VmImageForControlPlaneNode @controlPlaneNodeCreationParams
-    
+
         if (!(Test-Path -Path $OutputPath)) {
             throw "The file '$OutputPath' was not created"
         }
@@ -80,7 +80,7 @@ function New-ProvisionedKubemasterBaseImage($WindowsNodeArtifactsZip, $OutputPat
             Send-ToCli -MessageType $MessageType -Message @{Error = $err }
             return
         }
-    
+
         Write-Log $errMsg -Error
         exit 1
     }
@@ -109,7 +109,7 @@ function Get-AndZipWindowsNodeArtifacts($outputPath) {
                 Send-ToCli -MessageType $MessageType -Message @{Error = $err }
                 return
             }
-        
+
             Write-Log $errMsg -Error
             exit 1
         }

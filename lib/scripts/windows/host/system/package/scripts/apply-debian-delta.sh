@@ -102,7 +102,7 @@ KUBE_VERSION=$(kubelet --version 2>/dev/null | grep -oE '[0-9]+\.[0-9]+\.[0-9]+'
 
 if [[ -n "$KUBE_VERSION" ]]; then
     echo "[debian-delta] Detected Kubernetes version: v${KUBE_VERSION}"
-    
+
     # Load container images for air-gapped kubeadm upgrade
     # kubeadm upgrade apply requires control plane images (kube-apiserver, kube-controller-manager, etc.)
     # These images are pre-bundled in the delta package and copied to the VM
@@ -122,7 +122,7 @@ if [[ -n "$KUBE_VERSION" ]]; then
             echo "[debian-delta] Container images loaded successfully"
         fi
     fi
-    
+
     # Reload systemd to pick up any changes to kubelet.service
     systemctl daemon-reload
 
@@ -140,7 +140,7 @@ if [[ -n "$KUBE_VERSION" ]]; then
     else
         echo "[debian-delta][warn] Could not resolve pause image from kubeadm; keeping CRI-O package default"
     fi
-    
+
     # Verify kubeadm-required images are available before upgrade (informational)
     # This helps diagnose air-gapped environment issues and keeps pause version checks aligned with kubeadm.
     echo "[debian-delta] Verifying required kubeadm images..."
@@ -170,7 +170,7 @@ if [[ -n "$KUBE_VERSION" ]]; then
     else
         echo "[debian-delta][warn] $MISSING_IMAGES kubeadm image(s) may be missing - kubeadm will attempt to proceed"
     fi
-    
+
     # Run kubeadm upgrade apply with appropriate flags
     # --yes: auto-approve the upgrade
     # --certificate-renewal=false: preserve existing certificates
@@ -178,7 +178,7 @@ if [[ -n "$KUBE_VERSION" ]]; then
     # --ignore-preflight-errors: skip CoreDNS plugin migration warnings and image pull attempts (air-gapped)
     if kubeadm upgrade apply "v${KUBE_VERSION}" --yes --certificate-renewal=false --etcd-upgrade=false --ignore-preflight-errors=CoreDNSUnsupportedPlugins,ImagePull 2>&1; then
         echo "[debian-delta] kubeadm upgrade completed successfully"
-        
+
         # Cleanup imported image archives to free disk space
         if [[ -d "$IMAGES_DIR" ]]; then
             echo "[debian-delta] Cleaning up imported image archives"
@@ -186,13 +186,13 @@ if [[ -n "$KUBE_VERSION" ]]; then
         fi
     else
         echo "[debian-delta][warn] kubeadm upgrade encountered issues, attempting fallback cleanup"
-        
+
         # Cleanup imported image archives even on failure
         if [[ -d "$IMAGES_DIR" ]]; then
             echo "[debian-delta] Cleaning up imported image archives"
             rm -rf "$IMAGES_DIR"
         fi
-        
+
         # Fallback: Clean deprecated kubelet flags manually
         KUBEADM_FLAGS_FILE="/var/lib/kubelet/kubeadm-flags.env"
         if [[ -f "$KUBEADM_FLAGS_FILE" ]]; then

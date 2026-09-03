@@ -22,10 +22,10 @@ Param(
     [switch] $SkipHeaderDisplay = $false
 )
 
-$infraModule = "$PSScriptRoot\..\..\..\modules\k2s\k2s.infra.module\k2s.infra.module.psm1"
-$nodeModule = "$PSScriptRoot\..\..\..\modules\k2s\k2s.node.module\k2s.node.module.psm1"
-$clusterModule = "$PSScriptRoot\..\..\..\modules\k2s\k2s.cluster.module\k2s.cluster.module.psm1"
-$addonsModule = "$PSScriptRoot\..\..\..\..\addons\addons.module.psm1"
+$infraModule = "$PSScriptRoot\..\..\..\..\modules\k2s\k2s.infra.module\k2s.infra.module.psm1"
+$nodeModule = "$PSScriptRoot\..\..\..\..\modules\k2s\k2s.node.module\k2s.node.module.psm1"
+$clusterModule = "$PSScriptRoot\..\..\..\..\modules\k2s\k2s.cluster.module\k2s.cluster.module.psm1"
+$addonsModule = "$PSScriptRoot\..\..\..\..\..\addons\addons.module.psm1"
 Import-Module $infraModule, $nodeModule, $clusterModule, $addonsModule
 
 Initialize-Logging -ShowLogs:$ShowLogs
@@ -46,7 +46,7 @@ $workerNodeParams = @{
     AdditionalHooksDir = $AdditionalHooksDir
     SkipHeaderDisplay  = $SkipHeaderDisplay
 }
-& "$PSScriptRoot\..\..\worker\windows\windows-host\Uninstall.ps1" @workerNodeParams
+& "$PSScriptRoot\..\..\..\worker\windows\windows-host\Uninstall.ps1" @workerNodeParams
 
 $controlPlaneParams = @{
     SkipPurge                         = $SkipPurge
@@ -55,7 +55,7 @@ $controlPlaneParams = @{
     DeleteFilesForOfflineInstallation = $DeleteFilesForOfflineInstallation
     SkipHeaderDisplay                 = $SkipHeaderDisplay
 }
-& "$PSScriptRoot\..\..\control-plane\Uninstall.ps1" @controlPlaneParams
+& "$PSScriptRoot\..\..\..\control-plane\Uninstall.ps1" @controlPlaneParams
 
 if (!$SkipPurge) {
     Uninstall-Cluster

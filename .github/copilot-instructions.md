@@ -22,7 +22,7 @@ K2s is a dual‑platform Kubernetes distribution supporting both Windows and Lin
   - `internal/provider/` Platform-agnostic interfaces + build-tagged implementations (Windows ↔ PowerShell, Linux ↔ native Go). This is the primary abstraction layer for dual-platform support.
   - `internal/setuporchestration/` Linux-native cluster provisioning (kubeadm, libvirt/KVM, SSH).
 - `lib/modules/k2s.*.module/` PowerShell modules (logging, infra, node, cluster, signing, etc.) — Windows only.
-- `lib/scripts/k2s/system/package/` Packaging & delta generation scripts (`New-K2sDeltaPackage.ps1`, helpers file).
+- `lib/scripts/windows/host/system/package/` Packaging & delta generation scripts (`New-K2sDeltaPackage.ps1`, helpers file).
 - `addons/` Addon definitions; each addon has `Enable.ps1`, `Disable.ps1`, optional `Get-Status.ps1`, `Update.ps1`, `README.md`.
 - `smallsetup/` Windows environment bootstrap (loopback adapter, HNS, kubeadm flags, etc.).
 - `bin/` Pre-bundled third‑party executables (kubectl, helm, nerdctl, jq, plink, etc.). Do NOT modify vendored binaries—never rewrite.
@@ -118,7 +118,7 @@ When adding a new packaging / diff feature:
 - Build CLI (Go): `go build ./cmd/k2s` (respect existing Go module).
   - Or use build shortcuts: `bgow` (all Windows executables), `bgol` (all Linux executables), `bgo` (builds k2s.exe only), `bgo -ProjectDir "..." -ExeOutDir "..."`.
   - Cross-compile for Linux: `bgol` or `GOOS=linux go build -o k2s ./cmd/k2s`.
-- Run delta packaging: `powershell -File lib/scripts/k2s/system/package/New-K2sDeltaPackage.ps1 ...`.
+- Run delta packaging: `powershell -File lib/scripts/windows/host/system/package/New-K2sDeltaPackage.ps1 ...`.
 - Serve docs locally: `mkdocs serve` (ensure python + mkdocs installed).
 - Test PowerShell modules: Execute unit test files like `addons.module.unit.tests.ps1` with Pester.
 - Run all tests: `powershell -File test/execute_all_tests.ps1`.

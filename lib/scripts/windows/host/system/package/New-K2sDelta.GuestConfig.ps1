@@ -43,20 +43,20 @@ function Test-GuestConfigSkippedPath {
     param(
         [string] $Path
     )
-    
-    if (-not $script:GuestConfigSkippedPaths -or $script:GuestConfigSkippedPaths.Count -eq 0) { 
-        return $false 
+
+    if (-not $script:GuestConfigSkippedPaths -or $script:GuestConfigSkippedPaths.Count -eq 0) {
+        return $false
     }
-    
+
     foreach ($pattern in $script:GuestConfigSkippedPaths) {
         if ([string]::IsNullOrWhiteSpace($pattern)) { continue }
-        
+
         # Use -like for wildcard matching
         if ($Path -like $pattern) {
             return $true
         }
     }
-    
+
     return $false
 }
 
@@ -89,13 +89,13 @@ function Get-GuestFileHashes {
     param(
         [Parameter(Mandatory = $true)]
         [pscustomobject] $VmContext,
-        
+
         [Parameter(Mandatory = $true)]
         [string] $NewExtract,
-        
+
         [Parameter(Mandatory = $true)]
         [string] $OldExtract,
-        
+
         [Parameter(Mandatory = $false)]
         [string[]] $ConfigPaths = @(
             '/etc/kubernetes',
@@ -107,29 +107,29 @@ function Get-GuestFileHashes {
             '/usr/local/bin'
         )
     )
-    
+
     $result = [pscustomobject]@{
         Hashes       = @{}
         Error        = $null
         ScannedPaths = $ConfigPaths
         FileCount    = 0
     }
-    
+
     try {
         $guestIp = $VmContext.GuestIp
         $sshUser = 'remote'
         $sshPwd = 'admin'
-        
+
         # Get SSH client
         $sshInfo = Get-K2sHvSshClient -NewExtract $NewExtract -OldExtract $OldExtract
         $sshClient = $sshInfo.Path
         $usingPlink = $sshInfo.UsingPlink
         $plinkHostKey = $null
-        
+
         if ($usingPlink) {
             $plinkHostKey = Get-K2sPlinkHostKey -SshClient $sshClient -SshUser $sshUser -GuestIp $guestIp
         }
-        
+
         # Build SSH args
         if ($usingPlink) {
             $sshArgs = @('-batch', '-noagent', '-P', '22')
@@ -140,7 +140,7 @@ function Get-GuestFileHashes {
             $sshArgs = @('-p', '22', '-o', 'StrictHostKeyChecking=no', '-o', 'UserKnownHostsFile=/dev/null')
             $sshArgs += ("$sshUser@$guestIp")
         }
-        
+
         # Build find command for all config paths
         # Use find to enumerate files, then sha256sum each one
         # Filter only existing directories to avoid errors
@@ -149,12 +149,12 @@ function Get-GuestFileHashes {
         $findScript = 'for p in __PATHS__; do if [ -d "$p" ]; then find "$p" -type f -exec sha256sum {} \; 2>/dev/null; fi; done'
         $findScript = $findScript -replace '__PATHS__', $pathList
         $findCmd = "sudo sh -c '$findScript'"
-        
+
         Write-Log "[GuestConfig] Scanning config files in guest VM at $guestIp" -Console
         Write-Log "[GuestConfig] Paths: $($ConfigPaths -join ', ')" -Console
-        
+
         $hashOutput = & $sshClient @($sshArgs + $findCmd) 2>&1
-        
+
         if ($LASTEXITCODE -ne 0) {
             # Non-zero exit might just mean some paths didn't exist, check if we got output
             $errorLines = $hashOutput | Where-Object { $_ -match 'error|Error|ERROR|Permission denied' }
@@ -162,7 +162,7 @@ function Get-GuestFileHashes {
                 Write-Log "[GuestConfig][Warning] Some scan errors: $($errorLines | Select-Object -First 3 | Join-String -Separator ' | ')" -Console
             }
         }
-        
+
         # Parse sha256sum output: "hash  /path/to/file"
         $hashes = @{}
         foreach ($line in $hashOutput) {
@@ -174,16 +174,16 @@ function Get-GuestFileHashes {
                 $hashes[$filePath] = $hash
             }
         }
-        
+
         $result.Hashes = $hashes
         $result.FileCount = $hashes.Count
         Write-Log "[GuestConfig] Scanned $($hashes.Count) config files from guest VM" -Console
-        
+
     } catch {
         $result.Error = "Failed to scan guest config files: $($_.Exception.Message)"
         Write-Log "[GuestConfig][Error] $($result.Error)" -Console
     }
-    
+
     return $result
 }
 
@@ -193,7 +193,7 @@ function Get-GuestFileHashes {
 
 .DESCRIPTION
     Copies the specified files from the guest VM to the local staging directory,
-    preserving the directory structure (e.g., /etc/kubernetes/admin.conf -> 
+    preserving the directory structure (e.g., /etc/kubernetes/admin.conf ->
     guest-config/etc/kubernetes/admin.conf).
 
 .PARAMETER VmContext
@@ -218,36 +218,36 @@ function Copy-GuestConfigFiles {
     param(
         [Parameter(Mandatory = $true)]
         [pscustomobject] $VmContext,
-        
+
         [Parameter(Mandatory = $true)]
         [string] $NewExtract,
-        
+
         [Parameter(Mandatory = $true)]
         [string] $OldExtract,
-        
+
         [Parameter(Mandatory = $true)]
         [string[]] $FilePaths,
-        
+
         [Parameter(Mandatory = $true)]
         [string] $OutputDir
     )
-    
+
     $result = [pscustomobject]@{
         CopiedFiles  = @()
         FailedFiles  = @()
         Error        = $null
     }
-    
+
     if ($FilePaths.Count -eq 0) {
         Write-Log "[GuestConfig] No files to copy" -Console
         return $result
     }
-    
+
     try {
         $guestIp = $VmContext.GuestIp
         $sshUser = 'remote'
         $sshPwd = 'admin'
-        
+
         # Locate pscp/scp
         $pscpCandidates = @(
             (Join-Path $NewExtract 'bin\pscp.exe'),
@@ -256,13 +256,13 @@ function Copy-GuestConfigFiles {
         )
         $scpClient = $pscpCandidates | Where-Object { Test-Path -LiteralPath $_ } | Select-Object -First 1
         $usePlink = ($scpClient -and $scpClient.ToLower().EndsWith('pscp.exe'))
-        
+
         if (-not $scpClient) {
             # Fallback to regular scp
             $scpClient = 'scp.exe'
             $usePlink = $false
         }
-        
+
         # Get plink host key if using pscp
         $plinkHostKey = $null
         if ($usePlink) {
@@ -271,15 +271,15 @@ function Copy-GuestConfigFiles {
                 $plinkHostKey = Get-K2sPlinkHostKey -SshClient $plinkPath -SshUser $sshUser -GuestIp $guestIp
             }
         }
-        
+
         # Ensure output directory exists
         $guestConfigDir = Join-Path $OutputDir 'guest-config'
         if (-not (Test-Path -LiteralPath $guestConfigDir)) {
             New-Item -ItemType Directory -Path $guestConfigDir -Force | Out-Null
         }
-        
+
         Write-Log "[GuestConfig] Copying $($FilePaths.Count) config files from guest VM" -Console
-        
+
         foreach ($remotePath in $FilePaths) {
             try {
                 # Build local path preserving directory structure
@@ -287,11 +287,11 @@ function Copy-GuestConfigFiles {
                 $relativePath = $remotePath.TrimStart('/')
                 $localPath = Join-Path $guestConfigDir $relativePath
                 $localDir = Split-Path $localPath -Parent
-                
+
                 if (-not (Test-Path -LiteralPath $localDir)) {
                     New-Item -ItemType Directory -Path $localDir -Force | Out-Null
                 }
-                
+
                 # Build copy args
                 if ($usePlink) {
                     $copyArgs = @('-batch', '-P', '22')
@@ -304,9 +304,9 @@ function Copy-GuestConfigFiles {
                     $copyArgs += ("${sshUser}@${guestIp}:$remotePath")
                     $copyArgs += $localPath
                 }
-                
+
                 $null = & $scpClient @copyArgs 2>&1
-                
+
                 if (Test-Path -LiteralPath $localPath) {
                     $result.CopiedFiles += $relativePath
                 } else {
@@ -318,14 +318,14 @@ function Copy-GuestConfigFiles {
                 Write-Log "[GuestConfig][Warning] Error copying $remotePath`: $($_.Exception.Message)" -Console
             }
         }
-        
+
         Write-Log "[GuestConfig] Copied $($result.CopiedFiles.Count) files, $($result.FailedFiles.Count) failed" -Console
-        
+
     } catch {
         $result.Error = "Failed to copy guest config files: $($_.Exception.Message)"
         Write-Log "[GuestConfig][Error] $($result.Error)" -Console
     }
-    
+
     return $result
 }
 
@@ -372,25 +372,25 @@ function Get-GuestConfigDiff {
     param(
         [Parameter(Mandatory = $false)]
         [string] $OldVhdxPath,
-        
+
         [Parameter(Mandatory = $false)]
         [pscustomobject] $OldVmContext,
-        
+
         [Parameter(Mandatory = $false)]
         [pscustomobject] $NewVmContext,
-        
+
         [Parameter(Mandatory = $false)]
         [string] $NewVhdxPath,
-        
+
         [Parameter(Mandatory = $true)]
         [string] $NewExtract,
-        
+
         [Parameter(Mandatory = $true)]
         [string] $OldExtract,
-        
+
         [Parameter(Mandatory = $true)]
         [string] $OutputDir,
-        
+
         [Parameter(Mandatory = $false)]
         [string[]] $ConfigPaths = @(
             '/etc/kubernetes',
@@ -402,7 +402,7 @@ function Get-GuestConfigDiff {
             '/usr/local/bin'
         )
     )
-    
+
     $result = [pscustomobject]@{
         Processed      = $false
         Error          = $null
@@ -416,13 +416,13 @@ function Get-GuestConfigDiff {
         FailedFiles    = @()
         ScannedPaths   = $ConfigPaths
     }
-    
+
     $bootedOldVm = $false
     $bootedNewVm = $false
-    
+
     try {
         Write-Log "[GuestConfig] Starting guest config diff" -Console
-        
+
         # Validate inputs
         if (-not $OldVmContext -and -not $OldVhdxPath) {
             throw "Either OldVmContext or OldVhdxPath must be provided"
@@ -430,19 +430,19 @@ function Get-GuestConfigDiff {
         if ($OldVhdxPath -and -not (Test-Path -LiteralPath $OldVhdxPath)) {
             throw "Old VHDX not found: $OldVhdxPath"
         }
-        
+
         if (-not $NewVmContext -and -not $NewVhdxPath) {
             throw "Either NewVmContext or NewVhdxPath must be provided"
         }
-        
+
         # --- Scan OLD VHDX (reuse VM context if provided, otherwise boot new) ---
         $oldVmContextToUse = $OldVmContext
-        
+
         if ($oldVmContextToUse) {
             Write-Log "[GuestConfig] Reusing existing old VM context: $($oldVmContextToUse.VmName)" -Console
         } else {
             Write-Log "[GuestConfig] Booting temporary VM for old VHDX scan..." -Console
-        
+
             $switchNameEnding = 'cfg-old'
             $hostSwitchIp = '172.19.4.1'
             $networkPrefix = '172.19.4.0'
@@ -451,7 +451,7 @@ function Get-GuestConfigDiff {
             $switchName = "k2s-switch-$switchNameEnding"
             $natName = "k2s-nat-$switchNameEnding"
             $vmName = "k2s-kubemaster-$switchNameEnding"
-        
+
             $oldVmContextToUse = [pscustomobject]@{
                 SwitchName   = $switchName
                 NatName      = $natName
@@ -462,50 +462,50 @@ function Get-GuestConfigDiff {
                 VmName       = $vmName
                 CreatedVm    = $false
             }
-        
+
             # Create network
             $netCtx = New-K2sHvNetwork -SwitchName $switchName -NatName $natName -HostSwitchIp $hostSwitchIp -NetworkPrefix $networkPrefix -PrefixLen $prefixLen
             if ($netCtx.SwitchName -ne $switchName) {
                 $switchName = $netCtx.SwitchName
                 $oldVmContextToUse.SwitchName = $switchName
             }
-        
+
             # Create and start VM
             New-K2sHvTempVm -VmName $vmName -VhdxPath $OldVhdxPath -SwitchName $switchName
             $oldVmContextToUse.CreatedVm = $true
             $bootedOldVm = $true
-        
+
             # Wait for guest IP
             if (-not (Wait-K2sHvGuestIp -Ip $guestIp -TimeoutSeconds 180)) {
                 throw "Old VM guest IP $guestIp not reachable within timeout"
             }
-        
+
             # Wait for SSH to be ready
             Write-Log "[GuestConfig] Waiting for SSH to be ready on old VM..." -Console
             Start-Sleep -Seconds 60
         }
-        
+
         # Scan old VM for config file hashes
         $oldHashes = Get-GuestFileHashes -VmContext $oldVmContextToUse -NewExtract $NewExtract -OldExtract $OldExtract -ConfigPaths $ConfigPaths
-        
+
         if ($oldHashes.Error) {
             throw "Failed to scan old VM: $($oldHashes.Error)"
         }
-        
+
         Write-Log "[GuestConfig] Old VM scan complete: $($oldHashes.FileCount) files" -Console
-        
+
         # Note: VM cleanup is handled by the caller (New-K2sDeltaPackage.ps1)
-        
+
         # --- Scan NEW VHDX (reuse existing VM context if available) ---
         $newVmContextToUse = $NewVmContext
-        
+
         if (-not $newVmContextToUse) {
             Write-Log "[GuestConfig] Booting temporary VM for new VHDX scan..." -Console
-            
+
             if (-not (Test-Path -LiteralPath $NewVhdxPath)) {
                 throw "New VHDX not found: $NewVhdxPath"
             }
-            
+
             $switchNameEnding = 'cfg-new'
             $hostSwitchIp = '172.19.5.1'
             $networkPrefix = '172.19.5.0'
@@ -514,7 +514,7 @@ function Get-GuestConfigDiff {
             $switchName = "k2s-switch-$switchNameEnding"
             $natName = "k2s-nat-$switchNameEnding"
             $vmName = "k2s-kubemaster-$switchNameEnding"
-            
+
             $newVmContextToUse = [pscustomobject]@{
                 SwitchName   = $switchName
                 NatName      = $natName
@@ -525,45 +525,45 @@ function Get-GuestConfigDiff {
                 VmName       = $vmName
                 CreatedVm    = $false
             }
-            
+
             $netCtx = New-K2sHvNetwork -SwitchName $switchName -NatName $natName -HostSwitchIp $hostSwitchIp -NetworkPrefix $networkPrefix -PrefixLen $prefixLen
             if ($netCtx.SwitchName -ne $switchName) {
                 $switchName = $netCtx.SwitchName
                 $newVmContextToUse.SwitchName = $switchName
             }
-            
+
             New-K2sHvTempVm -VmName $vmName -VhdxPath $NewVhdxPath -SwitchName $switchName
             $newVmContextToUse.CreatedVm = $true
             $bootedNewVm = $true
-            
+
             if (-not (Wait-K2sHvGuestIp -Ip $guestIp -TimeoutSeconds 180)) {
                 throw "New VM guest IP $guestIp not reachable within timeout"
             }
-            
+
             Write-Log "[GuestConfig] Waiting for SSH to be ready on new VM..." -Console
             Start-Sleep -Seconds 60
         } else {
             Write-Log "[GuestConfig] Reusing existing new VM context: $($newVmContextToUse.VmName)" -Console
         }
-        
+
         # Scan new VM for config file hashes
         $newHashes = Get-GuestFileHashes -VmContext $newVmContextToUse -NewExtract $NewExtract -OldExtract $OldExtract -ConfigPaths $ConfigPaths
-        
+
         if ($newHashes.Error) {
             throw "Failed to scan new VM: $($newHashes.Error)"
         }
-        
+
         Write-Log "[GuestConfig] New VM scan complete: $($newHashes.FileCount) files" -Console
-        
+
         # --- Compute differences (excluding cluster-specific config files) ---
         $added = @()
         $changed = @()
         $removed = @()
         $skippedCount = 0
-        
+
         $oldHashMap = $oldHashes.Hashes
         $newHashMap = $newHashes.Hashes
-        
+
         # Find added and changed files (excluding cluster-specific paths)
         foreach ($path in $newHashMap.Keys) {
             # Skip cluster-specific files that should never be overwritten
@@ -571,46 +571,46 @@ function Get-GuestConfigDiff {
                 $skippedCount++
                 continue
             }
-            
+
             if (-not $oldHashMap.ContainsKey($path)) {
                 $added += $path
             } elseif ($oldHashMap[$path] -ne $newHashMap[$path]) {
                 $changed += $path
             }
         }
-        
+
         # Find removed files (excluding cluster-specific paths)
         foreach ($path in $oldHashMap.Keys) {
             # Skip cluster-specific files
             if (Test-GuestConfigSkippedPath -Path $path) {
                 continue
             }
-            
+
             if (-not $newHashMap.ContainsKey($path)) {
                 $removed += $path
             }
         }
-        
+
         if ($skippedCount -gt 0) {
             Write-Log "[GuestConfig] Skipped $skippedCount cluster-specific files (PKI, kubeconfig, manifests, CNI)" -Console
         }
-        
+
         Write-Log "[GuestConfig] Diff complete: Added=$($added.Count), Changed=$($changed.Count), Removed=$($removed.Count)" -Console
-        
+
         # --- Copy changed and added files from new VM ---
         $filesToCopy = @($added) + @($changed)
-        
+
         if ($filesToCopy.Count -gt 0) {
             $copyResult = Copy-GuestConfigFiles -VmContext $newVmContextToUse -NewExtract $NewExtract -OldExtract $OldExtract -FilePaths $filesToCopy -OutputDir $OutputDir
-            
+
             $result.CopiedFiles = $copyResult.CopiedFiles
             $result.FailedFiles = $copyResult.FailedFiles
-            
+
             if ($copyResult.Error) {
                 Write-Log "[GuestConfig][Warning] Copy error: $($copyResult.Error)" -Console
             }
         }
-        
+
         # Note: VM cleanup is handled by the caller (New-K2sDeltaPackage.ps1)
         # Only clean up VMs we booted ourselves (fallback mode)
         if ($bootedNewVm -and $newVmContextToUse) {
@@ -619,7 +619,7 @@ function Get-GuestConfigDiff {
         if ($bootedOldVm -and $oldVmContextToUse) {
             Remove-K2sHvEnvironment -Context $oldVmContextToUse
         }
-        
+
         # Set results
         $result.Processed = $true
         $result.Added = $added
@@ -628,13 +628,13 @@ function Get-GuestConfigDiff {
         $result.AddedCount = $added.Count
         $result.ChangedCount = $changed.Count
         $result.RemovedCount = $removed.Count
-        
+
         Write-Log "[GuestConfig] Guest config diff complete" -Console
-        
+
     } catch {
         $result.Error = $_.Exception.Message
         Write-Log "[GuestConfig][Error] $($result.Error)" -Console
-        
+
         # Clean up VMs we booted ourselves on error (fallback mode only)
         if ($bootedOldVm -and $oldVmContextToUse) {
             try { Remove-K2sHvEnvironment -Context $oldVmContextToUse } catch { }
@@ -643,6 +643,6 @@ function Get-GuestConfigDiff {
             try { Remove-K2sHvEnvironment -Context $newVmContextToUse } catch { }
         }
     }
-    
+
     return $result
 }
