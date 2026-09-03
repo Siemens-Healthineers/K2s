@@ -8,10 +8,10 @@ metadata:
   name: nginx-gw-config
   namespace: nginx-gw
   labels:
-    helm.sh/chart: nginx-gateway-fabric-2.6.7
+    helm.sh/chart: nginx-gateway-fabric-2.7.0
     app.kubernetes.io/name: nginx-gw
     app.kubernetes.io/instance: nginx-gw
-    app.kubernetes.io/version: "2.6.7"
+    app.kubernetes.io/version: "2.7.0"
     app.kubernetes.io/managed-by: Helm
 spec:
   logging:
