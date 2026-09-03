@@ -6,7 +6,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.20.1
+    controller-gen.kubebuilder.io/version: v0.21.0
   name: authenticationfilters.gateway.nginx.org
 spec:
   group: gateway.nginx.org
@@ -79,6 +79,99 @@ spec:
               jwt:
                 description: JWT configures JSON Web Token authentication (NGINX Plus).
                 properties:
+                  authorization:
+                    description: |-
+                      Authorization defines the authorization (authz) specification.
+                      Enables configuration of token claim validation.
+                    properties:
+                      require:
+                        default: Any
+                        description: |-
+                          Require sets top level authorization requirement.
+                          When set to All, the requirements for all claims in a rule must be met.
+                          When set to Any, the requirements for any one claim in a rule must be met.
+                        enum:
+                        - All
+                        - Any
+                        type: string
+                      rules:
+                        description: Rules defines a list of claims and their specific
+                          authorization requirements.
+                        items:
+                          description: Rule defines a list of claims, and authorization
+                            rules for those claims.
+                          properties:
+                            claims:
+                              description: Claims defines a list of claims required
+                                by users.
+                              items:
+                                description: Claim describes the exact name/value
+                                  pair of claims that must be matched.
+                                properties:
+                                  match:
+                                    default: Exact
+                                    description: Match sets the match type for the
+                                      claim.
+                                    enum:
+                                    - Exact
+                                    - Regex
+                                    type: string
+                                  name:
+                                    description: Name is the name of the claim within
+                                      the token.
+                                    maxLength: 253
+                                    pattern: ^[a-zA-Z0-9_/-]+$
+                                    type: string
+                                  proxySetHeader:
+                                    description: |-
+                                      ProxySetHeader sets both the name and variable for `proxy_set_header`
+                                      Example: For claim name `sub` for JWT auth
+
+                                      proxy_set_header X-JWT-Claim-Sub $jwt_claim_sub;
+                                    maxLength: 253
+                                    pattern: ^[-A-Za-z0-9]+$
+                                    type: string
+                                  values:
+                                    description: |-
+                                      Values are the values within the claim.
+                                      When more than one value is set, the claim must match any of these values.
+                                    items:
+                                      maxLength: 256
+                                      pattern: ^[^\n\r;#\$\{\}\|&><'"]+$
+                                      type: string
+                                    maxItems: 32
+                                    minItems: 1
+                                    type: array
+                                required:
+                                - name
+                                - values
+                                type: object
+                              maxItems: 32
+                              minItems: 1
+                              type: array
+                            require:
+                              default: Any
+                              description: |-
+                                Require sets the authorization mode for a specific claim within a rule.
+                                When set to All, a token's claim must match all values within that claim.
+                                When set to Any, a token's claim must match at least one value with that claim.
+                              enum:
+                              - All
+                              - Any
+                              type: string
+                          required:
+                          - claims
+                          type: object
+                          x-kubernetes-validations:
+                          - message: claim names must be unique within a rule
+                            rule: self.claims.all(c, self.claims.exists_one(d, d.name
+                              == c.name))
+                        maxItems: 32
+                        minItems: 1
+                        type: array
+                    required:
+                    - rules
+                    type: object
                   file:
                     description: |-
                       File specifies local JWKS configuration.
@@ -103,6 +196,16 @@ spec:
                       Configures `auth_jwt_key_cache` directive.
                       https://nginx.org/en/docs/http/ngx_http_auth_jwt_module.html#auth_jwt_key_cache
                       Example: "auth_jwt_key_cache 10m;".
+                    pattern: ^[0-9]{1,4}(ms|s|m|h)?$
+                    type: string
+                  leeway:
+                    description: |-
+                      Leeway is the acceptable clock skew for exp & nbf claims.
+                      If exp & nbf claims are not defined, this directive takes no effect.
+                      Configures `auth_jwt_leeway` directive.
+                      https://nginx.org/en/docs/http/ngx_http_auth_jwt_module.html#auth_jwt_leeway
+                      Example: "auth_jwt_leeway 60s".
+                      Default: 0s.
                     pattern: ^[0-9]{1,4}(ms|s|m|h)?$
                     type: string
                   realm:
@@ -168,6 +271,99 @@ spec:
                 description: OIDC configures OpenID Connect Authentication (NGINX
                   Plus).
                 properties:
+                  authorization:
+                    description: |-
+                      Authorization defines the authorization (authz) specification.
+                      Enables configuration of token claim validation.
+                    properties:
+                      require:
+                        default: Any
+                        description: |-
+                          Require sets top level authorization requirement.
+                          When set to All, the requirements for all claims in a rule must be met.
+                          When set to Any, the requirements for any one claim in a rule must be met.
+                        enum:
+                        - All
+                        - Any
+                        type: string
+                      rules:
+                        description: Rules defines a list of claims and their specific
+                          authorization requirements.
+                        items:
+                          description: Rule defines a list of claims, and authorization
+                            rules for those claims.
+                          properties:
+                            claims:
+                              description: Claims defines a list of claims required
+                                by users.
+                              items:
+                                description: Claim describes the exact name/value
+                                  pair of claims that must be matched.
+                                properties:
+                                  match:
+                                    default: Exact
+                                    description: Match sets the match type for the
+                                      claim.
+                                    enum:
+                                    - Exact
+                                    - Regex
+                                    type: string
+                                  name:
+                                    description: Name is the name of the claim within
+                                      the token.
+                                    maxLength: 253
+                                    pattern: ^[a-zA-Z0-9_/-]+$
+                                    type: string
+                                  proxySetHeader:
+                                    description: |-
+                                      ProxySetHeader sets both the name and variable for `proxy_set_header`
+                                      Example: For claim name `sub` for JWT auth
+
+                                      proxy_set_header X-JWT-Claim-Sub $jwt_claim_sub;
+                                    maxLength: 253
+                                    pattern: ^[-A-Za-z0-9]+$
+                                    type: string
+                                  values:
+                                    description: |-
+                                      Values are the values within the claim.
+                                      When more than one value is set, the claim must match any of these values.
+                                    items:
+                                      maxLength: 256
+                                      pattern: ^[^\n\r;#\$\{\}\|&><'"]+$
+                                      type: string
+                                    maxItems: 32
+                                    minItems: 1
+                                    type: array
+                                required:
+                                - name
+                                - values
+                                type: object
+                              maxItems: 32
+                              minItems: 1
+                              type: array
+                            require:
+                              default: Any
+                              description: |-
+                                Require sets the authorization mode for a specific claim within a rule.
+                                When set to All, a token's claim must match all values within that claim.
+                                When set to Any, a token's claim must match at least one value with that claim.
+                              enum:
+                              - All
+                              - Any
+                              type: string
+                          required:
+                          - claims
+                          type: object
+                          x-kubernetes-validations:
+                          - message: claim names must be unique within a rule
+                            rule: self.claims.all(c, self.claims.exists_one(d, d.name
+                              == c.name))
+                        maxItems: 32
+                        minItems: 1
+                        type: array
+                    required:
+                    - rules
+                    type: object
                   caCertificateRefs:
                     description: |-
                       CACertificateRefs references a list of secrets containing trusted CA certificates
@@ -244,9 +440,9 @@ spec:
                       .well-known/openid-configuration endpoint.
                       Directive: https://nginx.org/en/docs/http/ngx_http_oidc_module.html#issuer
                       Examples:
-                        - Keycloak: "https://keycloak.example.com/realms/my-realm"
-                        - Okta: "https://dev-123456.okta.com/oauth2/default"
-                        - Auth0: "https://my-tenant.auth0.com/"
+                        - Keycloak: `https://keycloak.example.com/realms/my-realm`
+                        - Okta: `https://dev-123456.okta.com/oauth2/default`
+                        - Auth0: `https://my-tenant.auth0.com/`
                     pattern: ^https:\/\/[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?(\.[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?)*(:[0-9]{1,5})?(\/[a-zA-Z0-9._~:\/?@!&'()*+,=-]*)?$
                     type: string
                   logout:
@@ -265,7 +461,7 @@ spec:
                           PostLogoutURI defines the URI to redirect to after logout.
                           Must match the configuration on the provider's side.
                           Directive: https://nginx.org/en/docs/http/ngx_http_oidc_module.html#post_logout_uri
-                          Example: /after_logout, https://example.com/after_logout
+                          Example: /after_logout, `https://example.com/after_logout`
                         pattern: ^(https?:\/\/[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?(\.[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?)*(:[0-9]{1,5})?(\/[a-zA-Z0-9._~:\/?@!&'()*+,=-]*)?|\/[a-zA-Z0-9._~:\/?@!&'()*+,=-]*)$
                         type: string
                       tokenHint:
@@ -297,7 +493,7 @@ spec:
                       If not specified, defaults to /oidc_callback_<filternamespace>_<filtername>.
                       Directive: https://nginx.org/en/docs/http/ngx_http_oidc_module.html#redirect_uri
                       NGINX Default: /oidc_callback
-                      Example: /oidc_callback, https://cafe.example.com:8442/oidc_callback
+                      Example: /oidc_callback, `https://cafe.example.com:8442/oidc_callback`
                     pattern: ^(https:\/\/[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?(\.[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?)*(:[0-9]{1,5})?(\/[a-zA-Z0-9._~:\/?@!&'()*+,=-]*)?|\/[a-zA-Z0-9._~:\/?@!&'()*+,=-]*)$
                     type: string
                   session:
@@ -365,7 +561,8 @@ spec:
                 items:
                   properties:
                     conditions:
-                      description: Conditions describe the status of the SnippetsFilter.
+                      description: Conditions describe the status of the resource
+                        with respect to this controller.
                       items:
                         description: Condition contains details for one aspect of
                           the current state of this API Resource.
@@ -466,7 +663,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.20.1
+    controller-gen.kubebuilder.io/version: v0.21.0
   labels:
     gateway.networking.k8s.io/policy: inherited
   name: clientsettingspolicies.gateway.nginx.org
@@ -517,6 +714,14 @@ spec:
               body:
                 description: Body defines the client request body settings.
                 properties:
+                  bufferSize:
+                    description: |-
+                      BufferSize sets the buffer size for reading the client request body.
+                      If the request body is larger than the buffer, the whole body or only its part is written to a
+                      temporary file.
+                      Default: https://nginx.org/en/docs/http/ngx_http_core_module.html#client_body_buffer_size.
+                    pattern: ^\d{1,4}(k|m|g)?$
+                    type: string
                   maxSize:
                     description: |-
                       MaxSize sets the maximum allowed size of the client request body.
@@ -931,7 +1136,421 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.20.1
+    controller-gen.kubebuilder.io/version: v0.21.0
+  name: externalloadbalancers.gateway.nginx.org
+spec:
+  group: gateway.nginx.org
+  names:
+    categories:
+    - nginx-gateway-fabric
+    kind: ExternalLoadBalancer
+    listKind: ExternalLoadBalancerList
+    plural: externalloadbalancers
+    shortNames:
+    - elb
+    singular: externalloadbalancer
+  scope: Namespaced
+  versions:
+  - additionalPrinterColumns:
+    - jsonPath: .metadata.creationTimestamp
+      name: Age
+      type: date
+    name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        description: |-
+          ExternalLoadBalancer configures an external load balancer that fronts a Gateway.
+          It references a Gateway through TargetRefs. NGINX Gateway Fabric provisions the
+          external load balancer integration for the Gateway's data plane Service.
+
+          ExternalLoadBalancer maps one-to-one to a Gateway: a Gateway yields exactly one data plane
+          Service, so it is fronted by exactly one ExternalLoadBalancer. When more than one
+          ExternalLoadBalancer references the same Gateway, the oldest is accepted and the others are
+          rejected with Accepted=False.
+
+          A resource configures exactly one external load balancer backend. The gatewayLink backend
+          integrates F5 BIG-IP through F5 CIS.
+        properties:
+          apiVersion:
+            description: |-
+              APIVersion defines the versioned schema of this representation of an object.
+              Servers should convert recognized schemas to the latest internal value, and
+              may reject unrecognized values.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+            type: string
+          kind:
+            description: |-
+              Kind is a string value representing the REST resource this object represents.
+              Servers may infer this from the endpoint the client submits requests to.
+              Cannot be updated.
+              In CamelCase.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: Spec defines the desired state of the ExternalLoadBalancer.
+            properties:
+              gatewayLink:
+                description: |-
+                  GatewayLink configures F5 BIG-IP as the external load balancer using F5
+                  Container Ingress Services. It is the first supported backend. Additional
+                  backend types may be added as sibling fields in the future.
+                properties:
+                  additionalIngressLinkSpec:
+                    description: |-
+                      AdditionalIngressLinkSpec is an escape hatch for IngressLink fields that are not yet
+                      modeled by GatewayLink. Its contents are merged verbatim into the generated IngressLink
+                      spec and are NOT validated by NGINX Gateway Fabric. Fields set here take lower precedence
+                      than the explicitly modeled GatewayLink fields above; NGINX Gateway Fabric always sets the
+                      IngressLink selector internally and it cannot be overridden through this field. Use with
+                      caution since contents bypass schema validation, defaulting, and CEL rules, and flow through to
+                      BIG-IP via F5 CIS.
+                    type: object
+                    x-kubernetes-preserve-unknown-fields: true
+                  bigipRouteDomain:
+                    description: BigIPRouteDomain is the route domain ID for the BIG-IP
+                      virtual server.
+                    format: int32
+                    maximum: 65535
+                    minimum: 0
+                    type: integer
+                  host:
+                    description: Host is the hostname for the BIG-IP virtual server.
+                    pattern: ^(([a-zA-Z0-9\*]|[a-zA-Z0-9][a-zA-Z0-9\-]*[a-zA-Z0-9])\.)*([A-Za-z0-9]|[A-Za-z0-9][A-Za-z0-9\-]*[A-Za-z0-9])$
+                    type: string
+                  iRules:
+                    description: |-
+                      IRules is a list of BIG-IP iRules to apply to the virtual server.
+                      Each iRule must be specified using the full path format /partition/irule_name,
+                      for example "/Common/Proxy_Protocol_iRule".
+                    items:
+                      pattern: ^\/[a-zA-Z]+([A-z0-9-_+]+\/)+([-A-z0-9_.:]+\/?)*$
+                      type: string
+                    type: array
+                  ipamLabel:
+                    description: |-
+                      IPAMLabel is the label used by F5 IPAM Controller to allocate an IP address.
+                      The IPAM controller will assign an IP from the pool associated with this label.
+                      This is mutually exclusive with VirtualServerAddress.
+                    pattern: ^[a-zA-Z]+[-A-z0-9_.:]+[A-z0-9]+$
+                    type: string
+                  monitors:
+                    description: Monitors is a list of BIG-IP health monitors to associate
+                      with the virtual server pool.
+                    items:
+                      description: GatewayLinkMonitor defines a BIG-IP health monitor
+                        reference.
+                      properties:
+                        name:
+                          description: Name is the full path of the health monitor
+                            on BIG-IP (e.g., "/Common/http").
+                          pattern: ^\/[a-zA-Z]+([A-z0-9-_+]+\/)+([-A-z0-9_.:]+\/?)*$
+                          type: string
+                        reference:
+                          description: Reference specifies the source of the monitor.
+                            Currently only "bigip" is supported.
+                          enum:
+                          - bigip
+                          type: string
+                      required:
+                      - name
+                      - reference
+                      type: object
+                    type: array
+                  multiCluster:
+                    description: |-
+                      MultiCluster defines the multi-cluster configuration for load balancing traffic
+                      across NGINX instances in multiple clusters.
+                    properties:
+                      localClusterName:
+                        description: |-
+                          LocalClusterName is the name of this cluster as configured in the CIS deployment
+                          via the --local-cluster-name flag. NGINX Gateway Fabric uses it as the cluster name
+                          for the local entry in the IngressLink's multiClusterServices, which points at this
+                          cluster's own Gateway Service. It must match the name CIS knows this cluster by,
+                          otherwise CIS cannot resolve the local service.
+                        type: string
+                      remoteClusters:
+                        description: RemoteClusters is the list of remote clusters
+                          that also run NGINX Gateway Fabric.
+                        items:
+                          description: GatewayLinkRemoteCluster defines a remote cluster
+                            for multi-cluster load balancing.
+                          properties:
+                            clusterName:
+                              description: ClusterName is one of the names of the
+                                remote clusters as configured in the CIS deployment.
+                              type: string
+                            namespace:
+                              description: |-
+                                Namespace is the namespace of the NGINX service in the remote cluster.
+                                If not specified, defaults to the local Gateway's namespace.
+                              type: string
+                            service:
+                              description: |-
+                                Service is the name of the NGINX service in the remote cluster.
+                                If not specified, defaults to the local Gateway's service name.
+                              type: string
+                            weight:
+                              description: Weight is the load balancing weight for
+                                this cluster's service.
+                              format: int32
+                              maximum: 256
+                              minimum: 0
+                              type: integer
+                          required:
+                          - clusterName
+                          type: object
+                        minItems: 1
+                        type: array
+                    required:
+                    - localClusterName
+                    - remoteClusters
+                    type: object
+                  partition:
+                    description: |-
+                      Partition is the BIG-IP partition where resources will be created.
+                      The partition must already exist on BIG-IP and cannot be "Common".
+                    pattern: ^[a-zA-Z]+[-A-Za-z0-9_.]+$
+                    type: string
+                  serviceAddress:
+                    description: ServiceAddress configures Layer 3 settings for the
+                      BIG-IP virtual server address.
+                    properties:
+                      icmpEcho:
+                        description: ICMPEcho controls whether the virtual server
+                          address responds to ICMP echo (ping).
+                        enum:
+                        - enable
+                        - disable
+                        - selective
+                        type: string
+                      trafficGroup:
+                        description: |-
+                          TrafficGroup is the BIG-IP traffic group that owns the virtual server address,
+                          in the full path format, for example "/Common/traffic-group-test".
+                        pattern: ^\/([A-z0-9-_+]+\/)+([-A-z0-9_.:]+\/?)*$
+                        type: string
+                    type: object
+                  tls:
+                    description: TLS defines the TLS configuration for the BIG-IP
+                      virtual server.
+                    properties:
+                      clientSSLs:
+                        description: |-
+                          ClientSSLs is a list of client SSL profiles that BIG-IP uses to terminate TLS from the client.
+                          When reference is "bigip", each entry is the full path of a profile on BIG-IP in the form
+                          /partition/profile_name, for example /Common/clientssl. When reference is "secret", each entry
+                          is the name of a Kubernetes secret of type kubernetes.io/tls that holds the certificate and key.
+                        items:
+                          pattern: ^\/?[a-zA-Z]+([-A-z0-9_+]+\/)*([-A-z0-9_.:]+\/?)*$
+                          type: string
+                        type: array
+                      reference:
+                        description: |-
+                          Reference specifies the source of the SSL profiles. "bigip" means the profiles already
+                          exist on BIG-IP. "secret" means they come from Kubernetes secrets of type kubernetes.io/tls.
+                          If not specified, defaults to "bigip".
+                        enum:
+                        - bigip
+                        - secret
+                        type: string
+                      serverSSLs:
+                        description: |-
+                          ServerSSLs is a list of server SSL profiles that BIG-IP uses to re-encrypt traffic to NGINX.
+                          When reference is "bigip", each entry is the full path of a profile on BIG-IP in the form
+                          /partition/profile_name, for example /Common/serverssl. When reference is "secret", each entry
+                          is the name of a Kubernetes secret of type kubernetes.io/tls that holds the certificate and key.
+                        items:
+                          pattern: ^\/?[a-zA-Z]+([-A-z0-9_+]+\/)*([-A-z0-9_.:]+\/?)*$
+                          type: string
+                        type: array
+                    type: object
+                  virtualServerAddress:
+                    description: |-
+                      VirtualServerAddress is the static IP address to configure on BIG-IP for the virtual server.
+                      This is mutually exclusive with IPAMLabel.
+                    pattern: ^(([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\.){3}([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])$
+                    type: string
+                  virtualServerName:
+                    description: VirtualServerName is a custom name for the BIG-IP
+                      virtual server.
+                    pattern: ^[a-zA-Z]+([A-z0-9-._+])*([A-z0-9])$
+                    type: string
+                type: object
+                x-kubernetes-validations:
+                - message: virtualServerAddress and ipamLabel are mutually exclusive
+                  rule: '!(has(self.virtualServerAddress) && has(self.ipamLabel))'
+                - message: one of virtualServerAddress or ipamLabel must be set
+                  rule: has(self.virtualServerAddress) || has(self.ipamLabel)
+                - message: partition cannot be Common
+                  rule: '!has(self.partition) || self.partition != ''Common'''
+                - message: partition cannot be modified; delete the resource and recreate
+                    it with the new partition
+                  rule: has(self.partition) == has(oldSelf.partition) && (!has(self.partition)
+                    || self.partition == oldSelf.partition)
+              targetRefs:
+                description: |-
+                  TargetRefs identifies the Gateways this external load balancer applies to.
+                  Each object must be in the same namespace as the ExternalLoadBalancer resource.
+                  Exactly one Gateway is supported for now.
+                  Support: Gateway.
+                items:
+                  description: |-
+                    LocalPolicyTargetReference identifies an API object to apply a direct or
+                    inherited policy to. This should be used as part of Policy resources
+                    that can target Gateway API resources. For more information on how this
+                    policy attachment model works, and a sample Policy resource, refer to
+                    the policy attachment documentation for Gateway API.
+                  properties:
+                    group:
+                      description: Group is the group of the target resource.
+                      maxLength: 253
+                      pattern: ^$|^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
+                      type: string
+                    kind:
+                      description: Kind is kind of the target resource.
+                      maxLength: 63
+                      minLength: 1
+                      pattern: ^[a-zA-Z]([-a-zA-Z0-9]*[a-zA-Z0-9])?$
+                      type: string
+                    name:
+                      description: Name is the name of the target resource.
+                      maxLength: 253
+                      minLength: 1
+                      type: string
+                  required:
+                  - group
+                  - kind
+                  - name
+                  type: object
+                maxItems: 1
+                minItems: 1
+                type: array
+                x-kubernetes-validations:
+                - message: TargetRef Kind must be Gateway
+                  rule: self.all(ref, ref.kind=='Gateway')
+                - message: TargetRef Group must be gateway.networking.k8s.io
+                  rule: self.all(ref, ref.group=='gateway.networking.k8s.io')
+            required:
+            - targetRefs
+            type: object
+            x-kubernetes-validations:
+            - message: exactly one external load balancer backend must be set
+              rule: has(self.gatewayLink)
+          status:
+            description: Status defines the state of the ExternalLoadBalancer.
+            properties:
+              controllers:
+                description: |-
+                  Controllers is a list of Gateway API controllers that processed the ExternalLoadBalancer
+                  and the status of the ExternalLoadBalancer with respect to each controller.
+                items:
+                  properties:
+                    conditions:
+                      description: Conditions describe the status of the resource
+                        with respect to this controller.
+                      items:
+                        description: Condition contains details for one aspect of
+                          the current state of this API Resource.
+                        properties:
+                          lastTransitionTime:
+                            description: |-
+                              lastTransitionTime is the last time the condition transitioned from one status to another.
+                              This should be when the underlying condition changed.  If that is not known, then using the time when the API field changed is acceptable.
+                            format: date-time
+                            type: string
+                          message:
+                            description: |-
+                              message is a human readable message indicating details about the transition.
+                              This may be an empty string.
+                            maxLength: 32768
+                            type: string
+                          observedGeneration:
+                            description: |-
+                              observedGeneration represents the .metadata.generation that the condition was set based upon.
+                              For instance, if .metadata.generation is currently 12, but the .status.conditions[x].observedGeneration is 9, the condition is out of date
+                              with respect to the current state of the instance.
+                            format: int64
+                            minimum: 0
+                            type: integer
+                          reason:
+                            description: |-
+                              reason contains a programmatic identifier indicating the reason for the condition's last transition.
+                              Producers of specific condition types may define expected values and meanings for this field,
+                              and whether the values are considered a guaranteed API.
+                              The value should be a CamelCase string.
+                              This field may not be empty.
+                            maxLength: 1024
+                            minLength: 1
+                            pattern: ^[A-Za-z]([A-Za-z0-9_,:]*[A-Za-z0-9_])?$
+                            type: string
+                          status:
+                            description: status of the condition, one of True, False,
+                              Unknown.
+                            enum:
+                            - "True"
+                            - "False"
+                            - Unknown
+                            type: string
+                          type:
+                            description: type of condition in CamelCase or in foo.example.com/CamelCase.
+                            maxLength: 316
+                            pattern: ^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*/)?(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])$
+                            type: string
+                        required:
+                        - lastTransitionTime
+                        - message
+                        - reason
+                        - status
+                        - type
+                        type: object
+                      maxItems: 8
+                      minItems: 1
+                      type: array
+                      x-kubernetes-list-map-keys:
+                      - type
+                      x-kubernetes-list-type: map
+                    controllerName:
+                      description: |-
+                        ControllerName is a domain/path string that indicates the name of the
+                        controller that wrote this status. This corresponds with the
+                        controllerName field on GatewayClass.
+
+                        Example: "example.net/gateway-controller".
+
+                        The format of this field is DOMAIN "/" PATH, where DOMAIN and PATH are
+                        valid Kubernetes names
+                        (https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names).
+
+                        Controllers MUST populate this field when writing status. Controllers should ensure that
+                        entries to status populated with their ControllerName are cleaned up when they are no
+                        longer necessary.
+                      maxLength: 253
+                      minLength: 1
+                      pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*\/[A-Za-z0-9\/\-._~%!$&'()*+,;=:]+$
+                      type: string
+                  required:
+                  - controllerName
+                  type: object
+                maxItems: 16
+                type: array
+            type: object
+        required:
+        - spec
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}
+
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.21.0
   name: nginxgateways.gateway.nginx.org
 spec:
   group: gateway.nginx.org
@@ -1065,7 +1684,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.20.1
+    controller-gen.kubebuilder.io/version: v0.21.0
   name: nginxproxies.gateway.nginx.org
 spec:
   group: gateway.nginx.org
@@ -1113,6 +1732,156 @@ spec:
           spec:
             description: Spec defines the desired state of the NginxProxy.
             properties:
+              compression:
+                description: |-
+                  Compression defines the configuration for HTTP response compression.
+                  When set, NGINX compresses responses for clients that support it,
+                  reducing bandwidth usage.
+                properties:
+                  buffers:
+                    description: |-
+                      Buffers sets the number and size of buffers used to compress a response.
+
+                      NGINX directive: https://nginx.org/en/docs/http/ngx_http_gzip_module.html#gzip_buffers
+                    properties:
+                      number:
+                        description: Number sets the number of buffers.
+                        format: int32
+                        maximum: 256
+                        minimum: 1
+                        type: integer
+                      size:
+                        description: Size sets the size of each buffer.
+                        pattern: ^\d{1,4}(k|m|g)?$
+                        type: string
+                    required:
+                    - number
+                    - size
+                    type: object
+                  gzip:
+                    description: Gzip defines gzip module-specific compression settings.
+                    properties:
+                      disable:
+                        description: |-
+                          Disable specifies regular expressions to match User-Agent headers of requests
+                          that should not be gzip-compressed.
+
+                          NGINX directive: https://nginx.org/en/docs/http/ngx_http_gzip_module.html#gzip_disable
+                        items:
+                          type: string
+                        maxItems: 16
+                        minItems: 1
+                        type: array
+                      httpVersion:
+                        description: |-
+                          HTTPVersion sets the minimum HTTP version of a request required to compress a response.
+
+                          NGINX directive: https://nginx.org/en/docs/http/ngx_http_gzip_module.html#gzip_http_version
+                        enum:
+                        - "1.0"
+                        - "1.1"
+                        type: string
+                      proxied:
+                        description: |-
+                          Proxied enables or disables gzip compression for proxied requests depending on the request and response.
+                          Accepted values are: "off", "expired", "no-cache", "no-store", "private", "no_last_modified",
+                          "no_etag", "auth", "any".
+                          Multiple values can be specified.
+
+                          NGINX directive: https://nginx.org/en/docs/http/ngx_http_gzip_module.html#gzip_proxied
+                        items:
+                          description: GzipProxiedType defines the conditions under
+                            which responses from proxied requests are compressed.
+                          enum:
+                          - "off"
+                          - expired
+                          - no-cache
+                          - no-store
+                          - private
+                          - no_last_modified
+                          - no_etag
+                          - auth
+                          - any
+                          type: string
+                        maxItems: 9
+                        minItems: 1
+                        type: array
+                      vary:
+                        description: |-
+                          Vary enables or disables inserting the "Vary: Accept-Encoding" response header
+                          when gzip compression is active.
+
+                          NGINX directive: https://nginx.org/en/docs/http/ngx_http_gzip_module.html#gzip_vary
+                        type: boolean
+                    type: object
+                  level:
+                    description: |-
+                      Level sets the compression level.
+                      Higher values provide better compression but use more CPU.
+
+                      NGINX directive: https://nginx.org/en/docs/http/ngx_http_gzip_module.html#gzip_comp_level
+                    format: int32
+                    maximum: 9
+                    minimum: 1
+                    type: integer
+                  mimeTypes:
+                    description: |-
+                      MimeTypes specifies the MIME types to compress in addition to "text/html".
+                      "text/html" is always compressed when compression is enabled.
+                      Wildcards like "text/*" are not supported by NGINX.
+                      Example: ["application/json", "text/css", "application/javascript"]
+
+                      NGINX directive: https://nginx.org/en/docs/http/ngx_http_gzip_module.html#gzip_types
+                    items:
+                      type: string
+                    maxItems: 32
+                    minItems: 1
+                    type: array
+                  minLength:
+                    description: |-
+                      MinLength sets the minimum length of a response that will be compressed.
+                      The length is determined from the "Content-Length" response header field.
+
+                      NGINX directive: https://nginx.org/en/docs/http/ngx_http_gzip_module.html#gzip_min_length
+                    format: int32
+                    minimum: 0
+                    type: integer
+                  type:
+                    description: |-
+                      Type specifies the compression algorithm to use.
+                      Currently only gzip is supported.
+                    enum:
+                    - gzip
+                    type: string
+                required:
+                - type
+                type: object
+                x-kubernetes-validations:
+                - message: type 'gzip' requires spec.compression.gzip to be set
+                  rule: '!(self.type == ''gzip'' && !has(self.gzip))'
+              disableBaseHeaders:
+                description: |-
+                  DisableBaseHeaders specifies which default X-* base headers should be omitted
+                  from being added to the base proxy_set_header directives in the NGINX configuration.
+                  This allows users to set these headers themselves without NGF overriding them.
+
+                  Supported values are limited to X-* base headers and "*".
+                  A value of "*" disables all X-* base headers.
+                items:
+                  description: |-
+                    BaseHeaderName is the name of a base X-* header that can be disabled
+                    from being added to the base proxy_set_header directives in the NGINX configuration.
+                  enum:
+                  - '*'
+                  - X-Forwarded-For
+                  - X-Forwarded-Proto
+                  - X-Forwarded-Host
+                  - X-Forwarded-Port
+                  - X-Real-IP
+                  type: string
+                maxItems: 6
+                type: array
+                x-kubernetes-list-type: set
               disableHTTP2:
                 description: |-
                   DisableHTTP2 defines if http2 should be disabled for all servers.
@@ -1179,10 +1948,10 @@ spec:
                 - addresses
                 type: object
               ipFamily:
-                default: dual
                 description: |-
                   IPFamily specifies the IP family to be used by the NGINX.
-                  Default is "dual", meaning the server will use both IPv4 and IPv6.
+                  If not set, NGF inspects the `default/kubernetes` Service's `ipFamilies` field at startup
+                  to obtain the IP family of the cluster and configure NGINX accordingly.
                 enum:
                 - dual
                 - ipv4
@@ -1321,6 +2090,11 @@ spec:
                                           Number must be in the range 1 to 65535.
                                           Name must be an IANA_SVC_NAME.
                                         x-kubernetes-int-or-string: true
+                                      protocol:
+                                        description: |-
+                                          Protocol selects the wire protocol for the probe connection.
+                                          Nil defaults to HTTP/1.1.
+                                        type: string
                                       scheme:
                                         description: |-
                                           Scheme to use for connecting to the host.
@@ -1434,6 +2208,11 @@ spec:
                                           Number must be in the range 1 to 65535.
                                           Name must be an IANA_SVC_NAME.
                                         x-kubernetes-int-or-string: true
+                                      protocol:
+                                        description: |-
+                                          Protocol selects the wire protocol for the probe connection.
+                                          Nil defaults to HTTP/1.1.
+                                        type: string
                                       scheme:
                                         description: |-
                                           Scheme to use for connecting to the host.
@@ -1587,10 +2366,21 @@ spec:
                               description: VolumeMount describes a mounting of a Volume
                                 within a container.
                               properties:
-                                mountPath:
+                                bindMountOptions:
                                   description: |-
-                                    Path within the container at which the volume should be mounted.  Must
-                                    not contain ':'.
+                                    bindMountOptions is the list of additional bind mount options to apply when
+                                    mounting this volume into the container. Allowed values are noexec,
+                                    nodev, and nosuid. These are Linux mount options and have no effect on
+                                    Windows nodes.
+                                    This field is not supported with image volumes.
+                                    This is an alpha field and requires enabling the VolumeBindMountOptions feature gate.
+                                  items:
+                                    type: string
+                                  type: array
+                                  x-kubernetes-list-type: set
+                                mountPath:
+                                  description: Path within the container at which
+                                    the volume should be mounted.
                                   type: string
                                 mountPropagation:
                                   description: |-
@@ -3059,6 +3849,13 @@ spec:
                                         mode, like fsGroup, and the result can be other mode bits set.
                                       format: int32
                                       type: integer
+                                    defaultUser:
+                                      description: |-
+                                        defaultUser is Optional: The owner UID of the created files by default.
+                                        The defaultUser field is only used as a fallback when the item-level user field is unset.
+                                        (Alpha) This field requires the AtomicWriteVolumeUserFields feature gate to be enabled.
+                                      format: int64
+                                      type: integer
                                     items:
                                       description: |-
                                         items if unspecified, each key-value pair in the Data field of the referenced
@@ -3092,6 +3889,13 @@ spec:
                                               May not contain the path element '..'.
                                               May not start with the string '..'.
                                             type: string
+                                          user:
+                                            description: |-
+                                              user is Optional: The owner UID of the created file.
+                                              If specified, the item-level user field takes precedence over defaultUser.
+                                              (Alpha) This field requires the AtomicWriteVolumeUserFields feature gate to be enabled.
+                                            format: int64
+                                            type: integer
                                         required:
                                         - key
                                         - path
@@ -3179,6 +3983,13 @@ spec:
                                         mode, like fsGroup, and the result can be other mode bits set.
                                       format: int32
                                       type: integer
+                                    defaultUser:
+                                      description: |-
+                                        defaultUser is Optional: The owner UID of the created files by default.
+                                        The defaultUser field is only used as a fallback when the item-level user field is unset.
+                                        (Alpha) This field requires the AtomicWriteVolumeUserFields feature gate to be enabled.
+                                      format: int64
+                                      type: integer
                                     items:
                                       description: Items is a list of downward API
                                         volume file
@@ -3249,6 +4060,13 @@ spec:
                                             - resource
                                             type: object
                                             x-kubernetes-map-type: atomic
+                                          user:
+                                            description: |-
+                                              user is Optional: The owner UID of the created file.
+                                              If specified, the item-level user field takes precedence over defaultUser.
+                                              (Alpha) This field requires the AtomicWriteVolumeUserFields feature gate to be enabled.
+                                            format: int64
+                                            type: integer
                                         required:
                                         - path
                                         type: object
@@ -3267,6 +4085,18 @@ spec:
                                         Must be an empty string (default) or Memory.
                                         More info: https://kubernetes.io/docs/concepts/storage/volumes#emptydir
                                       type: string
+                                    mode:
+                                      description: |-
+                                        mode specifies the permission bits for the emptyDir directory, in numeric
+                                        notation (e.g., 0755, 01777). Must be a value between 0000 and 01777.
+                                        If not specified, defaults to 0777.
+                                        This might be in conflict with other options that affect the file
+                                        mode, like fsGroup. If fsGroup is specified, the fsGroup permissions
+                                        will override the mode specified here.
+                                        This field has no effect on Windows.
+                                        This field is alpha and requires EmptyDirVolumeMode featuregate to be enabled.
+                                      format: int32
+                                      type: integer
                                     sizeLimit:
                                       anyOf:
                                       - type: integer
@@ -3360,8 +4190,8 @@ spec:
                                                 * An existing PVC (PersistentVolumeClaim)
                                                 If the provisioner or an external controller can support the specified data source,
                                                 it will create a new volume based on the contents of the specified data source.
-                                                When the AnyVolumeDataSource feature gate is enabled, dataSource contents will be copied to dataSourceRef,
-                                                and dataSourceRef contents will be copied to dataSource when dataSourceRef.namespace is not specified.
+                                                dataSource contents will be copied to dataSourceRef, and dataSourceRef contents will be
+                                                copied to dataSource when dataSourceRef.namespace is not specified.
                                                 If the namespace is specified, then dataSourceRef will not be copied to dataSource.
                                               properties:
                                                 apiGroup:
@@ -3406,7 +4236,6 @@ spec:
                                                   specified.
                                                 * While dataSource only allows local objects, dataSourceRef allows objects
                                                   in any namespaces.
-                                                (Beta) Using this field requires the AnyVolumeDataSource feature gate to be enabled.
                                                 (Alpha) Using the namespace field of dataSourceRef requires the CrossNamespaceVolumeDataSource feature gate to be enabled.
                                               properties:
                                                 apiGroup:
@@ -3772,7 +4601,7 @@ spec:
                                     A failure to resolve or pull the image during pod startup will block containers from starting and may add significant latency. Failures will be retried using normal volume backoff and will be reported on the pod reason and message.
                                     The types of objects that may be mounted by this volume are defined by the container runtime implementation on a host machine and at minimum must include all valid types supported by the container image field.
                                     The OCI object gets mounted in a single directory (spec.containers[*].volumeMounts.mountPath) by merging the manifest layers in the same way as for container images.
-                                    The volume will be mounted read-only (ro) and non-executable files (noexec).
+                                    The volume will be mounted read-only (ro).
                                     Sub path mounts for containers are not supported (spec.containers[*].volumeMounts.subpath) before 1.33.
                                     The field spec.securityContext.fsGroupChangePolicy has no effect on this volume type.
                                   properties:
@@ -3946,8 +4775,7 @@ spec:
                                   description: |-
                                     portworxVolume represents a portworx volume attached and mounted on kubelets host machine.
                                     Deprecated: PortworxVolume is deprecated. All operations for the in-tree portworxVolume type
-                                    are redirected to the pxd.portworx.com CSI driver when the CSIMigrationPortworx feature-gate
-                                    is on.
+                                    are redirected to the pxd.portworx.com CSI driver.
                                   properties:
                                     fsType:
                                       description: |-
@@ -3980,6 +4808,13 @@ spec:
                                         This might be in conflict with other options that affect the file
                                         mode, like fsGroup, and the result can be other mode bits set.
                                       format: int32
+                                      type: integer
+                                    defaultUser:
+                                      description: |-
+                                        defaultUser is Optional: The owner UID of the created files by default.
+                                        The defaultUser field is only used as a fallback when the item-level user field is unset.
+                                        (Alpha) This field requires the AtomicWriteVolumeUserFields feature gate to be enabled.
+                                      format: int64
                                       type: integer
                                     sources:
                                       description: |-
@@ -4082,6 +4917,13 @@ spec:
                                                   Mutually-exclusive with name.  The contents of all selected
                                                   ClusterTrustBundles will be unified and deduplicated.
                                                 type: string
+                                              user:
+                                                description: |-
+                                                  user is Optional: The owner UID of the created file.
+                                                  If specified, the item-level user field takes precedence over defaultUser.
+                                                  (Alpha) This field requires the AtomicWriteVolumeUserFields feature gate to be enabled.
+                                                format: int64
+                                                type: integer
                                             required:
                                             - path
                                             type: object
@@ -4123,6 +4965,13 @@ spec:
                                                         May not contain the path element '..'.
                                                         May not start with the string '..'.
                                                       type: string
+                                                    user:
+                                                      description: |-
+                                                        user is Optional: The owner UID of the created file.
+                                                        If specified, the item-level user field takes precedence over defaultUser.
+                                                        (Alpha) This field requires the AtomicWriteVolumeUserFields feature gate to be enabled.
+                                                      format: int64
+                                                      type: integer
                                                   required:
                                                   - key
                                                   - path
@@ -4226,6 +5075,13 @@ spec:
                                                       - resource
                                                       type: object
                                                       x-kubernetes-map-type: atomic
+                                                    user:
+                                                      description: |-
+                                                        user is Optional: The owner UID of the created file.
+                                                        If specified, the item-level user field takes precedence over defaultUser.
+                                                        (Alpha) This field requires the AtomicWriteVolumeUserFields feature gate to be enabled.
+                                                      format: int64
+                                                      type: integer
                                                   required:
                                                   - path
                                                   type: object
@@ -4333,6 +5189,13 @@ spec:
                                                 description: Kubelet's generated CSRs
                                                   will be addressed to this signer.
                                                 type: string
+                                              user:
+                                                description: |-
+                                                  user is Optional: The owner UID of the created file.
+                                                  If specified, the item-level user field takes precedence over defaultUser.
+                                                  (Alpha) This field requires the AtomicWriteVolumeUserFields feature gate to be enabled.
+                                                format: int64
+                                                type: integer
                                               userAnnotations:
                                                 additionalProperties:
                                                   type: string
@@ -4393,6 +5256,13 @@ spec:
                                                         May not contain the path element '..'.
                                                         May not start with the string '..'.
                                                       type: string
+                                                    user:
+                                                      description: |-
+                                                        user is Optional: The owner UID of the created file.
+                                                        If specified, the item-level user field takes precedence over defaultUser.
+                                                        (Alpha) This field requires the AtomicWriteVolumeUserFields feature gate to be enabled.
+                                                      format: int64
+                                                      type: integer
                                                   required:
                                                   - key
                                                   - path
@@ -4442,6 +5312,13 @@ spec:
                                                   path is the path relative to the mount point of the file to project the
                                                   token into.
                                                 type: string
+                                              user:
+                                                description: |-
+                                                  user is Optional: The owner UID of the created file.
+                                                  If specified, the item-level user field takes precedence over defaultUser.
+                                                  (Alpha) This field requires the AtomicWriteVolumeUserFields feature gate to be enabled.
+                                                format: int64
+                                                type: integer
                                             required:
                                             - path
                                             type: object
@@ -4649,6 +5526,13 @@ spec:
                                         mode, like fsGroup, and the result can be other mode bits set.
                                       format: int32
                                       type: integer
+                                    defaultUser:
+                                      description: |-
+                                        defaultUser is Optional: The owner UID of the created files by default.
+                                        The defaultUser field is only used as a fallback when the item-level user field is unset.
+                                        (Alpha) This field requires the AtomicWriteVolumeUserFields feature gate to be enabled.
+                                      format: int64
+                                      type: integer
                                     items:
                                       description: |-
                                         items If unspecified, each key-value pair in the Data field of the referenced
@@ -4682,6 +5566,13 @@ spec:
                                               May not contain the path element '..'.
                                               May not start with the string '..'.
                                             type: string
+                                          user:
+                                            description: |-
+                                              user is Optional: The owner UID of the created file.
+                                              If specified, the item-level user field takes precedence over defaultUser.
+                                              (Alpha) This field requires the AtomicWriteVolumeUserFields feature gate to be enabled.
+                                            format: int64
+                                            type: integer
                                         required:
                                         - key
                                         - path
@@ -4879,10 +5770,21 @@ spec:
                                   description: VolumeMount describes a mounting of
                                     a Volume within a container.
                                   properties:
-                                    mountPath:
+                                    bindMountOptions:
                                       description: |-
-                                        Path within the container at which the volume should be mounted.  Must
-                                        not contain ':'.
+                                        bindMountOptions is the list of additional bind mount options to apply when
+                                        mounting this volume into the container. Allowed values are noexec,
+                                        nodev, and nosuid. These are Linux mount options and have no effect on
+                                        Windows nodes.
+                                        This field is not supported with image volumes.
+                                        This is an alpha field and requires enabling the VolumeBindMountOptions feature gate.
+                                      items:
+                                        type: string
+                                      type: array
+                                      x-kubernetes-list-type: set
+                                    mountPath:
+                                      description: Path within the container at which
+                                        the volume should be mounted.
                                       type: string
                                     mountPropagation:
                                       description: |-
@@ -5034,10 +5936,21 @@ spec:
                                   description: VolumeMount describes a mounting of
                                     a Volume within a container.
                                   properties:
-                                    mountPath:
+                                    bindMountOptions:
                                       description: |-
-                                        Path within the container at which the volume should be mounted.  Must
-                                        not contain ':'.
+                                        bindMountOptions is the list of additional bind mount options to apply when
+                                        mounting this volume into the container. Allowed values are noexec,
+                                        nodev, and nosuid. These are Linux mount options and have no effect on
+                                        Windows nodes.
+                                        This field is not supported with image volumes.
+                                        This is an alpha field and requires enabling the VolumeBindMountOptions feature gate.
+                                      items:
+                                        type: string
+                                      type: array
+                                      x-kubernetes-list-type: set
+                                    mountPath:
+                                      description: Path within the container at which
+                                        the volume should be mounted.
                                       type: string
                                     mountPropagation:
                                       description: |-
@@ -5179,9 +6092,6 @@ spec:
                                       For example, if autoscaling is configured with a memory consumption target of 100Mi,
                                       and scale-down and scale-up tolerances of 5% and 1% respectively, scaling will be
                                       triggered when the actual consumption falls below 95Mi or exceeds 101Mi.
-
-                                      This is an beta field and requires the HPAConfigurableTolerance feature
-                                      gate to be enabled.
                                     pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                     x-kubernetes-int-or-string: true
                                 type: object
@@ -5255,9 +6165,6 @@ spec:
                                       For example, if autoscaling is configured with a memory consumption target of 100Mi,
                                       and scale-down and scale-up tolerances of 5% and 1% respectively, scaling will be
                                       triggered when the actual consumption falls below 95Mi or exceeds 101Mi.
-
-                                      This is an beta field and requires the HPAConfigurableTolerance feature
-                                      gate to be enabled.
                                     pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                     x-kubernetes-int-or-string: true
                                 type: object
@@ -5896,6 +6803,11 @@ spec:
                                           Number must be in the range 1 to 65535.
                                           Name must be an IANA_SVC_NAME.
                                         x-kubernetes-int-or-string: true
+                                      protocol:
+                                        description: |-
+                                          Protocol selects the wire protocol for the probe connection.
+                                          Nil defaults to HTTP/1.1.
+                                        type: string
                                       scheme:
                                         description: |-
                                           Scheme to use for connecting to the host.
@@ -6009,6 +6921,11 @@ spec:
                                           Number must be in the range 1 to 65535.
                                           Name must be an IANA_SVC_NAME.
                                         x-kubernetes-int-or-string: true
+                                      protocol:
+                                        description: |-
+                                          Protocol selects the wire protocol for the probe connection.
+                                          Nil defaults to HTTP/1.1.
+                                        type: string
                                       scheme:
                                         description: |-
                                           Scheme to use for connecting to the host.
@@ -6162,10 +7079,21 @@ spec:
                               description: VolumeMount describes a mounting of a Volume
                                 within a container.
                               properties:
-                                mountPath:
+                                bindMountOptions:
                                   description: |-
-                                    Path within the container at which the volume should be mounted.  Must
-                                    not contain ':'.
+                                    bindMountOptions is the list of additional bind mount options to apply when
+                                    mounting this volume into the container. Allowed values are noexec,
+                                    nodev, and nosuid. These are Linux mount options and have no effect on
+                                    Windows nodes.
+                                    This field is not supported with image volumes.
+                                    This is an alpha field and requires enabling the VolumeBindMountOptions feature gate.
+                                  items:
+                                    type: string
+                                  type: array
+                                  x-kubernetes-list-type: set
+                                mountPath:
+                                  description: Path within the container at which
+                                    the volume should be mounted.
                                   type: string
                                 mountPropagation:
                                   description: |-
@@ -7634,6 +8562,13 @@ spec:
                                         mode, like fsGroup, and the result can be other mode bits set.
                                       format: int32
                                       type: integer
+                                    defaultUser:
+                                      description: |-
+                                        defaultUser is Optional: The owner UID of the created files by default.
+                                        The defaultUser field is only used as a fallback when the item-level user field is unset.
+                                        (Alpha) This field requires the AtomicWriteVolumeUserFields feature gate to be enabled.
+                                      format: int64
+                                      type: integer
                                     items:
                                       description: |-
                                         items if unspecified, each key-value pair in the Data field of the referenced
@@ -7667,6 +8602,13 @@ spec:
                                               May not contain the path element '..'.
                                               May not start with the string '..'.
                                             type: string
+                                          user:
+                                            description: |-
+                                              user is Optional: The owner UID of the created file.
+                                              If specified, the item-level user field takes precedence over defaultUser.
+                                              (Alpha) This field requires the AtomicWriteVolumeUserFields feature gate to be enabled.
+                                            format: int64
+                                            type: integer
                                         required:
                                         - key
                                         - path
@@ -7754,6 +8696,13 @@ spec:
                                         mode, like fsGroup, and the result can be other mode bits set.
                                       format: int32
                                       type: integer
+                                    defaultUser:
+                                      description: |-
+                                        defaultUser is Optional: The owner UID of the created files by default.
+                                        The defaultUser field is only used as a fallback when the item-level user field is unset.
+                                        (Alpha) This field requires the AtomicWriteVolumeUserFields feature gate to be enabled.
+                                      format: int64
+                                      type: integer
                                     items:
                                       description: Items is a list of downward API
                                         volume file
@@ -7824,6 +8773,13 @@ spec:
                                             - resource
                                             type: object
                                             x-kubernetes-map-type: atomic
+                                          user:
+                                            description: |-
+                                              user is Optional: The owner UID of the created file.
+                                              If specified, the item-level user field takes precedence over defaultUser.
+                                              (Alpha) This field requires the AtomicWriteVolumeUserFields feature gate to be enabled.
+                                            format: int64
+                                            type: integer
                                         required:
                                         - path
                                         type: object
@@ -7842,6 +8798,18 @@ spec:
                                         Must be an empty string (default) or Memory.
                                         More info: https://kubernetes.io/docs/concepts/storage/volumes#emptydir
                                       type: string
+                                    mode:
+                                      description: |-
+                                        mode specifies the permission bits for the emptyDir directory, in numeric
+                                        notation (e.g., 0755, 01777). Must be a value between 0000 and 01777.
+                                        If not specified, defaults to 0777.
+                                        This might be in conflict with other options that affect the file
+                                        mode, like fsGroup. If fsGroup is specified, the fsGroup permissions
+                                        will override the mode specified here.
+                                        This field has no effect on Windows.
+                                        This field is alpha and requires EmptyDirVolumeMode featuregate to be enabled.
+                                      format: int32
+                                      type: integer
                                     sizeLimit:
                                       anyOf:
                                       - type: integer
@@ -7935,8 +8903,8 @@ spec:
                                                 * An existing PVC (PersistentVolumeClaim)
                                                 If the provisioner or an external controller can support the specified data source,
                                                 it will create a new volume based on the contents of the specified data source.
-                                                When the AnyVolumeDataSource feature gate is enabled, dataSource contents will be copied to dataSourceRef,
-                                                and dataSourceRef contents will be copied to dataSource when dataSourceRef.namespace is not specified.
+                                                dataSource contents will be copied to dataSourceRef, and dataSourceRef contents will be
+                                                copied to dataSource when dataSourceRef.namespace is not specified.
                                                 If the namespace is specified, then dataSourceRef will not be copied to dataSource.
                                               properties:
                                                 apiGroup:
@@ -7981,7 +8949,6 @@ spec:
                                                   specified.
                                                 * While dataSource only allows local objects, dataSourceRef allows objects
                                                   in any namespaces.
-                                                (Beta) Using this field requires the AnyVolumeDataSource feature gate to be enabled.
                                                 (Alpha) Using the namespace field of dataSourceRef requires the CrossNamespaceVolumeDataSource feature gate to be enabled.
                                               properties:
                                                 apiGroup:
@@ -8347,7 +9314,7 @@ spec:
                                     A failure to resolve or pull the image during pod startup will block containers from starting and may add significant latency. Failures will be retried using normal volume backoff and will be reported on the pod reason and message.
                                     The types of objects that may be mounted by this volume are defined by the container runtime implementation on a host machine and at minimum must include all valid types supported by the container image field.
                                     The OCI object gets mounted in a single directory (spec.containers[*].volumeMounts.mountPath) by merging the manifest layers in the same way as for container images.
-                                    The volume will be mounted read-only (ro) and non-executable files (noexec).
+                                    The volume will be mounted read-only (ro).
                                     Sub path mounts for containers are not supported (spec.containers[*].volumeMounts.subpath) before 1.33.
                                     The field spec.securityContext.fsGroupChangePolicy has no effect on this volume type.
                                   properties:
@@ -8521,8 +9488,7 @@ spec:
                                   description: |-
                                     portworxVolume represents a portworx volume attached and mounted on kubelets host machine.
                                     Deprecated: PortworxVolume is deprecated. All operations for the in-tree portworxVolume type
-                                    are redirected to the pxd.portworx.com CSI driver when the CSIMigrationPortworx feature-gate
-                                    is on.
+                                    are redirected to the pxd.portworx.com CSI driver.
                                   properties:
                                     fsType:
                                       description: |-
@@ -8555,6 +9521,13 @@ spec:
                                         This might be in conflict with other options that affect the file
                                         mode, like fsGroup, and the result can be other mode bits set.
                                       format: int32
+                                      type: integer
+                                    defaultUser:
+                                      description: |-
+                                        defaultUser is Optional: The owner UID of the created files by default.
+                                        The defaultUser field is only used as a fallback when the item-level user field is unset.
+                                        (Alpha) This field requires the AtomicWriteVolumeUserFields feature gate to be enabled.
+                                      format: int64
                                       type: integer
                                     sources:
                                       description: |-
@@ -8657,6 +9630,13 @@ spec:
                                                   Mutually-exclusive with name.  The contents of all selected
                                                   ClusterTrustBundles will be unified and deduplicated.
                                                 type: string
+                                              user:
+                                                description: |-
+                                                  user is Optional: The owner UID of the created file.
+                                                  If specified, the item-level user field takes precedence over defaultUser.
+                                                  (Alpha) This field requires the AtomicWriteVolumeUserFields feature gate to be enabled.
+                                                format: int64
+                                                type: integer
                                             required:
                                             - path
                                             type: object
@@ -8698,6 +9678,13 @@ spec:
                                                         May not contain the path element '..'.
                                                         May not start with the string '..'.
                                                       type: string
+                                                    user:
+                                                      description: |-
+                                                        user is Optional: The owner UID of the created file.
+                                                        If specified, the item-level user field takes precedence over defaultUser.
+                                                        (Alpha) This field requires the AtomicWriteVolumeUserFields feature gate to be enabled.
+                                                      format: int64
+                                                      type: integer
                                                   required:
                                                   - key
                                                   - path
@@ -8801,6 +9788,13 @@ spec:
                                                       - resource
                                                       type: object
                                                       x-kubernetes-map-type: atomic
+                                                    user:
+                                                      description: |-
+                                                        user is Optional: The owner UID of the created file.
+                                                        If specified, the item-level user field takes precedence over defaultUser.
+                                                        (Alpha) This field requires the AtomicWriteVolumeUserFields feature gate to be enabled.
+                                                      format: int64
+                                                      type: integer
                                                   required:
                                                   - path
                                                   type: object
@@ -8908,6 +9902,13 @@ spec:
                                                 description: Kubelet's generated CSRs
                                                   will be addressed to this signer.
                                                 type: string
+                                              user:
+                                                description: |-
+                                                  user is Optional: The owner UID of the created file.
+                                                  If specified, the item-level user field takes precedence over defaultUser.
+                                                  (Alpha) This field requires the AtomicWriteVolumeUserFields feature gate to be enabled.
+                                                format: int64
+                                                type: integer
                                               userAnnotations:
                                                 additionalProperties:
                                                   type: string
@@ -8968,6 +9969,13 @@ spec:
                                                         May not contain the path element '..'.
                                                         May not start with the string '..'.
                                                       type: string
+                                                    user:
+                                                      description: |-
+                                                        user is Optional: The owner UID of the created file.
+                                                        If specified, the item-level user field takes precedence over defaultUser.
+                                                        (Alpha) This field requires the AtomicWriteVolumeUserFields feature gate to be enabled.
+                                                      format: int64
+                                                      type: integer
                                                   required:
                                                   - key
                                                   - path
@@ -9017,6 +10025,13 @@ spec:
                                                   path is the path relative to the mount point of the file to project the
                                                   token into.
                                                 type: string
+                                              user:
+                                                description: |-
+                                                  user is Optional: The owner UID of the created file.
+                                                  If specified, the item-level user field takes precedence over defaultUser.
+                                                  (Alpha) This field requires the AtomicWriteVolumeUserFields feature gate to be enabled.
+                                                format: int64
+                                                type: integer
                                             required:
                                             - path
                                             type: object
@@ -9224,6 +10239,13 @@ spec:
                                         mode, like fsGroup, and the result can be other mode bits set.
                                       format: int32
                                       type: integer
+                                    defaultUser:
+                                      description: |-
+                                        defaultUser is Optional: The owner UID of the created files by default.
+                                        The defaultUser field is only used as a fallback when the item-level user field is unset.
+                                        (Alpha) This field requires the AtomicWriteVolumeUserFields feature gate to be enabled.
+                                      format: int64
+                                      type: integer
                                     items:
                                       description: |-
                                         items If unspecified, each key-value pair in the Data field of the referenced
@@ -9257,6 +10279,13 @@ spec:
                                               May not contain the path element '..'.
                                               May not start with the string '..'.
                                             type: string
+                                          user:
+                                            description: |-
+                                              user is Optional: The owner UID of the created file.
+                                              If specified, the item-level user field takes precedence over defaultUser.
+                                              (Alpha) This field requires the AtomicWriteVolumeUserFields feature gate to be enabled.
+                                            format: int64
+                                            type: integer
                                         required:
                                         - key
                                         - path
@@ -9353,6 +10382,44 @@ spec:
                               type: object
                             type: array
                         type: object
+                      podDisruptionBudget:
+                        description: |-
+                          PodDisruptionBudget is the configuration for limiting the number of concurrent disruptions of a pod.
+                          A PodDisruptionBudget is created when this field is set.
+                        properties:
+                          maxUnavailable:
+                            anyOf:
+                            - type: integer
+                            - type: string
+                            description: |-
+                              MaxUnavailable is the maximum number of pods that can be unavailable after an eviction.
+                              Value can be an absolute number (e.g. 1) or a percentage of desired pods (e.g. 50%).
+                              Mutually exclusive with MinAvailable.
+                            x-kubernetes-int-or-string: true
+                          minAvailable:
+                            anyOf:
+                            - type: integer
+                            - type: string
+                            description: |-
+                              MinAvailable is the minimum number of pods that must be available after an eviction.
+                              Value can be an absolute number (e.g. 1) or a percentage of desired pods (e.g. 50%).
+                              Mutually exclusive with MaxUnavailable.
+                            x-kubernetes-int-or-string: true
+                          unhealthyPodEvictionPolicy:
+                            description: |-
+                              UnhealthyPodEvictionPolicy defines when unhealthy pods should be considered for eviction.
+                              Valid values are IfHealthyBudget and AlwaysAllow.
+                              Defaults to IfHealthyBudget if not set.
+                            enum:
+                            - IfHealthyBudget
+                            - AlwaysAllow
+                            type: string
+                        type: object
+                        x-kubernetes-validations:
+                        - message: exactly one of minAvailable or maxUnavailable must
+                            be set
+                          rule: (has(self.minAvailable) && !has(self.maxUnavailable))
+                            || (!has(self.minAvailable) && has(self.maxUnavailable))
                       replicas:
                         description: Number of desired Pods.
                         format: int32
@@ -9458,10 +10525,21 @@ spec:
                                   description: VolumeMount describes a mounting of
                                     a Volume within a container.
                                   properties:
-                                    mountPath:
+                                    bindMountOptions:
                                       description: |-
-                                        Path within the container at which the volume should be mounted.  Must
-                                        not contain ':'.
+                                        bindMountOptions is the list of additional bind mount options to apply when
+                                        mounting this volume into the container. Allowed values are noexec,
+                                        nodev, and nosuid. These are Linux mount options and have no effect on
+                                        Windows nodes.
+                                        This field is not supported with image volumes.
+                                        This is an alpha field and requires enabling the VolumeBindMountOptions feature gate.
+                                      items:
+                                        type: string
+                                      type: array
+                                      x-kubernetes-list-type: set
+                                    mountPath:
+                                      description: Path within the container at which
+                                        the volume should be mounted.
                                       type: string
                                     mountPropagation:
                                       description: |-
@@ -9613,10 +10691,21 @@ spec:
                                   description: VolumeMount describes a mounting of
                                     a Volume within a container.
                                   properties:
-                                    mountPath:
+                                    bindMountOptions:
                                       description: |-
-                                        Path within the container at which the volume should be mounted.  Must
-                                        not contain ':'.
+                                        bindMountOptions is the list of additional bind mount options to apply when
+                                        mounting this volume into the container. Allowed values are noexec,
+                                        nodev, and nosuid. These are Linux mount options and have no effect on
+                                        Windows nodes.
+                                        This field is not supported with image volumes.
+                                        This is an alpha field and requires enabling the VolumeBindMountOptions feature gate.
+                                      items:
+                                        type: string
+                                      type: array
+                                      x-kubernetes-list-type: set
+                                    mountPath:
+                                      description: Path within the container at which
+                                        the volume should be mounted.
                                       type: string
                                     mountPropagation:
                                       description: |-
@@ -9681,8 +10770,7 @@ spec:
                         default: Local
                         description: |-
                           ExternalTrafficPolicy describes how nodes distribute service traffic they
-                          receive on one of the Service's "externally-facing" addresses (NodePorts, ExternalIPs,
-                          and LoadBalancer IPs).
+                          receive on one of the Service's "externally-facing" addresses (NodePorts and LoadBalancer IPs).
                         enum:
                         - Cluster
                         - Local
@@ -9835,7 +10923,24 @@ spec:
                     - alert
                     - emerg
                     type: string
+                  errorLogFormat:
+                    description: |-
+                      ErrorLogFormat controls the output format of the NGINX error_log directive.
+                      Set to 'json' to enable JSON-formatted error logs for NGINX Plus only and
+                      cannot be combined with errorLevel: debug.
+                      When set to 'json', NGINX Gateway Fabric also emits a JSON-formatted access log
+                      if the user has not supplied a custom access log format.
+                      See https://nginx.org/en/docs/ngx_core_module.html#error_log
+                    enum:
+                    - default
+                    - json
+                    type: string
                 type: object
+                x-kubernetes-validations:
+                - message: JSON-formatted error logs are not supported when errorLevel
+                    is debug
+                  rule: '!(has(self.errorLogFormat) && self.errorLogFormat == ''json''
+                    && has(self.errorLevel) && self.errorLevel == ''debug'')'
               metrics:
                 description: |-
                   Metrics defines the configuration for Prometheus scraping metrics. Changing this value results in a
@@ -10005,7 +11110,7 @@ spec:
                   serviceName:
                     description: |-
                       ServiceName is the "service.name" attribute of the OpenTelemetry resource.
-                      Default is 'ngf:<gateway-namespace>:<gateway-name>'. If a value is provided by the user,
+                      Default is 'ngf:gateway-namespace:gateway-name'. If a value is provided by the user,
                       then the default becomes a prefix to that value.
                     maxLength: 127
                     pattern: ^[a-zA-Z0-9_-]+$
@@ -10043,6 +11148,18 @@ spec:
                     - key
                     x-kubernetes-list-type: map
                 type: object
+              useClusterIP:
+                description: |-
+                  UseClusterIP configures NGINX to route to the Service ClusterIP and port instead of individual
+                  Pod IPs. When enabled, NGINX will target a single upstream server corresponding to the Service's
+                  ClusterIP, which is useful for service mesh compatibility and other Kubernetes
+                  controllers/operators that require traffic to traverse the Service VIP.
+                  This setting applies only when the target Service has a ClusterIP. For headless Services
+                  (ClusterIP: None) and ExternalName Services, normal endpoint resolution is used instead.
+                  This setting is also not applied to L4/stream upstreams.
+                  A UseClusterIP value set in an UpstreamSettingsPolicy for a Service takes precedence over this setting.
+                  Defaults to false.
+                type: boolean
               waf:
                 description: WAF configures NGINX App Protect WAF functionality.
                 properties:
@@ -10079,6 +11196,34 @@ spec:
                 maximum: 65535
                 minimum: 1
                 type: integer
+              workerProcesses:
+                description: |-
+                  WorkerProcesses configures the number of NGINX worker processes.
+                  The value must be an integer between 1 and 1024.
+                  When unset, NGINX uses "auto" (one worker per CPU core).
+                format: int32
+                maximum: 1024
+                minimum: 1
+                type: integer
+              workerRlimitNofile:
+                description: |-
+                  WorkerRlimitNofile changes the limit on the maximum number of open files (RLIMIT_NOFILE)
+                  for worker processes. Used to raise the limit without restarting the main process.
+                  When unset, NGINX inherits the limit from the operating system.
+                  NGINX directive: https://nginx.org/en/docs/ngx_core_module.html#worker_rlimit_nofile
+                format: int32
+                maximum: 1048576
+                minimum: 1
+                type: integer
+              zoneSize:
+                description: |-
+                  ZoneSize is the size of the shared memory zone used by the upstream. This memory zone is used to share
+                  the upstream configuration between nginx worker processes. The more servers that an upstream has,
+                  the larger memory zone is required.
+                  Default: OSS: 512k, Plus: 1m.
+                  Directive: https://nginx.org/en/docs/http/ngx_http_upstream_module.html#zone
+                pattern: ^\d{1,4}(k|m|g)?$
+                type: string
             type: object
         required:
         - spec
@@ -10092,7 +11237,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.20.1
+    controller-gen.kubebuilder.io/version: v0.21.0
   labels:
     gateway.networking.k8s.io/policy: direct
   name: observabilitypolicies.gateway.nginx.org
@@ -10578,7 +11723,529 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.20.1
+    controller-gen.kubebuilder.io/version: v0.21.0
+  labels:
+    gateway.networking.k8s.io/policy: inherited
+  name: payloadprocessors.gateway.nginx.org
+spec:
+  group: gateway.nginx.org
+  names:
+    categories:
+    - nginx-gateway-fabric
+    kind: PayloadProcessor
+    listKind: PayloadProcessorList
+    plural: payloadprocessors
+    singular: payloadprocessor
+  scope: Namespaced
+  versions:
+  - additionalPrinterColumns:
+    - jsonPath: .metadata.creationTimestamp
+      name: Age
+      type: date
+    name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        description: |-
+          PayloadProcessor is an Inherited Attached Policy. It enables declarative processing of HTTP
+          request and response payload content by attaching to a Gateway or HTTPRoute.
+
+          note: this CRD is based on the proposed "PayloadProcessor" policy from the Gateway API.
+          Once the upstream API is finalized, migration to the official API will be considered.
+        properties:
+          apiVersion:
+            description: |-
+              APIVersion defines the versioned schema of this representation of an object.
+              Servers should convert recognized schemas to the latest internal value, and
+              may reject unrecognized values.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+            type: string
+          kind:
+            description: |-
+              Kind is a string value representing the REST resource this object represents.
+              Servers may infer this from the endpoint the client submits requests to.
+              Cannot be updated.
+              In CamelCase.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: Spec defines the desired state of the PayloadProcessor.
+            properties:
+              processors:
+                description: |-
+                  Processors is an ordered list of processing steps to be applied to the request and response payloads.
+                  It is currently limited to a single processor (MaxItems=1); the list form is reserved for future
+                  multi-processor pipelines.
+                items:
+                  description: PayloadProcessorEntry defines a single processing step
+                    in the pipeline.
+                  properties:
+                    extProcess:
+                      description: ExtProcess defines the configuration for an ExtProcess
+                        processor that delegates to an external service.
+                      properties:
+                        authTokenRef:
+                          description: AuthTokenRef is a reference to a Secret containing
+                            an authentication token for the external service.
+                          properties:
+                            name:
+                              description: Name is the name of the referenced object.
+                              type: string
+                          required:
+                          - name
+                          type: object
+                        backendRef:
+                          description: |-
+                            BackendRef is a reference to the external service that will process the payloads.
+                            The referenced backend must be a core Service and must specify a port.
+                          properties:
+                            group:
+                              default: ""
+                              description: |-
+                                Group is the group of the referent. For example, "gateway.networking.k8s.io".
+                                When unspecified or empty string, core API group is inferred.
+                              maxLength: 253
+                              pattern: ^$|^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
+                              type: string
+                            kind:
+                              default: Service
+                              description: |-
+                                Kind is the Kubernetes resource kind of the referent. For example
+                                "Service".
+
+                                Defaults to "Service" when not specified.
+
+                                ExternalName services can refer to CNAME DNS records that may live
+                                outside of the cluster and as such are difficult to reason about in
+                                terms of conformance. They also may not be safe to forward to (see
+                                CVE-2021-25740 for more information). Implementations SHOULD NOT
+                                support ExternalName Services.
+
+                                Support: Core (Services with a type other than ExternalName)
+
+                                Support: Implementation-specific (Services with type ExternalName)
+                              maxLength: 63
+                              minLength: 1
+                              pattern: ^[a-zA-Z]([-a-zA-Z0-9]*[a-zA-Z0-9])?$
+                              type: string
+                            name:
+                              description: Name is the name of the referent.
+                              maxLength: 253
+                              minLength: 1
+                              type: string
+                            namespace:
+                              description: |-
+                                Namespace is the namespace of the backend. When unspecified, the local
+                                namespace is inferred.
+
+                                Note that when a namespace different than the local namespace is specified,
+                                a ReferenceGrant object is required in the referent namespace to allow that
+                                namespace's owner to accept the reference. See the ReferenceGrant
+                                documentation for details.
+
+                                Support: Core
+                              maxLength: 63
+                              minLength: 1
+                              pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
+                              type: string
+                            port:
+                              description: |-
+                                Port specifies the destination port number to use for this resource.
+                                Port is required when the referent is a Kubernetes Service. In this
+                                case, the port number is the service port number, not the target port.
+                                For other resources, destination port might be derived from the referent
+                                resource or this field.
+                              format: int32
+                              maximum: 65535
+                              minimum: 1
+                              type: integer
+                          required:
+                          - name
+                          type: object
+                          x-kubernetes-validations:
+                          - message: backendRef.name must not be empty
+                            rule: size(self.name) > 0
+                          - message: backendRef.port must be set
+                            rule: has(self.port)
+                          - message: backendRef.group must be core
+                            rule: '!has(self.group) || self.group == '''' || self.group
+                              == ''core'''
+                          - message: backendRef.kind must be Service
+                            rule: '!has(self.kind) || self.kind == ''Service'''
+                          - message: Must have port for Service reference
+                            rule: '(size(self.group) == 0 && self.kind == ''Service'')
+                              ? has(self.port) : true'
+                      required:
+                      - backendRef
+                      type: object
+                    type:
+                      description: |-
+                        Type specifies how the processor executes.
+                        ExtProcess calls an external service.
+                      enum:
+                      - ExtProcess
+                      type: string
+                  required:
+                  - type
+                  type: object
+                  x-kubernetes-validations:
+                  - message: extProcess must be set when type is ExtProcess
+                    rule: self.type != 'ExtProcess' || has(self.extProcess)
+                maxItems: 1
+                minItems: 1
+                type: array
+              targetRef:
+                description: |-
+                  TargetRef identifies the Gateway or HTTPRoute this policy applies to.
+                  Objects must be in the same namespace as the policy.
+                  Follows the standard policy attachment pattern (GEP-713).
+
+                  Support: Gateway, HTTPRoute
+                properties:
+                  group:
+                    description: Group is the group of the target resource.
+                    maxLength: 253
+                    pattern: ^$|^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
+                    type: string
+                  kind:
+                    description: Kind is kind of the target resource.
+                    maxLength: 63
+                    minLength: 1
+                    pattern: ^[a-zA-Z]([-a-zA-Z0-9]*[a-zA-Z0-9])?$
+                    type: string
+                  name:
+                    description: Name is the name of the target resource.
+                    maxLength: 253
+                    minLength: 1
+                    type: string
+                required:
+                - group
+                - kind
+                - name
+                type: object
+                x-kubernetes-validations:
+                - message: TargetRef Kind must be Gateway or HTTPRoute
+                  rule: self.kind == 'Gateway' || self.kind == 'HTTPRoute'
+                - message: TargetRef Group must be gateway.networking.k8s.io
+                  rule: self.group == 'gateway.networking.k8s.io'
+            required:
+            - processors
+            - targetRef
+            type: object
+          status:
+            description: Status defines the state of the PayloadProcessor.
+            properties:
+              ancestors:
+                description: |-
+                  Ancestors is a list of ancestor resources (usually Gateways) that are
+                  associated with the policy, and the status of the policy with respect to
+                  each ancestor. When this policy attaches to a parent, the controller that
+                  manages the parent and the ancestors MUST add an entry to this list when
+                  the controller first sees the policy and SHOULD update the entry as
+                  appropriate when the relevant ancestor is modified.
+
+                  Note that choosing the relevant ancestor is left to the Policy designers;
+                  an important part of Policy design is designing the right object level at
+                  which to namespace this status.
+
+                  Note also that implementations MUST ONLY populate ancestor status for
+                  the Ancestor resources they are responsible for. Implementations MUST
+                  use the ControllerName field to uniquely identify the entries in this list
+                  that they are responsible for.
+
+                  Note that to achieve this, the list of PolicyAncestorStatus structs
+                  MUST be treated as a map with a composite key, made up of the AncestorRef
+                  and ControllerName fields combined.
+
+                  A maximum of 16 ancestors will be represented in this list. An empty list
+                  means the Policy is not relevant for any ancestors.
+
+                  If this slice is full, implementations MUST NOT add further entries.
+                  Instead they MUST consider the policy unimplementable and signal that
+                  on any related resources such as the ancestor that would be referenced
+                  here. For example, if this list was full on BackendTLSPolicy, no
+                  additional Gateways would be able to reference the Service targeted by
+                  the BackendTLSPolicy.
+                items:
+                  description: |-
+                    PolicyAncestorStatus describes the status of a route with respect to an
+                    associated Ancestor.
+
+                    Ancestors refer to objects that are either the Target of a policy or above it
+                    in terms of object hierarchy. For example, if a policy targets a Service, the
+                    Policy's Ancestors are, in order, the Service, the HTTPRoute, the Gateway, and
+                    the GatewayClass. Almost always, in this hierarchy, the Gateway will be the most
+                    useful object to place Policy status on, so we recommend that implementations
+                    SHOULD use Gateway as the PolicyAncestorStatus object unless the designers
+                    have a _very_ good reason otherwise.
+
+                    In the context of policy attachment, the Ancestor is used to distinguish which
+                    resource results in a distinct application of this policy. For example, if a policy
+                    targets a Service, it may have a distinct result per attached Gateway.
+
+                    Policies targeting the same resource may have different effects depending on the
+                    ancestors of those resources. For example, different Gateways targeting the same
+                    Service may have different capabilities, especially if they have different underlying
+                    implementations.
+
+                    For example, in BackendTLSPolicy, the Policy attaches to a Service that is
+                    used as a backend in a HTTPRoute that is itself attached to a Gateway.
+                    In this case, the relevant object for status is the Gateway, and that is the
+                    ancestor object referred to in this status.
+
+                    Note that a parent is also an ancestor, so for objects where the parent is the
+                    relevant object for status, this struct SHOULD still be used.
+
+                    This struct is intended to be used in a slice that's effectively a map,
+                    with a composite key made up of the AncestorRef and the ControllerName.
+                  properties:
+                    ancestorRef:
+                      description: |-
+                        AncestorRef corresponds with a ParentRef in the spec that this
+                        PolicyAncestorStatus struct describes the status of.
+                      properties:
+                        group:
+                          default: gateway.networking.k8s.io
+                          description: |-
+                            Group is the group of the referent.
+                            When unspecified, "gateway.networking.k8s.io" is inferred.
+                            To set the core API group (such as for a "Service" kind referent),
+                            Group must be explicitly set to "" (empty string).
+
+                            Support: Core
+                          maxLength: 253
+                          pattern: ^$|^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
+                          type: string
+                        kind:
+                          default: Gateway
+                          description: |-
+                            Kind is kind of the referent.
+
+                            There are two kinds of parent resources with "Core" support:
+
+                            * Gateway (Gateway conformance profile)
+                            * Service (Mesh conformance profile, ClusterIP Services only)
+
+                            Support for other resources is Implementation-Specific.
+                          maxLength: 63
+                          minLength: 1
+                          pattern: ^[a-zA-Z]([-a-zA-Z0-9]*[a-zA-Z0-9])?$
+                          type: string
+                        name:
+                          description: |-
+                            Name is the name of the referent.
+
+                            Support: Core
+                          maxLength: 253
+                          minLength: 1
+                          type: string
+                        namespace:
+                          description: |-
+                            Namespace is the namespace of the referent. When unspecified, this refers
+                            to the local namespace of the Route.
+
+                            Note that there are specific rules for ParentRefs which cross namespace
+                            boundaries. Cross-namespace references are only valid if they are explicitly
+                            allowed by something in the namespace they are referring to. For example:
+                            Gateway has the AllowedRoutes field, and ReferenceGrant provides a
+                            generic way to enable any other kind of cross-namespace reference.
+
+                            <gateway:experimental:description>
+                            ParentRefs from a Route to a Service in the same namespace are "producer"
+                            routes, which apply default routing rules to inbound connections from
+                            any namespace to the Service.
+
+                            ParentRefs from a Route to a Service in a different namespace are
+                            "consumer" routes, and these routing rules are only applied to outbound
+                            connections originating from the same namespace as the Route, for which
+                            the intended destination of the connections are a Service targeted as a
+                            ParentRef of the Route.
+                            </gateway:experimental:description>
+
+                            Support: Core
+                          maxLength: 63
+                          minLength: 1
+                          pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
+                          type: string
+                        port:
+                          description: |-
+                            Port is the network port this Route targets. It can be interpreted
+                            differently based on the type of parent resource.
+
+                            When the parent resource is a Gateway, this targets all listeners
+                            listening on the specified port that also support this kind of Route(and
+                            select this Route). It's not recommended to set `Port` unless the
+                            networking behaviors specified in a Route must apply to a specific port
+                            as opposed to a listener(s) whose port(s) may be changed. When both Port
+                            and SectionName are specified, the name and port of the selected listener
+                            must match both specified values.
+
+                            <gateway:experimental:description>
+                            When the parent resource is a Service, this targets a specific port in the
+                            Service spec. When both Port (experimental) and SectionName are specified,
+                            the name and port of the selected port must match both specified values.
+                            </gateway:experimental:description>
+
+                            Implementations MAY choose to support other parent resources.
+                            Implementations supporting other types of parent resources MUST clearly
+                            document how/if Port is interpreted.
+
+                            For the purpose of status, an attachment is considered successful as
+                            long as the parent resource accepts it partially. For example, Gateway
+                            listeners can restrict which Routes can attach to them by Route kind,
+                            namespace, or hostname. If 1 of 2 Gateway listeners accept attachment
+                            from the referencing Route, the Route MUST be considered successfully
+                            attached. If no Gateway listeners accept attachment from this Route,
+                            the Route MUST be considered detached from the Gateway.
+
+                            Support: Extended
+                          format: int32
+                          maximum: 65535
+                          minimum: 1
+                          type: integer
+                        sectionName:
+                          description: |-
+                            SectionName is the name of a section within the target resource. In the
+                            following resources, SectionName is interpreted as the following:
+
+                            * Gateway: Listener name. When both Port (experimental) and SectionName
+                            are specified, the name and port of the selected listener must match
+                            both specified values.
+                            * Service: Port name. When both Port (experimental) and SectionName
+                            are specified, the name and port of the selected listener must match
+                            both specified values.
+
+                            Implementations MAY choose to support attaching Routes to other resources.
+                            If that is the case, they MUST clearly document how SectionName is
+                            interpreted.
+
+                            When unspecified (empty string), this will reference the entire resource.
+                            For the purpose of status, an attachment is considered successful if at
+                            least one section in the parent resource accepts it. For example, Gateway
+                            listeners can restrict which Routes can attach to them by Route kind,
+                            namespace, or hostname. If 1 of 2 Gateway listeners accept attachment from
+                            the referencing Route, the Route MUST be considered successfully
+                            attached. If no Gateway listeners accept attachment from this Route, the
+                            Route MUST be considered detached from the Gateway.
+
+                            Support: Core
+                          maxLength: 253
+                          minLength: 1
+                          pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
+                          type: string
+                      required:
+                      - name
+                      type: object
+                    conditions:
+                      description: |-
+                        Conditions describes the status of the Policy with respect to the given Ancestor.
+
+                      items:
+                        description: Condition contains details for one aspect of
+                          the current state of this API Resource.
+                        properties:
+                          lastTransitionTime:
+                            description: |-
+                              lastTransitionTime is the last time the condition transitioned from one status to another.
+                              This should be when the underlying condition changed.  If that is not known, then using the time when the API field changed is acceptable.
+                            format: date-time
+                            type: string
+                          message:
+                            description: |-
+                              message is a human readable message indicating details about the transition.
+                              This may be an empty string.
+                            maxLength: 32768
+                            type: string
+                          observedGeneration:
+                            description: |-
+                              observedGeneration represents the .metadata.generation that the condition was set based upon.
+                              For instance, if .metadata.generation is currently 12, but the .status.conditions[x].observedGeneration is 9, the condition is out of date
+                              with respect to the current state of the instance.
+                            format: int64
+                            minimum: 0
+                            type: integer
+                          reason:
+                            description: |-
+                              reason contains a programmatic identifier indicating the reason for the condition's last transition.
+                              Producers of specific condition types may define expected values and meanings for this field,
+                              and whether the values are considered a guaranteed API.
+                              The value should be a CamelCase string.
+                              This field may not be empty.
+                            maxLength: 1024
+                            minLength: 1
+                            pattern: ^[A-Za-z]([A-Za-z0-9_,:]*[A-Za-z0-9_])?$
+                            type: string
+                          status:
+                            description: status of the condition, one of True, False,
+                              Unknown.
+                            enum:
+                            - "True"
+                            - "False"
+                            - Unknown
+                            type: string
+                          type:
+                            description: type of condition in CamelCase or in foo.example.com/CamelCase.
+                            maxLength: 316
+                            pattern: ^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*/)?(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])$
+                            type: string
+                        required:
+                        - lastTransitionTime
+                        - message
+                        - reason
+                        - status
+                        - type
+                        type: object
+                      maxItems: 8
+                      minItems: 1
+                      type: array
+                      x-kubernetes-list-map-keys:
+                      - type
+                      x-kubernetes-list-type: map
+                    controllerName:
+                      description: |-
+                        ControllerName is a domain/path string that indicates the name of the
+                        controller that wrote this status. This corresponds with the
+                        controllerName field on GatewayClass.
+
+                        Example: "example.net/gateway-controller".
+
+                        The format of this field is DOMAIN "/" PATH, where DOMAIN and PATH are
+                        valid Kubernetes names
+                        (https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names).
+
+                        Controllers MUST populate this field when writing status. Controllers should ensure that
+                        entries to status populated with their ControllerName are cleaned up when they are no
+                        longer necessary.
+                      maxLength: 253
+                      minLength: 1
+                      pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*\/[A-Za-z0-9\/\-._~%!$&'()*+,;=:]+$
+                      type: string
+                  required:
+                  - ancestorRef
+                  - conditions
+                  - controllerName
+                  type: object
+                maxItems: 16
+                type: array
+                x-kubernetes-list-type: atomic
+            required:
+            - ancestors
+            type: object
+        required:
+        - spec
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}
+
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.21.0
   labels:
     gateway.networking.k8s.io/policy: inherited
   name: proxysettingspolicies.gateway.nginx.org
@@ -11060,7 +12727,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.20.1
+    controller-gen.kubebuilder.io/version: v0.21.0
   labels:
     gateway.networking.k8s.io/policy: inherited
   name: ratelimitpolicies.gateway.nginx.org
@@ -11135,6 +12802,7 @@ spec:
 
                                 Directive: https://nginx.org/en/docs/http/ngx_http_limit_req_module.html#limit_req
                               format: int32
+                              minimum: 0
                               type: integer
                             delay:
                               description: |-
@@ -11143,6 +12811,7 @@ spec:
 
                                 Directive: https://nginx.org/en/docs/http/ngx_http_limit_req_module.html#limit_req
                               format: int32
+                              minimum: 0
                               type: integer
                             key:
                               description: |-
@@ -11573,7 +13242,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.20.1
+    controller-gen.kubebuilder.io/version: v0.21.0
   name: snippetsfilters.gateway.nginx.org
 spec:
   group: gateway.nginx.org
@@ -11663,7 +13332,8 @@ spec:
                 items:
                   properties:
                     conditions:
-                      description: Conditions describe the status of the SnippetsFilter.
+                      description: Conditions describe the status of the resource
+                        with respect to this controller.
                       items:
                         description: Condition contains details for one aspect of
                           the current state of this API Resource.
@@ -11763,7 +13433,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.20.1
+    controller-gen.kubebuilder.io/version: v0.21.0
   labels:
     gateway.networking.k8s.io/policy: direct
   name: snippetspolicies.gateway.nginx.org
@@ -12195,7 +13865,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.20.1
+    controller-gen.kubebuilder.io/version: v0.21.0
   labels:
     gateway.networking.k8s.io/policy: direct
   name: upstreamsettingspolicies.gateway.nginx.org
@@ -12257,7 +13927,7 @@ spec:
                       Connections sets the maximum number of idle keep-alive connections to upstream servers that are preserved
                       in the cache of each nginx worker process. When this number is exceeded, the least recently used
                       connections are closed.
-                      The keepAlive directive for upstreams defaults to 16. To override this value, set the connections field.
+                      The keepAlive directive for upstreams defaults to 32. To override this value, set the connections field.
                       To disable the keepAlive directive, set connections to 0.
                       Directive: https://nginx.org/en/docs/http/ngx_http_upstream_module.html#keepalive
                     format: int32
@@ -12352,6 +14022,17 @@ spec:
                   rule: self.exists(t, t.group=='') || self.exists(t, t.group=='core')
                 - message: TargetRef Name must be unique
                   rule: self.all(p1, self.exists_one(p2, p1.name == p2.name))
+              useClusterIP:
+                description: |-
+                  UseClusterIP configures NGINX to route to the Service ClusterIP and port instead of individual
+                  Pod IPs. When enabled, NGINX will target a single upstream server corresponding to the Service's
+                  ClusterIP, which is useful for service mesh compatibility and other Kubernetes
+                  controllers/operators that require traffic to traverse the Service VIP.
+                  This setting applies only when the target Service has a ClusterIP. For headless Services
+                  (ClusterIP: None) and ExternalName Services, normal endpoint resolution is used instead.
+                  This setting is also not applied to L4/stream upstreams.
+                  Defaults to false.
+                type: boolean
               zoneSize:
                 description: |-
                   ZoneSize is the size of the shared memory zone used by the upstream. This memory zone is used to share
@@ -12682,7 +14363,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.20.1
+    controller-gen.kubebuilder.io/version: v0.21.0
   labels:
     gateway.networking.k8s.io/policy: inherited
   name: wafpolicies.gateway.nginx.org
@@ -12709,8 +14390,8 @@ spec:
         description: |-
           WAFPolicy is an Inherited Attached Policy. It provides a way to configure F5 WAF for NGINX
           for Gateways and Routes by referencing compiled WAF policy bundles. Bundles can be fetched directly from an
-          HTTP/HTTPS URL (type: HTTP), from an NGINX Instance Manager instance (type: NIM), or from an F5 NGINX One
-          Console instance (type: N1C).
+          HTTP/HTTPS URL (type: HTTP), from an NGINX Instance Manager instance (type: NIM), from an F5 NGINX One
+          Console instance (type: N1C), or from a Policy Lifecycle Manager's S3-compatible storage (type: PLM).
         properties:
           apiVersion:
             description: |-
@@ -12732,8 +14413,40 @@ spec:
           spec:
             description: Spec defines the desired state of the WAFPolicy.
             properties:
+              policyRef:
+                description: |-
+                  PolicyRef holds all CRD-backed policy references.
+                  Used for the PLM policy type.
+                properties:
+                  apPolicyRef:
+                    description: |-
+                      APPolicyRef references an APPolicy CRD compiled by PLM.
+                      Cross-namespace references require a ReferenceGrant.
+                    properties:
+                      name:
+                        description: Name is the name of the APPolicy resource.
+                        maxLength: 253
+                        minLength: 1
+                        pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
+                        type: string
+                      namespace:
+                        description: |-
+                          Namespace is the namespace of the APPolicy resource.
+                          If not set, the namespace of the WAFPolicy is used.
+                          Cross-namespace references require a ReferenceGrant.
+                        maxLength: 63
+                        minLength: 1
+                        pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
+                        type: string
+                    required:
+                    - name
+                    type: object
+                type: object
               policySource:
-                description: PolicySource holds all policy bundle fetch configuration.
+                description: |-
+                  PolicySource holds all non-CRD bundle fetch configuration.
+                  Used for HTTP, NIM, and N1C policy types.
+                  Must not be set when type is PLM.
                 properties:
                   auth:
                     description: Auth configures authentication credentials for fetching
@@ -12763,7 +14476,7 @@ spec:
                       url:
                         description: |-
                           URL is the full URL of the compiled policy bundle (.tgz),
-                          e.g. "https://storage.example.com/bundles/policy.tgz".
+                          e.g. `https://storage.example.com/bundles/policy.tgz`.
                         maxLength: 2083
                         minLength: 1
                         pattern: ^https?://
@@ -12786,6 +14499,7 @@ spec:
                           that owns the security policy.
                         maxLength: 253
                         minLength: 1
+                        pattern: ^[A-Za-z0-9][-A-Za-z0-9_.]*$
                         type: string
                       policyName:
                         description: |-
@@ -12793,6 +14507,7 @@ spec:
                           Mutually exclusive with policyObjectID.
                         maxLength: 253
                         minLength: 1
+                        pattern: ^[A-Za-z0-9][-A-Za-z0-9_.]*$
                         type: string
                       policyObjectID:
                         description: |-
@@ -12810,7 +14525,7 @@ spec:
                       url:
                         description: |-
                           URL is the base URL of the F5 NGINX One Console instance,
-                          e.g. "https://<tenant>.volterra.us".
+                          e.g. `https://<tenant>.volterra.us`.
                         maxLength: 2083
                         minLength: 1
                         pattern: ^https?://
@@ -12835,6 +14550,7 @@ spec:
                           Mutually exclusive with policyUID.
                         maxLength: 253
                         minLength: 1
+                        pattern: ^[A-Za-z0-9][-A-Za-z0-9_.]*$
                         type: string
                       policyUID:
                         description: |-
@@ -12846,7 +14562,7 @@ spec:
                       url:
                         description: |-
                           URL is the base URL of the NGINX Instance Manager instance,
-                          e.g. "https://nim.example.com".
+                          e.g. `https://nim.example.com`.
                         maxLength: 2083
                         minLength: 1
                         pattern: ^https?://
@@ -12930,12 +14646,17 @@ spec:
                       rule: '!(has(self.verifyChecksum) && self.verifyChecksum &&
                         has(self.expectedChecksum))'
                 type: object
+                x-kubernetes-validations:
+                - message: exactly one of httpSource, nimSource, or n1cSource must
+                    be set
+                  rule: '[has(self.httpSource), has(self.nimSource), has(self.n1cSource)].filter(x,
+                    x).size() == 1'
               securityLogs:
                 description: SecurityLogs defines security logging configurations.
                 items:
                   description: |-
                     WAFSecurityLog defines security logging configuration for app_protect_security_log directives.
-                    Exactly one of logSource.defaultProfile, logSource.httpSource, logSource.nimSource, or logSource.n1cSource must be set.
+                    Exactly one of logSource or logRef must be set.
                   properties:
                     destination:
                       description: Destination defines where security logs are sent.
@@ -12989,10 +14710,40 @@ spec:
                       - message: destination.syslog must be set if and only if type
                           is syslog
                         rule: (self.type == 'syslog') == has(self.syslog)
+                    logRef:
+                      description: |-
+                        LogRef configures all CRD-backed log profile references for this log entry.
+                        Used for PLM-backed APLogConf references.
+                      properties:
+                        apLogConfRef:
+                          description: |-
+                            APLogConfRef references an APLogConf CRD compiled by PLM.
+                            Cross-namespace references require a ReferenceGrant.
+                          properties:
+                            name:
+                              description: Name is the name of the APLogConf resource.
+                              maxLength: 253
+                              minLength: 1
+                              pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
+                              type: string
+                            namespace:
+                              description: |-
+                                Namespace is the namespace of the APLogConf resource.
+                                If not set, the namespace of the WAFPolicy is used.
+                                Cross-namespace references require a ReferenceGrant.
+                              maxLength: 63
+                              minLength: 1
+                              pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
+                              type: string
+                          required:
+                          - name
+                          type: object
+                      type: object
                     logSource:
                       description: |-
-                        LogSource configures the log profile bundle source for this log entry.
-                        Exactly one of url or defaultProfile must be set.
+                        LogSource configures all non-CRD log profile bundle sources for this log entry.
+                        Used for defaultProfile, httpSource, nimSource, and n1cSource.
+                        Must not be set when logRef is used.
                       properties:
                         auth:
                           description: |-
@@ -13037,7 +14788,7 @@ spec:
                             url:
                               description: |-
                                 URL is the full URL of the compiled policy bundle (.tgz),
-                                e.g. "https://storage.example.com/bundles/policy.tgz".
+                                e.g. `https://storage.example.com/bundles/policy.tgz`.
                               maxLength: 2083
                               minLength: 1
                               pattern: ^https?://
@@ -13060,12 +14811,14 @@ spec:
                                 that owns the log profile.
                               maxLength: 253
                               minLength: 1
+                              pattern: ^[A-Za-z0-9][-A-Za-z0-9_.]*$
                               type: string
                             profileName:
                               description: ProfileName is the name of the log profile
                                 in N1C that corresponds to the log profile bundle.
                               maxLength: 253
                               minLength: 1
+                              pattern: ^[a-zA-Z0-9\s\/\-_.]+$
                               type: string
                             profileObjectID:
                               description: |-
@@ -13076,7 +14829,7 @@ spec:
                             url:
                               description: |-
                                 URL is the base URL of the F5 NGINX One Console instance,
-                                e.g. "https://<tenant>.volterra.us".
+                                e.g. `https://<tenant>.volterra.us`.
                               maxLength: 2083
                               minLength: 1
                               pattern: ^https?://
@@ -13100,11 +14853,12 @@ spec:
                                 log profile bundle in NIM.
                               maxLength: 253
                               minLength: 1
+                              pattern: ^[a-zA-Z0-9\s\/\-_.]+$
                               type: string
                             url:
                               description: |-
                                 URL is the base URL of the NGINX Instance Manager instance,
-                                e.g. "https://nim.example.com".
+                                e.g. `https://nim.example.com`.
                               maxLength: 2083
                               minLength: 1
                               pattern: ^https?://
@@ -13190,18 +14944,17 @@ spec:
                               && has(self.expectedChecksum))'
                       type: object
                       x-kubernetes-validations:
-                      - message: exactly one of logSource.defaultProfile, logSource.httpSource,
-                          logSource.nimSource, or logSource.n1cSource must be set
-                        rule: (has(self.defaultProfile) && !has(self.httpSource) &&
-                          !has(self.nimSource) && !has(self.n1cSource)) || (!has(self.defaultProfile)
-                          && has(self.httpSource) && !has(self.nimSource) && !has(self.n1cSource))
-                          || (!has(self.defaultProfile) && !has(self.httpSource) &&
-                          has(self.nimSource) && !has(self.n1cSource)) || (!has(self.defaultProfile)
-                          && !has(self.httpSource) && !has(self.nimSource) && has(self.n1cSource))
+                      - message: exactly one of defaultProfile, httpSource, nimSource,
+                          or n1cSource must be set
+                        rule: '[has(self.defaultProfile), has(self.httpSource), has(self.nimSource),
+                          has(self.n1cSource)].filter(x, x).size() == 1'
                   required:
                   - destination
-                  - logSource
                   type: object
+                  x-kubernetes-validations:
+                  - message: exactly one of logSource or logRef must be set
+                    rule: '[has(self.logSource), has(self.logRef) && has(self.logRef.apLogConfRef)].filter(x,
+                      x).size() == 1'
                 maxItems: 32
                 type: array
               targetRefs:
@@ -13256,29 +15009,37 @@ spec:
                 description: |-
                   Type identifies the source type for the policy bundle.
                   HTTP fetches directly from a URL; NIM uses the NGINX Instance Manager bundles API;
-                  N1C uses the F5 NGINX One Console security policies API.
+                  N1C uses the F5 NGINX One Console security policies API; PLM references an APPolicy
+                  CRD managed by the Policy Lifecycle Manager.
                 enum:
                 - HTTP
                 - NIM
                 - N1C
+                - PLM
                 type: string
             required:
-            - policySource
             - targetRefs
             - type
             type: object
             x-kubernetes-validations:
-            - message: policySource.httpSource must be set if and only if type is
-                HTTP
-              rule: (self.type == 'HTTP') == (has(self.policySource) && has(self.policySource.httpSource))
-            - message: policySource.nimSource must be set if and only if type is NIM
-              rule: (self.type == 'NIM') == (has(self.policySource) && has(self.policySource.nimSource))
-            - message: policySource.n1cSource must be set if and only if type is N1C
-              rule: (self.type == 'N1C') == (has(self.policySource) && has(self.policySource.n1cSource))
+            - message: policySource must not be set when type is PLM
+              rule: '!(self.type == ''PLM'' && has(self.policySource))'
+            - message: policyRef must not be set when type is not PLM
+              rule: '!(self.type != ''PLM'' && has(self.policyRef))'
+            - message: type must match the configured policy source
+              rule: self.type == 'PLM' || (has(self.policySource) && ((self.type ==
+                'HTTP' && has(self.policySource.httpSource)) || (self.type == 'NIM'
+                && has(self.policySource.nimSource)) || (self.type == 'N1C' && has(self.policySource.n1cSource))))
+            - message: policyRef.apPolicyRef is required when type is PLM
+              rule: self.type != 'PLM' || (has(self.policyRef) && has(self.policyRef.apPolicyRef))
             - message: policySource.validation.verifyChecksum is only supported for
                 type HTTP
-              rule: '!(self.type != ''HTTP'' && has(self.policySource) && has(self.policySource.validation)
+              rule: '!has(self.policySource) || !(self.type != ''HTTP'' && has(self.policySource.validation)
                 && has(self.policySource.validation.verifyChecksum) && self.policySource.validation.verifyChecksum)'
+            - message: securityLogs[*].logRef.apLogConfRef is only allowed when type
+                is PLM
+              rule: self.type == 'PLM' || !has(self.securityLogs) || self.securityLogs.all(sl,
+                !has(sl.logRef) || !has(sl.logRef.apLogConfRef))
           status:
             description: Status defines the state of the WAFPolicy.
             properties:
