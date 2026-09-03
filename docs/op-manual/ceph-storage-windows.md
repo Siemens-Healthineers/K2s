@@ -55,46 +55,26 @@ kubectl get storageclass ceph-smb
 
 Expected pods include `csi-smb-controller`, `csi-smb-node`, and `csi-smb-node-win`.
 
-## Example: Windows PVC using Ceph over SMB
+## Example: Cross-OS read/write validation with Ceph SMB
+
+This example validates real shared-volume behavior by mounting the same `ceph-smb` PVC from:
+
+- one Linux pod that writes and reads files,
+- one Windows pod that writes and reads files.
+
+Windows workloads in K2s must include both a Windows node selector and the `OS=Windows:NoSchedule` toleration.
 
 ```yaml
-apiVersion: apps/v1
-kind: Deployment
+apiVersion: v1
+kind: Namespace
 metadata:
-  name: ceph-smb-windows-example
-  namespace: default
-spec:
-  replicas: 1
-  selector:
-    matchLabels:
-      app: ceph-smb-windows-example
-  template:
-    metadata:
-      labels:
-        app: ceph-smb-windows-example
-    spec:
-      nodeSelector:
-        kubernetes.io/os: windows
-      containers:
-      - name: app
-        image: mcr.microsoft.com/windows/servercore:ltsc2022
-        command:
-        - powershell.exe
-        - -Command
-        - Start-Sleep -Seconds 3600
-        volumeMounts:
-        - name: data
-          mountPath: C:\\data
-      volumes:
-      - name: data
-        persistentVolumeClaim:
-          claimName: ceph-smb-test-pvc
+  name: ceph-crossos-test
 ---
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
-  name: ceph-smb-test-pvc
-  namespace: default
+  name: ceph-crossos-pvc
+  namespace: ceph-crossos-test
 spec:
   accessModes:
   - ReadWriteMany
@@ -102,14 +82,97 @@ spec:
   resources:
     requests:
       storage: 1Gi
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: ceph-crossos-linux
+  namespace: ceph-crossos-test
+spec:
+  nodeSelector:
+    kubernetes.io/os: linux
+  containers:
+  - name: writer-reader
+    image: docker.io/alpine:3.20
+    command:
+    - /bin/sh
+    - -c
+    - |
+      set -eu
+      echo "hello-from-linux" > /data/linux.txt
+      while true; do
+        date -Iseconds >> /data/linux-heartbeat.log
+        if [ -f /data/windows.txt ]; then
+          echo "linux sees windows.txt:"
+          cat /data/windows.txt
+        fi
+        sleep 5
+      done
+    volumeMounts:
+    - name: shared
+      mountPath: /data
+  volumes:
+  - name: shared
+    persistentVolumeClaim:
+      claimName: ceph-crossos-pvc
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: ceph-crossos-windows
+  namespace: ceph-crossos-test
+spec:
+  nodeSelector:
+    kubernetes.io/os: windows
+  tolerations:
+  - key: "OS"
+    operator: "Equal"
+    value: "Windows"
+    effect: "NoSchedule"
+  containers:
+  - name: writer-reader
+    image: mcr.microsoft.com/windows/servercore:ltsc2025
+    command:
+    - powershell.exe
+    - -Command
+    - |
+      New-Item -ItemType Directory -Path C:\data -Force | Out-Null
+      'hello-from-windows' | Set-Content -Path C:\data\windows.txt
+      while ($true) {
+        (Get-Date).ToString('o') | Add-Content -Path C:\data\windows-heartbeat.log
+        if (Test-Path C:\data\linux.txt) {
+          Write-Output 'windows sees linux.txt:'
+          Get-Content C:\data\linux.txt
+        }
+        Start-Sleep -Seconds 5
+      }
+    volumeMounts:
+    - name: shared
+      mountPath: C:\\data
+  volumes:
+  - name: shared
+    persistentVolumeClaim:
+      claimName: ceph-crossos-pvc
 ```
 
 Apply and verify:
 
 ```console
-kubectl apply -f ceph-smb-windows-example.yaml
-kubectl get pvc ceph-smb-test-pvc
-kubectl get pod ceph-smb-windows-example
+kubectl apply -f ceph-crossos-test.yaml
+kubectl get pvc -n ceph-crossos-test ceph-crossos-pvc
+kubectl get pods -n ceph-crossos-test -o wide
+kubectl logs -n ceph-crossos-test ceph-crossos-linux --tail=40
+kubectl logs -n ceph-crossos-test ceph-crossos-windows --tail=40
+kubectl exec -n ceph-crossos-test ceph-crossos-linux -- ls -la /data
+
+The pod created files can be seen in the below path :
+C:\k8s-ceph-share\pvc-cedc059c-94f2-443b-9a7c-a39d80f96269
+```
+
+Cleanup:
+
+```console
+kubectl delete namespace ceph-crossos-test
 ```
 
 For SMB addon-specific behavior and non-Ceph SMB examples, see the SMB addon README at `addons/storage/smb/README.md`.
