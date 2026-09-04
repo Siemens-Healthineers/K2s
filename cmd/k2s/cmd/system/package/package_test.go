@@ -39,7 +39,7 @@ var _ = Describe("package", func() {
 
 				cmd, params, err := buildSystemPackageCmd(PackageCmd.Flags())
 				Expect(err).ToNot(HaveOccurred())
-				Expect(cmd).To(ContainSubstring(filepath.Join("lib", "scripts", "k2s", "system", "package", "New-K2sPackage.ps1")))
+				Expect(cmd).To(ContainSubstring(filepath.Join("lib", "scripts", "windows", "host", "system", "package", "New-K2sPackage.ps1")))
 				Expect(params).To(ConsistOf(" -ShowLogs", " -Proxy http://myproxy:81", " -VMProcessorCount 6", " -VMMemoryStartupBytes 4GB", " -VMDiskSize 50GB", " -TargetDirectory 'dir'", " -ZipPackageFileName 'file.zip'", " -ForOfflineInstallation", " -Profile Dev", " -K8sBinsPath 'k8sbins'"))
 			})
 		})
@@ -79,7 +79,7 @@ var _ = Describe("package", func() {
 
 				cmd, params, err := buildSystemPackageCmd(PackageCmd.Flags())
 				Expect(err).ToNot(HaveOccurred())
-				Expect(cmd).To(ContainSubstring(filepath.Join("lib", "scripts", "k2s", "system", "package", "New-K2sPackage.ps1")))
+				Expect(cmd).To(ContainSubstring(filepath.Join("lib", "scripts", "windows", "host", "system", "package", "New-K2sPackage.ps1")))
 				Expect(params).To(ContainElement(" -CertificatePath 'C:\\certs\\signing.pfx'"))
 				Expect(params).To(ContainElement(" -Password 'secretpassword'"))
 			})
@@ -96,7 +96,7 @@ var _ = Describe("package", func() {
 
 				cmd, params, err := buildSystemPackageCmd(PackageCmd.Flags())
 				Expect(err).ToNot(HaveOccurred())
-				Expect(cmd).To(ContainSubstring(filepath.Join("lib", "scripts", "k2s", "system", "package", "New-K2sPackage.ps1")))
+				Expect(cmd).To(ContainSubstring(filepath.Join("lib", "scripts", "windows", "host", "system", "package", "New-K2sPackage.ps1")))
 				Expect(params).To(ContainElement(" -ShowLogs"))
 				Expect(params).To(ContainElement(" -TargetDirectory 'dir'"))
 				Expect(params).To(ContainElement(" -ZipPackageFileName 'file.zip'"))
@@ -116,7 +116,7 @@ var _ = Describe("package", func() {
 
 				cmd, params, err := buildSystemPackageCmd(PackageCmd.Flags())
 				Expect(err).ToNot(HaveOccurred())
-				Expect(cmd).To(ContainSubstring(filepath.Join("lib", "scripts", "k2s", "system", "package", "New-K2sPackage.ps1")))
+				Expect(cmd).To(ContainSubstring(filepath.Join("lib", "scripts", "windows", "host", "system", "package", "New-K2sPackage.ps1")))
 				
 				// Verify all expected parameters are present
 				Expect(params).To(ContainElement(" -TargetDirectory 'output'"))
@@ -137,7 +137,7 @@ var _ = Describe("package", func() {
 
 				cmd, params, err := buildSystemPackageCmd(flags)
 				Expect(err).ToNot(HaveOccurred())
-				Expect(cmd).To(ContainSubstring(filepath.Join("lib", "scripts", "k2s", "system", "package", "New-K2sPackage.ps1")))
+				Expect(cmd).To(ContainSubstring(filepath.Join("lib", "scripts", "windows", "host", "system", "package", "New-K2sPackage.ps1")))
 				
 				// Verify no code signing parameters are included
 				for _, param := range params {

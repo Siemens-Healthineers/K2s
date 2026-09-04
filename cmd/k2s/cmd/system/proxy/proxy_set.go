@@ -40,7 +40,7 @@ func setProxyServer(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("incorrect number of arguments specified")
 	}
 
-	psCmd := utils.FormatScriptFilePath(path.Join(utils.InstallDir(), "lib", "scripts", "k2s", "system", "proxy", "SetProxy.ps1"))
+	psCmd := utils.FormatScriptFilePath(path.Join(utils.InstallDir(), "lib", "scripts", "windows", "host", "system", "proxy", "SetProxy.ps1"))
 	psCmd += " -Uri " + args[0]
 
 	var params []string

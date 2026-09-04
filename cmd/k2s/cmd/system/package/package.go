@@ -278,11 +278,11 @@ func buildSystemPackageCmd(flags *pflag.FlagSet) (string, []string, error) {
 		if proxy != "" {
 			params = append(params, " -Proxy "+utils.EscapeWithSingleQuotes(proxy))
 		}
-		return utils.FormatScriptFilePath(filepath.Join(utils.InstallDir(), "lib", "scripts", "k2s", "system", "package", "New-K2sDeltaPackage.ps1")), params, nil
+		return utils.FormatScriptFilePath(filepath.Join(utils.InstallDir(), "lib", "scripts", "windows", "host", "system", "package", "New-K2sDeltaPackage.ps1")), params, nil
 	}
 
 	// Normal (full) package path
-	systemPackageCommand := utils.FormatScriptFilePath(filepath.Join(utils.InstallDir(), "lib", "scripts", "k2s", "system", "package", "New-K2sPackage.ps1"))
+	systemPackageCommand := utils.FormatScriptFilePath(filepath.Join(utils.InstallDir(), "lib", "scripts", "windows", "host", "system", "package", "New-K2sPackage.ps1"))
 
 	// Only add full-package specific params if not delta
 	if proxy != "" {
