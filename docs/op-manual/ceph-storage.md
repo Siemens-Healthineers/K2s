@@ -40,7 +40,7 @@ For air-gapped environments, export and import the Ceph addon before enable:
 
 ```console
 k2s addons export "storage ceph" -d C:\exports
-k2s addons import "storage ceph" C:\transfer\addons.oci.tar
+k2s addons import "storage ceph"  -f C:\transfer\addons.oci.tar
 ```
 
 If `clusterHost.node` is a Linux worker node, include `--node <worker-node-name>` on import so offline Ceph bootstrap prerequisites are staged on the target Ceph host.

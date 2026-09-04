@@ -79,7 +79,7 @@ k2s addons import "storage ceph" --zip C:\transfer\addons.oci.tar
 4. If `clusterHost.node` is a Linux worker node, import with `--node` so offline Linux packages and staged files are copied to that worker:
 
 ```console
-k2s addons import "storage ceph" C:\transfer\addons.oci.tar --node cephosdnode1
+k2s addons import "storage ceph"  -f C:\transfer\addons.oci.tar --node cephosdnode1
 ```
 
 5. Enable Ceph:

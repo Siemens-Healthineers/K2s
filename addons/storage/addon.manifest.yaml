@@ -81,6 +81,8 @@ spec:
             - curl
             - lsb-release
             - lvm2
+            - conmon
+            - catatonit
           curl:
             # cephadm bootstrap binary (Ceph v20 / Tentacle). Downloaded during export and
             # staged into the addon storage folder so cluster bootstrap works fully offline.

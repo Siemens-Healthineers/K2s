@@ -55,7 +55,7 @@ function Get-CephadminDownloadUrlFromStorageManifest {
         throw "[Ceph] Storage addon manifest is empty: '$manifestPath'"
     }
 
-    $urlRef = Get-Content -Path $manifestPath | ForEach-Object { $_.Trim() } | Where-Object { $_ -like '- url: https://download.ceph.com/rpm*' } | Select-Object -First 1
+    $urlRef = Get-Content -Path $manifestPath | ForEach-Object { $_.Trim() } | Where-Object { $_ -like 'url: https://download.ceph.com/rpm*' } | Select-Object -First 1
     if ([string]::IsNullOrWhiteSpace($urlRef)) {
         throw "[Ceph] No download URL found in storage addon additionalImages in '$manifestPath'"
     }
@@ -1039,7 +1039,7 @@ if (-not $connectionResolved) {
     exit 1
 }
 
-Invoke-CephOsdPreparation -BootstrapNodeName $clusterHostNode -BootstrapNodeIp $NodeIp -BootstrapNodeUserName $nodeUserName -CephPubKey $cephPubKeyValue -Proxy $Proxy -CephImage $cephImage -Config $Config -ShowLogs:$ShowLogs
+Invoke-CephOsdPreparation -BootstrapNodeName $clusterHostNode -BootstrapNodeIp $NodeIp -BootstrapNodeUserName $nodeUserName -CephPubKey $cephPubKeyValue -Proxy $Proxy -CephImage $cephadminUrl -Config $Config -ShowLogs:$ShowLogs
 
 $cephFsForSubvolumeGroup = if (-not [string]::IsNullOrWhiteSpace($cephFsFilesystem)) { $cephFsFilesystem } else { 'cephfs' }
 

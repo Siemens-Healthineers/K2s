@@ -261,14 +261,33 @@ if [ -n "$PROXY" ]; then
 fi
 
 OFFLINE_PKG_DIR="$HOME/.storage"
+# Also check addon-specific storage folder (.storage-ceph) as fallback
+OFFLINE_PKG_DIR_ALT="$HOME/.storage-ceph"
+
+# Collect .deb packages from both locations (primary first, then fallback)
+offline_debs=""
 if [ -d "$OFFLINE_PKG_DIR" ]; then
     offline_debs="$(find "$OFFLINE_PKG_DIR" -type f -name '*.deb' 2>/dev/null)"
-    if [ -n "$offline_debs" ]; then
-        log_info "Installing offline debian packages from $OFFLINE_PKG_DIR"
-        # shellcheck disable=SC2086
-        sudo dpkg -i $offline_debs 2>/dev/null || true
-        sudo DEBIAN_FRONTEND=noninteractive apt-get -f install -y --no-download 2>/dev/null || true
+fi
+
+# Append packages from alternate location if primary is empty or to supplement
+if [ -d "$OFFLINE_PKG_DIR_ALT" ]; then
+    alt_debs="$(find "$OFFLINE_PKG_DIR_ALT" -type f -name '*.deb' 2>/dev/null)"
+    if [ -n "$alt_debs" ]; then
+        if [ -n "$offline_debs" ]; then
+            offline_debs="$offline_debs"$'\n'"$alt_debs"
+        else
+            offline_debs="$alt_debs"
+            log_info "Using addon-specific offline packages from $OFFLINE_PKG_DIR_ALT (primary $OFFLINE_PKG_DIR not found)"
+        fi
     fi
+fi
+
+if [ -n "$offline_debs" ]; then
+    log_info "Installing offline debian packages"
+    # shellcheck disable=SC2086
+    sudo dpkg -i $offline_debs 2>/dev/null || true
+    sudo DEBIAN_FRONTEND=noninteractive apt-get -f install -y --no-download 2>/dev/null || true
 fi
 
 if ! command -v podman >/dev/null 2>&1; then
@@ -330,11 +349,16 @@ download_cephadm() {
 
 # Obtain the cephadm bootstrap binary. Prefer the binary staged offline into
 # ~/.storage/cephadm during 'k2s addons import' so air-gapped installs never depend on
-# download.ceph.com. Only fall back to downloading when no valid offline copy is present.
+# download.ceph.com. Also check ~/.storage-ceph as fallback. Only fall back to downloading
+# when no valid offline copy is present.
 OFFLINE_CEPHADM="$HOME/.storage/cephadm"
+OFFLINE_CEPHADM_ALT="$HOME/.storage-ceph/cephadm"
 if [ -f "$OFFLINE_CEPHADM" ] && is_valid_cephadm "$OFFLINE_CEPHADM"; then
     log_info "Using offline cephadm bootstrap binary staged at $OFFLINE_CEPHADM"
     cp "$OFFLINE_CEPHADM" ./cephadm
+elif [ -f "$OFFLINE_CEPHADM_ALT" ] && is_valid_cephadm "$OFFLINE_CEPHADM_ALT"; then
+    log_info "Using offline cephadm bootstrap binary from addon-specific storage at $OFFLINE_CEPHADM_ALT"
+    cp "$OFFLINE_CEPHADM_ALT" ./cephadm
 elif download_cephadm "$CEPHADMIN_URL"; then
     log_info "Downloaded cephadm bootstrap binary for version '$CEPH_VERSION'"
 # elif download_cephadm "https://download.ceph.com/rpm-$CEPH_RELEASE/el9/noarch/cephadm"; then
