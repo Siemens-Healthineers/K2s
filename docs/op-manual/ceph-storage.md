@@ -114,9 +114,9 @@ If Ceph is already enabled, update config and then add node; the node is attache
 
 Changing `clusterHost.node` after Ceph is enabled requires re-provisioning (disable and re-enable Ceph).
 
-Choose the guide that matches your workload OS:
+Choose the guide that matches your workload pattern:
 
 - [Ceph Storage for Linux Workloads](ceph-storage-linux.md)
-- [Ceph Storage for Windows Workloads](ceph-storage-windows.md)
+- [Ceph Storage for Cross-OS Shared Workloads](ceph-storage-cross-os.md)
 
 For addon-level essentials, see the Ceph addon README in the repository at `addons/storage/ceph/README.md`.

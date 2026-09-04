@@ -202,9 +202,9 @@ k2s addons restore storage ceph
 
 - Linux CephFS operations and examples:
   [`docs/op-manual/ceph-storage-linux.md`](../../../docs/op-manual/ceph-storage-linux.md)
-- Windows Ceph over SMB operations and examples:
-  [`docs/op-manual/ceph-storage-windows.md`](../../../docs/op-manual/ceph-storage-windows.md)
-s
+- Cross-OS shared storage operations and examples for Linux and Windows workloads:
+  [`docs/op-manual/ceph-storage-cross-os.md`](../../../docs/op-manual/ceph-storage-cross-os.md)
+
 ## References
 
 - [Ceph CSI Operator](https://github.com/ceph/ceph-csi-operator)

@@ -118,7 +118,7 @@ nav:
       - Ceph Storage:
           - Overview: op-manual/ceph-storage.md
           - Linux Workloads: op-manual/ceph-storage-linux.md
-          - Windows Workloads: op-manual/ceph-storage-windows.md
+          - Cross-OS Shared Workloads: op-manual/ceph-storage-cross-os.md
       - GitOps Addon Delivery: op-manual/gitops-addon-delivery.md
       - External DNS: op-manual/external-dns.md
       - Native Linux Host DNS: op-manual/native-linux-host-dns.md

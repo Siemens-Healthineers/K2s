@@ -4,9 +4,11 @@ SPDX-FileCopyrightText: © 2026 Siemens Healthineers AG
 SPDX-License-Identifier: MIT
 -->
 
-# Ceph Storage for Windows Workloads
+# Ceph Storage for Cross-OS Shared Workloads
 
 Windows pods cannot use the native CephFS CSI node plugin directly. In K2s, Windows consumes CephFS through SMB.
+
+Use this guide when both Linux and Windows containers need to communicate through the same shared storage.
 
 ## Scope and constraints
 
@@ -164,8 +166,11 @@ kubectl get pods -n ceph-crossos-test -o wide
 kubectl logs -n ceph-crossos-test ceph-crossos-linux --tail=40
 kubectl logs -n ceph-crossos-test ceph-crossos-windows --tail=40
 kubectl exec -n ceph-crossos-test ceph-crossos-linux -- ls -la /data
+```
 
-The pod created files can be seen in the below path :
+The pod-created files can be seen in the below path:
+
+```powershell
 C:\k8s-ceph-share\pvc-cedc059c-94f2-443b-9a7c-a39d80f96269
 ```
 
