@@ -2992,7 +2992,7 @@ SPDX-License-Identifier: MIT
 </code></pre></div></p>
 <p>The dump collects logs, configuration, and cluster state into a zip file at <code>C:\var\log\k2s-dump-&lt;hostname&gt;-&lt;datetime&gt;.zip</code>.</p>
 <h2 id="network-diagnostics-dump">Network Diagnostics Dump</h2>
-<p>A dedicated network diagnostics dump is also available. It collects network-specific information (adapter states, routes, HNS networks, firewall rules) separately from the general system dump. The network dump script is located at <code>lib\scripts\k2s\system\dump\network_dump.ps1</code>.</p>
+<p>A dedicated network diagnostics dump is also available. It collects network-specific information (adapter states, routes, HNS networks, firewall rules) separately from the general system dump. The network dump script is located at <code>lib\scripts\windows\host\system\dump\network_dump.ps1</code>.</p>
 <h2 id="packet-capture">Packet Capture</h2>
 <p>For deep network troubleshooting, capture packet traces on the Windows host:</p>
 <ol>
