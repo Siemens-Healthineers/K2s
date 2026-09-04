@@ -32,10 +32,10 @@ Param(
     [switch] $DeleteFilesForOfflineInstallation = $false
 )
 
-$infraModule = "$PSScriptRoot\..\..\..\modules\k2s\k2s.infra.module\k2s.infra.module.psm1"
-$nodeModule = "$PSScriptRoot\..\..\..\modules\k2s\k2s.node.module\k2s.node.module.psm1"
-$clusterModule = "$PSScriptRoot\..\..\..\modules\k2s\k2s.cluster.module\k2s.cluster.module.psm1"
-$addonsModule = "$PSScriptRoot\..\..\..\..\addons\addons.module.psm1"
+$infraModule = "$PSScriptRoot\..\..\..\..\modules\k2s\k2s.infra.module\k2s.infra.module.psm1"
+$nodeModule = "$PSScriptRoot\..\..\..\..\modules\k2s\k2s.node.module\k2s.node.module.psm1"
+$clusterModule = "$PSScriptRoot\..\..\..\..\modules\k2s\k2s.cluster.module\k2s.cluster.module.psm1"
+$addonsModule = "$PSScriptRoot\..\..\..\..\..\addons\addons.module.psm1"
 
 Import-Module $infraModule, $nodeModule, $clusterModule, $addonsModule
 
@@ -59,7 +59,7 @@ if ($ShowLogs.IsPresent) {
 if ($SkipPurge.IsPresent) {
     $controlPlaneParams += ' -SkipPurge'
 }
-& powershell.exe "$PSScriptRoot\..\..\control-plane\Uninstall.ps1" $controlPlaneParams
+& powershell.exe "$PSScriptRoot\..\..\..\control-plane\Uninstall.ps1" $controlPlaneParams
 
 Remove-K2sHostsFromNoProxyEnvVar
 
