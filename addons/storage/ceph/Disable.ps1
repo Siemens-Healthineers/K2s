@@ -585,6 +585,9 @@ if (-not [string]::IsNullOrWhiteSpace($smbNsExists) -or -not [string]::IsNullOrW
     # NOTE: The windows/kustomization.yaml references '../base', so the entire 'manifests' tree
     # (both 'windows' and 'base') must be copied to preserve the relative path.
     $smbManifestsSrcDir = "$PSScriptRoot\..\smb\manifests"
+    if (-not (Test-Path $smbManifestsSrcDir)) {
+        $smbManifestsSrcDir = "$PSScriptRoot\manifests\smb"
+    }
     if (Test-Path $smbManifestsSrcDir) {
         $renderedSmbManifestsDir = Join-Path ([System.IO.Path]::GetTempPath()) "k2s-ceph-smb-manifests-delete-$([guid]::NewGuid().ToString())"
         New-Item -ItemType Directory -Path $renderedSmbManifestsDir -Force | Out-Null
@@ -607,6 +610,9 @@ if (-not [string]::IsNullOrWhiteSpace($smbNsExists) -or -not [string]::IsNullOrW
         $renderedSmbWindowsDir = Join-Path $renderedSmbManifestsDir 'windows'
         (Invoke-Kubectl -Params 'delete', '-k', $renderedSmbWindowsDir, '--ignore-not-found', '--wait=false').Output | Write-Log
         Remove-Item -Path $renderedSmbManifestsDir -Recurse -Force -ErrorAction SilentlyContinue
+    }
+    else {
+        Write-Log '[CephSMB] WARNING: SMB manifests not found while disabling ceph SMB resources. Skipping SMB CSI manifest deletion.' -Console
     }
 
     # Delete the Ceph SMB namespace (let it terminate in background).

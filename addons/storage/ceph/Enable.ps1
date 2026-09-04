@@ -671,6 +671,16 @@ if ($SetupWindowsNode -eq $true) {
     # runtime by the standalone SMB addon and is not present in source control. Ceph manages its
     # own StorageClass separately, so the storage-classes overlay is not needed here.
     $smbManifestsSrcDir = "$PSScriptRoot\..\smb\manifests"
+    if (-not (Test-Path $smbManifestsSrcDir)) {
+      $smbManifestsSrcDir = "$PSScriptRoot\manifests\smb"
+    }
+    if (-not (Test-Path $smbManifestsSrcDir)) {
+      Write-Log "[CephSMB] ERROR: SMB manifests not found. Checked '$PSScriptRoot\..\smb\manifests' and '$PSScriptRoot\manifests\smb'." -Console -Error
+      if ($EncodeStructuredOutput -eq $true) {
+        Send-ToCli -MessageType $MessageType -Message @{Error = (New-CephStructuredError -Message 'SMB manifests missing for Ceph Windows setup') }
+      }
+      exit 1
+    }
     $renderedSmbManifestsDir = Join-Path ([System.IO.Path]::GetTempPath()) "k2s-ceph-smb-manifests-$([guid]::NewGuid().ToString())"
     New-Item -ItemType Directory -Path $renderedSmbManifestsDir -Force | Out-Null
     Copy-Item -Path (Join-Path $smbManifestsSrcDir '*') -Destination $renderedSmbManifestsDir -Recurse -Force
@@ -762,7 +772,7 @@ stringData:
     # Ceph cluster host, so the SMB source is //<cephHostIp>/<shareName>. Keep the default volume
     # folder layout so each provisioned volume uses the SMB CSI driver's standard subdirectory naming
     # instead of the old namespace/name override.
-    $templatePath = "$PSScriptRoot\..\smb\manifests\base\storage-classes\template_StorageClass.yaml"
+    $templatePath = Join-Path $smbManifestsSrcDir 'base\storage-classes\template_StorageClass.yaml'
     $smbSource    = "//$clusterHostNodeIp/$smbShareName"
     $scContent = (Get-Content -Path $templatePath -Raw) `
       -replace 'SC_NAME',          $smbStorageClassName `

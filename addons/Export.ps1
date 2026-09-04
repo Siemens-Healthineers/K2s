@@ -192,6 +192,23 @@ try {
                  Write-Log "No manifests directory found at $sourceManifestsDir"
              }
 
+             # storage/ceph reuses SMB CSI manifests from storage/smb during the '-w'
+             # flow. Include a copy in the ceph artifact so import-only environments
+             # can enable ceph windows support without requiring a separate smb addon export.
+             if ($manifest.metadata.name -eq 'storage' -and $implementation.name -eq 'ceph') {
+                 $sharedSmbManifestsDir = Join-Path $manifest.dir.path 'smb\manifests'
+                 if (Test-Path $sharedSmbManifestsDir) {
+                     $smbManifestsStagingDir = Join-Path $manifestsStaging 'smb'
+                     New-Item -ItemType Directory -Path $smbManifestsStagingDir -Force | Out-Null
+                     Copy-Item -Path (Join-Path $sharedSmbManifestsDir '*') -Destination $smbManifestsStagingDir -Recurse -Force -ErrorAction SilentlyContinue
+                     $sharedSmbFileCount = @(Get-ChildItem -Path $sharedSmbManifestsDir -Recurse -File).Count
+                     Write-Log "Included $sharedSmbFileCount SMB manifest file(s) for storage ceph export"
+                 }
+                 else {
+                     Write-Log "Warning: storage ceph export could not find shared SMB manifests at $sharedSmbManifestsDir" -Console
+                 }
+             }
+
              # Inject gitops-sync/ Job template into manifests layer for GitOps delivery.
              $gitopsSyncSource = Join-Path $PSScriptRoot 'common\manifests\addon-sync\gitops-sync'
              Write-Log "Checking for gitops-sync source at: $gitopsSyncSource"

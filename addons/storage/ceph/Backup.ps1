@@ -115,6 +115,9 @@ try {
     New-Item -ItemType Directory -Path $smbSnapshotDir -Force | Out-Null
 
     $smbManifestsDir = "$PSScriptRoot\..\smb\manifests\windows"
+    if (-not (Test-Path $smbManifestsDir)) {
+        $smbManifestsDir = "$PSScriptRoot\manifests\smb\windows"
+    }
     if (Test-Path $smbManifestsDir) {
         Copy-Item -Path (Join-Path $smbManifestsDir '*') -Destination $smbSnapshotDir -Recurse -Force
         Get-ChildItem -Path $smbSnapshotDir -Recurse -File | ForEach-Object {
@@ -123,6 +126,9 @@ try {
             Set-Content -Path $_.FullName -Value $manifestContent -Encoding utf8
         }
         $files += 'smb-csi-manifests/'
+    }
+    else {
+        Write-Log '[StorageCephBackup] WARNING: SMB manifests not found for snapshot; continuing without smb-csi-manifests payload.' -Console
     }
 
     if ($systemError -eq $null) {
