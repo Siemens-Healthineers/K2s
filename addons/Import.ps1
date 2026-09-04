@@ -68,6 +68,21 @@ if (-not [string]::IsNullOrWhiteSpace($Nodes)) {
 $tmpDir = "$env:TEMP\$(Get-Date -Format ddMMyyyy-HHmmss)-tmp-extracted-addons"
 $extractionFolder = $tmpDir
 
+# Import targets are node-specific. When the user imports to a Linux worker,
+# only the Linux image layer should be applied there; Windows-only images must stay
+# on the Windows target(s). The same rule applies in reverse for Windows workers.
+$targetNodeKind = if ($null -ne $targetNode) { $targetNode.Kind } else { '' }
+$shouldImportLinuxImages = $true
+$shouldImportWindowsImages = $true
+
+if (-not [string]::IsNullOrWhiteSpace($Nodes)) {
+    $shouldImportLinuxImages = @('ControlPlane', 'LinuxWorker') -contains $targetNodeKind
+    $shouldImportWindowsImages = @('WindowsWorker', 'LocalWindows') -contains $targetNodeKind
+}
+elseif ($setupInfo.LinuxOnly) {
+    $shouldImportWindowsImages = $false
+}
+
 if ($ArtifactFile) {
     Write-Log "Extracting artifact from $ArtifactFile" -Console
     Write-Log '---' -Console
@@ -653,7 +668,7 @@ foreach ($addon in $addonsToImport) {
         
         # Import Layer 4: Linux Images (from staged temp location)
         $linuxImagesLayer = Join-Path $tempLayerDir 'images-linux.tar'
-        if (Test-Path $linuxImagesLayer) {
+        if ($shouldImportLinuxImages -and (Test-Path $linuxImagesLayer)) {
             Write-Log "Importing Linux images layer from blob" -Console
             
             # Check if this is a consolidated tar (tar of tars) or single image tar
@@ -718,7 +733,7 @@ foreach ($addon in $addonsToImport) {
         
         # Import Layer 5: Windows Images (from staged temp location)
         $windowsImagesLayer = Join-Path $tempLayerDir 'images-windows.tar'
-        if ((Test-Path $windowsImagesLayer) -and (-not $setupInfo.LinuxOnly)) {
+        if ($shouldImportWindowsImages -and (Test-Path $windowsImagesLayer) -and (-not $setupInfo.LinuxOnly)) {
             Write-Log "Importing Windows images layer from blob" -Console
             
             # Check if this is a consolidated tar (tar of tars) or single image tar
