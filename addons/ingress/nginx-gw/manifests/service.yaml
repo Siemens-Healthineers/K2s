@@ -10,10 +10,10 @@ metadata:
   name: nginx-gw-controller
   namespace: nginx-gw
   labels:
-    helm.sh/chart: nginx-gateway-fabric-2.6.7
+    helm.sh/chart: nginx-gateway-fabric-2.7.0
     app.kubernetes.io/name: nginx-gw
     app.kubernetes.io/instance: nginx-gw
-    app.kubernetes.io/version: "2.6.7"
+    app.kubernetes.io/version: "2.7.0"
     app.kubernetes.io/managed-by: Helm
 spec:
   type: ClusterIP
@@ -25,3 +25,7 @@ spec:
       port: 443
       protocol: TCP
       targetPort: 8443
+    - name: metrics
+      port: 9113
+      protocol: TCP
+      targetPort: 9113
