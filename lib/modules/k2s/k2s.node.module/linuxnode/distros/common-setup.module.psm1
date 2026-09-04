@@ -1666,7 +1666,7 @@ function Set-HypervDynamicMemory
 
     Write-Log "Configuring Hyper-V Dynamic Memory support on control-plane node..."
 
-    $localScriptPath = "$PSScriptRoot\..\..\..\..\..\scripts\k2s\system\configure-hyperv-dynamic-memory.sh"
+    $localScriptPath = "$PSScriptRoot\..\..\..\..\..\scripts\windows\host\system\configure-hyperv-dynamic-memory.sh"
     $remoteScriptPath = "/home/$UserName/configure-hyperv-dynamic-memory.sh"
 
     if (-not (Test-Path $localScriptPath)) {

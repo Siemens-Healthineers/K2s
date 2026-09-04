@@ -41,7 +41,7 @@ var _ = Describe("backup", func() {
 
 		When("only mandatory flags are set", func() {
 			It("creates minimal backup command", func() {
-				const staticPart = `\lib\scripts\k2s\system\backup\Start-SystemBackup.ps1`
+				const staticPart = `\lib\scripts\windows\host\system\backup\Start-SystemBackup.ps1`
 				const args = ` -BackupFile 'C:\temp\backup.zip'`
 
 				expected := utils.FormatScriptFilePath(
@@ -59,7 +59,7 @@ var _ = Describe("backup", func() {
 
 		When("show logs flag is enabled", func() {
 			It("adds -ShowLogs to command", func() {
-				const staticPart = `\lib\scripts\k2s\system\backup\Start-SystemBackup.ps1`
+				const staticPart = `\lib\scripts\windows\host\system\backup\Start-SystemBackup.ps1`
 				const args = ` -ShowLogs -BackupFile 'C:\temp\backup.zip'`
 
 				expected := utils.FormatScriptFilePath(
@@ -79,7 +79,7 @@ var _ = Describe("backup", func() {
 
 		When("additional hooks directory is provided", func() {
 			It("adds -AdditionalHooksDir to command", func() {
-				const staticPart = `\lib\scripts\k2s\system\backup\Start-SystemBackup.ps1`
+				const staticPart = `\lib\scripts\windows\host\system\backup\Start-SystemBackup.ps1`
 				const args = ` -BackupFile 'C:\temp\backup.zip' -AdditionalHooksDir 'hooksDir'`
 
 				expected := utils.FormatScriptFilePath(

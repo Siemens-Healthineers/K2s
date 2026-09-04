@@ -96,7 +96,7 @@ Write-Output "[$(Get-Date -Format HH:mm:ss)] Build $containerfile"
 Add-Content -Path $containerfile -Value 'FROM scratch' -Force
 Add-Content -Path $containerfile -Value "ADD $fileqcow2 /disk/" -Force
 
-$buildScript = "$PSScriptRoot\..\..\lib\scripts\k2s\image\Build-Image.ps1"
+$buildScript = "$PSScriptRoot\..\..\lib\scripts\windows\host\image\Build-Image.ps1"
 
 # build container
 if ( $Push ) {

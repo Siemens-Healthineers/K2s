@@ -41,7 +41,7 @@ func listProxyOverrides(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	psCmd := utils.FormatScriptFilePath(path.Join(utils.InstallDir(), "lib", "scripts", "k2s", "system", "proxy", "override", "ListProxyOverrides.ps1"))
+	psCmd := utils.FormatScriptFilePath(path.Join(utils.InstallDir(), "lib", "scripts", "windows", "host", "system", "proxy", "override", "ListProxyOverrides.ps1"))
 	var params []string
 	proxy, err := powershell.ExecutePsWithStructuredResult[*ProxyOverrides](psCmd, "ProxyOverrides", common.NewPtermWriter(), params...)
 	if err != nil {
