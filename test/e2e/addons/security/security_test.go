@@ -397,7 +397,7 @@ var _ = Describe("'security' addon tests", Ordered, Serial, func() {
 				exitCode := suite.Kubectl().MustExec(ctx, "get", "pods", "-n", namespace, "-l", "app="+name,
 					"-o", `jsonpath={.items[*].status.initContainerStatuses[?(@.name=="linkerd-init")].state.terminated.exitCode}`)
 
-				Expect(exitCode).To(ContainSubstring("0"), "linkerd-init did not complete successfully for "+name)
+				Expect(exitCode).To(MatchRegexp(`^0(\s+0)*$`), "linkerd-init did not complete successfully for "+name)
 			},
 				Entry("albums-linux1", "albums-linux1", false),
 				Entry("albums-win1", "albums-win1", true),

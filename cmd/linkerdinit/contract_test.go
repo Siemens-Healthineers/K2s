@@ -28,9 +28,31 @@ type k2sConfig struct {
 	} `json:"smallsetup"`
 }
 
+func findConfigPath() (string, error) {
+	dir, err := os.Getwd()
+	if err != nil {
+		return "", err
+	}
+	for {
+		candidate := filepath.Join(dir, filepath.FromSlash(hnsProxyConfigPath))
+		if _, err := os.Stat(candidate); err == nil {
+			return candidate, nil
+		}
+		parent := filepath.Dir(dir)
+		if parent == dir {
+			break
+		}
+		dir = parent
+	}
+	return "", os.ErrNotExist
+}
+
 var _ = Describe("contract", func() {
 	It("matches the HNS proxy configuration the K2s CNI applies", func() {
-		content, err := os.ReadFile(filepath.Join("..", "..", filepath.FromSlash(hnsProxyConfigPath)))
+		configPath, err := findConfigPath()
+		Expect(err).ToNot(HaveOccurred())
+
+		content, err := os.ReadFile(configPath)
 		Expect(err).ToNot(HaveOccurred())
 
 		var config k2sConfig
