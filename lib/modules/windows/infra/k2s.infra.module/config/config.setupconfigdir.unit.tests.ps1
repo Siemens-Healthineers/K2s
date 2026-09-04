@@ -16,7 +16,7 @@
 
 BeforeAll {
     $script:ModulePath = "$PSScriptRoot\config.module.psm1"
-    $script:PackageRoot = (Resolve-Path -LiteralPath (Join-Path $PSScriptRoot '..\..\..\..\..')).Path
+    $script:PackageRoot = (Resolve-Path -LiteralPath (Join-Path $PSScriptRoot '..\..\..\..\..\..')).Path
 
     function Import-ConfigModuleFresh {
         Remove-Module -Name 'config.module' -Force -ErrorAction SilentlyContinue
