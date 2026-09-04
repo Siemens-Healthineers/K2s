@@ -7,9 +7,9 @@ BeforeAll {
 	$moduleName = (Import-Module "$PSScriptRoot\upgrade.module.psm1" -PassThru -Force).Name
 }
 
-Import-Module "$PSScriptRoot\..\..\..\k2s\k2s.cluster.module"
-Import-Module "$PSScriptRoot\..\..\..\k2s\k2s.infra.module"
-Import-Module "$PSScriptRoot\..\..\..\..\..\addons\addons.module.psm1"
+Import-Module "$PSScriptRoot\..\..\k2s.cluster.module"
+Import-Module "$PSScriptRoot\..\..\..\infra\k2s.infra.module"
+Import-Module "$PSScriptRoot\..\..\..\..\..\..\addons\addons.module.psm1"
 
 Describe 'Assert-UpgradeVersionIsValid' -Tag 'unit', 'ci', 'upgrade' {
 	BeforeAll {
