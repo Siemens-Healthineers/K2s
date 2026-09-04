@@ -3,7 +3,7 @@
 
 function Get-KubePath {
     $scriptRoot = $PSScriptRoot
-    $kubePath = (Get-Item $scriptRoot).Parent.Parent.Parent.Parent.Parent.FullName
+    $kubePath = (Get-Item $scriptRoot).Parent.Parent.Parent.Parent.Parent.Parent.FullName
     return $kubePath
 }
 

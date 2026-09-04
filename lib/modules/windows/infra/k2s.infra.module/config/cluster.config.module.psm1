@@ -2,9 +2,9 @@
 # SPDX-License-Identifier: MIT
 
 
-$pathModule = "$PSScriptRoot\..\..\k2s.infra.module\path\path.module.psm1"
-$configModule = "$PSScriptRoot\..\..\k2s.infra.module\config\config.module.psm1"
-$fileModule = "$PSScriptRoot\..\..\k2s.infra.module\config\file.module.psm1"
+$pathModule = "$PSScriptRoot\..\path\path.module.psm1"
+$configModule = "$PSScriptRoot\config.module.psm1"
+$fileModule = "$PSScriptRoot\file.module.psm1"
 Import-Module $pathModule, $configModule, $fileModule
 
 $k2sConfigDir = Get-K2sConfigDir

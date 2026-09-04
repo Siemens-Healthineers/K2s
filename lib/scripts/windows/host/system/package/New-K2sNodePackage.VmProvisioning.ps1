@@ -197,7 +197,7 @@ function Start-NodePackageVmProvisioning {
 	$isoParams = @{
 		IsoFileCreatorToolPath = Join-Path $kubeBinPath 'cloudinitisobuilder.exe'
 		IsoFileName            = $isoName
-		SourcePath             = Join-Path $kubePath 'lib\modules\k2s\k2s.node.module\linuxnode\baseimage\cloud-init-templates'
+		SourcePath             = Join-Path $kubePath 'lib\modules\windows\node\k2s.node.module\linuxnode\baseimage\cloud-init-templates'
 		Hostname               = "k2s-nodepkg-$DistributionKey"
 		NetworkInterfaceName   = $netIntf
 		IPAddressVM            = $guestIp

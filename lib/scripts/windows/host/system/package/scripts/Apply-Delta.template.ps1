@@ -36,7 +36,7 @@ if (-not (Test-Path -LiteralPath $deltaManifestPath)) {
 }
 
 # Load the update module from the delta package
-$updateModulePath = Join-Path $scriptRoot 'lib\modules\k2s\k2s.cluster.module\update\update.module.psm1'
+$updateModulePath = Join-Path $scriptRoot 'lib\modules\windows\cluster\k2s.cluster.module\update\update.module.psm1'
 if (-not (Test-Path -LiteralPath $updateModulePath)) {
     Write-Host "[ERROR] Update module not found at: $updateModulePath" -ForegroundColor Red
     Write-Host "[ERROR] The delta package may be incomplete or corrupted." -ForegroundColor Red

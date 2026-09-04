@@ -1,7 +1,7 @@
 # SPDX-FileCopyrightText: © 2024 Siemens Healthineers AG
 # SPDX-License-Identifier: MIT
 
-$pathModule = "$PSScriptRoot\..\..\k2s.infra.module\path\path.module.psm1"
+$pathModule = "$PSScriptRoot\..\path\path.module.psm1"
 Import-Module $pathModule
 
 # Read cluster configuration json

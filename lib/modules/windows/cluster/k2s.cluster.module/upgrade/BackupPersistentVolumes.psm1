@@ -21,9 +21,9 @@ Supports:
 #>
 
 # Import required modules 
-$infraModule = "$PSScriptRoot\..\..\k2s.infra.module\k2s.infra.module.psm1"
-$pathModule = "$PSScriptRoot\..\..\k2s.infra.module\path\path.module.psm1"
-$vmModule = "$PSScriptRoot\..\..\k2s.node.module\linuxnode\vm\vm.module.psm1"
+$infraModule = "$PSScriptRoot\..\..\..\infra\k2s.infra.module\k2s.infra.module.psm1"
+$pathModule = "$PSScriptRoot\..\..\..\infra\k2s.infra.module\path\path.module.psm1"
+$vmModule = "$PSScriptRoot\..\..\..\node\k2s.node.module\linuxnode\vm\vm.module.psm1"
 
 Import-Module $infraModule
 Import-Module $pathModule

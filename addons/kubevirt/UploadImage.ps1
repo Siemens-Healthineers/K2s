@@ -19,7 +19,7 @@ Param(
     [parameter(Mandatory = $true, HelpMessage = 'Image file')]
     [string] $Image
 )
-Import-Module "$PSScriptRoot\..\..\lib\modules\k2s\k2s.node.module\linuxnode\vm\vm.module.psm1"
+Import-Module "$PSScriptRoot\..\..\lib\modules\windows\node\k2s.node.module\linuxnode\vm\vm.module.psm1"
 
 $mainStopwatch = [system.diagnostics.stopwatch]::StartNew()
 

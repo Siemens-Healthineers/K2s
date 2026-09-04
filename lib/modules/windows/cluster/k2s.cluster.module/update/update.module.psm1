@@ -31,7 +31,7 @@ if ($runningFromDelta) {
 	$script:DeferredModuleLoad = $false  # Already loaded by caller
 } else {
 	# Running from installed k2s - use normal relative paths
-	$infraModule = "$PSScriptRoot/../../k2s.infra.module/k2s.infra.module.psm1"
+	$infraModule = "$PSScriptRoot\..\..\..\infra\k2s.infra.module\k2s.infra.module.psm1"
 	Import-Module $infraModule
 	
 	# Import runningstate module for k2s running check
@@ -130,12 +130,12 @@ function Restore-CoreDnsEtcdConfiguration {
 		
 		# Verify SSH helper is available
 		if (-not (Get-Command -Name Invoke-CmdOnControlPlaneViaSSHKey -ErrorAction SilentlyContinue)) {
-			$vmModule = "$PSScriptRoot/../../k2s.node.module/linuxnode/vm/vm.module.psm1"
+			$vmModule = "$PSScriptRoot\..\..\..\node\k2s.node.module\linuxnode\vm\vm.module.psm1"
 			if (Test-Path -LiteralPath $vmModule) { 
 				Import-Module $vmModule -ErrorAction SilentlyContinue 
 			} else {
 				$installFolder = Get-ClusterInstalledFolder
-				$vmModule = Join-Path $installFolder 'lib/modules/k2s/k2s.node.module/linuxnode/vm/vm.module.psm1'
+				$vmModule = Join-Path $installFolder 'lib/modules/windows/node/k2s.node.module/linuxnode/vm/vm.module.psm1'
 				if (Test-Path -LiteralPath $vmModule) {
 					Import-Module $vmModule -ErrorAction SilentlyContinue
 				}
@@ -312,11 +312,11 @@ function Restore-ClusterIPWebhook {
 
 		# Verify SSH helpers are available
 		if (-not (Get-Command -Name Invoke-CmdOnControlPlaneViaSSHKey -ErrorAction SilentlyContinue)) {
-			$vmModule = "$PSScriptRoot/../../k2s.node.module/linuxnode/vm/vm.module.psm1"
+			$vmModule = "$PSScriptRoot\..\..\..\node\k2s.node.module\linuxnode\vm\vm.module.psm1"
 			if (Test-Path -LiteralPath $vmModule) {
 				Import-Module $vmModule -ErrorAction SilentlyContinue
 			} else {
-				$vmModule = Join-Path $TargetInstallPath 'lib/modules/k2s/k2s.node.module/linuxnode/vm/vm.module.psm1'
+				$vmModule = Join-Path $TargetInstallPath 'lib/modules/windows/node/k2s.node.module/linuxnode/vm/vm.module.psm1'
 				if (Test-Path -LiteralPath $vmModule) {
 					Import-Module $vmModule -ErrorAction SilentlyContinue
 				}
@@ -580,7 +580,7 @@ function Set-K2sInstallationHome {
 
 	# Import service helpers from the destination installation (consistent with how the update
 	# module imports other node modules by absolute path during delta updates).
-	$servicesModule = Join-Path $ToPath 'lib\modules\k2s\k2s.node.module\windowsnode\services\services.module.psm1'
+	$servicesModule = Join-Path $ToPath 'lib\modules\windows\node\k2s.node.module\windowsnode\services\services.module.psm1'
 	if (-not (Test-Path -LiteralPath $servicesModule)) {
 		Write-Log ("[Update][Error] services module not found at {0}; cannot re-point services" -f $servicesModule) -Console
 		return $false
@@ -670,8 +670,8 @@ function Set-K2sInstallationHome {
 	# $ToPath FIRST, then import containerd.module from $ToPath. Both are independent of setup.json, so
 	# regeneration always targets $ToPath regardless of step 5 below. This also makes the rollback path
 	# correct: re-homing back to the previous folder reimports both modules from that folder.
-	$pathModule = Join-Path $ToPath 'lib\modules\k2s\k2s.infra.module\path\path.module.psm1'
-	$containerdModule = Join-Path $ToPath 'lib\modules\k2s\k2s.node.module\windowsnode\downloader\artifacts\containerd\containerd.module.psm1'
+	$pathModule = Join-Path $ToPath 'lib\modules\windows\infra\k2s.infra.module\path\path.module.psm1'
+	$containerdModule = Join-Path $ToPath 'lib\modules\windows\node\k2s.node.module\windowsnode\downloader\artifacts\containerd\containerd.module.psm1'
 	$containerdTomlPath = Join-Path $ToPath 'cfg\containerd\config.toml'
 	if (-not (Test-Path -LiteralPath $containerdModule)) {
 		# A missing containerd module means config.toml cannot be regenerated for $ToPath. The toml was
@@ -1312,7 +1312,7 @@ Current directory: $deltaRoot
 			# Import the containerd module from the target installation so that Get-KubePath
 			# (resolved via PSScriptRoot) points to the correct install directory and all
 			# dependent modules (system, config, path) are loaded from the same tree.
-			$containerdModule = Join-Path $targetInstallPath 'lib\modules\k2s\k2s.node.module\windowsnode\downloader\artifacts\containerd\containerd.module.psm1'
+			$containerdModule = Join-Path $targetInstallPath 'lib\modules\windows\node\k2s.node.module\windowsnode\downloader\artifacts\containerd\containerd.module.psm1'
 			if (-not (Test-Path -LiteralPath $containerdModule)) {
 				throw "Containerd module not found at $containerdModule"
 			}
@@ -1909,7 +1909,7 @@ function Invoke-GuestConfigDeltaApply {
 	}
 
 	# Import vm module + verify control plane reachability (mirror Invoke-CommandInMasterVM).
-	$vmModule = "$PSScriptRoot/../../k2s.node.module/linuxnode/vm/vm.module.psm1"
+	$vmModule = "$PSScriptRoot\..\..\..\node\k2s.node.module\linuxnode\vm\vm.module.psm1"
 	if (Test-Path -LiteralPath $vmModule) { Import-Module $vmModule -ErrorAction SilentlyContinue }
 	if (-not (Get-Command -Name Invoke-CmdOnControlPlaneViaSSHKey -ErrorAction SilentlyContinue) -or
 		-not (Get-Command -Name Copy-ToControlPlaneViaSSHKey -ErrorAction SilentlyContinue)) {
@@ -2028,7 +2028,7 @@ function Invoke-CommandInMasterVM {
 	if (-not (Test-Path -LiteralPath $ScriptPath)) { throw "ScriptPath not found: $ScriptPath" }
 
 	# Import vm module to access SSH helpers (idempotent import)
-	$vmModule = "$PSScriptRoot/../../k2s.node.module/linuxnode/vm/vm.module.psm1"
+	$vmModule = "$PSScriptRoot\..\..\..\node\k2s.node.module\linuxnode\vm\vm.module.psm1"
 	if (Test-Path -LiteralPath $vmModule) { Import-Module $vmModule -ErrorAction SilentlyContinue }
 	if (-not (Get-Command -Name Invoke-CmdOnControlPlaneViaSSHKey -ErrorAction SilentlyContinue)) {
 		throw 'Invoke-CmdOnControlPlaneViaSSHKey not available (vm module not imported)'
@@ -2043,7 +2043,7 @@ function Invoke-CommandInMasterVM {
 	}
 	if (-not $wslEnabled) {
 		# Import vm module for Get-IsControlPlaneRunning / Wait-ForSSHConnectionToLinuxVMViaSshKey
-		$vmModule = "$PSScriptRoot/../../k2s.node.module/linuxnode/vm/vm.module.psm1"
+		$vmModule = "$PSScriptRoot\..\..\..\node\k2s.node.module\linuxnode\vm\vm.module.psm1"
 		if (Test-Path -LiteralPath $vmModule) { Import-Module $vmModule -ErrorAction SilentlyContinue }
 		$cpRunning = $false
 		if (Get-Command -Name Get-IsControlPlaneRunning -ErrorAction SilentlyContinue) {

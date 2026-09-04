@@ -1,9 +1,9 @@
 # SPDX-FileCopyrightText: © 2026 Siemens Healthineers AG
 # SPDX-License-Identifier: MIT
 
-$configModule = "$PSScriptRoot\..\..\..\k2s.infra.module\config\config.module.psm1"
-$vmModule = "$PSScriptRoot\..\..\..\k2s.node.module\linuxnode\vm\vm.module.psm1"
-$pathModule = "$PSScriptRoot\..\..\..\k2s.infra.module\path\path.module.psm1"
+$configModule = "$PSScriptRoot\..\..\..\..\infra\k2s.infra.module\config\config.module.psm1"
+$vmModule = "$PSScriptRoot\..\..\..\..\node\k2s.node.module\linuxnode\vm\vm.module.psm1"
+$pathModule = "$PSScriptRoot\..\..\..\..\infra\k2s.infra.module\path\path.module.psm1"
 Import-Module $configModule, $vmModule, $pathModule
 
 $setupJsonFile = Get-SetupConfigFilePath

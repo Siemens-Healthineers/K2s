@@ -1,7 +1,7 @@
 # SPDX-FileCopyrightText: © 2024 Siemens Healthineers AG
 # SPDX-License-Identifier: MIT
 
-$infraModule = "$PSScriptRoot\..\..\..\k2s.infra.module\k2s.infra.module.psm1"
+$infraModule = "$PSScriptRoot\..\..\..\..\infra\k2s.infra.module\k2s.infra.module.psm1"
 $loopBackAdapterModule = "$PSScriptRoot\..\network\loopbackadapter.module.psm1"
 Import-Module $infraModule, $loopBackAdapterModule
 

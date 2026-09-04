@@ -12,7 +12,7 @@ Post-start hook to re-establish SMB share.
 Post-start hook to re-establish SMB share.
 #>
 
-$logModule = "$PSScriptRoot/../../lib/modules/k2s/k2s.infra.module/log/log.module.psm1"
+$logModule = "$PSScriptRoot/../../lib/modules/windows/infra/k2s.infra.module/log/log.module.psm1"
 $smbShareModule = "$PSScriptRoot\..\storage\smb\module\Smb-share.module.psm1"
 
 Import-Module $logModule, $smbShareModule

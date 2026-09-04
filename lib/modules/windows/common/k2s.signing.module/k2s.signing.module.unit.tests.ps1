@@ -1,4 +1,4 @@
-﻿# SPDX-FileCopyrightText: © 2025 Siemens Healthineers AG
+# SPDX-FileCopyrightText: © 2025 Siemens Healthineers AG
 #
 # SPDX-License-Identifier: MIT
 
@@ -39,7 +39,7 @@ BeforeAll {
     }
     
     # Ensure we have the correct path to the module
-    $modulePath = "$PSScriptRoot\k2s.signing.module.psm1"
+    $modulePath = "$PSScriptRoot\..psm1"
     if (-not (Test-Path $modulePath)) {
         throw "Module file not found at: $modulePath"
     }

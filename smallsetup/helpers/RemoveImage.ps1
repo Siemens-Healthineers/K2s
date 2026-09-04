@@ -24,8 +24,8 @@ Param (
     [string] $MessageType
 )
 $imageModule = "$PSScriptRoot\ImageFunctions.module.psm1"
-$statusModule = "$PSScriptRoot\..\..\lib\modules\k2s\k2s.cluster.module\status\status.module.psm1"
-$infraModule = "$PSScriptRoot/../../lib/modules/k2s/k2s.infra.module/k2s.infra.module.psm1"
+$statusModule = "$PSScriptRoot\..\..\lib\modules\windows\cluster\k2s.cluster.module\status\status.module.psm1"
+$infraModule = "$PSScriptRoot/../../lib/modules/windows/infra/k2s.infra.module/k2s.infra.module.psm1"
 
 Import-Module $imageModule, $statusModule, $infraModule
 

@@ -18,7 +18,7 @@ param(
     [switch]$NoLog = $false
 )
 
-Import-Module "$PSScriptRoot\..\..\lib\modules\k2s\k2s.infra.module\log\log.module.psm1"
+Import-Module "$PSScriptRoot\..\..\lib\modules\windows\infra\k2s.infra.module\log\log.module.psm1"
 
 if ($DomainName) {
     $userName = "$DomainName\administrator"

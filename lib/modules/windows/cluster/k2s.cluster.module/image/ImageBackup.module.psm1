@@ -1,4 +1,4 @@
-﻿# SPDX-FileCopyrightText: © 2026 Siemens Healthineers AG
+# SPDX-FileCopyrightText: © 2026 Siemens Healthineers AG
 #
 # SPDX-License-Identifier: MIT
 
@@ -13,7 +13,7 @@ This module provides image backup and restore functionality during K2s cluster u
 It backs up user application images before upgrade and restores them after successful upgrade.
 #>
 
-Import-Module "$PSScriptRoot\..\..\k2s.infra.module\k2s.infra.module.psm1"
+Import-Module "$PSScriptRoot\..\..\..\infra\k2s.infra.module\k2s.infra.module.psm1"
 
 <#
 .SYNOPSIS

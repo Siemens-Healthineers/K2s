@@ -2,7 +2,7 @@
 #
 # SPDX-License-Identifier: MIT
 
-$infraModule = "$PSScriptRoot/../../../k2s.infra.module/k2s.infra.module.psm1"
+$infraModule = "$PSScriptRoot\..\..\..\..\infra\k2s.infra.module\k2s.infra.module.psm1"
 
 Import-Module $infraModule
 

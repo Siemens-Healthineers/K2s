@@ -23,7 +23,7 @@ Media Types:
 - application/vnd.k2s.addon.packages.v1.tar+gzip - Offline packages
 #>
 
-$infraModule = "$PSScriptRoot/../lib/modules/k2s/k2s.infra.module/k2s.infra.module.psm1"
+$infraModule = "$PSScriptRoot/../lib/modules/windows/infra/k2s.infra.module/k2s.infra.module.psm1"
 Import-Module $infraModule
 
 # OCI Media Types for K2s addon artifacts

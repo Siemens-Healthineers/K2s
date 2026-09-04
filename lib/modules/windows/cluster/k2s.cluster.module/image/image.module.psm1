@@ -1,14 +1,14 @@
-﻿# SPDX-FileCopyrightText: © 2026 Siemens Healthineers AG
+# SPDX-FileCopyrightText: © 2026 Siemens Healthineers AG
 # SPDX-License-Identifier: MIT
 
 $registryFunctionsModule = "$PSScriptRoot\registry\registry.module.psm1"
 $k8sApiModule = "$PSScriptRoot\..\k8s-api\k8s-api.module.psm1"
 $statusModule = "$PSScriptRoot\..\status\status.module.psm1"
-$configModule = "$PSScriptRoot\..\..\k2s.infra.module\config\config.module.psm1"
-$vmModule = "$PSScriptRoot\..\..\k2s.node.module\linuxnode\vm\vm.module.psm1"
-$pathModule = "$PSScriptRoot\..\..\k2s.infra.module\path\path.module.psm1"
-$vmNodeModule = "$PSScriptRoot\..\..\k2s.node.module\vmnode\vmnode.module.psm1"
-$clusterConfigModule = "$PSScriptRoot\..\..\k2s.infra.module\config\cluster.config.module.psm1"
+$configModule = "$PSScriptRoot\..\..\..\infra\k2s.infra.module\config\config.module.psm1"
+$vmModule = "$PSScriptRoot\..\..\..\node\k2s.node.module\linuxnode\vm\vm.module.psm1"
+$pathModule = "$PSScriptRoot\..\..\..\infra\k2s.infra.module\path\path.module.psm1"
+$vmNodeModule = "$PSScriptRoot\..\..\..\node\k2s.node.module\vmnode\vmnode.module.psm1"
+$clusterConfigModule = "$PSScriptRoot\..\..\..\infra\k2s.infra.module\config\cluster.config.module.psm1"
 
 Import-Module $configModule, $k8sApiModule, $registryFunctionsModule, $vmModule, $statusModule, $pathModule, $vmNodeModule, $clusterConfigModule
 

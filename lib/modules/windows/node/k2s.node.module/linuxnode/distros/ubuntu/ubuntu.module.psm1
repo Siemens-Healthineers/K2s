@@ -2,9 +2,9 @@
 #
 # SPDX-License-Identifier: MIT
 
-$infraModule =   "$PSScriptRoot\..\..\..\..\k2s.infra.module\k2s.infra.module.psm1"
-$clusterModule = "$PSScriptRoot\..\..\..\..\k2s.cluster.module\k2s.cluster.module.psm1"
-$vmModule = "$PSScriptRoot\..\..\..\..\k2s.node.module\linuxnode\vm\vm.module.psm1"
+$infraModule =   "$PSScriptRoot\..\..\..\..\..\infra\k2s.infra.module\k2s.infra.module.psm1"
+$clusterModule = "$PSScriptRoot\..\..\..\..\..\cluster\k2s.cluster.module\k2s.cluster.module.psm1"
+$vmModule = "$PSScriptRoot\..\..\vm\vm.module.psm1"
 
 Import-Module $infraModule, $clusterModule, $vmModule
 

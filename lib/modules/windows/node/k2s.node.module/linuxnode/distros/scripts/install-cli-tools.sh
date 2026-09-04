@@ -31,7 +31,7 @@ fi
 
 # Install yq
 # Keep YQ_VERSION in sync with the yq download URL in
-# lib/modules/k2s/k2s.node.module/windowsnode/downloader/artifacts/yaml-tools/yaml-tools.module.psm1
+# lib/modules/windows/node/k2s.node.module/windowsnode/downloader/artifacts/yaml-tools/yaml-tools.module.psm1
 if ! command -v yq &> /dev/null; then
     echo "Installing yq..."
     YQ_VERSION="v4.53.4"
@@ -52,7 +52,7 @@ fi
 
 # Install helm
 # Keep HELM_VERSION in sync with the helm download URL in
-# lib/modules/k2s/k2s.node.module/windowsnode/downloader/artifacts/helm/helm.module.psm1
+# lib/modules/windows/node/k2s.node.module/windowsnode/downloader/artifacts/helm/helm.module.psm1
 if ! command -v helm &> /dev/null; then
     echo "Installing helm..."
     HELM_VERSION="v4.2.4"
@@ -73,7 +73,7 @@ fi
 # Install krew (kubectl plugin manager - https://krew.sigs.k8s.io/).
 # The binary must be named 'kubectl-krew' so that kubectl discovers it on PATH and exposes it as the
 # 'kubectl krew' subcommand. Keep KREW_VERSION in sync with $windowsNode_KrewVersion in
-# lib/modules/k2s/k2s.node.module/windowsnode/downloader/artifacts/krew/krew.module.psm1.
+# lib/modules/windows/node/k2s.node.module/windowsnode/downloader/artifacts/krew/krew.module.psm1.
 if ! command -v kubectl-krew &> /dev/null; then
     echo "Installing krew..."
     KREW_VERSION="v0.5.0"

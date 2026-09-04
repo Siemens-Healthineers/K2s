@@ -132,9 +132,9 @@ Param(
     [string] $MessageType
 )
 
-$nodeModule = "$PSScriptRoot\..\..\..\..\modules\k2s\k2s.node.module\k2s.node.module.psm1"
-$infraModule = "$PSScriptRoot\..\..\..\..\modules\k2s\k2s.infra.module\k2s.infra.module.psm1"
-$clusterModule = "$PSScriptRoot\..\..\..\..\modules\k2s\k2s.cluster.module\k2s.cluster.module.psm1"
+$nodeModule = "$PSScriptRoot\..\..\..\..\modules\windows\node\k2s.node.module\k2s.node.module.psm1"
+$infraModule = "$PSScriptRoot\..\..\..\..\modules\windows\infra\k2s.infra.module\k2s.infra.module.psm1"
+$clusterModule = "$PSScriptRoot\..\..\..\..\modules\windows\cluster\k2s.cluster.module\k2s.cluster.module.psm1"
 Import-Module $nodeModule, $infraModule, $clusterModule
 Initialize-Logging -ShowLogs:$ShowLogs
 
@@ -311,7 +311,7 @@ if (!$Windows -and $PreCompile) {
         # Install Go
         $goInstallScript = '/tmp/install_go.sh'
         $kubePath = Get-KubePath
-        Copy-ToControlPlaneViaSSHKey "$kubePath\lib\modules\k2s\k2s.node.module\linuxnode\distros\scripts\install_go.sh" $goInstallScript
+        Copy-ToControlPlaneViaSSHKey "$kubePath\lib\modules\windows\node\k2s.node.module\linuxnode\distros\scripts\install_go.sh" $goInstallScript
 
         # After copy we need to remove carriage line endings from the shell script.
         # TODO: Function to copy shell script to Linux host and remove CR in the shell script file before execution

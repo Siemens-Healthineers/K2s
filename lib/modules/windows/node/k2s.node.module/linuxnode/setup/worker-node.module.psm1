@@ -3,9 +3,9 @@
 
 #Requires -RunAsAdministrator
 
-$infraModule =   "$PSScriptRoot\..\..\..\k2s.infra.module\k2s.infra.module.psm1"
-$clusterModule = "$PSScriptRoot\..\..\..\k2s.cluster.module\k2s.cluster.module.psm1"
-$networkModule = "$PSScriptRoot\..\..\..\k2s.node.module\windowsnode\network\network.module.psm1"
+$infraModule =   "$PSScriptRoot\..\..\..\..\infra\k2s.infra.module\k2s.infra.module.psm1"
+$clusterModule = "$PSScriptRoot\..\..\..\..\cluster\k2s.cluster.module\k2s.cluster.module.psm1"
+$networkModule = "$PSScriptRoot\..\..\windowsnode\network\network.module.psm1"
 $gpuWorkerModule = "$PSScriptRoot\gpu-worker.module.psm1"
 
 Import-Module $infraModule, $clusterModule, $networkModule, $gpuWorkerModule
