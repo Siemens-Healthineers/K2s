@@ -91,18 +91,21 @@ if ($nodeList.Count -eq 0) {
                 Write-Error "Image $image could not be copied to KubeMaster"
             }
 
+            # Retry with backoff: the control-plane VM can briefly become SSH-unresponsive
+            # right after a large image copy (heavy disk/CPU I/O), causing transient
+            # 'Connection timed out'/'Broken pipe' failures on the very next SSH command.
             if (!$DockerArchive) {
-                (Invoke-CmdOnControlPlaneViaSSHKey 'sudo buildah pull oci-archive:/tmp/import.tar 2>&1' -NoLog).Output | Write-Log
+                (Invoke-CmdOnControlPlaneViaSSHKey 'sudo buildah pull oci-archive:/tmp/import.tar 2>&1' -NoLog -Retries 3 -Timeout 10).Output | Write-Log
             }
             else {
-                (Invoke-CmdOnControlPlaneViaSSHKey 'sudo buildah pull docker-archive:/tmp/import.tar 2>&1' -NoLog).Output | Write-Log
+                (Invoke-CmdOnControlPlaneViaSSHKey 'sudo buildah pull docker-archive:/tmp/import.tar 2>&1' -NoLog -Retries 3 -Timeout 10).Output | Write-Log
             }
 
             if ($?) {
                 Write-Log "Image archive $image imported successfully."
             }
 
-            (Invoke-CmdOnControlPlaneViaSSHKey 'cd /tmp && sudo rm -rf import.tar' -NoLog).Output | Write-Log
+            (Invoke-CmdOnControlPlaneViaSSHKey 'cd /tmp && sudo rm -rf import.tar' -NoLog -Retries 3 -Timeout 10).Output | Write-Log
         }
     }
 }
@@ -133,9 +136,9 @@ else {
                         Write-Error "Image $image could not be copied to control-plane '$nodeName'"
                     }
                     $pullCmd = if (!$DockerArchive) { 'sudo buildah pull oci-archive:/tmp/import.tar 2>&1' } else { 'sudo buildah pull docker-archive:/tmp/import.tar 2>&1' }
-                    (Invoke-CmdOnControlPlaneViaSSHKey $pullCmd -NoLog).Output | Write-Log
+                    (Invoke-CmdOnControlPlaneViaSSHKey $pullCmd -NoLog -Retries 3 -Timeout 10).Output | Write-Log
                     if ($?) { Write-Log "Image archive $image imported successfully on '$nodeName'." }
-                    (Invoke-CmdOnControlPlaneViaSSHKey 'cd /tmp && sudo rm -rf import.tar' -NoLog).Output | Write-Log
+                    (Invoke-CmdOnControlPlaneViaSSHKey 'cd /tmp && sudo rm -rf import.tar' -NoLog -Retries 3 -Timeout 10).Output | Write-Log
                 }
                 'LinuxWorker' {
                     Copy-ToRemoteComputerViaSshKey -Source $image -Target '/tmp/import.tar' -UserName $nodeInfo.Username -IpAddress $nodeInfo.IpAddress
@@ -143,9 +146,9 @@ else {
                         Write-Error "Image $image could not be copied to Linux worker '$nodeName'"
                     }
                     $pullCmd = if (!$DockerArchive) { 'sudo buildah pull oci-archive:/tmp/import.tar 2>&1' } else { 'sudo buildah pull docker-archive:/tmp/import.tar 2>&1' }
-                    (Invoke-CmdOnVmViaSSHKey $pullCmd -IpAddress $nodeInfo.IpAddress -UserName $nodeInfo.Username -NoLog).Output | Write-Log
+                    (Invoke-CmdOnVmViaSSHKey $pullCmd -IpAddress $nodeInfo.IpAddress -UserName $nodeInfo.Username -NoLog -Retries 3 -Timeout 10).Output | Write-Log
                     if ($?) { Write-Log "Image archive $image imported successfully on '$nodeName'." }
-                    (Invoke-CmdOnVmViaSSHKey 'cd /tmp && sudo rm -rf import.tar' -IpAddress $nodeInfo.IpAddress -UserName $nodeInfo.Username -NoLog).Output | Write-Log
+                    (Invoke-CmdOnVmViaSSHKey 'cd /tmp && sudo rm -rf import.tar' -IpAddress $nodeInfo.IpAddress -UserName $nodeInfo.Username -NoLog -Retries 3 -Timeout 10).Output | Write-Log
                 }
                 'LocalWindows' {
                     $importSuccess = Invoke-Ctr -Arguments '-n', 'k8s.io', 'images', 'import', $image
