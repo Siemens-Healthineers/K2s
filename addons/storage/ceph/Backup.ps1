@@ -19,7 +19,6 @@ that is required to re-enable the addon (monitor endpoints, credentials, pool/fi
 This backup contains:
 - A snapshot of the storage ceph config file (ceph-config.json)
 - A snapshot of the addon entry from setup.json (best-effort)
-- A rendered snapshot of the SMB CSI manifests used by Ceph (when SMB is configured)
 - Best-effort snapshots of Ceph SMB Kubernetes resources (namespace, secret, StorageClass)
 
 .PARAMETER BackupDir
@@ -108,28 +107,8 @@ try {
     }
 
     $smbConfig = if ($cephConfig -and ($cephConfig.PSObject.Properties.Name -contains 'smb')) { $cephConfig.smb } else { $null }
-    $smbNamespace = if ($smbConfig -and ($smbConfig.PSObject.Properties.Name -contains 'namespace') -and -not [string]::IsNullOrWhiteSpace($smbConfig.namespace)) { "$($smbConfig.namespace)" } else { 'storage-smb-ceph' }
+    $smbNamespace = 'storage-smb-ceph'
     $smbStorageClassName = if ($smbConfig -and ($smbConfig.PSObject.Properties.Name -contains 'storageClassName') -and -not [string]::IsNullOrWhiteSpace($smbConfig.storageClassName)) { "$($smbConfig.storageClassName)" } else { 'ceph-smb' }
-
-    $smbSnapshotDir = Join-Path $BackupDir 'smb-csi-manifests'
-    New-Item -ItemType Directory -Path $smbSnapshotDir -Force | Out-Null
-
-    $smbManifestsDir = "$PSScriptRoot\..\smb\manifests\windows"
-    if (-not (Test-Path $smbManifestsDir)) {
-        $smbManifestsDir = "$PSScriptRoot\manifests\smb\windows"
-    }
-    if (Test-Path $smbManifestsDir) {
-        Copy-Item -Path (Join-Path $smbManifestsDir '*') -Destination $smbSnapshotDir -Recurse -Force
-        Get-ChildItem -Path $smbSnapshotDir -Recurse -File | ForEach-Object {
-            $manifestContent = Get-Content -Path $_.FullName -Raw
-            $manifestContent = $manifestContent.Replace('storage-smb', $smbNamespace)
-            Set-Content -Path $_.FullName -Value $manifestContent -Encoding utf8
-        }
-        $files += 'smb-csi-manifests/'
-    }
-    else {
-        Write-Log '[StorageCephBackup] WARNING: SMB manifests not found for snapshot; continuing without smb-csi-manifests payload.' -Console
-    }
 
     if ($systemError -eq $null) {
         $smbNsResult = Invoke-Kubectl -Params 'get', 'namespace', $smbNamespace, '-o', 'yaml', '--ignore-not-found'

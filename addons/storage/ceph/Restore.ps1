@@ -14,8 +14,7 @@ Completes the restore of the storage ceph addon.
 Ceph is backed by an EXTERNAL Ceph cluster, so there is no addon-owned persistent data to copy
 back. The connection configuration (ceph-config.json) is already restored and the addon is already
 (re)enabled by the CLI via EnableForRestore.ps1 before this script runs. This script re-applies the
-config snapshot and, when present, re-imports the Ceph SMB manifests/resources captured by Backup.ps1
-to restore the expected SMB CSI wiring for Windows access.
+config snapshot and, when present, re-applies Ceph SMB Kubernetes resources captured by Backup.ps1.
 
 .PARAMETER BackupDir
 Directory containing extracted backup artifacts (staging folder).
@@ -87,12 +86,6 @@ try {
     $smbNamespaceSnapshot = Join-Path $BackupDir 'ceph-smb-namespace.yaml'
     if (Test-Path -LiteralPath $smbNamespaceSnapshot) {
         (Invoke-Kubectl -Params 'apply', '-f', $smbNamespaceSnapshot).Output | Write-Log
-    }
-
-    $smbManifestsDir = Join-Path $BackupDir 'smb-csi-manifests'
-    if (Test-Path -LiteralPath $smbManifestsDir) {
-        Write-Log "[StorageCephRestore] Re-applying Ceph SMB CSI manifests from '$smbManifestsDir'" -Console
-        (Invoke-Kubectl -Params 'apply', '-k', $smbManifestsDir).Output | Write-Log
     }
 
     $smbCredsSnapshot = Join-Path $BackupDir 'ceph-smb-smbcreds-secret.yaml'

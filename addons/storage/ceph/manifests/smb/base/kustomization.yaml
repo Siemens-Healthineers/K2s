@@ -1,0 +1,12 @@
+# SPDX-FileCopyrightText: © 2024 Siemens Healthineers AG
+#
+# SPDX-License-Identifier: MIT
+
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - rbac-csi-smb.yaml
+  - csi-smb-driver.yaml
+  - csi-smb-controller.yaml
+  - csi-smb-node.yaml

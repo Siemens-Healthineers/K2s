@@ -138,7 +138,7 @@ Expected StorageClasses:
 
 When Ceph is enabled with `-w`, K2s creates the Ceph `mgr/smb` user automatically. If you do not set a custom value in `config/ceph-config.json` under `smb.userName`, the default SMB user name is `smbuser`.
 
-The addon also generates a random password for that user and stores the credentials in the Kubernetes Secret named `smbcreds` in the namespace `storage-smb-ceph` (or the value configured in `smb.namespace`). The Secret contains the fields:
+The addon also generates a random password for that user and stores the credentials in the Kubernetes Secret named `smbcreds` in the namespace `storage-smb-ceph`. The Secret contains the fields:
 
 - `username`
 - `password`
