@@ -16,7 +16,7 @@ param (
     [string]$BackupDir = $(throw 'Please specify the back-up directory.')
 )
 $script = $MyInvocation.MyCommand.Name
-$logModule = "$PSScriptRoot/../../lib/modules/windows/infra/k2s.infra.module/log/log.module.psm1"
+$logModule = "$PSScriptRoot/../../../../lib/modules/windows/infra/k2s.infra.module/log/log.module.psm1"
 $smbShareModule = "$PSScriptRoot\..\storage\smb\module\Smb-share.module.psm1"
 
 Import-Module $logModule, $smbShareModule
