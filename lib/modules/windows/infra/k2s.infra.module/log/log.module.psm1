@@ -3,7 +3,7 @@
 
 # Imports
 
-$pathModule = "$PSScriptRoot\..\..\k2s.infra.module\path\path.module.psm1"
+$pathModule = "$PSScriptRoot\..\path\path.module.psm1"
 
 Import-Module $pathModule
 

@@ -4,8 +4,8 @@
 
 #Requires -RunAsAdministrator
 
-$logModule = "$PSScriptRoot/../../lib\modules\k2s\k2s.infra.module\log\log.module.psm1"
-$k8sApiModule = "$PSScriptRoot/../../lib\modules\k2s\k2s.cluster.module\k8s-api\k8s-api.module.psm1"
+$logModule = "$PSScriptRoot/../../lib\modules\windows\infra\k2s.infra.module\log\log.module.psm1"
+$k8sApiModule = "$PSScriptRoot/../../lib\modules\windows\cluster\k2s.cluster.module\k8s-api\k8s-api.module.psm1"
 
 Import-Module $logModule, $k8sApiModule
 

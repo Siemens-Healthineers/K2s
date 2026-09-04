@@ -48,10 +48,10 @@ if ($runningFromDelta) {
 		exit 1
 	}
 
-	$infraModule = Join-Path $targetInstallPath 'lib\modules\k2s\k2s.infra.module\k2s.infra.module.psm1'
+	$infraModule = Join-Path $targetInstallPath 'lib\modules\windows\infra\k2s.infra.module\k2s.infra.module.psm1'
 } else {
 	# Running from installed k2s - use relative path
-	$infraModule = "$PSScriptRoot\..\..\..\..\modules\k2s\k2s.infra.module\k2s.infra.module.psm1"
+	$infraModule = "$PSScriptRoot\..\..\..\..\modules\windows\infra\k2s.infra.module\k2s.infra.module.psm1"
 }
 
 Import-Module $infraModule

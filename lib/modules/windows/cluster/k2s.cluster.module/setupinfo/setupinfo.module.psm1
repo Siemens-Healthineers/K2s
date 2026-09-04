@@ -2,7 +2,7 @@
 #
 # SPDX-License-Identifier: MIT
 
-Import-Module "$PSScriptRoot/../../k2s.infra.module/k2s.infra.module.psm1"
+Import-Module "$PSScriptRoot\..\..\..\infra\k2s.infra.module\k2s.infra.module.psm1"
 
 function Confirm-SetupNameIsValid {
     param (

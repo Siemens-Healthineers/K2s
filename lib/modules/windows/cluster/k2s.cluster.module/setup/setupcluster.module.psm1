@@ -2,13 +2,13 @@
 # SPDX-License-Identifier: MIT
 
 
-$configModule = "$PSScriptRoot\..\..\k2s.infra.module\config\config.module.psm1"
-$logModule = "$PSScriptRoot\..\..\k2s.infra.module\log\log.module.psm1"
-$pathModule = "$PSScriptRoot\..\..\k2s.infra.module\path\path.module.psm1"
-$hooksModule = "$PSScriptRoot\..\..\k2s.infra.module\hooks\hooks.module.psm1"
-$vmModule = "$PSScriptRoot\..\..\k2s.node.module\linuxnode\vm\vm.module.psm1"
-$vmNodeModule = "$PSScriptRoot\..\..\k2s.node.module\vmnode\vmnode.module.psm1"
-$kubeToolsModule = "$PSScriptRoot\..\..\k2s.node.module\windowsnode\downloader\artifacts\kube-tools\kube-tools.module.psm1"
+$configModule = "$PSScriptRoot\..\..\..\infra\k2s.infra.module\config\config.module.psm1"
+$logModule = "$PSScriptRoot\..\..\..\infra\k2s.infra.module\log\log.module.psm1"
+$pathModule = "$PSScriptRoot\..\..\..\infra\k2s.infra.module\path\path.module.psm1"
+$hooksModule = "$PSScriptRoot\..\..\..\infra\k2s.infra.module\hooks\hooks.module.psm1"
+$vmModule = "$PSScriptRoot\..\..\..\node\k2s.node.module\linuxnode\vm\vm.module.psm1"
+$vmNodeModule = "$PSScriptRoot\..\..\..\node\k2s.node.module\vmnode\vmnode.module.psm1"
+$kubeToolsModule = "$PSScriptRoot\..\..\..\node\k2s.node.module\windowsnode\downloader\artifacts\kube-tools\kube-tools.module.psm1"
 $imageModule = "$PSScriptRoot\..\image\image.module.psm1"
 $k8sApiModule = "$PSScriptRoot\..\k8s-api\k8s-api.module.psm1"
 

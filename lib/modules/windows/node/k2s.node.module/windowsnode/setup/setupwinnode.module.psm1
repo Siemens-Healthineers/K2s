@@ -3,9 +3,9 @@
 
 #Requires -RunAsAdministrator
 
-$configModule = "$PSScriptRoot\..\..\..\k2s.infra.module\config\config.module.psm1"
-$pathModule = "$PSScriptRoot\..\..\..\k2s.infra.module\path\path.module.psm1"
-$logModule = "$PSScriptRoot\..\..\..\k2s.infra.module\log\log.module.psm1"
+$configModule = "$PSScriptRoot\..\..\..\..\infra\k2s.infra.module\config\config.module.psm1"
+$pathModule = "$PSScriptRoot\..\..\..\..\infra\k2s.infra.module\path\path.module.psm1"
+$logModule = "$PSScriptRoot\..\..\..\..\infra\k2s.infra.module\log\log.module.psm1"
 $downloaderModule = "$PSScriptRoot\..\downloader\downloader.module.psm1"
 $networkModule = "$PSScriptRoot\..\network\network.module.psm1"
 Import-Module $logModule, $configModule, $pathModule, $downloaderModule, $networkModule

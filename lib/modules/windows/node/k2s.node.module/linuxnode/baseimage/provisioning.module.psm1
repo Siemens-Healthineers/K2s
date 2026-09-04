@@ -3,7 +3,7 @@
 
 #Requires -RunAsAdministrator
 
-$infraModule = "$PSScriptRoot\..\..\..\k2s.infra.module\k2s.infra.module.psm1"
+$infraModule = "$PSScriptRoot\..\..\..\..\infra\k2s.infra.module\k2s.infra.module.psm1"
 $baseImageModule = "$PSScriptRoot\base-image.module.psm1"
 $vmModule = "$PSScriptRoot\..\vm\vm.module.psm1"
 Import-Module $infraModule, $baseImageModule, $vmModule

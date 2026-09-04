@@ -1,8 +1,8 @@
 # SPDX-FileCopyrightText: © 2024 Siemens Healthineers AG
 # SPDX-License-Identifier: MIT
 
-$pathModule = "$PSScriptRoot\..\..\k2s.infra.module\path\path.module.psm1"
-$logModule = "$PSScriptRoot\..\..\k2s.infra.module\log\log.module.psm1"
+$pathModule = "$PSScriptRoot\..\..\..\infra\k2s.infra.module\path\path.module.psm1"
+$logModule = "$PSScriptRoot\..\..\..\infra\k2s.infra.module\log\log.module.psm1"
 Import-Module $pathModule, $logModule
 
 <#

@@ -3,8 +3,8 @@
 
 #Requires -RunAsAdministrator
 
-$configModule = "$PSScriptRoot\..\..\..\k2s.infra.module\config\config.module.psm1"
-$logModule = "$PSScriptRoot\..\..\..\k2s.infra.module\log\log.module.psm1"
+$configModule = "$PSScriptRoot\..\..\..\..\infra\k2s.infra.module\config\config.module.psm1"
+$logModule = "$PSScriptRoot\..\..\..\..\infra\k2s.infra.module\log\log.module.psm1"
 Import-Module $logModule, $configModule
 
 $controlPlaneVMHostName = Get-ConfigControlPlaneNodeHostname

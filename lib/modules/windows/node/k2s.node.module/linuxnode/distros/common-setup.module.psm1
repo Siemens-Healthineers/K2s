@@ -3,7 +3,7 @@
 # SPDX-License-Identifier: MIT
 
 
-$infraModule = "$PSScriptRoot\..\..\..\k2s.infra.module\k2s.infra.module.psm1"
+$infraModule = "$PSScriptRoot\..\..\..\..\infra\k2s.infra.module\k2s.infra.module.psm1"
 $provisioningModule = "$PSScriptRoot\..\baseimage\provisioning.module.psm1"
 $vmModule = "$PSScriptRoot\..\vm\vm.module.psm1"
 Import-Module $infraModule, $provisioningModule, $vmModule
@@ -210,7 +210,7 @@ Function Get-KubernetesArtifactsFromInternet {
     )
     # Copy ZScaler certificate if needed
     Write-Log "Copying ZScaler Root CA certificate to computer with IP '$IpAddress'"
-    $zScalerCertificateSourcePath = "$(Get-KubePath)\lib\modules\k2s\k2s.node.module\linuxnode\setup\certificate\ZScalerRootCA.crt"
+    $zScalerCertificateSourcePath = "$(Get-KubePath)\lib\modules\windows\node\k2s.node.module\linuxnode\setup\certificate\ZScalerRootCA.crt"
     $zScalerCertificateTargetPath = '/tmp/ZScalerRootCA.crt'
     if ([string]::IsNullOrWhiteSpace($UserPwd)) {
         Copy-ToRemoteComputerViaSshKey -Source $zScalerCertificateSourcePath -Target $zScalerCertificateTargetPath -UserName $UserName -IpAddress $IpAddress

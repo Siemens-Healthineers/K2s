@@ -1,9 +1,9 @@
 # SPDX-FileCopyrightText: © 2024 Siemens Healthineers AG
 # SPDX-License-Identifier: MIT
 
-$pathModule = "$PSScriptRoot\..\..\..\k2s.infra.module\path\path.module.psm1"
-$logModule = "$PSScriptRoot\..\..\..\k2s.infra.module\log\log.module.psm1"
-$configModule = "$PSScriptRoot\..\..\..\k2s.infra.module\config\config.module.psm1"
+$pathModule = "$PSScriptRoot\..\..\..\..\infra\k2s.infra.module\path\path.module.psm1"
+$logModule = "$PSScriptRoot\..\..\..\..\infra\k2s.infra.module\log\log.module.psm1"
+$configModule = "$PSScriptRoot\..\..\..\..\infra\k2s.infra.module\config\config.module.psm1"
 Import-Module $logModule, $pathModule, $configModule
 
 function Add-K2sToDefenderExclusion {

@@ -34,7 +34,7 @@ Param(
     [parameter(Mandatory = $false, HelpMessage = 'Push image to repository')]
     [switch] $Push = $false
 )
-Import-Module "$PSScriptRoot\..\..\lib\modules\k2s\k2s.node.module\windowsnode\system\system.module.psm1"
+Import-Module "$PSScriptRoot\..\..\lib\modules\windows\node\k2s.node.module\windowsnode\system\system.module.psm1"
 
 <#
 .SYNOPSIS

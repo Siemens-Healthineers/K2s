@@ -5,7 +5,7 @@
 
 BeforeAll {
     # Import required modules
-    Import-Module "$PSScriptRoot\..\..\k2s.infra.module\k2s.infra.module.psm1" -Force
+    Import-Module "$PSScriptRoot\..\..\..\infra\k2s.infra.module\k2s.infra.module.psm1" -Force
     $modulePath = "$PSScriptRoot\ImageBackup.module.psm1"
     $script:moduleName = (Import-Module $modulePath -PassThru -Force).Name
 }

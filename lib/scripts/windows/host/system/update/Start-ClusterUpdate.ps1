@@ -48,8 +48,8 @@ if ($runningFromDelta) {
 		exit 1
 	}
 
-	$infraModule = Join-Path $targetInstallPath 'lib\modules\k2s\k2s.infra.module\k2s.infra.module.psm1'
-	$clusterModule = Join-Path $targetInstallPath 'lib\modules\k2s\k2s.cluster.module\k2s.cluster.module.psm1'
+	$infraModule = Join-Path $targetInstallPath 'lib\modules\windows\infra\k2s.infra.module\k2s.infra.module.psm1'
+	$clusterModule = Join-Path $targetInstallPath 'lib\modules\windows\cluster\k2s.cluster.module\k2s.cluster.module.psm1'
 	$addonsModule = Join-Path $targetInstallPath 'addons\addons.module.psm1'
 
 	# Load update module from DELTA PACKAGE (it's new/updated and may not exist in target installation)
@@ -59,13 +59,13 @@ if ($runningFromDelta) {
 	# restarts the cluster via the new k2s.exe and writes the new InstallFolder to setup.json, which
 	# lives at the fixed ProgramData location). Therefore loading these modules from the previous
 	# installation folder here remains correct for the whole update run.
-	$updateModule = Join-Path $possibleDeltaRoot 'lib\modules\k2s\k2s.cluster.module\update\update.module.psm1'
+	$updateModule = Join-Path $possibleDeltaRoot 'lib\modules\windows\cluster\k2s.cluster.module\update\update.module.psm1'
 } else {
 	# Running from installed k2s - use relative paths
-	$infraModule = "$PSScriptRoot\..\..\..\..\..\modules\k2s\k2s.infra.module\k2s.infra.module.psm1"
-	$clusterModule = "$PSScriptRoot\..\..\..\..\..\modules\k2s\k2s.cluster.module\k2s.cluster.module.psm1"
+	$infraModule = "$PSScriptRoot\..\..\..\..\..\modules\windows\infra\k2s.infra.module\k2s.infra.module.psm1"
+	$clusterModule = "$PSScriptRoot\..\..\..\..\..\modules\windows\cluster\k2s.cluster.module\k2s.cluster.module.psm1"
 	$addonsModule = "$PSScriptRoot\..\..\..\..\..\..\addons\addons.module.psm1"
-	$updateModule = "$PSScriptRoot\..\..\..\..\..\modules\k2s\k2s.cluster.module\update\update.module.psm1"
+	$updateModule = "$PSScriptRoot\..\..\..\..\..\modules\windows\cluster\k2s.cluster.module\update\update.module.psm1"
 }
 
 Import-Module $infraModule, $clusterModule, $addonsModule, $updateModule

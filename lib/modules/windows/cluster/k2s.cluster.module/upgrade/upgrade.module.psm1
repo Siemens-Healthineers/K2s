@@ -2,7 +2,7 @@
 #
 # SPDX-License-Identifier: MIT
 
-$infraModule = "$PSScriptRoot/../../k2s.infra.module/k2s.infra.module.psm1"
+$infraModule = "$PSScriptRoot\..\..\..\infra\k2s.infra.module\k2s.infra.module.psm1"
 $imageBackupModule = "$PSScriptRoot/../image/ImageBackup.module.psm1"
 $pvBackupModule = "$PSScriptRoot/BackupPersistentVolumes.psm1"
 $setupInfoModule = "$PSScriptRoot/../setupinfo/setupinfo.module.psm1"

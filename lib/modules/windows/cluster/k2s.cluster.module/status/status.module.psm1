@@ -1,11 +1,11 @@
 # SPDX-FileCopyrightText: © 2024 Siemens Healthineers AG
 # SPDX-License-Identifier: MIT
 
-$vmModule = "$PSScriptRoot\..\..\k2s.node.module\linuxnode\vm\vm.module.psm1"
+$vmModule = "$PSScriptRoot\..\..\..\node\k2s.node.module\linuxnode\vm\vm.module.psm1"
 $setupInfoModule = "$PSScriptRoot\..\setupinfo\setupinfo.module.psm1"
 $runningStateModule = "$PSScriptRoot\..\runningstate\runningstate.module.psm1"
 $k8sApiModule = "$PSScriptRoot/../k8s-api/k8s-api.module.psm1"
-$infraModule = "$PSScriptRoot/../../k2s.infra.module/k2s.infra.module.psm1"
+$infraModule = "$PSScriptRoot\..\..\..\infra\k2s.infra.module\k2s.infra.module.psm1"
 
 Import-Module $vmModule, $setupInfoModule, $runningStateModule, $k8sApiModule, $infraModule
 

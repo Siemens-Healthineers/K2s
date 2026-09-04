@@ -2,10 +2,10 @@
 #
 # SPDX-License-Identifier: MIT
 
-$logModule = "$PSScriptRoot\..\..\..\k2s.infra.module\log\log.module.psm1"
+$logModule = "$PSScriptRoot\..\..\..\..\infra\k2s.infra.module\log\log.module.psm1"
 Import-Module $logModule
 
-$configModule = "$PSScriptRoot\..\..\..\k2s.infra.module\config\config.module.psm1"
+$configModule = "$PSScriptRoot\..\..\..\..\infra\k2s.infra.module\config\config.module.psm1"
 Import-Module $configModule
 
 $proxyConfigFp = "C:\ProgramData\k2s\proxy.conf"

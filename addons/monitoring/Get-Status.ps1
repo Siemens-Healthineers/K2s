@@ -4,7 +4,7 @@
 
 #Requires -RunAsAdministrator
 
-Import-Module "$PSScriptRoot/../../lib/modules/k2s/k2s.cluster.module/k8s-api/k8s-api.module.psm1"
+Import-Module "$PSScriptRoot/../../lib/modules/windows/cluster/k2s.cluster.module/k8s-api/k8s-api.module.psm1"
 $addonsModule = "$PSScriptRoot\..\addons.module.psm1"
 Import-Module $addonsModule
 
