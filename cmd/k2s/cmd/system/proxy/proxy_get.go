@@ -41,7 +41,7 @@ func getProxyServer(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	psCmd := utils.FormatScriptFilePath(path.Join(utils.InstallDir(), "lib", "scripts", "k2s", "system", "proxy", "GetProxy.ps1"))
+	psCmd := utils.FormatScriptFilePath(path.Join(utils.InstallDir(), "lib", "scripts", "windows", "host", "system", "proxy", "GetProxy.ps1"))
 	var params []string
 	proxy, err := powershell.ExecutePsWithStructuredResult[*ProxyServer](psCmd, "ProxyServer", common.NewPtermWriter(), params...)
 	if err != nil {

@@ -531,7 +531,7 @@ try {
                     if ($linuxImageToExportArray.Count -eq 0 -and $windowsImageToExportArray.Count -eq 0) {
                         Write-Log "[AddonExport] WARNING: No matching images found for '$image' - image will NOT be exported!"
                     }
-                    $exportImageScript = "$PSScriptRoot\..\lib\scripts\k2s\image\Export-Image.ps1"
+                    $exportImageScript = "$PSScriptRoot\..\lib\scripts\windows\host\image\Export-Image.ps1"
                     
                     if ($linuxImageToExportArray -and $linuxImageToExportArray.Count -gt 0) {
                         $imageToExport = $linuxImageToExportArray[0]

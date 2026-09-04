@@ -243,7 +243,7 @@ func parseBuildArguments(arguments []string) (map[string]string, error) {
 }
 
 func buildPsCmd(buildOptions *buildOptions) (psCmd string, params []string) {
-	psCmd = utils.FormatScriptFilePath(filepath.Join(utils.InstallDir(), "lib", "scripts", "k2s", "image", "Build-Image.ps1"))
+	psCmd = utils.FormatScriptFilePath(filepath.Join(utils.InstallDir(), "lib", "scripts", "windows", "host", "image", "Build-Image.ps1"))
 	params = append(params, " -InputFolder "+buildOptions.InputFolder)
 
 	if buildOptions.Dockerfile != "" {
