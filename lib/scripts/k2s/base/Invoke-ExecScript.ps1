@@ -96,12 +96,12 @@ function Set-WinPSModulePathIfNeeded {
     return $true
 }
 
-# Normalize PSModulePath to WinPS 5.1 canonical paths when inherited from pwsh 7
-if (Set-WinPSModulePathIfNeeded) {
-    Write-Information "[Invoke-ExecScript] PSModulePath normalized to WinPS 5.1 canonical paths (pwsh 7 environment detected)" -InformationAction Continue
-}
-
 Import-Module $infraModule
+
+# Normalize PSModulePath to WinPS 5.1 canonical paths when inherited from pwsh 7.
+if (Set-WinPSModulePathIfNeeded) {
+    Write-Log "[Invoke-ExecScript] PSModulePath normalized to WinPS 5.1 canonical paths (pwsh 7 environment detected)"
+}
 
 if ($Script.Contains("-ShowLogs")) {
     Initialize-Logging -ShowLogs:$true
