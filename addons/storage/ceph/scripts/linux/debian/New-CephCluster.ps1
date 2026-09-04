@@ -1039,7 +1039,7 @@ if (-not $connectionResolved) {
     exit 1
 }
 
-Invoke-CephOsdPreparation -BootstrapNodeName $clusterHostNode -BootstrapNodeIp $NodeIp -BootstrapNodeUserName $nodeUserName -CephPubKey $cephPubKeyValue -Proxy $Proxy -CephImage $cephadminUrl -Config $Config -ShowLogs:$ShowLogs
+Invoke-CephOsdPreparation -BootstrapNodeName $clusterHostNode -BootstrapNodeIp $NodeIp -BootstrapNodeUserName $nodeUserName -CephPubKey $cephPubKeyValue -Proxy $Proxy -CephImage $cephImage -Config $Config -ShowLogs:$ShowLogs
 
 $cephFsForSubvolumeGroup = if (-not [string]::IsNullOrWhiteSpace($cephFsFilesystem)) { $cephFsFilesystem } else { 'cephfs' }
 

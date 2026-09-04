@@ -34,6 +34,17 @@ For Linux + Windows workload environments:
 - Use `ceph-cephfs` provisioner for Linux workloads.
 - Use `ceph-smb` provisioner for Windows workloads.
 
+## Offline guidance (addon export/import)
+
+For air-gapped environments, export and import the Ceph addon before enable:
+
+```console
+k2s addons export "storage ceph" -d C:\exports
+k2s addons import "storage ceph" C:\transfer\addons.oci.tar
+```
+
+If `clusterHost.node` is a Linux worker node, include `--node <worker-node-name>` on import so offline Ceph bootstrap prerequisites are staged on the target Ceph host.
+
 ## Performance recommendation
 
 To get better Ceph storage performance, it is recommended to:

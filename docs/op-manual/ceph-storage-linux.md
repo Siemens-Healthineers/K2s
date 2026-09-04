@@ -58,6 +58,36 @@ k2s addons enable storage ceph
 
 - The `ceph-cephfs` StorageClass exists.
 
+## Offline setup using addon export/import
+
+Use this when the target environment has no internet access.
+
+1. On a connected K2s environment, export the Ceph addon artifact:
+
+```console
+k2s addons export "storage ceph" -d C:\exports
+```
+
+2. Transfer the exported OCI artifact to the offline environment.
+
+3. Import it before enabling Ceph:
+
+```console
+k2s addons import "storage ceph" --zip C:\transfer\addons.oci.tar
+```
+
+4. If `clusterHost.node` is a Linux worker node, import with `--node` so offline Linux packages and staged files are copied to that worker:
+
+```console
+k2s addons import "storage ceph" C:\transfer\addons.oci.tar --node cephosdnode1
+```
+
+5. Enable Ceph:
+
+```console
+k2s addons enable storage ceph
+```
+
 ## Verify CephFS components
 
 ```console

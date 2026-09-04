@@ -122,6 +122,42 @@ CephFS for Linux + SMB path for Windows:
 k2s addons enable storage ceph -w
 ```
 
+## Offline workflow (export/import)
+
+Use this workflow when the target K2s environment is air-gapped.
+
+1. Export the Ceph addon artifact on a connected environment:
+
+```console
+k2s addons export "storage ceph" -d C:\exports
+```
+
+2. Copy the generated OCI artifact to the offline environment.
+
+3. Import the artifact before enabling Ceph:
+
+```console
+k2s addons import "storage ceph" --zip C:\transfer\addons.oci.tar
+```
+
+Use `--node` when `clusterHost.node` points to a Linux worker node (not `kubemaster`) so Linux packages and staged files are placed on the node that will bootstrap Ceph:
+
+```console
+k2s addons import "storage ceph" C:\transfer\addons.oci.tar --node cephosdnode1
+```
+
+After import, enable Ceph normally:
+
+```console
+k2s addons enable storage ceph
+```
+
+or for cross-OS workloads:
+
+```console
+k2s addons enable storage ceph -w
+```
+
 ## Verify
 
 ```console

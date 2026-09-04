@@ -97,8 +97,6 @@ spec:
             - registry.k8s.io/sig-storage/csi-node-driver-registrar:v2.17.0
             - registry.k8s.io/sig-storage/livenessprobe:v2.18.0
             - registry.k8s.io/sig-storage/smbplugin:v1.20.1
-            - shsk2s.azurecr.io/sig-storage/smbplugin:v1.20.1-hp
-            - shsk2s.azurecr.io/sig-storage/csi-node-driver-registrar:v2.17.0-hp
             - quay.io/samba.org/samba-metrics:ceph20-centos-amd64
             - quay.io/samba.org/samba-server:ceph20-centos-amd64
           additionalImagesFiles:
@@ -106,6 +104,9 @@ spec:
             - manifests/csi-rbac.yaml
         windows:
           curl: []
+          additionalImages:
+            - shsk2s.azurecr.io/sig-storage/smbplugin:v1.20.1-hp
+            - shsk2s.azurecr.io/sig-storage/csi-node-driver-registrar:v2.17.0-hp
       commands:
         enable:
           cli:

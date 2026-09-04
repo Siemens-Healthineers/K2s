@@ -48,6 +48,36 @@ This creates:
 
 The Windows SMB user is created automatically by the Ceph `mgr/smb` setup. If no custom `smb.userName` is configured in `config/ceph-config.json`, the default user name is `smbuser`. K2s then generates a random password and stores it in the Kubernetes Secret `smbcreds` in the same namespace used for the SMB CSI manifests (default `storage-smb-ceph`). The Secret contains `username` and `password`, and the `ceph-smb` StorageClass uses those credentials.
 
+## Offline setup using addon export/import
+
+Use this when the target environment is air-gapped.
+
+1. On a connected K2s environment, export the Ceph addon artifact:
+
+```console
+k2s addons export "storage ceph" -d C:\exports
+```
+
+2. Transfer the exported OCI artifact to the offline environment.
+
+3. Import it before enable:
+
+```console
+k2s addons import "storage ceph" --zip C:\transfer\addons.oci.tar
+```
+
+4. If `clusterHost.node` is a Linux worker node, use `--node` so Ceph bootstrap prerequisites are staged on the actual Ceph host:
+
+```console
+k2s addons import "storage ceph" C:\transfer\addons.oci.tar --node cephosdnode1
+```
+
+5. Enable Ceph with Windows integration:
+
+```console
+k2s addons enable storage ceph -w
+```
+
 ## Verify SMB path
 
 ```console
