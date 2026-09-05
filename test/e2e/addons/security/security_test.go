@@ -386,6 +386,24 @@ var _ = Describe("'security' addon tests", Ordered, Serial, func() {
 				Entry("albums-win3 is available", "albums-win3", true),
 				Entry("curl1 is available", "curl1", false))
 
+			// On Windows the redirection is programmed by the K2s CNI, so linkerd-init only
+			// verifies the contract. Asserting the exit code pins the failure to the init
+			// container instead of surfacing it later as an unrelated connectivity timeout.
+			DescribeTable("Linkerd init container completes successfully", func(ctx context.Context, name string, skipOnLinuxOnly bool) {
+				if skipOnLinuxOnly && suite.SetupInfo().RuntimeConfig.InstallConfig().LinuxOnly() {
+					Skip("Linux-only")
+				}
+
+				exitCode := suite.Kubectl().MustExec(ctx, "get", "pods", "-n", namespace, "-l", "app="+name,
+					"-o", `jsonpath={.items[*].status.initContainerStatuses[?(@.name=="linkerd-init")].state.terminated.exitCode}`)
+
+				Expect(exitCode).To(MatchRegexp(`^0(\s+0)*$`), "linkerd-init did not complete successfully for "+name)
+			},
+				Entry("albums-linux1", "albums-linux1", false),
+				Entry("albums-win1", "albums-win1", true),
+				Entry("albums-linux2", "albums-linux2", false),
+				Entry("albums-win2", "albums-win2", true))
+
 			DescribeTable("Deployment is not reachable from Host due to StatusForbidden for pods with linkerd.io/inject: enabled", func(ctx context.Context, name string, skipOnLinuxOnly bool) {
 				if skipOnLinuxOnly && suite.SetupInfo().RuntimeConfig.InstallConfig().LinuxOnly() {
 					Skip("Linux-only")
