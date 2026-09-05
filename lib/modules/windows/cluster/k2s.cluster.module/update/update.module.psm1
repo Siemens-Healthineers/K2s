@@ -18,8 +18,9 @@
 #>
 
 # Detect if we're running from a delta package (extracted) or from installed k2s
-# If delta-manifest.json exists 5 levels up, we're in a delta package
-$deltaManifestCheck = Join-Path (Split-Path (Split-Path (Split-Path (Split-Path (Split-Path $PSScriptRoot -Parent) -Parent) -Parent) -Parent) -Parent) 'delta-manifest.json'
+# If delta-manifest.json exists 6 levels up, we're in a delta package.
+# The relocated module lives at lib\modules\windows\cluster\k2s.cluster.module\update.
+$deltaManifestCheck = Join-Path (Split-Path (Split-Path (Split-Path (Split-Path (Split-Path (Split-Path $PSScriptRoot -Parent) -Parent) -Parent) -Parent) -Parent) -Parent) 'delta-manifest.json'
 $runningFromDelta = Test-Path -LiteralPath $deltaManifestCheck
 
 if ($runningFromDelta) {
