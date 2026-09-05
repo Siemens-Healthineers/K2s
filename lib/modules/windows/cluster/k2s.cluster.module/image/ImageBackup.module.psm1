@@ -392,7 +392,7 @@ function Get-K2sImageList {
 
     try {
         # Use the existing Get-Images.ps1 script which already has proper filtering logic
-        $getImagesScript = "$PSScriptRoot\..\..\..\..\scripts\windows\host\image\Get-Images.ps1"
+        $getImagesScript = "$PSScriptRoot\..\..\..\..\..\scripts\windows\host\image\Get-Images.ps1"
         
         if (-not (Test-Path $getImagesScript)) {
             Write-Log "Get-Images.ps1 script not found at: $getImagesScript" -Console
@@ -479,7 +479,7 @@ function Backup-K2sImages {
         [string] $CrictlConfigPath = '',
 
         [Parameter(Mandatory = $false)]
-        [string] $ExportImageScriptPath = "$PSScriptRoot\..\..\..\..\scripts\windows\host\image\Export-Image.ps1"
+        [string] $ExportImageScriptPath = "$PSScriptRoot\..\..\..\..\..\scripts\windows\host\image\Export-Image.ps1"
     )
     
     Write-Log "Starting image backup to directory: $BackupDirectory" -Console
