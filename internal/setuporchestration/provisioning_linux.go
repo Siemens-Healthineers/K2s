@@ -963,7 +963,7 @@ func kubeSwitchProxyURL(installDir string) (string, error) {
 }
 
 func resolveKubernetesVersion(installDir string) (string, error) {
-	configPath := filepath.Join(installDir, "lib", "modules", "k2s", "k2s.infra.module", "config", "config.module.psm1")
+	configPath := filepath.Join(installDir, "lib", "modules", "windows", "infra", "k2s.infra.module", "config", "config.module.psm1")
 	data, err := os.ReadFile(configPath)
 	if err != nil {
 		return "", fmt.Errorf("read shared Kubernetes version from %s: %w", configPath, err)
