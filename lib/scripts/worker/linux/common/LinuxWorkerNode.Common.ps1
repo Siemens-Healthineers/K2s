@@ -21,7 +21,7 @@ function Import-LinuxWorkerScriptModules {
     Import-Module $modulePaths
 
     if ($IncludePuttyTools) {
-        $puttyToolsHelper = "$PSScriptRoot\..\..\..\k2s\system\package\New-K2sPackage.PuttyTools.ps1"
+        $puttyToolsHelper = "$PSScriptRoot\..\..\..\windows\host\system\package\New-K2sPackage.PuttyTools.ps1"
         . $puttyToolsHelper
     }
 }
@@ -47,7 +47,7 @@ function Assert-LinuxWorkerPuttyToolsReady {
         [string] $Proxy = ''
     )
 
-    $puttyToolsHelper = "$PSScriptRoot\..\..\..\k2s\system\package\New-K2sPackage.PuttyTools.ps1"
+    $puttyToolsHelper = "$PSScriptRoot\..\..\..\windows\host\system\package\New-K2sPackage.PuttyTools.ps1"
     . $puttyToolsHelper
 
     Assert-PuttyToolsReady -LogPrefix $LogPrefix -Proxy $Proxy
