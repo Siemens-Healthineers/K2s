@@ -1166,7 +1166,7 @@ Function Deploy-ClusterIPWebhook {
         [ScriptBlock]$ExecuteRemoteCommand = $(throw 'Argument missing: ExecuteRemoteCommand')
     )
 
-    $manifestDir = (Resolve-Path "$PSScriptRoot\..\..\..\..\..\manifests\clusterip-webhook").Path
+    $manifestDir = (Resolve-Path "$PSScriptRoot\..\..\..\..\..\..\manifests\clusterip-webhook").Path
     $remoteDir = '/tmp/clusterip-webhook'
     $remoteUserPwd = $UserPwd
 
