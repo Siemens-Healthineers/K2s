@@ -570,10 +570,14 @@ Describe 'Backup-Addons' -Tag 'unit', 'ci', 'addon' {
                 )
             }
             Mock -ModuleName $moduleName Join-Path { return 'path' } -ParameterFilter { $Path[0] -eq 'dir' -and $Path[1] -eq $backupFileName }
-            Mock -ModuleName $moduleName ConvertTo-Json { return 'json' } -ParameterFilter { $InputObject.Config -eq @(
-                [pscustomobject]@{ Name = 'Addon1' },
-                [pscustomobject]@{ Name = $null }
-            ) }
+            Mock -ModuleName $moduleName ConvertTo-Json { return 'json' } -ParameterFilter {
+                $Depth -eq 100 -and
+                $null -ne $InputObject -and
+                $null -ne $InputObject.Config -and
+                $InputObject.Config.Count -eq 2 -and
+                $InputObject.Config[0].Name -eq 'Addon1' -and
+                $null -eq $InputObject.Config[1].Name
+            }
             Mock -ModuleName $moduleName Set-Content {  }
             Mock -ModuleName $moduleName Get-ScriptRoot { return 'C:\Scripts' }
             Mock -ModuleName $moduleName Test-Path { return $true } -ParameterFilter { $Path -eq 'C:\Scripts\Addon1\hooks' }
@@ -868,7 +872,7 @@ Describe 'Get-AddonStatus' -Tag 'unit', 'ci', 'addon' {
     Context 'addon not existing' {
         BeforeAll {
             $addonDirectory = 'test-addon-dir'
-            Mock -ModuleName $moduleName Test-Path { return $false } -ParameterFilter { $Path -match "\\$addonDirectory" }
+            Mock -ModuleName $moduleName Test-Path { return $false } -ParameterFilter { $Path -eq $addonDirectory }
         }
 
         It 'returns addon-not-found error' {
@@ -1106,9 +1110,15 @@ Describe 'Install-CmctlCli' -Tag 'unit', 'ci', 'addon' {
             Mock -ModuleName $moduleName Get-FromYamlFile { return $manifest }
             Mock -ModuleName $moduleName Test-Path { return $false }
             Mock -ModuleName $moduleName Invoke-DownloadFile {
-                $script:downloadArgs = $args
-                $script:downloadedUrls += $args[1]
-                $script:downloadProxy = $PSBoundParameters['ProxyToUse']
+                param(
+                    [string]$destination,
+                    [string]$source,
+                    [bool]$forceDownload,
+                    [string]$ProxyToUse
+                )
+                $script:downloadArgs = @($destination, $source, $forceDownload, $ProxyToUse)
+                $script:downloadedUrls += $source
+                $script:downloadProxy = $ProxyToUse
             }
         }
 
@@ -1118,12 +1128,14 @@ Describe 'Install-CmctlCli' -Tag 'unit', 'ci', 'addon' {
             }
 
             $script:downloadArgs | Should -Not -BeNullOrEmpty
-            ($script:downloadArgs | Where-Object { $_ -match 'cmctl\.exe$' }).Count | Should -BeGreaterThan 0
-            ($script:downloadArgs | Where-Object { $_ -eq 'http://example/cmctl.exe' }).Count | Should -BeGreaterThan 0
-            ($script:downloadArgs | Where-Object { $_ -eq 'http://proxy:8080' }).Count | Should -BeGreaterThan 0
             $script:downloadedUrls | Should -Contain 'http://example/cmctl.exe'
             $script:downloadedUrls | Should -Not -Contain 'http://example/linkerd.exe'
             Should -Invoke -ModuleName $moduleName Invoke-DownloadFile -Times 1 -Scope It
+            Should -Invoke -ModuleName $moduleName Invoke-DownloadFile -Times 1 -Scope It -ParameterFilter {
+                $destination -match 'cmctl\.exe$' -and
+                $source -eq 'http://example/cmctl.exe' -and
+                $ProxyToUse -eq 'http://proxy:8080'
+            }
         }
     }
 
@@ -1187,7 +1199,13 @@ Describe 'Install-CmctlCli' -Tag 'unit', 'ci', 'addon' {
             Mock -ModuleName $moduleName Get-FromYamlFile { return $manifest }
             Mock -ModuleName $moduleName Test-Path { return $false }
             Mock -ModuleName $moduleName Invoke-DownloadFile {
-                $script:downloadedUrls += $args[1]
+                param(
+                    [string]$destination,
+                    [string]$source,
+                    [bool]$forceDownload,
+                    [string]$ProxyToUse
+                )
+                $script:downloadedUrls += $source
             }
         }
 
@@ -1199,16 +1217,23 @@ Describe 'Install-CmctlCli' -Tag 'unit', 'ci', 'addon' {
             # Only cmctl.exe should be downloaded; the kyverno ZIP is handled by Install-KyvernoCli
             $script:downloadedUrls | Should -Contain 'http://example/cmctl.exe'
             $script:downloadedUrls | Should -Not -Contain 'http://example/kyverno-cli_v1.19.0_windows_x86_64.zip'
-            Should -Invoke -ModuleName $moduleName Invoke-DownloadFile -Times 1 -Scope Context
+            Should -Invoke -ModuleName $moduleName Invoke-DownloadFile -Times 1 -Scope It
+            Should -Invoke -ModuleName $moduleName Invoke-DownloadFile -Times 1 -Scope It -ParameterFilter {
+                $destination -match 'cmctl\.exe$' -and $source -eq 'http://example/cmctl.exe'
+            }
         }
     }
 }
 
 Describe 'Wait-ForCertManagerAvailable' -Tag 'unit', 'ci', 'addon' {
+    BeforeAll {
+        Mock -ModuleName $moduleName Write-Log { }
+    }
+
     Context 'cmctl reports API ready' {
         It 'returns true' {
             InModuleScope -ModuleName $moduleName {
-                $cmctlExe = { param($cmd, $subcmd, $wait) 'The cert-manager API is ready' }
+                Set-Variable -Name cmctlExe -Value { param($cmd, $subcmd, $wait) 'The cert-manager API is ready' }
                 Wait-ForCertManagerAvailable | Should -BeTrue
             }
         }
@@ -1217,8 +1242,20 @@ Describe 'Wait-ForCertManagerAvailable' -Tag 'unit', 'ci', 'addon' {
     Context 'cmctl does not report readiness' {
         It 'returns false' {
             InModuleScope -ModuleName $moduleName {
-                $cmctlExe = { param($cmd, $subcmd, $wait) 'not ready' }
+                Set-Variable -Name cmctlExe -Value { param($cmd, $subcmd, $wait) 'not ready' }
                 Wait-ForCertManagerAvailable | Should -BeFalse
+            }
+        }
+
+        It 'logs cmctl diagnostics when readiness is not reported' {
+            InModuleScope -ModuleName $moduleName {
+                Set-Variable -Name cmctlExe -Value { param($cmd, $subcmd, $wait) 'cmctl: webhook unavailable' }
+
+                Wait-ForCertManagerAvailable | Should -BeFalse
+
+                Should -Invoke Write-Log -Times 1 -Scope It -ParameterFilter {
+                    $Messages -match 'cmctl check api failed' -and $Messages -match 'cmctl: webhook unavailable'
+                }
             }
         }
     }
@@ -1228,7 +1265,7 @@ Describe 'Update-CertificateResources' -Tag 'unit', 'ci', 'addon' {
     It 'invokes cmctl renew for all namespaces' {
         InModuleScope -ModuleName $moduleName {
             $script:calls = @()
-            $cmctlExe = {
+            Set-Variable -Name cmctlExe -Value {
                 param($cmd, $p1, $p2)
                 $script:calls += , @($cmd, $p1, $p2)
             }
@@ -1298,7 +1335,7 @@ Describe 'Remove-Cmctl' -Tag 'unit', 'ci', 'addon' {
 
     It 'removes cmctl executable path' {
         InModuleScope -ModuleName $moduleName {
-            $cmctlExe = 'C:\\tmp\\cmctl.exe'
+            Set-Variable -Name cmctlExe -Value 'C:\\tmp\\cmctl.exe'
             Remove-Cmctl
         }
 
@@ -1313,10 +1350,9 @@ Describe 'Import-CACertificateToWindowsStore' -Tag 'unit', 'ci', 'addon' {
         Mock -ModuleName $moduleName Write-Log { }
         Mock -ModuleName $moduleName Get-TrustedRootStoreLocation { return 'Cert:\\LocalMachine\\Root' }
         Mock -ModuleName $moduleName Invoke-Kubectl { return [pscustomobject]@{ Output = $script:b64 } }
-        Mock -ModuleName $moduleName Import-Certificate { }
-        Mock -CommandName New-TemporaryFile { return [pscustomobject]@{ FullName = 'C:\\temp\\ca.crt' } }
+        Mock -ModuleName $moduleName Import-CertificateToTrustedRootStore { }
+        Mock -ModuleName $moduleName New-CompatTemporaryFile { return [pscustomobject]@{ FullName = 'C:\\temp\\ca.crt' } }
         Mock -CommandName Out-File { }
-        Mock -CommandName Import-Certificate { }
         Mock -CommandName Remove-Item { }
     }
 
@@ -1327,9 +1363,55 @@ Describe 'Import-CACertificateToWindowsStore' -Tag 'unit', 'ci', 'addon' {
             Import-CACertificateToWindowsStore
 
             Should -Invoke Invoke-Kubectl -Times 1 -Scope It -ParameterFilter { $Params -contains 'ca-issuer-root-secret' }
-            Should -Invoke Import-Certificate -Times 1 -Scope It
+            Should -Invoke Import-CertificateToTrustedRootStore -Times 1 -Scope It
         }
 
+    }
+}
+
+Describe 'Import-CertificateToTrustedRootStore' -Tag 'unit', 'ci', 'addon' {
+    Context 'Cert provider is available' {
+        BeforeAll {
+            Mock -ModuleName $moduleName Test-CertificateProviderAvailable { return $true }
+            Mock -ModuleName $moduleName Import-Certificate { }
+        }
+
+        It 'imports using Import-Certificate' {
+            InModuleScope -ModuleName $moduleName {
+                Import-CertificateToTrustedRootStore -CertificatePath 'C:\\temp\\ca.crt' -CertStoreLocation 'Cert:\\LocalMachine\\Root'
+
+                Should -Invoke Import-Certificate -Times 1 -Scope It -ParameterFilter {
+                    $FilePath -eq 'C:\\temp\\ca.crt' -and $CertStoreLocation -eq 'Cert:\\LocalMachine\\Root'
+                }
+            }
+        }
+    }
+
+    Context 'Cert provider is not available' {
+        BeforeAll {
+            Mock -ModuleName $moduleName Test-CertificateProviderAvailable { return $false }
+            Mock -ModuleName $moduleName Import-Certificate { throw 'cmdlet should not be called' }
+        }
+
+        It 'uses fallback path without invoking Import-Certificate' {
+            InModuleScope -ModuleName $moduleName {
+                # Evidence: Import-CertificateToTrustedRootStore uses ::new constructors, not New-Object.
+                # See addons.module.psm1 Import-CertificateToTrustedRootStore implementation.
+                $tempNonCertFile = Join-Path -Path $env:TEMP -ChildPath ("k2s-non-cert-{0}.crt" -f ([guid]::NewGuid().ToString()))
+                Set-Content -Path $tempNonCertFile -Value 'NOT A CERTIFICATE' -Encoding ascii
+
+                try {
+                    {
+                        Import-CertificateToTrustedRootStore -CertificatePath $tempNonCertFile -CertStoreLocation 'Cert:\\LocalMachine\\Root'
+                    } | Should -Throw
+                }
+                finally {
+                    Remove-Item -Path $tempNonCertFile -Force -ErrorAction SilentlyContinue
+                }
+
+                Should -Invoke Import-Certificate -Times 0 -Scope It
+            }
+        }
     }
 }
 
@@ -1602,13 +1684,7 @@ Describe 'Uninstall-CertManager' -Tag 'unit', 'ci', 'addon' {
         Mock -ModuleName $moduleName Remove-Cmctl { }
         Mock -ModuleName $moduleName Get-CAIssuerName { return 'K2s Self-Signed CA' }
         Mock -ModuleName $moduleName Get-TrustedRootStoreLocation { return 'Cert:\\LocalMachine\\Root' }
-        Mock -ModuleName $moduleName Get-ChildItem {
-            return @(
-                [pscustomobject]@{ Subject = 'CN=K2s Self-Signed CA' },
-                [pscustomobject]@{ Subject = 'CN=Other' }
-            )
-        }
-        Mock -ModuleName $moduleName Remove-Item { }
+        Mock -ModuleName $moduleName Remove-CertificateFromTrustedRootStore { }
         Mock -ModuleName $moduleName Test-IsAddonEnabled { return $false }
     }
 
@@ -1618,7 +1694,7 @@ Describe 'Uninstall-CertManager' -Tag 'unit', 'ci', 'addon' {
 
             Should -Invoke Invoke-Kubectl -Times 2 -Scope It -ParameterFilter { $Params -contains 'delete' -and $Params -contains '-f' }
             Should -Invoke Remove-Cmctl -Times 0 -Scope It
-            Should -Invoke Remove-Item -Times 1 -Scope It
+            Should -Invoke Remove-CertificateFromTrustedRootStore -Times 1 -Scope It
         }
     }
 
@@ -1631,7 +1707,57 @@ Describe 'Uninstall-CertManager' -Tag 'unit', 'ci', 'addon' {
             # Implementation always uninstalls regardless of security addon
             Should -Invoke Invoke-Kubectl -Times 2 -Scope It
             Should -Invoke Remove-Cmctl -Times 0 -Scope It
-            Should -Invoke Remove-Item -Times 1 -Scope It
+            Should -Invoke Remove-CertificateFromTrustedRootStore -Times 1 -Scope It
+        }
+    }
+}
+
+Describe 'Remove-CertificateFromTrustedRootStore' -Tag 'unit', 'ci', 'addon' {
+    Context 'Cert provider is available' {
+        BeforeAll {
+            Mock -ModuleName $moduleName Test-CertificateProviderAvailable { return $true }
+            Mock -ModuleName $moduleName Get-ChildItem {
+                return @(
+                    [pscustomobject]@{ Subject = 'CN=K2s Self-Signed CA' },
+                    [pscustomobject]@{ Subject = 'CN=Other' }
+                )
+            }
+            Mock -ModuleName $moduleName Remove-Item { }
+        }
+
+        It 'removes matching certificates from cert provider store' {
+            InModuleScope -ModuleName $moduleName {
+                Remove-CertificateFromTrustedRootStore -IssuerName 'K2s Self-Signed CA' -TrustedRootStoreLocation 'Cert:\\LocalMachine\\Root'
+
+                Should -Invoke Get-ChildItem -Times 1 -Scope It -ParameterFilter { $Path -eq 'Cert:\\LocalMachine\\Root' }
+                Should -Invoke Remove-Item -Times 1 -Scope It
+            }
+        }
+    }
+
+    Context 'Cert provider is not available' {
+        BeforeAll {
+            Mock -ModuleName $moduleName Test-CertificateProviderAvailable { return $false }
+            Mock -ModuleName $moduleName Get-ChildItem { throw 'Get-ChildItem should not be called' }
+            Mock -ModuleName $moduleName Remove-Item { throw 'Remove-Item should not be called' }
+        }
+
+        It 'does not use cert provider cmdlets' {
+            $currentIdentity = [Security.Principal.WindowsIdentity]::GetCurrent()
+            $principal = [Security.Principal.WindowsPrincipal]::new($currentIdentity)
+            $isElevated = $principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
+            if (-not $isElevated) {
+                # Fallback path can open LocalMachine\Root via .NET store APIs, which requires elevation.
+                Set-ItResult -Skipped -Because 'Requires admin to open LocalMachine Root store in fallback path'
+                return
+            }
+
+            InModuleScope -ModuleName $moduleName {
+                Remove-CertificateFromTrustedRootStore -IssuerName 'K2s Self-Signed CA' -TrustedRootStoreLocation 'Cert:\\LocalMachine\\Root'
+
+                Should -Invoke Get-ChildItem -Times 0 -Scope It
+                Should -Invoke Remove-Item -Times 0 -Scope It
+            }
         }
     }
 }
