@@ -28,3 +28,14 @@ Describe 'Get-KubenodeNoProxy' -Tag 'unit', 'ci', 'proxy' {
         }
     }
 }
+
+Describe 'Get-GpuContainerImages' -Tag 'unit', 'ci', 'gpu' {
+    It 'reads the GPU addon manifest from the package root' {
+        InModuleScope $moduleName {
+            Mock Test-Path { return $false }
+
+            { Get-GpuContainerImages -UserName 'admin' -UserPwd 'password' -IpAddress '172.19.1.101' } |
+                Should -Throw '*GPU addon manifest not found at:*addons\gpu-node\addon.manifest.yaml'
+        }
+    }
+}
