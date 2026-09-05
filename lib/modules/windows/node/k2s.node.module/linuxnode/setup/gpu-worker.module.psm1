@@ -29,7 +29,7 @@ $script:GpuLabelKey = 'gpu'
 $script:AcceleratorLabel = 'accelerator'
 
 function Get-GpuAddonNvidiaImages {
-    $repoRoot = (Get-Item -Path $PSScriptRoot).Parent.Parent.Parent.Parent.Parent.Parent.FullName
+    $repoRoot = (Get-Item -Path $PSScriptRoot).Parent.Parent.Parent.Parent.Parent.Parent.Parent.FullName
     $manifestPath = Join-Path -Path $repoRoot -ChildPath 'addons\gpu-node\addon.manifest.yaml'
     
     if (!(Test-Path -Path $manifestPath)) {
