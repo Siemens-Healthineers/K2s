@@ -254,7 +254,7 @@ See [Building Locally](contributing/building-locally.md) for prerequisites.
 
 ## PowerShell Module Structure
 
-*K2s* organises its PowerShell automation into four major modules under `lib/modules/k2s/`:
+*K2s* organises its PowerShell automation into four major modules under `lib/modules/windows/`:
 
 ### k2s.infra.module — Infrastructure & Configuration
 

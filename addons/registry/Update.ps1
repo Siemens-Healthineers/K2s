@@ -6,7 +6,7 @@
 
 $addonsModule = "$PSScriptRoot\..\addons.module.psm1"
 $registryModule = "$PSScriptRoot\registry.module.psm1"
-$imageRegistryModule = "$PSScriptRoot\..\..\lib\modules\k2s\k2s.cluster.module\image\registry\registry.module.psm1"
+$imageRegistryModule = "$PSScriptRoot\..\..\lib\modules\windows\cluster\k2s.cluster.module\image\registry\registry.module.psm1"
 
 Import-Module $addonsModule, $registryModule, $imageRegistryModule
 

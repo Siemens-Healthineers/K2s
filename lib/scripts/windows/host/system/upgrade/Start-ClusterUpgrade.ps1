@@ -40,8 +40,8 @@ Param(
 	[parameter(Mandatory = $false, HelpMessage = 'Force upgrade even if versions are not consecutive')]
 	[switch] $Force = $false
 )
-$infraModule = "$PSScriptRoot\..\..\..\..\..\modules\k2s\k2s.infra.module\k2s.infra.module.psm1"
-$clusterModule = "$PSScriptRoot\..\..\..\..\..\modules\k2s\k2s.cluster.module\k2s.cluster.module.psm1"
+$infraModule = "$PSScriptRoot\..\..\..\..\..\modules\windows\infra\k2s.infra.module\k2s.infra.module.psm1"
+$clusterModule = "$PSScriptRoot\..\..\..\..\..\modules\windows\cluster\k2s.cluster.module\k2s.cluster.module.psm1"
 $addonsModule = "$PSScriptRoot\..\..\..\..\..\..\addons\addons.module.psm1"
 
 Initialize-Logging -ShowLogs:$ShowLogs
