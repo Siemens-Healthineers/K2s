@@ -9,12 +9,12 @@ metadata:
 
 spec:
   script:
-    path: lib/scripts/worker/linux/bare-metal/Add.ps1
+    path: lib/scripts/windows/worker/linux/bare-metal/Add.ps1
     entry: Add.ps1
   definitions:
     start:
       script:
-        path: lib/scripts/worker/linux/bare-metal/Start.ps1
+        path: lib/scripts/windows/worker/linux/bare-metal/Start.ps1
         entry: Start.ps1
       summary: Starts an already configured Linux bare-metal worker node.
       parameters:
@@ -44,7 +44,7 @@ spec:
           description: Starts only the specified worker node services and waits for Ready.
     stop:
       script:
-        path: lib/scripts/worker/linux/bare-metal/Stop.ps1
+        path: lib/scripts/windows/worker/linux/bare-metal/Stop.ps1
         entry: Stop.ps1
       summary: Stops an already configured Linux bare-metal worker node.
       parameters:
@@ -66,7 +66,7 @@ spec:
           description: Stops only the specified worker node services.
     remove:
       script:
-        path: lib/scripts/worker/linux/bare-metal/Remove.ps1
+        path: lib/scripts/windows/worker/linux/bare-metal/Remove.ps1
         entry: Remove.ps1
       summary: Removes a Linux bare-metal worker node from an installed K2s cluster.
       parameters:
@@ -151,4 +151,4 @@ spec:
     - description: Add a Linux worker with explicit username and IP address.
       command: k2s node add --ip-addr 192.168.114.10 --username remote --name k2s-nodepkg-debian13
     - description: Run the underlying PowerShell script directly.
-      command: .\lib\scripts\worker\linux\bare-metal\Add.ps1 -UserName remote -IpAddress 192.168.114.10 -NodeName k2s-nodepkg-debian13 -ShowLogs
+      command: .\lib\scripts\windows\worker\linux\bare-metal\Add.ps1 -UserName remote -IpAddress 192.168.114.10 -NodeName k2s-nodepkg-debian13 -ShowLogs

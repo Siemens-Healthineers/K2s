@@ -42,7 +42,7 @@ $workerNodeParams = @{
     AdditionalHooksDir = $AdditionalHooksDir
     CacheK2sVSwitches = $CacheK2sVSwitches
 }
-& "$PSScriptRoot\..\..\..\worker\windows\windows-host\Stop.ps1" @workerNodeParams
+& "$PSScriptRoot\..\..\..\windows\worker\windows-host\Stop.ps1" @workerNodeParams
 
 Write-Log "[$logUseCase] Stopping control plane"
 $controlPlaneParams = @{

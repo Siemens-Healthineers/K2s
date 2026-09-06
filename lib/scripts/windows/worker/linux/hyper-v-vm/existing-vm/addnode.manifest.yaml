@@ -9,7 +9,7 @@ metadata:
 
 spec:
   script:
-    path: lib/scripts/worker/linux/hyper-v-vm/existing-vm/Add.ps1
+    path: lib/scripts/windows/worker/linux/hyper-v-vm/existing-vm/Add.ps1
     entry: Add.ps1
   host:
     os: windows
@@ -64,4 +64,4 @@ spec:
     - description: Add a Hyper-V VM on KubeSwitch as a worker node.
       command: k2s node add --ip-addr 172.19.1.50 --username remote
     - description: Run the underlying PowerShell script directly.
-      command: .\lib\scripts\worker\linux\hyper-v-vm\existing-vm\Add.ps1 -UserName remote -IpAddress 172.19.1.50 -ShowLogs
+      command: .\lib\scripts\windows\worker\linux\hyper-v-vm\existing-vm\Add.ps1 -UserName remote -IpAddress 172.19.1.50 -ShowLogs
