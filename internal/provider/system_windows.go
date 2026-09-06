@@ -27,7 +27,7 @@ func newWindowsSystemProvider(cfg ProviderConfig) *windowsSystemProvider {
 }
 
 func (p *windowsSystemProvider) scriptPath(script string) string {
-	return utils.FormatScriptFilePath(filepath.Join(p.installDir, "lib", "scripts", "k2s", "system", script))
+	return utils.FormatScriptFilePath(filepath.Join(p.installDir, "lib", "scripts", "windows", "host", "system", script))
 }
 
 func (p *windowsSystemProvider) execPS(psCmd string, params ...string) error {

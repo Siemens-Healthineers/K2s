@@ -162,7 +162,7 @@ func buildExportPsCmd(cmd *cobra.Command) (psCmd string, params []string, err er
 		return "", nil, err
 	}
 
-	psCmd = utils.FormatScriptFilePath(filepath.Join(utils.InstallDir(), "lib", "scripts", "k2s", "image", "Export-Image.ps1"))
+	psCmd = utils.FormatScriptFilePath(filepath.Join(utils.InstallDir(), "lib", "scripts", "windows", "host", "image", "Export-Image.ps1"))
 
 	params = append(params, " -Id '"+imageId+"'", " -Name '"+imageName+"'", " -ExportPath '"+exportPath+"'")
 	params = appendNodesParam(params, nodeSelector)

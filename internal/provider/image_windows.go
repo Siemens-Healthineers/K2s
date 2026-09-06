@@ -28,7 +28,7 @@ func newWindowsImageProvider(cfg ProviderConfig) *windowsImageProvider {
 }
 
 func (p *windowsImageProvider) scriptPath(script string) string {
-	return utils.FormatScriptFilePath(filepath.Join(p.installDir, "lib", "scripts", "k2s", "image", script))
+	return utils.FormatScriptFilePath(filepath.Join(p.installDir, "lib", "scripts", "windows", "host", "image", script))
 }
 
 func (p *windowsImageProvider) execPS(psCmd string, params ...string) error {

@@ -71,7 +71,7 @@ func runSystemBackup(cmd *cobra.Command, args []string) error {
 func createSystemBackupPsCommand(cmd *cobra.Command) string {
 	psCmd := utils.FormatScriptFilePath(
 		utils.InstallDir() +
-			"\\lib\\scripts\\k2s\\system\\backup\\Start-SystemBackup.ps1",
+			"\\lib\\scripts\\windows\\host\\system\\backup\\Start-SystemBackup.ps1",
 	)
 
 	out, _ := strconv.ParseBool(

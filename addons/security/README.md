@@ -159,7 +159,7 @@ This is the only mandatory annotation to use, please check other annotations fro
 Linkerd automatically injects two sidecar containers into every annotated pod:
 
 - `linkerd-proxy` — the data-plane proxy (Rust-based) that handles all mTLS traffic
-- `linkerd-init` — an init container that configures iptables routing rules
+- `linkerd-init` — an init container that configures iptables routing ruleses
 
 Both containers are configured with the following resource constraints:
 
@@ -169,7 +169,6 @@ Both containers are configured with the following resource constraints:
 | `linkerd-init` | `100m` | `100m` | `20Mi` |
 
 This ensures compatibility with Kubernetes `ResourceQuota` policies that require CPU limits and requests on all containers in a namespace. If your workloads require higher proxy throughput, re-enable the addon after adjusting the limits in `Enable.ps1`.
-
 For using the linkerd dashboard please first install the dashboard resources:
 
 ```cmd

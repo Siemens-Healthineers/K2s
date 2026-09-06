@@ -45,9 +45,9 @@ var _ = Describe("override ls", func() {
 
 	Describe("PowerShell script invocation", func() {
 		It("uses correct script path", func() {
-			expectedScript := utils.FormatScriptFilePath(path.Join(utils.InstallDir(), "lib", "scripts", "k2s", "system", "proxy", "override", "ListProxyOverrides.ps1"))
+			expectedScript := utils.FormatScriptFilePath(path.Join(utils.InstallDir(), "lib", "scripts", "windows", "host", "system", "proxy", "override", "ListProxyOverrides.ps1"))
 			Expect(expectedScript).To(ContainSubstring("ListProxyOverrides.ps1"))
-			Expect(expectedScript).To(ContainSubstring(path.Join("lib", "scripts", "k2s", "system", "proxy", "override")))
+			Expect(expectedScript).To(ContainSubstring(path.Join("lib", "scripts", "windows", "host", "system", "proxy", "override")))
 		})
 	})
 

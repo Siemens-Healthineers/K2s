@@ -31,7 +31,7 @@ var _ = Describe("import", Ordered, func() {
 				cmd, params, err := buildImportPsCmd(importCmd, false)
 
 				Expect(err).ToNot(HaveOccurred())
-				Expect(cmd).To(Equal("&'" + filepath.Join(utils.InstallDir(), "lib", "scripts", "k2s", "image", "Import-Image.ps1") + "'"))
+				Expect(cmd).To(Equal("&'" + filepath.Join(utils.InstallDir(), "lib", "scripts", "windows", "host", "image", "Import-Image.ps1") + "'"))
 				Expect(params).To(ConsistOf(" -ImagePath 'myImage'"))
 			})
 		})
@@ -43,7 +43,7 @@ var _ = Describe("import", Ordered, func() {
 				cmd, params, err := buildImportPsCmd(importCmd, false)
 
 				Expect(err).ToNot(HaveOccurred())
-				Expect(cmd).To(Equal("&'" + filepath.Join(utils.InstallDir(), "lib", "scripts", "k2s", "image", "Import-Image.ps1") + "'"))
+				Expect(cmd).To(Equal("&'" + filepath.Join(utils.InstallDir(), "lib", "scripts", "windows", "host", "image", "Import-Image.ps1") + "'"))
 				Expect(params).To(ConsistOf(" -ImageDir 'myDir'"))
 			})
 		})
@@ -56,7 +56,7 @@ var _ = Describe("import", Ordered, func() {
 				cmd, params, err := buildImportPsCmd(importCmd, false)
 
 				Expect(err).ToNot(HaveOccurred())
-				Expect(cmd).To(Equal("&'" + filepath.Join(utils.InstallDir(), "lib", "scripts", "k2s", "image", "Import-Image.ps1") + "'"))
+				Expect(cmd).To(Equal("&'" + filepath.Join(utils.InstallDir(), "lib", "scripts", "windows", "host", "image", "Import-Image.ps1") + "'"))
 				Expect(params).To(ConsistOf(" -ImagePath 'myImage'"))
 			})
 		})
@@ -79,7 +79,7 @@ var _ = Describe("import", Ordered, func() {
 				cmd, params, err := buildImportPsCmd(importCmd, true)
 
 				Expect(err).ToNot(HaveOccurred())
-				Expect(cmd).To(Equal("&'" + filepath.Join(utils.InstallDir(), "lib", "scripts", "k2s", "image", "Import-Image.ps1") + "'"))
+				Expect(cmd).To(Equal("&'" + filepath.Join(utils.InstallDir(), "lib", "scripts", "windows", "host", "image", "Import-Image.ps1") + "'"))
 				Expect(params).To(ConsistOf(" -ImagePath 'myImage'", " -Windows", " -DockerArchive"))
 			})
 		})
