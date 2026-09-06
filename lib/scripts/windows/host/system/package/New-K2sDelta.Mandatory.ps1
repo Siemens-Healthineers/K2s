@@ -148,7 +148,7 @@ function Ensure-MandatoryFiles {
     if ($versionResult.Warning) { $result.Warnings += $versionResult.Warning }
 
     # Ensure update module
-    $updateModuleRelPath = 'lib/modules/k2s/k2s.cluster.module/update/update.module.psm1'
+    $updateModuleRelPath = 'lib/modules/windows/cluster/k2s.cluster.module/update/update.module.psm1'
     $updateResult = Ensure-MandatoryFile -RelativePath $updateModuleRelPath `
         -NewExtract $Context.NewExtract `
         -StageDir $Context.StageDir `
@@ -202,7 +202,7 @@ Param(
 )
 $ErrorActionPreference = 'Stop'
 $scriptRoot = $PSScriptRoot
-$updateModulePath = Join-Path $scriptRoot 'lib\modules\k2s\k2s.cluster.module\update\update.module.psm1'
+$updateModulePath = Join-Path $scriptRoot 'lib\modules\windows\cluster\k2s.cluster.module\update\update.module.psm1'
 if (-not (Test-Path -LiteralPath $updateModulePath)) {
     Write-Host "[ERROR] Update module not found" -ForegroundColor Red
     exit 1

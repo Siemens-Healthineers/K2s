@@ -28,7 +28,7 @@ Param(
     [string] $MessageType
 )
 $script = $MyInvocation.MyCommand.Name
-$infraModule = "$PSScriptRoot/../../../lib/modules/k2s/k2s.infra.module/k2s.infra.module.psm1"
+$infraModule = "$PSScriptRoot/../../../lib/modules/windows/infra/k2s.infra.module/k2s.infra.module.psm1"
 $smbShareModule = "$PSScriptRoot\module\Smb-share.module.psm1"
 $addonsModule = "$PSScriptRoot\..\..\addons.module.psm1"
 

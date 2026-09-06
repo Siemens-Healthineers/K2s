@@ -8,7 +8,7 @@
 . $PSScriptRoot\..\common\GlobalFunctions.ps1
 
 $registryFunctionsModule = "$PSScriptRoot\RegistryFunctions.module.psm1"
-$setupInfoModule = "$PSScriptRoot\..\..\lib\modules\k2s\k2s.cluster.module\setupinfo\setupinfo.module.psm1"
+$setupInfoModule = "$PSScriptRoot\..\..\lib\modules\windows\cluster\k2s.cluster.module\setupinfo\setupinfo.module.psm1"
 $addonsModule = "$PSScriptRoot\..\..\addons\addons.module.psm1"
 
 Import-Module $registryFunctionsModule, $setupInfoModule, $addonsModule -DisableNameChecking

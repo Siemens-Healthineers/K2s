@@ -21,7 +21,7 @@ import (
 )
 
 const (
-	flannelTemplateRelPath = "lib/modules/k2s/k2s.node.module/linuxnode/distros/containernetwork/masternode/flannel.template.yml"
+	flannelTemplateRelPath = "lib/modules/windows/node/k2s.node.module/linuxnode/distros/containernetwork/masternode/flannel.template.yml"
 	podNetworkCIDR         = "172.20.0.0/16"
 	servicesCIDR           = "172.21.0.0/16"
 	clusterDNS             = "172.21.0.10"
@@ -444,7 +444,7 @@ func (o *LinuxOrchestrator) deployFlannel(cfg InstallConfig) error {
 // Windows-host kubemaster flow, which installs bundled CLI tools after
 // provisioning the Linux control plane.
 func (o *LinuxOrchestrator) installControlPlaneTools(cfg InstallConfig) error {
-	scriptPath := filepath.Join(cfg.InstallDir, "lib", "modules", "k2s", "k2s.node.module", "linuxnode", "distros", "scripts", "install-cli-tools.sh")
+	scriptPath := filepath.Join(cfg.InstallDir, "lib", "modules", "windows", "node", "k2s.node.module", "linuxnode", "distros", "scripts", "install-cli-tools.sh")
 	if _, err := os.Stat(scriptPath); err != nil {
 		return fmt.Errorf("required control-plane tools installer is missing at %s: %w", scriptPath, err)
 	}

@@ -328,7 +328,7 @@ $sig | Format-List *
 
 The K2s signing module includes comprehensive unit tests that demonstrate best practices for testing PowerShell modules with external dependencies:
 
-**Location**: `lib\modules\k2s\k2s.signing.module\k2s.signing.module.unit.tests.ps1`
+**Location**: `lib\modules\windows\common\k2s.signing.module\k2s.signing.module.unit.tests.ps1`
 
 **Key Features**:
 
@@ -341,10 +341,10 @@ The K2s signing module includes comprehensive unit tests that demonstrate best p
 
 ```powershell
 # Run signing module unit tests
-Invoke-Pester .\lib\modules\k2s\k2s.signing.module\k2s.signing.module.unit.tests.ps1
+Invoke-Pester .\lib\modules\windows\common\k2s.signing.module\k2s.signing.module.unit.tests.ps1
 
 # Run with detailed output
-Invoke-Pester -Output Detailed .\lib\modules\k2s\k2s.signing.module\k2s.signing.module.unit.tests.ps1
+Invoke-Pester -Output Detailed .\lib\modules\windows\common\k2s.signing.module\k2s.signing.module.unit.tests.ps1
 ```
 
 The unit tests serve as both validation and documentation of proper mocking techniques for external dependencies like certificate operations, file system access, and external tool execution.
