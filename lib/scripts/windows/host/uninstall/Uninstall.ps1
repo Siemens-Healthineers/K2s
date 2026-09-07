@@ -46,7 +46,7 @@ $workerNodeParams = @{
     AdditionalHooksDir = $AdditionalHooksDir
     SkipHeaderDisplay  = $SkipHeaderDisplay
 }
-& "$PSScriptRoot\..\..\..\worker\windows\windows-host\Uninstall.ps1" @workerNodeParams
+& "$PSScriptRoot\..\..\..\windows\worker\windows-host\Uninstall.ps1" @workerNodeParams
 
 $controlPlaneParams = @{
     SkipPurge                         = $SkipPurge
