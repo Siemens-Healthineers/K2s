@@ -241,24 +241,31 @@ try {
 		Write-Log 'Creating linkerd config files' -Console
 		$clinkerdExe = "$(Get-KubeBinPath)\linkerd.exe"
 		$linkerdYaml = Get-LinkerdConfigDirectory
+
 		# generate the CRDs
-		& $clinkerdExe install --ignore-cluster --crds 2> $null | Out-File -FilePath $linkerdYaml\linkerd-crds-gen.yaml -Encoding utf8
-		# generate the other resources
-		# add this line for debug infos
-		# --ignore-cluster --disable-heartbeat --proxy-log-level "debug,linkerd=debug,hickory=error"  `
-		& $clinkerdExe install  `
---ignore-cluster --disable-heartbeat  `
---proxy-memory-limit 100Mi  `
---proxy-cpu-request 100m  `
---proxy-cpu-limit 100m  `
---default-inbound-policy "all-authenticated"  `
---set "identity.externalCA=true"  `
---set "identity.issuer.scheme=kubernetes.io/tls"  `
---set "proxy.await=false"  `
---set "proxy.image.name=shsk2s.azurecr.io/linkerd/proxy"  `
---set "proxyInit.image.name=shsk2s.azurecr.io/linkerd/proxy-init"  `
---set "proxyInit.resources.cpu.request=100m"  `
---set "proxyInit.resources.cpu.limit=100m" 2> $null | Out-File -FilePath $linkerdYaml\linkerd-gen.yaml -Encoding utf8
+		$crdOutput = & $clinkerdExe install --ignore-cluster --crds 2>&1 | Out-String
+		if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($crdOutput)) {
+			throw "Failed to generate Linkerd CRDs: $crdOutput"
+		}
+		$crdOutput | Out-File -FilePath $linkerdYaml\linkerd-crds-gen.yaml -Encoding utf8
+
+		# generate the control plane resources
+		# Note: --ignore-cluster is omitted because Linkerd CLI rejects --ignore-cluster when identity.externalCA=true / identity.issuer.scheme=kubernetes.io/tls is set
+		$cpOutput = & $clinkerdExe install `
+			--disable-heartbeat `
+			--proxy-memory-limit 100Mi `
+			--proxy-cpu-request 100m `
+			--proxy-cpu-limit 100m `
+			--default-inbound-policy "all-authenticated" `
+			--set "identity.externalCA=true" `
+			--set "identity.issuer.scheme=kubernetes.io/tls" `
+			--set "proxy.await=false" `
+			--set "proxy.image.name=shsk2s.azurecr.io/linkerd/proxy" 2>&1 | Out-String
+
+		if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($cpOutput)) {
+			throw "Failed to generate Linkerd control plane manifest: $cpOutput"
+		}
+		$cpOutput | Out-File -FilePath $linkerdYaml\linkerd-gen.yaml -Encoding utf8
 
 		# cleanup linkerd resources
 		(Get-Content $linkerdYaml\linkerd-crds-gen.yaml) -replace '[^\x20-\x7E\r\n]', '' | Set-Content $linkerdYaml\linkerd-crds.yaml
