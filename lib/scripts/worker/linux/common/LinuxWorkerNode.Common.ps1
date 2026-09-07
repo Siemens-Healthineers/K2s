@@ -8,9 +8,9 @@ function Import-LinuxWorkerScriptModules {
         [switch] $IncludePuttyTools = $false
     )
 
-    $infraModule =   "$PSScriptRoot\..\..\..\..\modules\k2s\k2s.infra.module\k2s.infra.module.psm1"
-    $nodeModule =    "$PSScriptRoot\..\..\..\..\modules\k2s\k2s.node.module\k2s.node.module.psm1"
-    $clusterModule = "$PSScriptRoot\..\..\..\..\modules\k2s\k2s.cluster.module\k2s.cluster.module.psm1"
+    $infraModule =   "$PSScriptRoot\..\..\..\..\modules\windows\infra\k2s.infra.module\k2s.infra.module.psm1"
+    $nodeModule =    "$PSScriptRoot\..\..\..\..\modules\windows\node\k2s.node.module\k2s.node.module.psm1"
+    $clusterModule = "$PSScriptRoot\..\..\..\..\modules\windows\cluster\k2s.cluster.module\k2s.cluster.module.psm1"
 
     $modulePaths = @($infraModule, $nodeModule, $clusterModule)
     if ($IncludeAddons) {
@@ -21,7 +21,7 @@ function Import-LinuxWorkerScriptModules {
     Import-Module $modulePaths
 
     if ($IncludePuttyTools) {
-        $puttyToolsHelper = "$PSScriptRoot\..\..\..\k2s\system\package\New-K2sPackage.PuttyTools.ps1"
+        $puttyToolsHelper = "$PSScriptRoot\..\..\..\windows\host\system\package\New-K2sPackage.PuttyTools.ps1"
         . $puttyToolsHelper
     }
 }
@@ -47,7 +47,7 @@ function Assert-LinuxWorkerPuttyToolsReady {
         [string] $Proxy = ''
     )
 
-    $puttyToolsHelper = "$PSScriptRoot\..\..\..\k2s\system\package\New-K2sPackage.PuttyTools.ps1"
+    $puttyToolsHelper = "$PSScriptRoot\..\..\..\windows\host\system\package\New-K2sPackage.PuttyTools.ps1"
     . $puttyToolsHelper
 
     Assert-PuttyToolsReady -LogPrefix $LogPrefix -Proxy $Proxy

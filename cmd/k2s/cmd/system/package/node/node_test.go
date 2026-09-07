@@ -131,7 +131,7 @@ var _ = Describe("nodepackage", func() {
 
 				script, params, err := BuildCmd(cmd.Flags(), false, "C:\\output", "debian12-node.zip", "")
 				Expect(err).ToNot(HaveOccurred())
-				Expect(script).To(ContainSubstring(filepath.Join("lib", "scripts", "k2s", "system", "package", "New-K2sNodePackage.ps1")))
+				Expect(script).To(ContainSubstring(filepath.Join("lib", "scripts", "windows", "host", "system", "package", "New-K2sNodePackage.ps1")))
 				Expect(params).To(ContainElement(" -TargetDirectory 'C:\\output'"))
 				Expect(params).To(ContainElement(" -ZipPackageFileName 'debian12-node.zip'"))
 				Expect(params).To(ContainElement(" -OS 'debian12'"))
@@ -215,7 +215,7 @@ var _ = Describe("nodepackage", func() {
 
 			script, params, err := BuildCmd(cmd.Flags(), false, "C:\\output", "node-delta.zip", "")
 			Expect(err).ToNot(HaveOccurred())
-			Expect(script).To(ContainSubstring(filepath.Join("lib", "scripts", "k2s", "system", "package", "New-K2sNodeDeltaPackage.ps1")))
+			Expect(script).To(ContainSubstring(filepath.Join("lib", "scripts", "windows", "host", "system", "package", "New-K2sNodeDeltaPackage.ps1")))
 			Expect(params).To(ContainElement(" -InputPackageOne 'C:\\old-node.zip'"))
 			Expect(params).To(ContainElement(" -InputPackageTwo 'C:\\new-node.zip'"))
 		})

@@ -56,7 +56,7 @@ var _ = Describe("reset-win-storage", Ordered, func() {
 				cmd, params, err := buildResetPsCmd(resetWinStorageCmd)
 
 				Expect(err).ToNot(HaveOccurred())
-				Expect(cmd).To(Equal("&'" + filepath.Join(utils.InstallDir(), "lib", "scripts", "k2s", "image", "ResetWinContainerStorage.ps1") + "'"))
+				Expect(cmd).To(Equal("&'" + filepath.Join(utils.InstallDir(), "lib", "scripts", "windows", "host", "image", "ResetWinContainerStorage.ps1") + "'"))
 				Expect(params).To(ConsistOf(" -Containerd 'containerdDir'", " -Docker 'dockerDir'", fmt.Sprintf(" -MaxRetries %v", strconv.Itoa(defaultMaxRetry))))
 			})
 		})
@@ -68,7 +68,7 @@ var _ = Describe("reset-win-storage", Ordered, func() {
 				cmd, params, err := buildResetPsCmd(resetWinStorageCmd)
 
 				Expect(err).ToNot(HaveOccurred())
-				Expect(cmd).To(Equal("&'" + filepath.Join(utils.InstallDir(), "lib", "scripts", "k2s", "image", "ResetWinContainerStorage.ps1") + "'"))
+				Expect(cmd).To(Equal("&'" + filepath.Join(utils.InstallDir(), "lib", "scripts", "windows", "host", "image", "ResetWinContainerStorage.ps1") + "'"))
 				Expect(params).To(ConsistOf(" -Containerd 'containerdDir'", fmt.Sprintf(" -Docker '%v'", defaultDockerDir), fmt.Sprintf(" -MaxRetries %v", strconv.Itoa(defaultMaxRetry))))
 			})
 		})
@@ -80,7 +80,7 @@ var _ = Describe("reset-win-storage", Ordered, func() {
 				cmd, params, err := buildResetPsCmd(resetWinStorageCmd)
 
 				Expect(err).ToNot(HaveOccurred())
-				Expect(cmd).To(Equal("&'" + filepath.Join(utils.InstallDir(), "lib", "scripts", "k2s", "image", "ResetWinContainerStorage.ps1") + "'"))
+				Expect(cmd).To(Equal("&'" + filepath.Join(utils.InstallDir(), "lib", "scripts", "windows", "host", "image", "ResetWinContainerStorage.ps1") + "'"))
 				Expect(params).To(ConsistOf(fmt.Sprintf(" -Containerd '%v'", defaultContainerdDir), " -Docker 'dockerDir'", fmt.Sprintf(" -MaxRetries %v", strconv.Itoa(defaultMaxRetry))))
 			})
 		})
@@ -92,7 +92,7 @@ var _ = Describe("reset-win-storage", Ordered, func() {
 				cmd, params, err := buildResetPsCmd(resetWinStorageCmd)
 
 				Expect(err).ToNot(HaveOccurred())
-				Expect(cmd).To(Equal("&'" + filepath.Join(utils.InstallDir(), "lib", "scripts", "k2s", "image", "ResetWinContainerStorage.ps1") + "'"))
+				Expect(cmd).To(Equal("&'" + filepath.Join(utils.InstallDir(), "lib", "scripts", "windows", "host", "image", "ResetWinContainerStorage.ps1") + "'"))
 				Expect(params).To(ConsistOf(fmt.Sprintf(" -Containerd '%v'", defaultContainerdDir), fmt.Sprintf(" -Docker '%v'", defaultDockerDir), fmt.Sprintf(" -MaxRetries %v", strconv.Itoa(5))))
 			})
 		})
@@ -104,7 +104,7 @@ var _ = Describe("reset-win-storage", Ordered, func() {
 				cmd, params, err := buildResetPsCmd(resetWinStorageCmd)
 
 				Expect(err).ToNot(HaveOccurred())
-				Expect(cmd).To(Equal("&'" + filepath.Join(utils.InstallDir(), "lib", "scripts", "k2s", "image", "ResetWinContainerStorage.ps1") + "'"))
+				Expect(cmd).To(Equal("&'" + filepath.Join(utils.InstallDir(), "lib", "scripts", "windows", "host", "image", "ResetWinContainerStorage.ps1") + "'"))
 				Expect(params).To(ConsistOf(fmt.Sprintf(" -Containerd '%v'", defaultContainerdDir), fmt.Sprintf(" -Docker '%v'", defaultDockerDir), fmt.Sprintf(" -MaxRetries %v", strconv.Itoa(defaultMaxRetry)), " -ForceZap"))
 			})
 		})

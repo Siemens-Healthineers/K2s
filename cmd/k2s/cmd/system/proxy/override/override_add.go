@@ -42,7 +42,7 @@ func overrideAdd(cmd *cobra.Command, args []string) error {
 
 	overrides := strings.Join(args, ",")
 
-	psCmd := utils.FormatScriptFilePath(path.Join(utils.InstallDir(), "lib", "scripts", "k2s", "system", "proxy", "override", "AddProxyOverride.ps1"))
+	psCmd := utils.FormatScriptFilePath(path.Join(utils.InstallDir(), "lib", "scripts", "windows", "host", "system", "proxy", "override", "AddProxyOverride.ps1"))
 	psCmd += " -Overrides " + overrides
 
 	var params []string

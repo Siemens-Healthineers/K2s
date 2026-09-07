@@ -50,9 +50,9 @@ var _ = Describe("override add", func() {
 
 	Describe("PowerShell script invocation", func() {
 		It("uses correct script path", func() {
-			expectedScript := utils.FormatScriptFilePath(path.Join(utils.InstallDir(), "lib", "scripts", "k2s", "system", "proxy", "override", "AddProxyOverride.ps1"))
+			expectedScript := utils.FormatScriptFilePath(path.Join(utils.InstallDir(), "lib", "scripts", "windows", "host", "system", "proxy", "override", "AddProxyOverride.ps1"))
 			Expect(expectedScript).To(ContainSubstring("AddProxyOverride.ps1"))
-			Expect(expectedScript).To(ContainSubstring(path.Join("lib", "scripts", "k2s", "system", "proxy", "override")))
+			Expect(expectedScript).To(ContainSubstring(path.Join("lib", "scripts", "windows", "host", "system", "proxy", "override")))
 		})
 
 		It("joins multiple arguments with comma", func() {

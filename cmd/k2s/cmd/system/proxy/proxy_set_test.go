@@ -45,9 +45,9 @@ var _ = Describe("proxy set", func() {
 
 	Describe("PowerShell script invocation", func() {
 		It("uses correct script path", func() {
-			expectedScript := utils.FormatScriptFilePath(path.Join(utils.InstallDir(), "lib", "scripts", "k2s", "system", "proxy", "SetProxy.ps1"))
+			expectedScript := utils.FormatScriptFilePath(path.Join(utils.InstallDir(), "lib", "scripts", "windows", "host", "system", "proxy", "SetProxy.ps1"))
 			Expect(expectedScript).To(ContainSubstring("SetProxy.ps1"))
-			Expect(expectedScript).To(ContainSubstring(path.Join("lib", "scripts", "k2s", "system", "proxy")))
+			Expect(expectedScript).To(ContainSubstring(path.Join("lib", "scripts", "windows", "host", "system", "proxy")))
 		})
 	})
 

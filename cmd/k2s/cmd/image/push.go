@@ -121,7 +121,7 @@ func buildPushPsCmd(cmd *cobra.Command) (psCmd string, params []string, err erro
 		return "", nil, errors.New("no image id or image name provided")
 	}
 
-	psCmd = utils.FormatScriptFilePath(filepath.Join(utils.InstallDir(), "lib", "scripts", "k2s", "image", "Push-Image.ps1"))
+	psCmd = utils.FormatScriptFilePath(filepath.Join(utils.InstallDir(), "lib", "scripts", "windows", "host", "image", "Push-Image.ps1"))
 
 	if imageId != "" {
 		params = append(params, " -Id "+imageId)

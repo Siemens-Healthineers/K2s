@@ -27,7 +27,7 @@ func NewOrchestrator(writer k2sos.StdWriter) Orchestrator {
 }
 
 func (o *WindowsOrchestrator) Install(config InstallConfig) error {
-	path := filepath.Join(utils.InstallDir(), "lib", "scripts", "k2s", "install", "install.ps1")
+	path := filepath.Join(utils.InstallDir(), "lib", "scripts", "windows", "host", "install", "install.ps1")
 	cmd := utils.FormatScriptFilePath(path)
 	cmd += fmt.Sprintf(" -MasterVMProcessorCount %s -MasterVMMemory %s -MasterDiskSize %s",
 		config.MasterVMProcessorCount, config.MasterVMMemory, config.MasterDiskSize)
@@ -55,7 +55,7 @@ func (o *WindowsOrchestrator) Install(config InstallConfig) error {
 }
 
 func (o *WindowsOrchestrator) Uninstall(config UninstallConfig) error {
-	path := filepath.Join(utils.InstallDir(), "lib", "scripts", "k2s", "uninstall", "uninstall.ps1")
+	path := filepath.Join(utils.InstallDir(), "lib", "scripts", "windows", "host", "uninstall", "uninstall.ps1")
 	cmd := utils.FormatScriptFilePath(path)
 
 	if config.SkipPurge {
@@ -75,7 +75,7 @@ func (o *WindowsOrchestrator) Uninstall(config UninstallConfig) error {
 }
 
 func (o *WindowsOrchestrator) Start(config StartConfig) error {
-	path := filepath.Join(utils.InstallDir(), "lib", "scripts", "k2s", "start", "start.ps1")
+	path := filepath.Join(utils.InstallDir(), "lib", "scripts", "windows", "host", "start", "start.ps1")
 	cmd := utils.FormatScriptFilePath(path)
 
 	if config.ShowLogs {
@@ -92,7 +92,7 @@ func (o *WindowsOrchestrator) Start(config StartConfig) error {
 }
 
 func (o *WindowsOrchestrator) Stop(config StopConfig) error {
-	path := filepath.Join(utils.InstallDir(), "lib", "scripts", "k2s", "stop", "stop.ps1")
+	path := filepath.Join(utils.InstallDir(), "lib", "scripts", "windows", "host", "stop", "stop.ps1")
 	cmd := utils.FormatScriptFilePath(path)
 
 	if config.ShowLogs {

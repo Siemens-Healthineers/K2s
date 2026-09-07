@@ -130,11 +130,11 @@ func prepareExecScript(script string) (string, error) {
 
 	// check if there is an directory lib folder
 	if os.PathExists(filepath.Join(installDir, "lib")) {
-		wrapperScript = ("&'" + filepath.Join(installDir, "lib", "scripts", "k2s", "base", "Invoke-ExecScript.ps1") + "' -Script ")
+		wrapperScript = ("&'" + filepath.Join(installDir, "lib", "scripts", "windows", "host", "base", "Invoke-ExecScript.ps1") + "' -Script ")
 		wrapperScript += "\"" + script + "\""
 	} else {
 		// we assume we have a binary under bin path and not in the root
-		wrapperScript = ("&'" + filepath.Join(installDir, "..", "lib", "scripts", "k2s", "base", "Invoke-ExecScript.ps1") + "' -Script ")
+		wrapperScript = ("&'" + filepath.Join(installDir, "..", "lib", "scripts", "windows", "host", "base", "Invoke-ExecScript.ps1") + "' -Script ")
 		wrapperScript += "\"" + script + "\""
 	}
 
