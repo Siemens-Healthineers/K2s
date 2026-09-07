@@ -138,7 +138,7 @@ func newImplementationCmd(addon addons.Addon, cmdName string, implementation add
 // omitEnableNote informs users that an addon imported without the images of an omitted
 // functionality has to be enabled with the same omit option, since the import-time omit
 // selection is not persisted.
-const omitEnableNote = "Note: When using an addon imported with omitted images, use the same omit option during enable."
+const omitEnableNote = "Note: When using an addon imported with omitted images, use the same omit option when enabling the addon."
 
 // addonHasOmitFlags reports whether any implementation of the addon declares a CLI flag
 // with omittable images for the given command.

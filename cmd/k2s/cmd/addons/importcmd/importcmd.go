@@ -61,7 +61,7 @@ An image is only skipped when no addon selected for this import still requires i
 example, 'ingress nginx' is imported with --omit omitCertMgr while 'security' is imported
 too, the cert-manager images are still imported because 'security' requires them.
 
-Note: If functionality is omitted during import, use the corresponding --omit* flag when
+Note: If functionality is omitted during import, use the corresponding omit option when
 enabling the addon as well. Otherwise, the addon may fail to start if the required image is
 not available locally (for example, in an air-gapped environment).`,
 		Example: importCommandExample,

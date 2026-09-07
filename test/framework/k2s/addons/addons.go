@@ -189,13 +189,8 @@ func (info *AddonsAdditionalInfo) GetImagesForAddonImplementation(implementation
 	// add images from additionalImagesFiles
 	var yamlFileImages []string
 	if len(implementation.OfflineUsage.LinuxResources.AdditionalImagesFiles) > 0 {
-		extractedImages, err := implementation.ExtractImagesFromFiles()
-		if err != nil {
-			GinkgoWriter.Printf("Warning: Failed to extract images from files for %s: %v\n", implementation.Name, err)
-		} else {
-			yamlFileImages = extractedImages
-			images = append(images, extractedImages...)
-		}
+		yamlFileImages = imagesFromAdditionalImagesFiles(implementation)
+		images = append(images, yamlFileImages...)
 	}
 
 	// add additional images, but skip versionless ones if versioned equivalent exists in YAML files
@@ -300,6 +295,31 @@ func (info *AddonsAdditionalInfo) GetOmittedImagesForFlag(implementation addons.
 	GinkgoWriter.Printf("Resolved %d omitted image(s) for '%s --%s': %v\n", len(images), implementation.Name, flagName, images)
 
 	return images
+}
+
+// imagesFromAdditionalImagesFiles resolves the images declared by the manifests listed in
+// 'offline_usage.linux.additionalImagesFiles'.
+//
+// It deliberately uses the same extraction as GetOmittedImagesForFlag, i.e. only container
+// 'image:' declarations are considered. Images that a manifest merely references through
+// container args (e.g. cert-manager's '--acme-http01-solver-image') are pulled on demand at
+// runtime and are therefore not part of the exported OCI artifact - expecting them on a node
+// after an import would always fail. Mixing both extraction styles previously put such an
+// image into the 'remaining images' set of the '--omit' specs while leaving it out of the
+// omitted set.
+func imagesFromAdditionalImagesFiles(implementation addons.Implementation) []string {
+	var images []string
+
+	for _, relativePath := range implementation.OfflineUsage.LinuxResources.AdditionalImagesFiles {
+		absolutePath := relativePath
+		if !filepath.IsAbs(relativePath) {
+			absolutePath = filepath.Join(implementation.Directory, relativePath)
+		}
+
+		images = append(images, imagesFromYamlFile(absolutePath)...)
+	}
+
+	return lo.Uniq(images)
 }
 
 // findEnableCliFlag returns the 'enable' command CLI flag with the given name, or nil.
