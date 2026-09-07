@@ -19,9 +19,9 @@ Param(
     [switch] $SkipHeaderDisplay = $false
 )
 
-$infraModule = "$PSScriptRoot\..\..\..\..\modules\k2s\k2s.infra.module\k2s.infra.module.psm1"
-$nodeModule = "$PSScriptRoot\..\..\..\..\modules\k2s\k2s.node.module\k2s.node.module.psm1"
-$clusterModule = "$PSScriptRoot\..\..\..\..\modules\k2s\k2s.cluster.module\k2s.cluster.module.psm1"
+$infraModule = "$PSScriptRoot\..\..\..\..\modules\windows\infra\k2s.infra.module\k2s.infra.module.psm1"
+$nodeModule = "$PSScriptRoot\..\..\..\..\modules\windows\node\k2s.node.module\k2s.node.module.psm1"
+$clusterModule = "$PSScriptRoot\..\..\..\..\modules\windows\cluster\k2s.cluster.module\k2s.cluster.module.psm1"
 $addonsModule = "$PSScriptRoot\..\..\..\..\..\addons\addons.module.psm1"
 Import-Module $infraModule, $nodeModule, $clusterModule, $addonsModule
 
@@ -70,7 +70,7 @@ $workerNodeParams = @{
     ResetHns = $ResetHns
     DnsAddresses = $dnsServers
 }
-& "$PSScriptRoot\..\..\..\worker\windows\windows-host\Start.ps1" @workerNodeParams
+& "$PSScriptRoot\..\..\..\windows\worker\windows-host\Start.ps1" @workerNodeParams
 
 # Actions which need to be done at the end in order to not block the commands before !!!
 # ensure cni0 interface is created (this needs to be done at the end in oder to ensure that initially no extra time is needed)

@@ -141,7 +141,7 @@ function Ensure-PuttyToolsAvailable {
             -PlinkDestination $PlinkPath -PscpDestination $PscpPath
     } else {
         # For non-offline packages: download if not present
-        $puttytoolsModulePath = "$PSScriptRoot\..\..\..\..\..\modules\k2s\k2s.node.module\windowsnode\downloader\artifacts\putty-tools\putty-tools.module.psm1"
+        $puttytoolsModulePath = "$PSScriptRoot\..\..\..\..\..\modules\windows\node\k2s.node.module\windowsnode\downloader\artifacts\putty-tools\putty-tools.module.psm1"
         return Get-PuttyToolsViaDownload -PlinkDestination $PlinkPath -PscpDestination $PscpPath `
             -Proxy $Proxy -PuttyToolsModulePath $puttytoolsModulePath
     }

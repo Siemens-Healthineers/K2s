@@ -21,7 +21,7 @@ K2s is a dual‑platform Kubernetes distribution supporting both Windows and Lin
 - `k2s/` Go sources (CLI root). Subdirs `cmd/*` for individual commands; shared logic in `internal/`.
   - `internal/provider/` Platform-agnostic interfaces + build-tagged implementations (Windows ↔ PowerShell, Linux ↔ native Go). This is the primary abstraction layer for dual-platform support.
   - `internal/setuporchestration/` Linux-native cluster provisioning (kubeadm, libvirt/KVM, SSH).
-- `lib/modules/k2s.*.module/` PowerShell modules (logging, infra, node, cluster, signing, etc.) — Windows only.
+- `lib/modules/windows/<ownership>/k2s.*.module/` PowerShell modules (logging, infra, node, cluster, signing, etc.) — Windows only.
 - `lib/scripts/windows/host/system/package/` Packaging & delta generation scripts (`New-K2sDeltaPackage.ps1`, helpers file).
 - `addons/` Addon definitions; each addon has `Enable.ps1`, `Disable.ps1`, optional `Get-Status.ps1`, `Update.ps1`, `README.md`.
 - `smallsetup/` Windows environment bootstrap (loopback adapter, HNS, kubeadm flags, etc.).

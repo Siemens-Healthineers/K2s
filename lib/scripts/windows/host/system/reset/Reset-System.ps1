@@ -13,7 +13,7 @@ Resets system to the state before K2s installation
 
 #>
 
-$infraModule = "$PSScriptRoot\..\..\..\..\..\modules\k2s\k2s.infra.module\k2s.infra.module.psm1"
+$infraModule = "$PSScriptRoot\..\..\..\..\..\modules\windows\infra\k2s.infra.module\k2s.infra.module.psm1"
 Import-Module $infraModule
 
 Initialize-Logging -ShowLogs:$ShowLogs

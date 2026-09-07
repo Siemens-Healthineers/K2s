@@ -15,8 +15,8 @@ Param(
     [switch] $ShowLogs = $false
 )
 
-$infraModule = "$PSScriptRoot\..\..\..\..\..\..\modules\k2s\k2s.infra.module\k2s.infra.module.psm1"
-$nodeModule = "$PSScriptRoot\..\..\..\..\..\..\modules\k2s\k2s.node.module\k2s.node.module.psm1"
+$infraModule = "$PSScriptRoot\..\..\..\..\..\..\modules\windows\infra\k2s.infra.module\k2s.infra.module.psm1"
+$nodeModule = "$PSScriptRoot\..\..\..\..\..\..\modules\windows\node\k2s.node.module\k2s.node.module.psm1"
 
 Import-Module $infraModule, $nodeModule
 

@@ -81,7 +81,7 @@ Write-Output " - certificate path: $CertPath"
 Write-Output " - tools image: $ToolsImage"
 
 Import-Module "$PSScriptRoot\..\docker\docker.module.psm1", "$PSScriptRoot\windows-support.module.psm1"
-Import-Module "$PSScriptRoot\..\..\..\lib\modules\k2s\k2s.node.module\windowsnode\downloader\artifacts\docker\docker.module.psm1"
+Import-Module "$PSScriptRoot\..\..\..\lib\modules\windows\node\k2s.node.module\windowsnode\downloader\artifacts\docker\docker.module.psm1"
 
 Install-WinDocker
 
