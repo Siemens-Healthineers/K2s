@@ -8,6 +8,8 @@ metadata:
   name: cephfs.csi.ceph.com
   namespace: ceph-csi-operator-system
 spec:
+  imageSet:
+    name: cephfs-smb-shared-images
   controllerPlugin:
     replicas: 1
     labels:

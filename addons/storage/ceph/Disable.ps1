@@ -156,6 +156,8 @@ function Remove-CephCsiKubernetesResources {
 
     (Invoke-Kubectl -Params 'delete', 'storageclass', $StorageClassName, '--ignore-not-found').Output | Write-Log
 
+    (Invoke-Kubectl -Params 'delete', 'configmap', 'cephfs-smb-shared-images', '-n', 'ceph-csi-operator-system', '--ignore-not-found').Output | Write-Log
+
     # Remove the CSIDriver object that the operator creates dynamically for the CephFS driver.
     # It is cluster-scoped and not part of any manifest, so 'delete -k' does not remove it and it
     # survives namespace deletion. Because the Driver CR finalizer is stripped above, the operator

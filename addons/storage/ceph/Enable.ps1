@@ -121,6 +121,90 @@ function Get-CephSmbManifestSourceDir {
   return $null
 }
 
+function Get-CephSmbSidecarImageOverrides {
+  param(
+    [Parameter(Mandatory = $true)]
+    [string]$SourceDir
+  )
+
+  $containerToKey = @{
+    'csi-provisioner'          = 'provisioner'
+    'csi-attacher'             = 'attacher'
+    'csi-resizer'              = 'resizer'
+    'csi-snapshotter'          = 'snapshotter'
+    'node-driver-registrar'    = 'registrar'
+    'csi-node-driver-registrar' = 'registrar'
+  }
+  $images = @{}
+
+  # Prefer Linux/base manifests for sidecar versions used by Ceph CSI controller/node pods.
+  # Windows host-process manifests can carry '-hp' variants that are not valid for Linux workloads.
+  $yamlFiles = Get-ChildItem -Path $SourceDir -Filter '*.yaml' -Recurse -File |
+    Sort-Object -Property @{ Expression = { if ($_.FullName -like '*\base\*') { 0 } else { 1 } } }, FullName
+
+  foreach ($yamlFile in $yamlFiles) {
+    $currentContainerName = ''
+    foreach ($line in (Get-Content -Path $yamlFile.FullName)) {
+      $trimmedLine = $line.Trim()
+
+      if ($trimmedLine -match '^\-\s*name:\s*(?<name>[^#\s]+)') {
+        $currentContainerName = $matches['name'].Trim('"', "'")
+        continue
+      }
+
+      if ([string]::IsNullOrWhiteSpace($currentContainerName)) {
+        continue
+      }
+
+      if ($trimmedLine -match '^image:\s*(?<image>\S+)') {
+        $imageKey = $containerToKey[$currentContainerName]
+        if (-not [string]::IsNullOrWhiteSpace($imageKey) -and -not $images.ContainsKey($imageKey)) {
+          $images[$imageKey] = $matches['image'].Trim('"', "'")
+        }
+        $currentContainerName = ''
+      }
+    }
+  }
+
+  if ($images.Count -eq 0) {
+    throw "Failed to resolve any shared SMB sidecar images from '$SourceDir'."
+  }
+
+  return $images
+}
+
+function New-CephDriverImageSetConfigMapYaml {
+  param(
+    [Parameter(Mandatory = $true)]
+    [string]$Namespace,
+    [Parameter(Mandatory = $true)]
+    [string]$ConfigMapName,
+    [Parameter(Mandatory = $true)]
+    [hashtable]$ImageOverrides
+  )
+
+  $orderedKeys = @('provisioner', 'attacher', 'resizer', 'snapshotter', 'registrar')
+  $dataLines = @(
+    $orderedKeys |
+      Where-Object { $ImageOverrides.ContainsKey($_) -and -not [string]::IsNullOrWhiteSpace($ImageOverrides[$_]) } |
+      ForEach-Object { "  ${_}: " + (Convert-ToYamlSingleQuoted -Value $ImageOverrides[$_]) }
+  )
+
+  if ($dataLines.Count -eq 0) {
+    throw 'No sidecar image override entries were produced for the ceph imageSet ConfigMap.'
+  }
+
+  return @"
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: $ConfigMapName
+  namespace: $Namespace
+data:
+$($dataLines -join "`r`n")
+"@
+}
+
 function New-CephSmbManifestWorkDir {
   param(
     [Parameter(Mandatory = $true)]
@@ -554,6 +638,25 @@ try {
   $kustomizationWorkDir = Join-Path ([System.IO.Path]::GetTempPath()) ("k2s-ceph-kustomize-" + [guid]::NewGuid().ToString())
   New-Item -Path $kustomizationWorkDir -ItemType Directory -ErrorAction Stop | Out-Null
   Copy-Item -Path (Join-Path $cephManifestsDir '*') -Destination $kustomizationWorkDir -Recurse -Force
+
+  # Override ceph-csi-operator sidecar image defaults with versions from the SMB manifests
+  # single source of truth to keep ceph and smb sidecars aligned.
+  $driverImageSetConfigMapName = 'cephfs-smb-shared-images'
+  $smbManifestSourceDir = Get-CephSmbManifestSourceDir
+  if ([string]::IsNullOrWhiteSpace($smbManifestSourceDir)) {
+    throw 'Shared SMB manifests were not found in either the sibling storage/smb addon or the exported Ceph fallback bundle.'
+  }
+
+  $smbSidecarImageOverrides = Get-CephSmbSidecarImageOverrides -SourceDir $smbManifestSourceDir
+  $resolvedOverrideKeys = (($smbSidecarImageOverrides.Keys | Sort-Object) -join ', ')
+  Write-Log "[Ceph] Resolved SMB sidecar image overrides from '$smbManifestSourceDir' (keys: $resolvedOverrideKeys)" -Console
+
+  $driverImageSetConfigMapPath = Join-Path $kustomizationWorkDir 'cephfs-imageset-configmap.yaml'
+  $driverImageSetConfigMapYaml = New-CephDriverImageSetConfigMapYaml -Namespace $cephOperatorNamespace -ConfigMapName $driverImageSetConfigMapName -ImageOverrides $smbSidecarImageOverrides
+  Set-Content -Path $driverImageSetConfigMapPath -Value $driverImageSetConfigMapYaml -Encoding UTF8
+
+  $kustomizationPath = Join-Path $kustomizationWorkDir 'kustomization.yaml'
+  Add-Content -Path $kustomizationPath -Value "`r`n  - cephfs-imageset-configmap.yaml" -Encoding UTF8
 
   $monitorList = @()
   foreach ($monitor in ($MonitorEndpoints -split ',')) {

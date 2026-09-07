@@ -92,23 +92,21 @@ spec:
             - quay.io/ceph/ceph:v20.2.3
             - quay.io/cephcsi/ceph-csi-operator:v1.0.4
             - quay.io/cephcsi/cephcsi:v3.17.0
-            - registry.k8s.io/sig-storage/csi-provisioner:v6.2.0
-            - registry.k8s.io/sig-storage/csi-attacher:v4.12.0
-            - registry.k8s.io/sig-storage/csi-resizer:v2.1.0
-            - registry.k8s.io/sig-storage/csi-snapshotter:v8.5.0
-            - registry.k8s.io/sig-storage/csi-node-driver-registrar:v2.17.0
-            - registry.k8s.io/sig-storage/livenessprobe:v2.18.0
-            - registry.k8s.io/sig-storage/smbplugin:v1.20.1
             - quay.io/samba.org/samba-metrics:ceph20-centos-amd64
             - quay.io/samba.org/samba-server:ceph20-centos-amd64
           additionalImagesFiles:
             - manifests/operator.yaml
             - manifests/csi-rbac.yaml
+            # Resolve SMB CSI sidecar/plugin tags from the shared storage/smb manifests
+            # to keep Ceph export aligned with SMB auto-updates (single source of truth).
+            - ../smb/manifests/base/csi-smb-controller.yaml
+            - ../smb/manifests/base/csi-smb-node.yaml
         windows:
           curl: []
-          additionalImages:
-            - shsk2s.azurecr.io/sig-storage/smbplugin:v1.20.1-hp
-            - shsk2s.azurecr.io/sig-storage/csi-node-driver-registrar:v2.17.0-hp
+          additionalImages: []
+          additionalImagesFiles:
+            # Resolve Windows HP SMB images from shared SMB manifests instead of pinning them here.
+            - ../smb/manifests/windows/csi-smb-node-windows-hp.yaml
       commands:
         enable:
           cli:
