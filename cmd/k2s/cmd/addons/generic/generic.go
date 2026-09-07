@@ -103,7 +103,7 @@ func newAddonCmd(addon addons.Addon, cmdName string) (*cobra.Command, error) {
 	if cmd.RunE == nil {
 		if defaultImplementation, found := ac.FindDefaultImplementationForAddon(addon); found {
 			cmd.RunE = func(cmd *cobra.Command, args []string) error {
-				return runCmd(cmd, addon, cmdName, defaultImplementation)
+				return runCmd(cmd, addon, cmdName, defaultImplementation, args)
 			}
 
 			cmdConfig := (*defaultImplementation.Commands)[cmdName]
