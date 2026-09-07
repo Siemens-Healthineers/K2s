@@ -757,10 +757,6 @@ if ($SetupWindowsNode -eq $true) {
       exit 1
     }
 
-    if ($null -ne $smbManifestWork -and (Test-Path -LiteralPath $smbManifestWork.WorkDir)) {
-      Remove-Item -Path $smbManifestWork.WorkDir -Recurse -Force -ErrorAction SilentlyContinue
-    }
-
     Write-Log '[CephSMB] Waiting for SMB CSI controller and node pods to become Ready' -Console
     Wait-ForPodCondition -Condition Ready -Label 'app=csi-smb-controller' -Namespace $smbNamespace -TimeoutSeconds 300 | Out-Null
     Wait-ForPodCondition -Condition Ready -Label 'app=csi-smb-node'       -Namespace $smbNamespace -TimeoutSeconds 300 | Out-Null
@@ -847,6 +843,10 @@ stringData:
     }
     catch {
       Write-Log "[CephSMB] WARNING: Failed to create host shortcut '$smbWinMountPath': $($_.Exception.Message)" -Console
+    }
+
+    if ($null -ne $smbManifestWork -and (Test-Path -LiteralPath $smbManifestWork.WorkDir)) {
+      Remove-Item -Path $smbManifestWork.WorkDir -Recurse -Force -ErrorAction SilentlyContinue
     }
 
     Write-Log "[CephSMB] Ceph SMB ready. Use StorageClass '$smbStorageClassName' for CephFS-backed volumes on Windows pods." -Console
