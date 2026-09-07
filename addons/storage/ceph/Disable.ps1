@@ -37,6 +37,73 @@ $validationModule = "$PSScriptRoot\..\storage-validation.module.psm1"
 Import-Module $infraModule, $clusterModule, $addonsModule, $validationModule
 Initialize-Logging -ShowLogs:$ShowLogs
 
+function Get-CephSmbManifestSourceDir {
+    $candidateDirs = @(
+        [System.IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..\smb\manifests')),
+        [System.IO.Path]::GetFullPath((Join-Path $PSScriptRoot 'manifests\smb-shared'))
+    )
+
+    foreach ($candidateDir in $candidateDirs) {
+        if (Test-Path -LiteralPath $candidateDir) {
+            return $candidateDir
+        }
+    }
+
+    return $null
+}
+
+function New-CephSmbManifestWorkDir {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$Namespace
+    )
+
+    $sourceDir = Get-CephSmbManifestSourceDir
+    if ([string]::IsNullOrWhiteSpace($sourceDir)) {
+        throw 'Shared SMB manifests were not found in either the sibling storage/smb addon or the exported Ceph fallback bundle.'
+    }
+
+    $workDir = Join-Path ([System.IO.Path]::GetTempPath()) ("k2s-ceph-smb-kustomize-" + [guid]::NewGuid().ToString())
+    New-Item -Path $workDir -ItemType Directory -ErrorAction Stop | Out-Null
+    Copy-Item -Path (Join-Path $sourceDir '*') -Destination $workDir -Recurse -Force
+
+    $filesUsingStandaloneNamespace = @(
+        'base\csi-smb-controller.yaml',
+        'base\csi-smb-node.yaml',
+        'base\rbac-csi-smb.yaml',
+        'base\storage-classes\template_StorageClass.yaml',
+        'windows\csi-smb-node-windows-hp.yaml'
+    )
+
+    foreach ($relativePath in $filesUsingStandaloneNamespace) {
+        $fullPath = Join-Path $workDir $relativePath
+        $content = Get-Content -Path $fullPath -Raw
+        $content = $content -replace 'storage-smb', $Namespace
+        Set-Content -Path $fullPath -Value $content -Encoding UTF8
+    }
+
+    $cephBaseKustomization = @"
+# SPDX-FileCopyrightText: © 2026 Siemens Healthineers AG
+#
+# SPDX-License-Identifier: MIT
+
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - rbac-csi-smb.yaml
+  - csi-smb-driver.yaml
+  - csi-smb-controller.yaml
+  - csi-smb-node.yaml
+"@
+    Set-Content -Path (Join-Path $workDir 'base\kustomization.yaml') -Value $cephBaseKustomization -Encoding UTF8
+
+    return [pscustomobject]@{
+        SourceDir = $sourceDir
+        WorkDir   = $workDir
+    }
+}
+
 <#
 .SYNOPSIS
 Removes the Ceph CSI Kubernetes resources (operator, driver, CRs, StorageClass, namespaces, CRDs).
@@ -580,14 +647,15 @@ if (-not [string]::IsNullOrWhiteSpace($smbNsExists) -or -not [string]::IsNullOrW
     # Delete the smbcreds Secret.
     (Invoke-Kubectl -Params 'delete', 'secret', 'smbcreds', '-n', $smbNamespace, '--ignore-not-found').Output | Write-Log
 
-    # Remove the SMB CSI driver resources from Ceph-local SMB manifests.
-    $smbManifestsSrcDir = "$PSScriptRoot\manifests\smb"
-    if (Test-Path $smbManifestsSrcDir) {
-        $smbWindowsDir = Join-Path $smbManifestsSrcDir 'windows'
+    # Remove the SMB CSI driver resources via the same shared-source overlay used during enable.
+    try {
+        $smbManifestWork = New-CephSmbManifestWorkDir -Namespace $smbNamespace
+        $smbWindowsDir = Join-Path $smbManifestWork.WorkDir 'windows'
         (Invoke-Kubectl -Params 'delete', '-k', $smbWindowsDir, '--ignore-not-found', '--wait=false').Output | Write-Log
+        Remove-Item -Path $smbManifestWork.WorkDir -Recurse -Force -ErrorAction SilentlyContinue
     }
-    else {
-        Write-Log '[CephSMB] WARNING: SMB manifests not found while disabling ceph SMB resources. Skipping SMB CSI manifest deletion.' -Console
+    catch {
+        Write-Log "[CephSMB] WARNING: Shared SMB manifests not found while disabling ceph SMB resources. Skipping SMB CSI manifest deletion. Details: $($_.Exception.Message)" -Console
     }
 
     # Delete the Ceph SMB namespace (let it terminate in background).

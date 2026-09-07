@@ -156,6 +156,11 @@ var _ = Describe("storage ceph addon export and import", Ordered, func() {
 				"manifests/operator.yaml",
 				"manifests/csi-rbac.yaml",
 				"manifests/crds/ceph-crd.yaml",
+				"manifests/smb-shared/base/csi-smb-controller.yaml",
+				"manifests/smb-shared/base/csi-smb-node.yaml",
+				"manifests/smb-shared/base/rbac-csi-smb.yaml",
+				"manifests/smb-shared/base/storage-classes/template_StorageClass.yaml",
+				"manifests/smb-shared/windows/csi-smb-node-windows-hp.yaml",
 			}
 			exportimport.VerifyImportedAddonFiles(cephImplDir, expectedFiles)
 		})

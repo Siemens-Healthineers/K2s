@@ -106,6 +106,73 @@ function New-CephStructuredError {
   return (New-Error -Code 'addon-enable-failed' -Message $Message)
 }
 
+function Get-CephSmbManifestSourceDir {
+  $candidateDirs = @(
+    [System.IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..\smb\manifests')),
+    [System.IO.Path]::GetFullPath((Join-Path $PSScriptRoot 'manifests\smb-shared'))
+  )
+
+  foreach ($candidateDir in $candidateDirs) {
+    if (Test-Path -LiteralPath $candidateDir) {
+      return $candidateDir
+    }
+  }
+
+  return $null
+}
+
+function New-CephSmbManifestWorkDir {
+  param(
+    [Parameter(Mandatory = $true)]
+    [string]$Namespace
+  )
+
+  $sourceDir = Get-CephSmbManifestSourceDir
+  if ([string]::IsNullOrWhiteSpace($sourceDir)) {
+    throw 'Shared SMB manifests were not found in either the sibling storage/smb addon or the exported Ceph fallback bundle.'
+  }
+
+  $workDir = Join-Path ([System.IO.Path]::GetTempPath()) ("k2s-ceph-smb-kustomize-" + [guid]::NewGuid().ToString())
+  New-Item -Path $workDir -ItemType Directory -ErrorAction Stop | Out-Null
+  Copy-Item -Path (Join-Path $sourceDir '*') -Destination $workDir -Recurse -Force
+
+  $filesUsingStandaloneNamespace = @(
+    'base\csi-smb-controller.yaml',
+    'base\csi-smb-node.yaml',
+    'base\rbac-csi-smb.yaml',
+    'base\storage-classes\template_StorageClass.yaml',
+    'windows\csi-smb-node-windows-hp.yaml'
+  )
+
+  foreach ($relativePath in $filesUsingStandaloneNamespace) {
+    $fullPath = Join-Path $workDir $relativePath
+    $content = Get-Content -Path $fullPath -Raw
+    $content = $content -replace 'storage-smb', $Namespace
+    Set-Content -Path $fullPath -Value $content -Encoding UTF8
+  }
+
+  $cephBaseKustomization = @"
+# SPDX-FileCopyrightText: © 2026 Siemens Healthineers AG
+#
+# SPDX-License-Identifier: MIT
+
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - rbac-csi-smb.yaml
+  - csi-smb-driver.yaml
+  - csi-smb-controller.yaml
+  - csi-smb-node.yaml
+"@
+  Set-Content -Path (Join-Path $workDir 'base\kustomization.yaml') -Value $cephBaseKustomization -Encoding UTF8
+
+  return [pscustomobject]@{
+    SourceDir = $sourceDir
+    WorkDir   = $workDir
+  }
+}
+
 function New-CephSmbHostShortcut {
   param(
     [Parameter(Mandatory = $true)]
@@ -653,7 +720,7 @@ if ($SetupWindowsNode -eq $true) {
     $smbNamespace       = 'storage-smb-ceph'
     $smbWinMountPath    = if ($Config -and $Config.PSObject.Properties.Name -contains 'smb' -and -not [string]::IsNullOrWhiteSpace($Config.smb.winMountPath)) { "$($Config.smb.winMountPath)" } else { 'C:\k8s-ceph-share' }
 
-    # ---- Part 1: Configure the SMB CSI driver (reuse the storage/smb addon manifests) ----
+    # ---- Part 1: Configure the SMB CSI driver from the shared storage/smb manifest source ----
     Write-Log '[CephSMB] Deploying SMB CSI driver' -Console
 
     $smbNsExists = (Invoke-Kubectl -Params 'get', 'namespace', $smbNamespace, '--ignore-not-found', '--no-headers').Output
@@ -662,24 +729,36 @@ if ($SetupWindowsNode -eq $true) {
       (Invoke-Kubectl -Params 'create', 'namespace', $smbNamespace).Output | Write-Log
     }
 
-    $smbManifestsSrcDir = "$PSScriptRoot\manifests\smb"
-    if (-not (Test-Path $smbManifestsSrcDir)) {
-      Write-Log "[CephSMB] ERROR: SMB manifests not found at '$smbManifestsSrcDir'." -Console -Error
+    $smbManifestWork = $null
+    try {
+      $smbManifestWork = New-CephSmbManifestWorkDir -Namespace $smbNamespace
+    }
+    catch {
+      Write-Log "[CephSMB] ERROR: $($_.Exception.Message)" -Console -Error
       if ($EncodeStructuredOutput -eq $true) {
         Send-ToCli -MessageType $MessageType -Message @{Error = (New-CephStructuredError -Message 'SMB manifests missing for Ceph Windows setup') }
       }
       exit 1
     }
+
+    $smbManifestsSrcDir = $smbManifestWork.WorkDir
     $smbWindowsDir = Join-Path $smbManifestsSrcDir 'windows'
-    Write-Log "[CephSMB] Applying SMB CSI driver manifests from '$smbWindowsDir' (namespace '$smbNamespace')" -Console
+    Write-Log "[CephSMB] Applying SMB CSI driver manifests from '$($smbManifestWork.SourceDir)' via runtime overlay '$smbWindowsDir' (namespace '$smbNamespace')" -Console
     $smbApply = Invoke-Kubectl -Params 'apply', '-k', $smbWindowsDir
     $smbApply.Output | Write-Log
     if (-not $smbApply.Success) {
       Write-Log '[CephSMB] ERROR: Failed to deploy SMB CSI driver manifests.' -Console -Error
+      if ($null -ne $smbManifestWork) {
+        Write-Log "[CephSMB] SMB kustomize workdir preserved for inspection: $($smbManifestWork.WorkDir)" -Console
+      }
       if ($EncodeStructuredOutput -eq $true) {
         Send-ToCli -MessageType $MessageType -Message @{Error = (New-CephStructuredError -Message 'SMB CSI driver deployment failed') }
       }
       exit 1
+    }
+
+    if ($null -ne $smbManifestWork -and (Test-Path -LiteralPath $smbManifestWork.WorkDir)) {
+      Remove-Item -Path $smbManifestWork.WorkDir -Recurse -Force -ErrorAction SilentlyContinue
     }
 
     Write-Log '[CephSMB] Waiting for SMB CSI controller and node pods to become Ready' -Console
