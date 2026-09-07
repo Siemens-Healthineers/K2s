@@ -72,6 +72,7 @@ if ($systemError) {
 New-Item -ItemType Directory -Path $BackupDir -Force | Out-Null
 
 $files = @()
+$setupWindowsNode = $false
 
 try {
     # 1) Snapshot config file (contains monitor endpoints, credentials, pool/filesystem names)
@@ -92,6 +93,13 @@ try {
     if ($null -ne $storageAddonConfig -and ($null -eq $storageAddonConfig.Implementation -or $storageAddonConfig.Implementation -eq 'ceph')) {
         $storageAddonConfig | ConvertTo-Json -Depth 100 | Set-Content -Path $addonConfigSnapshotPath -Encoding UTF8 -Force
         $files += (Split-Path -Leaf $addonConfigSnapshotPath)
+
+        # Persist whether Ceph SMB for Windows was enabled so restore can replay
+        # the original enable mode via EnableForRestore.ps1.
+        if (($storageAddonConfig.PSObject.Properties.Name -contains 'CephSmbSource' -and -not [string]::IsNullOrWhiteSpace("$($storageAddonConfig.CephSmbSource)")) -or
+            ($storageAddonConfig.PSObject.Properties.Name -contains 'CephSmbWinMountPath' -and -not [string]::IsNullOrWhiteSpace("$($storageAddonConfig.CephSmbWinMountPath)"))) {
+            $setupWindowsNode = $true
+        }
     }
     else {
         Write-Log "[StorageCephBackup] No matching addon config entry found in setup.json (or implementation is not 'ceph'); skipping addon-config snapshot." -Console
@@ -116,6 +124,7 @@ try {
             $nsOut = Join-Path $BackupDir 'ceph-smb-namespace.yaml'
             Set-Content -Path $nsOut -Value $smbNsResult.Output -Encoding utf8
             $files += (Split-Path -Leaf $nsOut)
+            $setupWindowsNode = $true
         }
 
         $smbCredsResult = Invoke-Kubectl -Params 'get', 'secret', 'smbcreds', '-n', $smbNamespace, '-o', 'yaml', '--ignore-not-found'
@@ -123,6 +132,7 @@ try {
             $secretOut = Join-Path $BackupDir 'ceph-smb-smbcreds-secret.yaml'
             Set-Content -Path $secretOut -Value $smbCredsResult.Output -Encoding utf8
             $files += (Split-Path -Leaf $secretOut)
+            $setupWindowsNode = $true
         }
 
         $smbScResult = Invoke-Kubectl -Params 'get', 'storageclass', $smbStorageClassName, '-o', 'yaml', '--ignore-not-found'
@@ -130,6 +140,7 @@ try {
             $scOut = Join-Path $BackupDir 'ceph-smb-storageclass.yaml'
             Set-Content -Path $scOut -Value $smbScResult.Output -Encoding utf8
             $files += (Split-Path -Leaf $scOut)
+            $setupWindowsNode = $true
         }
     }
 }
@@ -159,6 +170,9 @@ $manifest = [pscustomobject]@{
     addon          = 'storage'
     implementation = 'ceph'
     files          = $files
+    enableParams   = [pscustomobject]@{
+        setupWindowsNode = $setupWindowsNode
+    }
     createdAt      = (Get-Date).ToString('o')
 }
 

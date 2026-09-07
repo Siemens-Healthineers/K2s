@@ -47,6 +47,31 @@ Initialize-Logging -ShowLogs:$ShowLogs
 Write-Log "[StorageCephEnableForRestore] Enabling addon 'storage ceph' (restore mode)" -Console
 
 $configPath = "$PSScriptRoot\config\ceph-config.json"
+$backupJsonPath = $null
+$setupWindowsNode = $false
+
+if (-not [string]::IsNullOrWhiteSpace($BackupDir)) {
+    $candidateBackupJson = Join-Path $BackupDir 'backup.json'
+    if (Test-Path -LiteralPath $candidateBackupJson) {
+        $backupJsonPath = $candidateBackupJson
+    }
+}
+
+if ($backupJsonPath) {
+    try {
+        $backupManifest = Get-Content -Raw -Path $backupJsonPath | ConvertFrom-Json
+        if ($null -ne $backupManifest.enableParams -and $backupManifest.enableParams.setupWindowsNode -eq $true) {
+            $setupWindowsNode = $true
+            Write-Log '[StorageCephEnableForRestore] Restoring original Ceph SMB Windows mode (-SetupWindowsNode).' -Console
+        }
+        else {
+            Write-Log '[StorageCephEnableForRestore] Backup does not request Ceph SMB Windows mode; enabling Linux Ceph provisioner only.' -Console
+        }
+    }
+    catch {
+        Write-Log "[StorageCephEnableForRestore] Warning: Failed to read enableParams from backup.json: $($_.Exception.Message). Falling back to Linux-only Ceph enable." -Console
+    }
+}
 
 try {
     if (-not [string]::IsNullOrWhiteSpace($BackupDir)) {
@@ -74,6 +99,9 @@ catch {
 
 # Delegate to the regular Enable.ps1, which reads the (restored) ceph-config.json.
 $enableParams = @{ ShowLogs = $ShowLogs }
+if ($setupWindowsNode) {
+    $enableParams.SetupWindowsNode = $true
+}
 if ($EncodeStructuredOutput -eq $true) {
     $enableParams.EncodeStructuredOutput = $true
     $enableParams.MessageType = $MessageType

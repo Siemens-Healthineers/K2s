@@ -256,9 +256,9 @@ During restore, the addon re-enable step ensures `bin\\flux.exe` is present on t
 
 ### storage ceph
 
-**Backup:** Snapshots the Ceph connection configuration (`clusterHostNode`, plus the `cephfsPool` / `cephfsFilesystem` names from `config/ceph-config.json`) into a zip archive. No user data is copied — it resides in the provisioned Ceph cluster.
+**Backup:** Snapshots the Ceph connection configuration (`clusterHostNode`, plus the `cephfsPool` / `cephfsFilesystem` names from `config/ceph-config.json`) into a zip archive. It also records whether the addon had been enabled with Windows SMB support (`-w`) so restore can replay the same enable mode. No user data is copied — it resides in the provisioned Ceph cluster.
 
-**Restore:** Re-applies the configuration snapshot and re-enables the addon, which provisions a fresh single-node Ceph cluster on the configured Debian 13 node. The same configuration is preserved automatically across `k2s system backup`/`restore`/`upgrade` via backup/restore hooks registered while the addon is enabled.
+**Restore:** Re-applies the configuration snapshot and re-enables the addon, which provisions a fresh single-node Ceph cluster on the configured Debian 13 node. If the original backup was taken from a `storage ceph -w` deployment, restore re-enables the Ceph SMB Windows path as well. The same configuration is preserved automatically across `k2s system backup`/`restore`/`upgrade` via backup/restore hooks registered while the addon is enabled.
 
 ### viewer
 

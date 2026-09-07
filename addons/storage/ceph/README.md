@@ -230,9 +230,9 @@ k2s addons backup storage ceph
 k2s addons restore storage ceph
 ```
 
-`backup` captures the Ceph addon configuration and any SMB-related Kubernetes resources that were created alongside it. It does not back up the actual Ceph user data because the data resides on the external Ceph cluster, not on the K2s addon folder.
+`backup` captures the Ceph addon configuration and any SMB-related Kubernetes resources that were created alongside it. It also preserves whether the addon had been enabled with `-w` so restore can replay the Windows SMB setup. It does not back up the actual Ceph user data because the data resides on the external Ceph cluster, not on the K2s addon folder.
 
-`restore` re-applies the saved Ceph configuration and, when present, restores the SMB CSI manifests and related Kubernetes objects for Windows access. It does not restore the Ceph data itself; it only restores the addon configuration needed to reconnect and re-enable the storage setup.
+`restore` re-applies the saved Ceph configuration and re-enables the addon with the same mode that was backed up. If the backup came from a `k2s addons enable storage ceph -w` deployment, restore re-enables the Ceph SMB Windows path as well. It does not restore the Ceph data itself; it only restores the addon configuration needed to reconnect and re-enable the storage setup.
 
 ## Detailed usage and examples
 

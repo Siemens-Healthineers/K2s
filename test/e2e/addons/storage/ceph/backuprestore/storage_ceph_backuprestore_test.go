@@ -5,10 +5,14 @@
 package backuprestore
 
 import (
+	"archive/zip"
 	"context"
+	"encoding/json"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -22,6 +26,17 @@ import (
 )
 
 const testClusterTimeout = time.Minute * 30
+
+const (
+	cephSmbStorageClass = "ceph-smb"
+	cephSmbNamespace    = "storage-smb-ceph"
+)
+
+type cephBackupManifest struct {
+	EnableParams struct {
+		SetupWindowsNode bool `json:"setupWindowsNode"`
+	} `json:"enableParams"`
+}
 
 var (
 	suite      *framework.K2sTestSuite
@@ -65,11 +80,73 @@ func backupZipPath(suffix string) string {
 	return filepath.Join(backupDir, fmt.Sprintf("storage_ceph_backup_%s.zip", suffix))
 }
 
+func skipIfLinuxOnly() {
+	if suite.SetupInfo().RuntimeConfig.InstallConfig().LinuxOnly() {
+		Skip("Linux-only setup: no Windows worker node to validate Ceph SMB (-w) behavior")
+	}
+}
+
+func readCephBackupManifest(zipPath string) cephBackupManifest {
+	reader, err := zip.OpenReader(zipPath)
+	Expect(err).ToNot(HaveOccurred(), "expected backup zip to be readable")
+	defer reader.Close()
+
+	for _, file := range reader.File {
+		if strings.EqualFold(file.Name, "backup.json") {
+			handle, openErr := file.Open()
+			Expect(openErr).ToNot(HaveOccurred(), "expected backup.json to be readable")
+			defer handle.Close()
+
+			content, readErr := io.ReadAll(handle)
+			Expect(readErr).ToNot(HaveOccurred(), "expected backup.json content to be readable")
+
+			var manifest cephBackupManifest
+			Expect(json.Unmarshal(content, &manifest)).To(Succeed(), "expected valid backup.json content")
+			return manifest
+		}
+	}
+
+	Fail("backup.json not found in backup archive")
+	return cephBackupManifest{}
+}
+
+func expectCephSmbResourcesAbsent(ctx context.Context) {
+	storageClass, storageClassExitCode := suite.Kubectl().Exec(ctx, "get", "storageclass", cephSmbStorageClass, "-o", "name", "--ignore-not-found")
+	Expect(storageClassExitCode).To(Equal(0))
+	Expect(strings.TrimSpace(storageClass)).To(BeEmpty(), "Ceph SMB StorageClass should not exist")
+
+	namespace, namespaceExitCode := suite.Kubectl().Exec(ctx, "get", "namespace", cephSmbNamespace, "-o", "name", "--ignore-not-found")
+	Expect(namespaceExitCode).To(Equal(0))
+	Expect(strings.TrimSpace(namespace)).To(BeEmpty(), "Ceph SMB namespace should not exist")
+}
+
+func expectCephSmbResourcesPresent(ctx context.Context) {
+	Eventually(func() string {
+		out, exitCode := suite.Kubectl().Exec(ctx, "get", "storageclass", cephSmbStorageClass, "-o", "name", "--ignore-not-found")
+		if exitCode != 0 {
+			return ""
+		}
+		return strings.TrimSpace(out)
+	}).WithTimeout(2 * time.Minute).WithPolling(5 * time.Second).Should(ContainSubstring(cephSmbStorageClass))
+
+	Eventually(func() string {
+		out, exitCode := suite.Kubectl().Exec(ctx, "get", "namespace", cephSmbNamespace, "-o", "name", "--ignore-not-found")
+		if exitCode != 0 {
+			return ""
+		}
+		return strings.TrimSpace(out)
+	}).WithTimeout(2 * time.Minute).WithPolling(5 * time.Second).Should(Equal("namespace/" + cephSmbNamespace))
+}
+
 var _ = Describe("'storage ceph' addon backup/restore", Ordered, func() {
-	var zipPath string
+	var (
+		zipPathWithoutWindows string
+		zipPathWithWindows    string
+	)
 
 	BeforeAll(func() {
-		zipPath = backupZipPath("basic")
+		zipPathWithoutWindows = backupZipPath("without-w")
+		zipPathWithWindows = backupZipPath("with-w")
 		_ = os.RemoveAll(backupDir)
 		_ = os.MkdirAll(backupDir, os.ModePerm)
 	})
@@ -90,18 +167,25 @@ var _ = Describe("'storage ceph' addon backup/restore", Ordered, func() {
 		Expect(output).To(ContainSubstring("not found"))
 	})
 
-	It("enables the addon", func(ctx context.Context) {
+	It("enables the addon without -w", func(ctx context.Context) {
 		suite.K2sCli().MustExec(ctx, "addons", "enable", "storage", "ceph", "-o")
 		k2s.VerifyAddonIsEnabled("storage", "ceph")
 	})
 
-	It("creates a backup", func(ctx context.Context) {
-		suite.K2sCli().MustExec(ctx, "addons", "backup", "storage", "ceph", "-f", zipPath, "-o")
-		Expect(zipPath).To(BeAnExistingFile())
+	It("does not create Ceph SMB resources without -w", func(ctx context.Context) {
+		expectCephSmbResourcesAbsent(ctx)
+	})
+
+	It("creates a backup for non--w mode", func(ctx context.Context) {
+		suite.K2sCli().MustExec(ctx, "addons", "backup", "storage", "ceph", "-f", zipPathWithoutWindows, "-o")
+		Expect(zipPathWithoutWindows).To(BeAnExistingFile())
+
+		manifest := readCephBackupManifest(zipPathWithoutWindows)
+		Expect(manifest.EnableParams.SetupWindowsNode).To(BeFalse(), "backup manifest should record non--w mode")
 	})
 
 	It("fails restore while addon is enabled", func(ctx context.Context) {
-		output, _ := suite.K2sCli().ExpectedExitCode(cli.ExitCodeFailure).Exec(ctx, "addons", "restore", "storage", "ceph", "-f", zipPath)
+		output, _ := suite.K2sCli().ExpectedExitCode(cli.ExitCodeFailure).Exec(ctx, "addons", "restore", "storage", "ceph", "-f", zipPathWithoutWindows)
 		Expect(output).To(ContainSubstring("disable"))
 	})
 
@@ -110,9 +194,44 @@ var _ = Describe("'storage ceph' addon backup/restore", Ordered, func() {
 		k2s.VerifyAddonIsDisabled("storage", "ceph")
 	})
 
-	It("restores from backup successfully", func(ctx context.Context) {
-		suite.K2sCli().MustExec(ctx, "addons", "restore", "storage", "ceph", "-f", zipPath, "-o")
+	It("restores from non--w backup and keeps SMB disabled", func(ctx context.Context) {
+		suite.K2sCli().MustExec(ctx, "addons", "restore", "storage", "ceph", "-f", zipPathWithoutWindows, "-o")
 		k2s.VerifyAddonIsEnabled("storage", "ceph")
+		expectCephSmbResourcesAbsent(ctx)
+	})
+
+	It("disables the addon before -w scenario", func(ctx context.Context) {
+		suite.K2sCli().MustExec(ctx, "addons", "disable", "storage", "ceph", "--force", "-o")
+		k2s.VerifyAddonIsDisabled("storage", "ceph")
+	})
+
+	It("enables the addon with -w", func(ctx context.Context) {
+		skipIfLinuxOnly()
+		suite.K2sCli().MustExec(ctx, "addons", "enable", "storage", "ceph", "-o", "-w")
+		k2s.VerifyAddonIsEnabled("storage", "ceph")
+		expectCephSmbResourcesPresent(ctx)
+	})
+
+	It("creates a backup for -w mode", func(ctx context.Context) {
+		skipIfLinuxOnly()
+		suite.K2sCli().MustExec(ctx, "addons", "backup", "storage", "ceph", "-f", zipPathWithWindows, "-o")
+		Expect(zipPathWithWindows).To(BeAnExistingFile())
+
+		manifest := readCephBackupManifest(zipPathWithWindows)
+		Expect(manifest.EnableParams.SetupWindowsNode).To(BeTrue(), "backup manifest should record -w mode")
+	})
+
+	It("disables the addon before restoring -w backup", func(ctx context.Context) {
+		skipIfLinuxOnly()
+		suite.K2sCli().MustExec(ctx, "addons", "disable", "storage", "ceph", "--force", "-o")
+		k2s.VerifyAddonIsDisabled("storage", "ceph")
+	})
+
+	It("restores from -w backup and re-enables Ceph SMB", func(ctx context.Context) {
+		skipIfLinuxOnly()
+		suite.K2sCli().MustExec(ctx, "addons", "restore", "storage", "ceph", "-f", zipPathWithWindows, "-o")
+		k2s.VerifyAddonIsEnabled("storage", "ceph")
+		expectCephSmbResourcesPresent(ctx)
 	})
 
 	It("can be enabled when only addons/common and addons/storage are present", func(ctx context.Context) {

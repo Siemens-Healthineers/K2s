@@ -40,10 +40,12 @@ const (
 	testMarker   = "hello from k2s ceph e2e"
 	cephDataPool = "cephfs.cephfs.data"
 
-	winWriterPod  = "ceph-share-win-writer"
-	winReaderPod  = "ceph-share-win-reader"
-	winTestFile   = `C:\data\win-hello.txt`
-	winTestMarker = "hello from k2s ceph windows e2e"
+	winWriterPod        = "ceph-share-win-writer"
+	winReaderPod        = "ceph-share-win-reader"
+	winTestFile         = `C:\data\win-hello.txt`
+	winTestMarker       = "hello from k2s ceph windows e2e"
+	cephSmbNamespace    = "storage-smb-ceph"
+	cephSmbStorageClass = "ceph-smb"
 
 	testClusterTimeout     = time.Minute * 20
 	addonEnableMaxAttempts = 2
@@ -124,9 +126,9 @@ var _ = Describe("storage ceph addon", Ordered, func() {
 		})
 	})
 
-	Describe("enable, run workload, disable", func() {
-		It("enables the addon", func(ctx context.Context) {
-			output := enableCephAddonWithRetry(ctx)
+	Describe("enable without -w, run Linux workload, disable", func() {
+		It("enables the addon without Windows SMB setup", func(ctx context.Context) {
+			output := enableCephAddonWithRetry(ctx, false)
 			Expect(output).To(SatisfyAll(
 				ContainSubstring("enable"),
 				ContainSubstring(addonName),
@@ -142,6 +144,10 @@ var _ = Describe("storage ceph addon", Ordered, func() {
 				ContainSubstring("ADDON STATUS"),
 				ContainSubstring("enabled"),
 			))
+		})
+
+		It("does not provision Ceph SMB resources without -w", func(ctx context.Context) {
+			expectCephSmbResourcesAbsent(ctx)
 		})
 
 		It("makes Ceph dashboard URL reachable", func(ctx context.Context) {
@@ -187,6 +193,38 @@ var _ = Describe("storage ceph addon", Ordered, func() {
 			suite.Kubectl().MustExec(ctx, "delete", "-k", rwxManifestDir)
 		})
 
+		It("disables the addon", func(ctx context.Context) {
+			suite.K2sCli().MustExec(ctx, "addons", "disable", addonName, implementationName, "-f", "-o")
+			k2s.VerifyAddonIsDisabled(addonName, implementationName)
+
+			Eventually(func(g Gomega) {
+				st := getAddonStatusJSON(ctx, g)
+				g.Expect(st.Name).To(Equal(addonName))
+				g.Expect(st.Implementation).To(Equal(implementationName))
+				g.Expect(st.Enabled).NotTo(BeNil())
+				g.Expect(*st.Enabled).To(BeFalse())
+			}).WithTimeout(2 * time.Minute).WithPolling(5 * time.Second).Should(Succeed())
+		})
+	})
+
+	Describe("enable with -w, run Windows SMB workload, disable", func() {
+		It("enables the addon with Windows SMB setup", func(ctx context.Context) {
+			skipIfLinuxOnly()
+			output := enableCephAddonWithRetry(ctx, true)
+			Expect(output).To(SatisfyAll(
+				ContainSubstring("enable"),
+				ContainSubstring(addonName),
+				ContainSubstring(implementationName),
+			))
+
+			k2s.VerifyAddonIsEnabled(addonName, implementationName)
+		})
+
+		It("provisions Ceph SMB resources with -w", func(ctx context.Context) {
+			skipIfLinuxOnly()
+			expectCephSmbResourcesPresent(ctx)
+		})
+
 		It("deploys the Windows Ceph SMB workload", func(ctx context.Context) {
 			skipIfLinuxOnly()
 			suite.Kubectl().MustExec(ctx, "apply", "-k", windowsManifestDir)
@@ -215,16 +253,9 @@ var _ = Describe("storage ceph addon", Ordered, func() {
 		})
 
 		It("disables the addon", func(ctx context.Context) {
+			skipIfLinuxOnly()
 			suite.K2sCli().MustExec(ctx, "addons", "disable", addonName, implementationName, "-f", "-o")
 			k2s.VerifyAddonIsDisabled(addonName, implementationName)
-
-			Eventually(func(g Gomega) {
-				st := getAddonStatusJSON(ctx, g)
-				g.Expect(st.Name).To(Equal(addonName))
-				g.Expect(st.Implementation).To(Equal(implementationName))
-				g.Expect(st.Enabled).NotTo(BeNil())
-				g.Expect(*st.Enabled).To(BeFalse())
-			}).WithTimeout(2 * time.Minute).WithPolling(5 * time.Second).Should(Succeed())
 		})
 	})
 })
@@ -235,12 +266,16 @@ func skipIfLinuxOnly() {
 	}
 }
 
-func enableCephAddonWithRetry(ctx context.Context) string {
+func enableCephAddonWithRetry(ctx context.Context, setupWindowsNode bool) string {
 	lastOutput := ""
 	lastExitCode := -1
+	args := []string{"addons", "enable", addonName, implementationName, "-o"}
+	if setupWindowsNode {
+		args = append(args, "-w")
+	}
 
 	for attempt := 1; attempt <= addonEnableMaxAttempts; attempt++ {
-		output, exitCode := suite.K2sCli().Exec(ctx, "addons", "enable", addonName, implementationName, "-o", "-w")
+		output, exitCode := suite.K2sCli().Exec(ctx, args...)
 		if exitCode == 0 {
 			return output
 		}
@@ -257,6 +292,34 @@ func enableCephAddonWithRetry(ctx context.Context) string {
 
 	Expect(lastExitCode).To(Equal(0), "'k2s addons enable %s %s -o' failed after %d attempts. Last output:\n%s", addonName, implementationName, addonEnableMaxAttempts, lastOutput)
 	return lastOutput
+}
+
+func expectCephSmbResourcesAbsent(ctx context.Context) {
+	sc, scExitCode := suite.Kubectl().Exec(ctx, "get", "storageclass", cephSmbStorageClass, "-o", "name", "--ignore-not-found")
+	Expect(scExitCode).To(Equal(0))
+	Expect(strings.TrimSpace(sc)).To(BeEmpty(), "Ceph SMB StorageClass should not exist without -w")
+
+	ns, nsExitCode := suite.Kubectl().Exec(ctx, "get", "namespace", cephSmbNamespace, "-o", "name", "--ignore-not-found")
+	Expect(nsExitCode).To(Equal(0))
+	Expect(strings.TrimSpace(ns)).To(BeEmpty(), "Ceph SMB namespace should not exist without -w")
+}
+
+func expectCephSmbResourcesPresent(ctx context.Context) {
+	Eventually(func() string {
+		out, exitCode := suite.Kubectl().Exec(ctx, "get", "storageclass", cephSmbStorageClass, "-o", "name", "--ignore-not-found")
+		if exitCode != 0 {
+			return ""
+		}
+		return strings.TrimSpace(out)
+	}).WithTimeout(2 * time.Minute).WithPolling(5 * time.Second).Should(ContainSubstring(cephSmbStorageClass))
+
+	Eventually(func() string {
+		out, exitCode := suite.Kubectl().Exec(ctx, "get", "namespace", cephSmbNamespace, "-o", "name", "--ignore-not-found")
+		if exitCode != 0 {
+			return ""
+		}
+		return strings.TrimSpace(out)
+	}).WithTimeout(2 * time.Minute).WithPolling(5 * time.Second).Should(Equal("namespace/" + cephSmbNamespace))
 }
 
 func getAddonStatusJSON(ctx context.Context, g Gomega) status.AddonPrintStatus {
