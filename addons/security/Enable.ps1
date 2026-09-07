@@ -119,19 +119,19 @@ try {
 	if (Test-NginxIngressControllerAvailability) {
 		# Ensure certificate exists
 	
-		Assert-IngressTlsCertificate -IngressType 'nginx' -CertificateManifestPath "$PSScriptRoot\..\ingress\$IngressType\manifests\cluster-local-ingress.yaml"
+		Assert-IngressTlsCertificate -IngressType 'nginx' -CertificateManifestPath "$PSScriptRoot\..\ingress\nginx\manifests\cluster-local-ingress.yaml"
 	}
 	elseif (Test-TraefikIngressControllerAvailability) {
-		Assert-IngressTlsCertificate -IngressType 'traefik' -CertificateManifestPath "$PSScriptRoot\..\ingress\$IngressType\manifests\cluster-local-ingress.yaml"
+		Assert-IngressTlsCertificate -IngressType 'traefik' -CertificateManifestPath "$PSScriptRoot\..\ingress\traefik\manifests\cluster-local-ingress.yaml"
 	}
 	elseif (Test-NginxGatewayAvailability) {
-		Assert-IngressTlsCertificate -IngressType 'nginx-gw' -CertificateManifestPath "$PSScriptRoot\..\ingress\$IngressType\manifests\k2s-cluster-local-tls-certificate.yaml"
+		Assert-IngressTlsCertificate -IngressType 'nginx-gw' -CertificateManifestPath "$PSScriptRoot\..\ingress\nginx-gw\manifests\k2s-cluster-local-tls-certificate.yaml"
 	}
 	else {
 		# Enable required ingress addon
 		Write-Log "No Ingress controller found in the cluster, enabling $Ingress controller" -Console
 		Enable-IngressAddon -Ingress:$Ingress
-		Assert-IngressTlsCertificate -IngressType 'nginx' -CertificateManifestPath "$PSScriptRoot\..\ingress\$IngressType\manifests\cluster-local-ingress.yaml"
+		Assert-IngressTlsCertificate -IngressType $Ingress -CertificateManifestPath "$PSScriptRoot\..\ingress\$Ingress\manifests\cluster-local-ingress.yaml"
 	}
 
 	# Keycloak and Hydra setup (conditional)
@@ -177,6 +177,7 @@ try {
 		$keycloakPodStatus = $true
 		if (-not $OmitHydra ) {
 			Write-Log 'Using Hydra as OIDC provider for oauth2-proxy' -Console
+			$winSecurityStatus = $true
 				if ($keycloakPodStatus -eq $true) {
 					if ($setupInfo.LinuxOnly -eq $false) {
 						$winSecurityStatus = Enable-WindowsSecurityDeployments	
@@ -248,6 +249,12 @@ try {
 			throw "Failed to generate Linkerd CRDs: $crdOutput"
 		}
 		$crdOutput | Out-File -FilePath $linkerdYaml\linkerd-crds-gen.yaml -Encoding utf8
+		(Get-Content $linkerdYaml\linkerd-crds-gen.yaml) -replace '[^\x20-\x7E\r\n]', '' | Set-Content $linkerdYaml\linkerd-crds.yaml
+		Remove-Item -Path $linkerdYaml\linkerd-crds-gen.yaml -Force
+
+		# apply Linkerd CRDs to cluster before generating control plane manifests
+		Write-Log 'Applying Linkerd CRDs to cluster' -Console
+		(Invoke-Kubectl -Params 'apply', '--server-side', '--force-conflicts', '-f', "$linkerdYaml\linkerd-crds.yaml").Output | Write-Log
 
 		# generate the control plane resources
 		# Note: --ignore-cluster is omitted because Linkerd CLI rejects --ignore-cluster when identity.externalCA=true / identity.issuer.scheme=kubernetes.io/tls is set
@@ -266,12 +273,7 @@ try {
 			throw "Failed to generate Linkerd control plane manifest: $cpOutput"
 		}
 		$cpOutput | Out-File -FilePath $linkerdYaml\linkerd-gen.yaml -Encoding utf8
-
-		# cleanup linkerd resources
-		(Get-Content $linkerdYaml\linkerd-crds-gen.yaml) -replace '[^\x20-\x7E\r\n]', '' | Set-Content $linkerdYaml\linkerd-crds.yaml
 		(Get-Content $linkerdYaml\linkerd-gen.yaml) -replace '[^\x20-\x7E\r\n]', '' | Set-Content $linkerdYaml\linkerd.yaml
-		# remove downloaded files
-		Remove-Item -Path $linkerdYaml\linkerd-crds-gen.yaml -Force
 		Remove-Item -Path $linkerdYaml\linkerd-gen.yaml -Force
 
 		# create linkerd namespace
