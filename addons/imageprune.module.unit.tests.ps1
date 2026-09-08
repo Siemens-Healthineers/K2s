@@ -119,6 +119,48 @@ Describe 'Get-TarEntryName' -Tag 'unit', 'ci', 'addon' {
         $result.Count | Should -Be 0
         $Error.Count | Should -Be 0
     }
+
+    # A corrupt/unreadable archive must never let tar's stderr output leak into the entry
+    # list, because a warning line could otherwise be mistaken for an image tar name.
+    It 'returns an empty result and no stderr text when the archive cannot be listed' {
+        $corruptArchive = Join-Path ([System.IO.Path]::GetTempPath()) "k2s-corrupt-$([guid]::NewGuid().ToString('N')).tar"
+        Set-Content -Path $corruptArchive -Value 'this is not a tar archive' -NoNewline
+
+        try {
+            $result = @(Get-TarEntryName -ArchivePath $corruptArchive)
+
+            $result.Count | Should -Be 0
+        }
+        finally {
+            Remove-Item -Path $corruptArchive -Force -ErrorAction SilentlyContinue
+        }
+    }
+
+    It 'returns the normalized leaf names of a real archive and ignores directory entries' {
+        $workDir = Join-Path ([System.IO.Path]::GetTempPath()) "k2s-tar-$([guid]::NewGuid().ToString('N'))"
+        $contentDir = Join-Path $workDir 'images'
+        New-Item -ItemType Directory -Path $contentDir -Force | Out-Null
+        Set-Content -Path (Join-Path $contentDir 'quay.io_jetstack_cert-manager-controller_v1.21.1.tar') -Value 'x'
+        Set-Content -Path (Join-Path $contentDir 'windows_docker.io_library_nginx_1.29.tar') -Value 'x'
+
+        $archive = Join-Path $workDir 'layer.tar'
+        $previousLocation = Get-Location
+        try {
+            Set-Location $workDir
+            & tar -cf $archive 'images' | Out-Null
+            Set-Location $previousLocation
+
+            $result = @(Get-TarEntryName -ArchivePath $archive)
+
+            $result | Should -Contain 'quay.io_jetstack_cert-manager-controller_v1.21.1.tar'
+            $result | Should -Contain 'windows_docker.io_library_nginx_1.29.tar'
+            $result | Should -Not -Contain 'images'
+        }
+        finally {
+            Set-Location $previousLocation
+            Remove-Item -Path $workDir -Recurse -Force -ErrorAction SilentlyContinue
+        }
+    }
 }
 
 Describe 'ConvertTo-OmitToken' -Tag 'unit', 'ci', 'addon' {

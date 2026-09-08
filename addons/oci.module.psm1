@@ -422,10 +422,26 @@ function Get-TarEntryName {
         return @()
     }
 
-    $listing = & tar -tf $ArchivePath 2>&1
+    $errorLines = @()
+    $listing = & tar -tf $ArchivePath 2>&1 | ForEach-Object {
+        # tar writes warnings/errors to stderr; with '2>&1' those arrive as ErrorRecord objects.
+        # They must never end up in the entry list, otherwise a warning text could be mistaken
+        # for an image tar name.
+        if ($_ -is [System.Management.Automation.ErrorRecord]) {
+            $errorLines += "$_"
+        }
+        else {
+            $_
+        }
+    }
+
     if ($LASTEXITCODE -ne 0) {
-        Write-Log "[OCI] Warning: unable to list entries of '$ArchivePath': $listing"
+        Write-Log "[OCI] Warning: unable to list entries of '$ArchivePath': $($errorLines -join '; ')"
         return @()
+    }
+
+    if ($errorLines.Count -gt 0) {
+        Write-Log "[OCI] 'tar -tf $ArchivePath' reported: $($errorLines -join '; ')"
     }
 
     $names = @()
