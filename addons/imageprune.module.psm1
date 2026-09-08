@@ -33,7 +33,7 @@ Pruning rule (global over the whole import session):
 an image may only be skipped when NO imported addon/implementation still requires it.
 #>
 
-$infraModule = "$PSScriptRoot\..\lib\modules\k2s\k2s.infra.module\k2s.infra.module.psm1"
+$infraModule = "$PSScriptRoot\..\lib\modules\windows\infra\k2s.infra.module\k2s.infra.module.psm1"
 $addonsModule = "$PSScriptRoot\addons.module.psm1"
 $ociModule = "$PSScriptRoot\oci.module.psm1"
 
