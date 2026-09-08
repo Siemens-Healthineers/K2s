@@ -26,10 +26,10 @@ spec:
     - name: reader
       image: mcr.microsoft.com/windows/nanoserver:ltsc2022
       command:
-        - powershell.exe
-        - -Command
+        - cmd.exe
+        - /c
         - >-
-          while ($true) { Start-Sleep -Seconds 30 }
+          ping -t 127.0.0.1 > NUL
       volumeMounts:
         - name: ceph-data
           mountPath: 'C:\data'

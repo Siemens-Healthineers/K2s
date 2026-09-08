@@ -26,11 +26,10 @@ spec:
     - name: writer
       image: mcr.microsoft.com/windows/nanoserver:ltsc2022
       command:
-        - powershell.exe
-        - -Command
+        - cmd.exe
+        - /c
         - >-
-          Set-Content -Path C:\data\win-hello.txt -Value 'hello from k2s ceph windows e2e';
-          while ($true) { Start-Sleep -Seconds 30 }
+          echo hello from k2s ceph windows e2e > C:\data\win-hello.txt && ping -t 127.0.0.1 > NUL
       volumeMounts:
         - name: ceph-data
           mountPath: 'C:\data'
