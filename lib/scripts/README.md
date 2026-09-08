@@ -12,4 +12,4 @@ Contains APIs to perform operations with any variant of K2s.
 Selected scripts can include companion manifest files that describe their purpose,
 parameters, prerequisites, and example invocations.
 
-- Linux bare-metal worker add: [Linux worker add manifest](worker/linux/bare-metal/addnode.manifest.yaml)
+- Linux bare-metal worker add: [Linux worker add manifest](windows/worker/linux/bare-metal/addnode.manifest.yaml)
