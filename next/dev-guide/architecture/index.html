@@ -3899,6 +3899,16 @@ SPDX-License-Identifier: MIT
 <td>Setup scripts for Windows-hosted Windows and Linux worker nodes.</td>
 </tr>
 <tr>
+<td><strong>Native Debian host lifecycle</strong></td>
+<td><code>lib/scripts/linux/debian/{host,linuxonly}/</code></td>
+<td>Root-only Debian 13 lifecycle entry points; both dispatch to the native Linux K2s <abbr title="Command-Line Interface">CLI</abbr> implementation.</td>
+</tr>
+<tr>
+<td><strong>Native Linux modules</strong></td>
+<td><code>lib/modules/linux/{common,infra,cluster,node,networking,services}/</code></td>
+<td>Reusable Bash modules for native Linux host operations, logging, validation, paths, services, <abbr title="Domain Name System">DNS</abbr>, and package handling.</td>
+</tr>
+<tr>
 <td><strong>Control plane setup</strong></td>
 <td><code>lib/scripts/control-plane/</code></td>
 <td>Control plane installation script.</td>
