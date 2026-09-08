@@ -13,3 +13,4 @@ Selected scripts can include companion manifest files that describe their purpos
 parameters, prerequisites, and example invocations.
 
 - Linux bare-metal worker add: [Linux worker add manifest](windows/worker/linux/bare-metal/addnode.manifest.yaml)
+- Native Debian 13 lifecycle: [Linux-only scripts](linux/debian/linuxonly/)

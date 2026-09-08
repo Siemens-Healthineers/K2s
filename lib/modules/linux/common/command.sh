@@ -12,9 +12,10 @@ k2s_run() {
   printf -v command_line '%q ' "$@"
   k2s_log INFO "Running command: ${command_line% }"
 
-  "$@"
-  local exit_code=$?
-  if [[ $exit_code -ne 0 ]]; then
+  if "$@" 2>&1 | tee -a "$K2S_LOG_FILE"; then
+    return 0
+  else
+    local exit_code=${PIPESTATUS[0]}
     k2s_log_command_failure "$exit_code" "${command_line% }"
     return "$exit_code"
   fi
