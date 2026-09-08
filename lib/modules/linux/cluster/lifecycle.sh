@@ -228,7 +228,12 @@ k2s_install_cluster() {
   sed "s|--linux-subnet=172.21.0.0/24|--linux-subnet=$linux_service|;s|--windows-subnet=172.21.1.0/24|--windows-subnet=$windows_service|" "$deployment" > "$rendered_deployment" || return 1
   k2s_kubectl apply -f "$rendered_deployment" || { rm -f "$rendered_deployment"; return 1; }
   rm -f "$rendered_deployment"
-  k2s_kubectl -n k2s-webhook rollout status deployment/clusterip-webhook --timeout=120s || return 1
+  if ! k2s_kubectl -n k2s-webhook rollout status deployment/clusterip-webhook --timeout=120s; then
+    k2s_log ERROR 'ClusterIP webhook rollout did not complete. Capturing pod and event diagnostics.'
+    k2s_kubectl -n k2s-webhook get pods -o wide 2>&1 | tee -a "$K2S_LOG_FILE" || true
+    k2s_kubectl -n k2s-webhook get events --sort-by=.lastTimestamp 2>&1 | tail -n 40 | tee -a "$K2S_LOG_FILE" || true
+    return 1
+  fi
   k2s_log INFO 'Installing bundled Linux control-plane tools.'
   k2s_install_control_plane_tools || return $?
   k2s_kubectl taint nodes --all node-role.kubernetes.io/control-plane- || true
