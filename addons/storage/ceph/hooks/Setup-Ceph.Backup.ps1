@@ -23,7 +23,7 @@ param (
     [switch]$ShowLogs = $false
 )
 $script = $MyInvocation.MyCommand.Name
-$infraModule = "$PSScriptRoot/../../lib/modules/k2s/k2s.infra.module/k2s.infra.module.psm1"
+$infraModule = "$PSScriptRoot/../../lib/modules/windows/infra/k2s.infra.module/k2s.infra.module.psm1"
 
 Import-Module $infraModule
 
