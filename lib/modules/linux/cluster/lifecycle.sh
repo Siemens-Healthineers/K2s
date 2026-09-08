@@ -96,7 +96,11 @@ EOF
 k2s_packages_install() {
   local version token gateway
   version=$(sed -n "/function Get-DefaultK8sVersion/,/^}/s/.*return ['\"]\(v[0-9][0-9.]*\)['\"].*/\1/p" "$K2S_INSTALL_DIR/lib/modules/windows/infra/k2s.infra.module/config/config.module.psm1" | head -1)
-  token=$(tr -d '\r\n' < "$K2S_INSTALL_DIR/bin/registry.dat"); gateway=$(k2s_cfg '.smallsetup.kubeSwitch'); [[ -n "$token" && -n "$version" ]] || return 1
+  token=$(tr -d '\r\n[:space:]' < "$K2S_INSTALL_DIR/bin/registry.dat")
+  token=${token#$'\xEF\xBB\xBF'}
+  printf '%s' "$token" | base64 -d >/dev/null 2>&1 || { k2s_log ERROR 'Packaged registry credential is not valid Base64.'; return 1; }
+  gateway=$(k2s_cfg '.smallsetup.kubeSwitch')
+  [[ -n "$token" && -n "$version" ]] || return 1
   K2S_VERSION="$version"
   export K2S_VERSION
   k2s_log INFO "Provisioning Kubernetes version $K2S_VERSION."
@@ -216,6 +220,13 @@ k2s_install_cluster() {
   [[ -f "$flannel" ]] || return 1
   k2s_log INFO 'Deploying Flannel CNI.'
   sed -e 's|NETWORK.NAME|cbr0|g' -e "s|NETWORK.ADDRESS|$(k2s_cfg '.smallsetup.podNetworkCIDR')|g" -e 's|NETWORK.TYPE|vxlan|g' "$flannel" | k2s_kubectl apply -f - || return 1
+  k2s_log INFO 'Waiting for Flannel CNI to become ready.'
+  if ! k2s_kubectl -n kube-flannel rollout status daemonset/kube-flannel-ds --timeout=120s; then
+    k2s_log ERROR 'Flannel did not become ready. Capturing pod and event diagnostics.'
+    k2s_kubectl -n kube-flannel get pods -o wide 2>&1 | tee -a "$K2S_LOG_FILE" || true
+    k2s_kubectl -n kube-flannel get events --sort-by=.lastTimestamp 2>&1 | tail -n 40 | tee -a "$K2S_LOG_FILE" || true
+    return 1
+  fi
   k2s_log INFO 'Deploying ClusterIP allocation webhook.'
   for manifest in namespace.yaml rbac.yaml webhook-config.yaml; do
     k2s_kubectl apply -f "$K2S_INSTALL_DIR/lib/manifests/clusterip-webhook/$manifest" || return 1
