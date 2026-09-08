@@ -273,8 +273,8 @@ function Copy-WindowsNodeArtifactsToStaging {
         ErrorMessage        = ''
     }
 
-    # Use a bounded content sample when metadata matches to avoid false "unchanged" results.
-    function Get-ZipEntrySampleHash {
+    # Complete-content hashing is required because ZIP timestamps and lengths can match after content changes.
+    function Get-ZipEntryContentHash {
         param(
             [Parameter(Mandatory = $true)]
             $Entry
@@ -283,13 +283,7 @@ function Copy-WindowsNodeArtifactsToStaging {
         $stream = $Entry.Open()
         $sha256 = [System.Security.Cryptography.SHA256]::Create()
         try {
-            $buffer = New-Object byte[] 4096
-            $bytesRead = $stream.Read($buffer, 0, $buffer.Length)
-            $hashBytes = if ($bytesRead -gt 0) {
-                $sha256.ComputeHash($buffer, 0, $bytesRead)
-            } else {
-                $sha256.ComputeHash([byte[]]@())
-            }
+            $hashBytes = $sha256.ComputeHash($stream)
 
             return [System.BitConverter]::ToString($hashBytes).Replace('-', '').ToLowerInvariant()
         }
@@ -303,14 +297,36 @@ function Copy-WindowsNodeArtifactsToStaging {
         }
     }
 
+    function Resolve-ZipEntryDestination {
+        param(
+            [Parameter(Mandatory = $true)]
+            [string] $TargetRoot,
+            [Parameter(Mandatory = $true)]
+            [string] $RelativePath
+        )
+
+        # Security invariant: archive extraction must stay within its mapping root, as required by the delta packaging extraction contract.
+        $canonicalRoot = [System.IO.Path]::GetFullPath($TargetRoot).TrimEnd('\', '/')
+        $normalizedPath = $RelativePath -replace '/', '\'
+        if ([System.IO.Path]::IsPathRooted($normalizedPath) -or $normalizedPath -match '(^|\\)\.\.($|\\)') {
+            throw "ZIP entry path '$RelativePath' is absolute or contains parent-directory traversal."
+        }
+
+        $canonicalDestination = [System.IO.Path]::GetFullPath((Join-Path $canonicalRoot $normalizedPath))
+        $rootPrefix = $canonicalRoot + [System.IO.Path]::DirectorySeparatorChar
+        if (-not $canonicalDestination.StartsWith($rootPrefix, [System.StringComparison]::OrdinalIgnoreCase)) {
+            throw "ZIP entry path '$RelativePath' escapes extraction root '$canonicalRoot'."
+        }
+
+        return $canonicalDestination
+    }
+
     $zipFileType = 'System.IO.Compression.ZipFile' -as [type]
     if (-not $zipFileType) {
         try {
             Add-Type -AssemblyName System.IO.Compression.FileSystem -ErrorAction Stop
         }
-        catch {
-            # Validate availability below to keep behavior deterministic across PowerShell versions.
-        }
+            catch { }
 
         $zipFileType = 'System.IO.Compression.ZipFile' -as [type]
         if (-not $zipFileType) {
@@ -370,7 +386,6 @@ function Copy-WindowsNodeArtifactsToStaging {
         return $result
     }
 
-    # Build hash map of old ZIP entries for comparison using cross-version-safe metadata
     $oldEntryMap = @{}
     if (Test-Path $oldWinArtifactsZip) {
         Write-Log "[WinArtifacts] Building hash map from old WindowsNodeArtifacts.zip for comparison..." -Console
@@ -385,11 +400,10 @@ function Copy-WindowsNodeArtifactsToStaging {
                             $hasLoggedZeroTicksWarning = $true
                         }
 
-                        # Keep metadata key and include sample hash for same-metadata verification later.
                         $oldEntryMap[$entry.FullName] = @{
                             LastWriteTimeUtcTicks = $entryLastWriteTicks
                             Length                = $entry.Length
-                            SampleHash            = Get-ZipEntrySampleHash -Entry $entry
+                            ContentHash           = Get-ZipEntryContentHash -Entry $entry
                         }
                     }
                 }
@@ -417,7 +431,7 @@ function Copy-WindowsNodeArtifactsToStaging {
                 $targetFolder = $mapping.Target
                 $sourceSubdir = if ($mapping.Subdir) { $mapping.Subdir } else { '' }
                 $renameMap = if ($mapping.Rename) { $mapping.Rename } else { @{} }
-                $targetPath = Join-Path $Context.StageDir $targetFolder
+                $targetPath = Resolve-ZipEntryDestination -TargetRoot $Context.StageDir -RelativePath $targetFolder
 
                 # Build the source path pattern (may include subdir like containerd/bin/)
                 $sourcePattern = if ($sourceSubdir) {
@@ -463,19 +477,15 @@ function Copy-WindowsNodeArtifactsToStaging {
 
                     # Check if file changed compared to old package
                     $isNew = $false
-                    $isChanged = $false
                     if ($oldEntryMap.Count -gt 0) {
                         $oldEntry = $oldEntryMap[$entry.FullName]
                         if ($null -eq $oldEntry) {
                             $isNew = $true
                         } elseif ($oldEntry.LastWriteTimeUtcTicks -ne $newEntryLastWriteTicks -or $oldEntry.Length -ne $entry.Length) {
-                            $isChanged = $true
                         } else {
-                            $newEntrySampleHash = Get-ZipEntrySampleHash -Entry $entry
-                            if ($oldEntry.SampleHash -ne $newEntrySampleHash) {
-                                $isChanged = $true
+                            $newEntryContentHash = Get-ZipEntryContentHash -Entry $entry
+                            if ($oldEntry.ContentHash -ne $newEntryContentHash) {
                             } else {
-                                # File unchanged - skip extraction
                                 $skippedCount++
                                 $result.UnchangedFiles++
                                 continue
@@ -494,7 +504,7 @@ function Copy-WindowsNodeArtifactsToStaging {
                         Write-Log "[WinArtifacts] Renaming '$fileName' to '$newFileName'" -Console
                     }
 
-                    $destFile = Join-Path $targetPath $relativePath
+                    $destFile = Resolve-ZipEntryDestination -TargetRoot $targetPath -RelativePath $relativePath
                     $destDir = Split-Path $destFile -Parent
 
                     if (-not (Test-Path $destDir)) {

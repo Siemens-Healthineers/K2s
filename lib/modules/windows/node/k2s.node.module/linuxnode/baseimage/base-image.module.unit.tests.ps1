@@ -17,7 +17,6 @@ Describe 'Get-Sha512HexLower' -Tag 'unit', 'ci', 'k2s', 'linuxnode' {
                 try {
                     [System.IO.File]::WriteAllText($tmpFile, 'hello k2s')
 
-                    # Compute expected hash independently
                     $sha = [System.Security.Cryptography.SHA512]::Create()
                     try {
                         $stream = [System.IO.File]::OpenRead($tmpFile)

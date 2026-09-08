@@ -12,9 +12,7 @@ if (-not $zipFileType) {
     try {
         Add-Type -AssemblyName System.IO.Compression.FileSystem -ErrorAction Stop
     }
-    catch {
-        # Validate availability below to keep behavior deterministic across PowerShell versions.
-    }
+    catch { }
 
     $zipFileType = 'System.IO.Compression.ZipFile' -as [type]
     if (-not $zipFileType) {

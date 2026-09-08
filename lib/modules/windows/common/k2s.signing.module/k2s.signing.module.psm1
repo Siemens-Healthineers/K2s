@@ -34,7 +34,6 @@ function Import-K2sPfxCertificate {
         [SecureString]$Password
     )
 
-    # Evidence: addons/addons.module.psm1 uses Get-PSDrive Cert guarding before Cert: path usage.
     if (Test-CertificateProviderAvailable) {
         return Import-PfxCertificate -FilePath $CertificatePath -CertStoreLocation Cert:\LocalMachine\My -Password $Password
     }

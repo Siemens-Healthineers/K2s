@@ -161,7 +161,6 @@ function Get-HashMap {
 
     foreach ($item in $items) {
         $rel = $item.FullName.Substring($Root.Length).TrimStart('\', '/') -replace '\\', '/'
-          # Evidence: this script previously used SHA256 at this call site; keep SHA256 and lowercase hex output.
           $hash = Get-Sha256HexLower -LiteralPath $item.FullName
         $map[$rel] = [pscustomobject]@{
             Path = $item.FullName

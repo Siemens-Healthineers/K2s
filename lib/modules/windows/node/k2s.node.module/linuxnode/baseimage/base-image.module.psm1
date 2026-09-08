@@ -106,7 +106,6 @@ function Invoke-DownloadLinuxImage {
             $allHashes = curl.exe --retry 3 --connect-timeout 60 --retry-connrefused --silent --disable --fail "$urlRoot/SHA512SUMS" --noproxy '*'
         }
 
-        # Evidence: this module previously used SHA512 at this exact call site; keep SHA512 and compare lowercase hex.
         $computedHash = Get-Sha512HexLower -LiteralPath $imgFile
         $m = [regex]::Matches($allHashes, "(?<Hash>\w{128})\s\s$urlFile")
         if (-not $m[0]) { throw "[LinuxImage] Cannot find hash for '$urlFile' in SHA512SUMS" }

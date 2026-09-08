@@ -37,7 +37,6 @@ function Get-FileMap {
     for ($i = 0; $i -lt $total; $i++) {
         $f = $files[$i]
         $rel = $f.FullName.Substring($root.Length) -replace '^[\\/]+' , '' -replace '\\','/'
-        # Evidence: this script previously used SHA256 at this call site; keep SHA256 and lowercase hex output.
         try { $hash = Get-Sha256HexLower -LiteralPath $f.FullName } catch { Write-Log "[Warning] Hash failed for '$($f.FullName)': $($_.Exception.Message)"; $hash = '' }
         $map[$rel] = [pscustomobject]@{ Hash = $hash; Sha256 = $hash; Size = $f.Length }
         if ($ShowLogs) {

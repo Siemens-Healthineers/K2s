@@ -1395,8 +1395,6 @@ Describe 'Import-CertificateToTrustedRootStore' -Tag 'unit', 'ci', 'addon' {
 
         It 'uses fallback path without invoking Import-Certificate' {
             InModuleScope -ModuleName $moduleName {
-                # Evidence: Import-CertificateToTrustedRootStore uses ::new constructors, not New-Object.
-                # See addons.module.psm1 Import-CertificateToTrustedRootStore implementation.
                 $tempNonCertFile = Join-Path -Path $env:TEMP -ChildPath ("k2s-non-cert-{0}.crt" -f ([guid]::NewGuid().ToString()))
                 Set-Content -Path $tempNonCertFile -Value 'NOT A CERTIFICATE' -Encoding ascii
 
@@ -1747,7 +1745,6 @@ Describe 'Remove-CertificateFromTrustedRootStore' -Tag 'unit', 'ci', 'addon' {
             $principal = [Security.Principal.WindowsPrincipal]::new($currentIdentity)
             $isElevated = $principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
             if (-not $isElevated) {
-                # Fallback path can open LocalMachine\Root via .NET store APIs, which requires elevation.
                 Set-ItResult -Skipped -Because 'Requires admin to open LocalMachine Root store in fallback path'
                 return
             }
