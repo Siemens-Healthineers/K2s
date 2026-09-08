@@ -243,38 +243,11 @@ try {
 		$clinkerdExe = "$(Get-KubeBinPath)\linkerd.exe"
 		$linkerdYaml = Get-LinkerdConfigDirectory
 
-		# generate the CRDs
-		$crdOutput = & $clinkerdExe install --ignore-cluster --crds 2>&1 | Out-String
-		if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($crdOutput)) {
-			throw "Failed to generate Linkerd CRDs: $crdOutput"
-		}
-		$crdOutput | Out-File -FilePath $linkerdYaml\linkerd-crds-gen.yaml -Encoding utf8
-		(Get-Content $linkerdYaml\linkerd-crds-gen.yaml) -replace '[^\x20-\x7E\r\n]', '' | Set-Content $linkerdYaml\linkerd-crds.yaml
-		Remove-Item -Path $linkerdYaml\linkerd-crds-gen.yaml -Force
-
-		# apply Linkerd CRDs to cluster before generating control plane manifests
-		Write-Log 'Applying Linkerd CRDs to cluster' -Console
-		(Invoke-Kubectl -Params 'apply', '--server-side', '--force-conflicts', '-f', "$linkerdYaml\linkerd-crds.yaml").Output | Write-Log
-
-		# generate the control plane resources
-		# Note: --ignore-cluster is omitted because Linkerd CLI rejects --ignore-cluster when identity.externalCA=true / identity.issuer.scheme=kubernetes.io/tls is set
-		$cpOutput = & $clinkerdExe install `
-			--disable-heartbeat `
-			--proxy-memory-limit 100Mi `
-			--proxy-cpu-request 100m `
-			--proxy-cpu-limit 100m `
-			--default-inbound-policy "all-authenticated" `
-			--set "identity.externalCA=true" `
-			--set "identity.issuer.scheme=kubernetes.io/tls" `
-			--set "proxy.await=false" `
-			--set "proxy.image.name=shsk2s.azurecr.io/linkerd/proxy" 2>&1 | Out-String
-
-		if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($cpOutput)) {
-			throw "Failed to generate Linkerd control plane manifest: $cpOutput"
-		}
-		$cpOutput | Out-File -FilePath $linkerdYaml\linkerd-gen.yaml -Encoding utf8
-		(Get-Content $linkerdYaml\linkerd-gen.yaml) -replace '[^\x20-\x7E\r\n]', '' | Set-Content $linkerdYaml\linkerd.yaml
-		Remove-Item -Path $linkerdYaml\linkerd-gen.yaml -Force
+		Invoke-LinkerdCliRender `
+			-LinkerdExe $clinkerdExe `
+			-Arguments @('install', '--ignore-cluster', '--crds') `
+			-OutputFile "$linkerdYaml\linkerd-crds.yaml" `
+			-Description 'CRD manifest generation'
 
 		# create linkerd namespace
 		Write-Log 'Creating linkerd namespace' -Console
@@ -392,6 +365,53 @@ try {
 		# Wait for trust-manager to propagate certificates to linkerd namespace
 		Write-Log 'Waiting for linkerd namespace secrets to be ready' -Console
 		Start-Sleep -Seconds 10
+
+		Write-Log 'Applying Linkerd CRDs to cluster' -Console
+		$crdApplyResult = Invoke-Kubectl -Params 'apply', '--server-side', '--force-conflicts', '-f', (Get-LinkerdConfigCRDs)
+		$crdApplyResult.Output | Write-Log
+		if ($crdApplyResult.Success -ne $true) {
+			throw "Failed to apply Linkerd CRDs: $($crdApplyResult.Output)"
+		}
+
+		Write-Log 'Waiting for Linkerd CRDs to become Established' -Console
+		$linkerdCrds = @(
+			'authorizationpolicies.policy.linkerd.io',
+			'egressnetworks.policy.linkerd.io',
+			'httplocalratelimitpolicies.policy.linkerd.io',
+			'httproutes.policy.linkerd.io',
+			'meshtlsauthentications.policy.linkerd.io',
+			'networkauthentications.policy.linkerd.io',
+			'serverauthorizations.policy.linkerd.io',
+			'servers.policy.linkerd.io',
+			'serviceprofiles.linkerd.io',
+			'externalworkloads.workload.linkerd.io'
+		)
+		$linkerdCrdResources = $linkerdCrds | ForEach-Object { "crd/$_" }
+		$crdWaitResult = Invoke-Kubectl -Params (@('wait', '--for=condition=Established') + $linkerdCrdResources + '--timeout=120s')
+		$crdWaitResult.Output | Write-Log
+		if ($crdWaitResult.Success -ne $true) {
+			throw "Linkerd CRDs did not become Established within 120s: $($crdWaitResult.Output)"
+		}
+		Clear-KubectlDiscoveryCache
+
+		Write-Log 'Creating linkerd control plane manifest' -Console
+		$controlPlaneArguments = @(
+			'install',
+			'--disable-heartbeat',
+			'--proxy-memory-limit', '100Mi',
+			'--proxy-cpu-request', '100m',
+			'--proxy-cpu-limit', '100m',
+			'--default-inbound-policy', 'all-authenticated',
+			'--set', 'identity.externalCA=true',
+			'--set', 'identity.issuer.scheme=kubernetes.io/tls',
+			'--set', 'proxy.await=false',
+			'--set', 'proxy.image.name=shsk2s.azurecr.io/linkerd/proxy'
+		)
+		Invoke-LinkerdCliRender `
+			-LinkerdExe $clinkerdExe `
+			-Arguments $controlPlaneArguments `
+			-OutputFile "$linkerdYaml\linkerd.yaml" `
+			-Description 'control plane manifest generation'
 
 		# install linkerd
 		# Clear kubectl discovery cache before applying Linkerd kustomization
