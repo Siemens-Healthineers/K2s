@@ -16,6 +16,7 @@ k2s_load_operation() {
   K2S_VERSION=$(jq -r '.version // empty' "$2") || return 2
   K2S_CLUSTER_NAME=$(jq -r '.clusterName // "k2s-cluster"' "$2") || return 2
   K2S_CONTROL_PLANE_HOSTNAME=$(jq -r '.controlPlaneHostname // empty' "$2") || return 2
+  K2S_CONTROL_PLANE_HOSTNAME=${K2S_CONTROL_PLANE_HOSTNAME:-$(hostname)}
   K2S_PROXY=$(jq -r '.proxy // empty' "$2") || return 2
   K2S_NO_PROXY=$(jq -r '.noProxy // [] | join(",")' "$2") || return 2
   K2S_SKIP_START=$(jq -r '.skipStart // false' "$2") || return 2
