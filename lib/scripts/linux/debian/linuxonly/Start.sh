@@ -13,4 +13,4 @@ source "$K2S_INSTALL_DIR/lib/modules/linux/common/paths.sh"
 source "$K2S_INSTALL_DIR/lib/modules/linux/common/validation.sh"
 source "$K2S_INSTALL_DIR/lib/modules/linux/cluster/lifecycle.sh"
 
-k2s_dispatch_lifecycle start start "$@"
+k2s_dispatch_lifecycle start "$@"
