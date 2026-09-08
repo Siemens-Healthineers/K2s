@@ -184,7 +184,7 @@ func buildNodeStopCmd(flags *pflag.FlagSet, nodeConfig cc.Node, singleNode bool)
 	roleType := string(nodeConfig.Role)
 	OsType := string(nodeConfig.OS)
 
-	cmd := utils.FormatScriptFilePath(filepath.Join(utils.InstallDir(), "lib", "scripts", roleType, OsType, "bare-metal", "Stop.ps1"))
+	cmd := utils.FormatScriptFilePath(filepath.Join(utils.InstallDir(), "lib", "scripts", "windows", roleType, OsType, "bare-metal", "Stop.ps1"))
 
 	if outputFlag {
 		cmd += " -ShowLogs"
