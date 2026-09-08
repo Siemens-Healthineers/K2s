@@ -42,7 +42,7 @@ func showProxyConfig(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	psCmd := utils.FormatScriptFilePath(path.Join(utils.InstallDir(), "lib", "scripts", "k2s", "system", "proxy", "ShowProxy.ps1"))
+	psCmd := utils.FormatScriptFilePath(path.Join(utils.InstallDir(), "lib", "scripts", "windows", "host", "system", "proxy", "ShowProxy.ps1"))
 	var params []string
 	proxyInfo, err := powershell.ExecutePsWithStructuredResult[*ProxyInfo](psCmd, "ShowProxyResult", common.NewPtermWriter(), params...)
 	if err != nil {

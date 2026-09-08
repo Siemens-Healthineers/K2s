@@ -5,11 +5,46 @@
 apiVersion: v1
 kind: AddonManifest
 metadata:
-  description: Ingress Controller for external access
   name: ingress
+  description: Ingress Controller for external access
 spec:
   implementations:
-    - commands:
+    - name: nginx
+      description: Ingress Controller for external access that uses nginx as a reverse proxy
+      offline_usage:
+        linux:
+          repos: []
+          deb: []
+          curl: []
+          additionalImages:
+            - registry.k8s.io/external-dns/external-dns
+            - quay.io/jetstack/cert-manager-cainjector
+            - quay.io/jetstack/cert-manager-controller
+            - quay.io/jetstack/cert-manager-webhook
+          additionalImagesFiles:
+            - ../../common/manifests/external-dns/deployment.yaml
+            - ../../common/manifests/certmanager/cert-manager.yaml
+        windows:
+          curl:
+            - url: https://github.com/cert-manager/cmctl/releases/download/v2.5.0/cmctl_windows_amd64.exe
+              destination: bin\cmctl.exe
+      commands:
+        enable:
+          cli:
+            flags:
+              - name: omitCertMgr
+                description: Omit cert-manager installation
+                default: false
+            examples:
+              - cmd: k2s addons enable ingress nginx
+                comment: Enable ingress nginx in k2s
+              - cmd: k2s addons enable ingress nginx --omitCertMgr
+                comment: Enable ingress nginx without installing cert-manager
+          script:
+            subPath: nginx/Enable.ps1
+            parameterMappings:
+              - cliFlagName: omitCertMgr
+                scriptParameterName: OmitCertMgr
         disable:
           cli:
             examples:
@@ -17,29 +52,13 @@ spec:
                 comment: Disable addon ingress nginx in k2s
           script:
             subPath: nginx/Disable.ps1
-        enable:
-          cli:
-            examples:
-              - cmd: k2s addons enable ingress nginx
-                comment: Enable ingress nginx in k2s
-              - cmd: k2s addons enable ingress nginx --omitCertMgr
-                comment: Enable ingress nginx without installing cert-manager
-            flags:
-              - default: false
-                description: Omit cert-manager installation
-                name: omitCertMgr
-                omittedImages:
-                  fromFiles:
-                    - ../../common/manifests/certmanager/cert-manager.yaml
-          script:
-            parameterMappings:
-              - cliFlagName: omitCertMgr
-                scriptParameterName: OmitCertMgr
-            subPath: nginx/Enable.ps1
-      description: Ingress Controller for external access that uses nginx as a reverse proxy
-      name: nginx
+    - name: traefik
+      description: Ingress Controller for external access that uses traefik as a reverse proxy
       offline_usage:
         linux:
+          repos: []
+          deb: []
+          curl: []
           additionalImages:
             - registry.k8s.io/external-dns/external-dns
             - quay.io/jetstack/cert-manager-cainjector
@@ -48,14 +67,27 @@ spec:
           additionalImagesFiles:
             - ../../common/manifests/external-dns/deployment.yaml
             - ../../common/manifests/certmanager/cert-manager.yaml
-          curl: []
-          deb: []
-          repos: []
         windows:
-          curl:
-            - destination: bin\cmctl.exe
-              url: https://github.com/cert-manager/cmctl/releases/download/v2.5.0/cmctl_windows_amd64.exe
-    - commands:
+          curl: 
+            - url: https://github.com/cert-manager/cmctl/releases/download/v2.5.0/cmctl_windows_amd64.exe
+              destination: bin\cmctl.exe
+      commands:
+        enable:
+          cli:
+            flags:
+              - name: omitCertMgr
+                description: Omit cert-manager installation
+                default: false
+            examples:
+              - cmd: k2s addons enable ingress traefik
+                comment: Enable ingress traefik in k2s
+              - cmd: k2s addons enable ingress traefik --omitCertMgr
+                comment: Enable ingress traefik without installing cert-manager
+          script:
+            subPath: traefik/Enable.ps1
+            parameterMappings:
+              - cliFlagName: omitCertMgr
+                scriptParameterName: OmitCertMgr
         disable:
           cli:
             examples:
@@ -63,88 +95,47 @@ spec:
                 comment: Disable addon ingress traefik in k2s
           script:
             subPath: traefik/Disable.ps1
+    - name: nginx-gw
+      description: Ingress Controller for external access that uses NGINX Gateway Fabric
+      offline_usage:
+        linux:
+          repos: []
+          deb: []
+          curl: []
+          additionalImages:
+          - registry.k8s.io/external-dns/external-dns
+          - quay.io/jetstack/cert-manager-cainjector
+          - quay.io/jetstack/cert-manager-controller
+          - quay.io/jetstack/cert-manager-webhook
+          - ghcr.io/nginx/nginx-gateway-fabric/nginx:2.7.0
+          additionalImagesFiles:
+          - ../../common/manifests/external-dns/deployment.yaml
+          - ../../common/manifests/certmanager/cert-manager.yaml
+        windows:
+          curl:
+            - url: https://github.com/cert-manager/cmctl/releases/download/v2.5.0/cmctl_windows_amd64.exe
+              destination: bin\cmctl.exe
+      commands:
         enable:
           cli:
-            examples:
-              - cmd: k2s addons enable ingress traefik
-                comment: Enable ingress traefik in k2s
-              - cmd: k2s addons enable ingress traefik --omitCertMgr
-                comment: Enable ingress traefik without installing cert-manager
             flags:
-              - default: false
-                description: Omit cert-manager installation
-                name: omitCertMgr
-                omittedImages:
-                  fromFiles:
-                    - ../../common/manifests/certmanager/cert-manager.yaml
+              - name: omitCertMgr
+                description: Omit cert-manager installation (TLS certificates must be provided manually)
+                default: false
+            examples:
+              - cmd: k2s addons enable ingress nginx-gw
+                comment: Enable ingress nginx-gw in k2s
+              - cmd: k2s addons enable ingress nginx-gw --omitCertMgr
+                comment: Enable ingress nginx-gw without installing cert-manager
           script:
+            subPath: nginx-gw/Enable.ps1
             parameterMappings:
               - cliFlagName: omitCertMgr
                 scriptParameterName: OmitCertMgr
-            subPath: traefik/Enable.ps1
-      description: Ingress Controller for external access that uses traefik as a reverse proxy
-      name: traefik
-      offline_usage:
-        linux:
-          additionalImages:
-            - registry.k8s.io/external-dns/external-dns
-            - quay.io/jetstack/cert-manager-cainjector
-            - quay.io/jetstack/cert-manager-controller
-            - quay.io/jetstack/cert-manager-webhook
-          additionalImagesFiles:
-            - ../../common/manifests/external-dns/deployment.yaml
-            - ../../common/manifests/certmanager/cert-manager.yaml
-          curl: []
-          deb: []
-          repos: []
-        windows:
-          curl:
-            - destination: bin\cmctl.exe
-              url: https://github.com/cert-manager/cmctl/releases/download/v2.5.0/cmctl_windows_amd64.exe
-    - commands:
         disable:
           cli:
             examples:
               - cmd: k2s addons disable ingress nginx-gw
                 comment: Disable addon ingress nginx-gw in k2s
           script:
-            subPath: nginx-gw/Disable.ps1
-        enable:
-          cli:
-            examples:
-              - cmd: k2s addons enable ingress nginx-gw
-                comment: Enable ingress nginx-gw in k2s
-              - cmd: k2s addons enable ingress nginx-gw --omitCertMgr
-                comment: Enable ingress nginx-gw without installing cert-manager
-            flags:
-              - default: false
-                description: Omit cert-manager installation (TLS certificates must be provided manually)
-                name: omitCertMgr
-                omittedImages:
-                  fromFiles:
-                    - ../../common/manifests/certmanager/cert-manager.yaml
-          script:
-            parameterMappings:
-              - cliFlagName: omitCertMgr
-                scriptParameterName: OmitCertMgr
-            subPath: nginx-gw/Enable.ps1
-      description: Ingress Controller for external access that uses NGINX Gateway Fabric
-      name: nginx-gw
-      offline_usage:
-        linux:
-          additionalImages:
-            - registry.k8s.io/external-dns/external-dns
-            - quay.io/jetstack/cert-manager-cainjector
-            - quay.io/jetstack/cert-manager-controller
-            - quay.io/jetstack/cert-manager-webhook
-            - ghcr.io/nginx/nginx-gateway-fabric/nginx:2.6.7
-          additionalImagesFiles:
-            - ../../common/manifests/external-dns/deployment.yaml
-            - ../../common/manifests/certmanager/cert-manager.yaml
-          curl: []
-          deb: []
-          repos: []
-        windows:
-          curl:
-            - destination: bin\cmctl.exe
-              url: https://github.com/cert-manager/cmctl/releases/download/v2.5.0/cmctl_windows_amd64.exe
+            subPath: nginx-gw/Disable.ps1 

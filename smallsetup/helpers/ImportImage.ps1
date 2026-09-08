@@ -28,9 +28,9 @@ Param (
 &$PSScriptRoot\..\common\GlobalVariables.ps1
 . $PSScriptRoot\..\common\GlobalFunctions.ps1
 
-$clusterModule = "$PSScriptRoot\..\..\lib\modules\k2s\k2s.cluster.module\k2s.cluster.module.psm1"
+$clusterModule = "$PSScriptRoot\..\..\lib\modules\windows\cluster\k2s.cluster.module\k2s.cluster.module.psm1"
 $imageFunctionsModule = "$PSScriptRoot\ImageFunctions.module.psm1"
-$infraModule = "$PSScriptRoot\..\..\lib\modules\k2s\k2s.infra.module\k2s.infra.module.psm1"
+$infraModule = "$PSScriptRoot\..\..\lib\modules\windows\infra\k2s.infra.module\k2s.infra.module.psm1"
 
 Import-Module $clusterModule, $imageFunctionsModule, $infraModule -DisableNameChecking
 

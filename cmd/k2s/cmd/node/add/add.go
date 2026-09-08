@@ -151,7 +151,7 @@ func buildAddNodeCmd(flags *pflag.FlagSet, setupName string) (string, error) {
 		return "", errors.New("adding node is not supported for this setup type. Aborting")
 	}
 
-	cmd := utils.FormatScriptFilePath(filepath.Join(utils.InstallDir(), "lib", "scripts", "worker", "linux", "bare-metal", "Add.ps1"))
+	cmd := utils.FormatScriptFilePath(filepath.Join(utils.InstallDir(), "lib", "scripts", "windows", "worker", "linux", "bare-metal", "Add.ps1"))
 
 	if outputFlag {
 		cmd += " -ShowLogs"

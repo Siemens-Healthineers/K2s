@@ -21,13 +21,13 @@ Param (
     [parameter(Mandatory = $false, HelpMessage = 'Message type of the encoded structure; applies only if EncodeStructuredOutput was set to $true')]
     [string] $MessageType
 )
-$infraModule = "$PSScriptRoot\..\lib\modules\k2s\k2s.infra.module\k2s.infra.module.psm1"
-$clusterModule = "$PSScriptRoot\..\lib\modules\k2s\k2s.cluster.module\k2s.cluster.module.psm1"
+$infraModule = "$PSScriptRoot\..\lib\modules\windows\infra\k2s.infra.module\k2s.infra.module.psm1"
+$clusterModule = "$PSScriptRoot\..\lib\modules\windows\cluster\k2s.cluster.module\k2s.cluster.module.psm1"
 $addonsModule = "$PSScriptRoot\addons.module.psm1"
 $ociModule = "$PSScriptRoot\oci.module.psm1"
 $imagePruneModule = "$PSScriptRoot\imageprune.module.psm1"
-$importImageScript = "$PSScriptRoot\..\lib\scripts\k2s\image\Import-Image.ps1"
-$imageCommonModule = "$PSScriptRoot\..\lib\scripts\k2s\image\Image-Common.module.psm1"
+$importImageScript = "$PSScriptRoot\..\lib\scripts\windows\host\image\Import-Image.ps1"
+$imageCommonModule = "$PSScriptRoot\..\lib\scripts\windows\host\image\Image-Common.module.psm1"
 
 Import-Module $infraModule, $clusterModule, $addonsModule, $ociModule, $imagePruneModule, $imageCommonModule
 
@@ -787,7 +787,7 @@ foreach ($planEntry in $importPlan) {
                 }
             }
             
-            $importImageScript = "$PSScriptRoot\..\lib\scripts\k2s\image\Import-Image.ps1"
+            $importImageScript = "$PSScriptRoot\..\lib\scripts\windows\host\image\Import-Image.ps1"
             if ($extractedTars.Count -gt 0) {
                 # Multiple image tars extracted - use directory import
                 Write-Log "Found $($extractedTars.Count) image tar(s), importing from directory" -Console
@@ -867,7 +867,7 @@ foreach ($planEntry in $importPlan) {
                 }
             }
             
-            $importImageScript = "$PSScriptRoot\..\lib\scripts\k2s\image\Import-Image.ps1"
+            $importImageScript = "$PSScriptRoot\..\lib\scripts\windows\host\image\Import-Image.ps1"
             if ($extractedTars.Count -gt 0) {
                 Write-Log "Found $($extractedTars.Count) Windows image tar(s), importing from directory" -Console
                 &$importImageScript -ImageDir $tempImagesDir -Windows -Nodes $Nodes -ShowLogs:$ShowLogs
