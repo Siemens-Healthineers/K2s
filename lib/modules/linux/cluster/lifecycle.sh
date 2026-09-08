@@ -215,7 +215,7 @@ k2s_install_cluster() {
   local flannel="$K2S_INSTALL_DIR/lib/modules/windows/node/k2s.node.module/linuxnode/distros/containernetwork/masternode/flannel.template.yml"
   [[ -f "$flannel" ]] || return 1
   k2s_log INFO 'Deploying Flannel CNI.'
-  sed -e 's/NETWORK.NAME/cbr0/g' -e "s/NETWORK.ADDRESS/$(k2s_cfg '.smallsetup.podNetworkCIDR')/g" -e 's/NETWORK.TYPE/vxlan/g' "$flannel" | k2s_kubectl apply -f - || return 1
+  sed -e 's|NETWORK.NAME|cbr0|g' -e "s|NETWORK.ADDRESS|$(k2s_cfg '.smallsetup.podNetworkCIDR')|g" -e 's|NETWORK.TYPE|vxlan|g' "$flannel" | k2s_kubectl apply -f - || return 1
   k2s_log INFO 'Deploying ClusterIP allocation webhook.'
   for manifest in namespace.yaml rbac.yaml webhook-config.yaml; do
     k2s_kubectl apply -f "$K2S_INSTALL_DIR/lib/manifests/clusterip-webhook/$manifest" || return 1
