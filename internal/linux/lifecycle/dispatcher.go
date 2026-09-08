@@ -62,13 +62,14 @@ func Execute(operation string, input Operation) error {
 	// CreateTemp creates files with 0600 permissions. Verify that invariant
 	// before writing the operation data so a platform-specific umask cannot
 	// expose its non-secret but operationally sensitive inputs.
-	if info, err := file.Stat(); err != nil {
+	fileInfo, err := file.Stat()
+	if err != nil {
 		file.Close()
 		return fmt.Errorf("verify lifecycle operation file permissions: %w", err)
 	}
-	if info.Mode().Perm() != 0600 {
+	if fileInfo.Mode().Perm() != 0600 {
 		file.Close()
-		return fmt.Errorf("lifecycle operation file has unsafe permissions: %o", info.Mode().Perm())
+		return fmt.Errorf("lifecycle operation file has unsafe permissions: %o", fileInfo.Mode().Perm())
 	}
 	if err := file.Chmod(0600); err != nil {
 		file.Close()
