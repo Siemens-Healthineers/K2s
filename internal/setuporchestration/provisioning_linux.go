@@ -24,6 +24,7 @@ import (
 	"time"
 
 	"github.com/siemens-healthineers/k2s/internal/core/config"
+	linuxlifecycle "github.com/siemens-healthineers/k2s/internal/linux/lifecycle"
 )
 
 const (
@@ -132,24 +133,21 @@ func (o *LinuxOrchestrator) provisionKubernetes(cfg InstallConfig, registryToken
 		return "", fmt.Errorf("create package staging directory: %w", err)
 	}
 
-	downloadScript := filepath.Join(cfg.InstallDir, "cfg", "nodeextension", "debian13", "scripts", "download-k8s-packages.sh")
-	installScript := filepath.Join(cfg.InstallDir, "cfg", "nodeextension", "debian13", "scripts", "install-k8s-packages.sh")
-	for _, script := range []string{downloadScript, installScript} {
-		if _, err := os.Stat(script); err != nil {
-			return "", fmt.Errorf("required Debian 13 provisioning script is missing at %s: %w", script, err)
-		}
+	provisioningScript := linuxlifecycle.ProvisioningScriptPath(cfg.InstallDir)
+	if _, err := os.Stat(provisioningScript); err != nil {
+		return "", fmt.Errorf("required native Debian 13 provisioning script is missing at %s: %w", provisioningScript, err)
 	}
 
 	slog.Info("[Install] Downloading Kubernetes and CRI-O packages", "version", k8sVersion)
 	if cfg.ShowLogs {
 		slog.Info("[Install] Package staging directory", "path", stagingDir)
 	}
-	if err := runCommandWithLogs(cfg.ShowLogs, "bash", downloadScript, stagingDir, k8sVersion, proxyURL); err != nil {
+	if err := runCommandWithLogs(cfg.ShowLogs, "bash", provisioningScript, "download", stagingDir, k8sVersion, proxyURL); err != nil {
 		return "", fmt.Errorf("download Kubernetes packages: %w", err)
 	}
 
 	slog.Info("[Install] Installing Kubernetes and CRI-O packages")
-	if err := runCommandWithLogs(cfg.ShowLogs, "bash", installScript, stagingDir, proxyURL, registryToken, "false", mergeNoProxy(cfg.NoProxy), "true"); err != nil {
+	if err := runCommandWithLogs(cfg.ShowLogs, "bash", provisioningScript, "install", stagingDir, proxyURL, registryToken, "false", mergeNoProxy(cfg.NoProxy), "true"); err != nil {
 		return "", fmt.Errorf("install Kubernetes packages: %w", err)
 	}
 

@@ -312,6 +312,8 @@ See [Security Features](../security/security-features.md) for details.
 | **Addon lifecycle** | `addons/` | Per-addon Enable/Disable/Backup/Restore/Update/Get-Status scripts and Kubernetes manifests. |
 | **Multi-variant installs** | `lib/scripts/windows/buildonly/`, `lib/scripts/windows/linuxonly/` | Variant-specific install/uninstall/start/stop scripts. |
 | **Worker node setup** | `lib/scripts/windows/worker/` | Setup scripts for Windows-hosted Windows and Linux worker nodes. |
+| **Native Debian host lifecycle** | `lib/scripts/linux/debian/{host,linuxonly}/` | Root-only Debian 13 lifecycle entry points; both dispatch to the native Linux K2s CLI implementation. |
+| **Native Linux modules** | `lib/modules/linux/{common,infra,cluster,node,networking,services}/` | Reusable Bash modules for native Linux host operations, logging, validation, paths, services, DNS, and package handling. |
 | **Control plane setup** | `lib/scripts/control-plane/` | Control plane installation script. |
 | **Packaging** | `lib/scripts/windows/host/system/package/` | Full and delta package creation, image acquisition, signing, Debian diff, addon packaging. |
 

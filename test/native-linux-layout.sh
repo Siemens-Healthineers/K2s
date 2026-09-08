@@ -19,7 +19,9 @@ required_files=(
   "lib/scripts/linux/debian/linuxonly/Uninstall.sh"
   "lib/scripts/linux/debian/linuxonly/ProvisionPackages.sh"
   "lib/modules/linux/common/logging.sh"
+  "lib/modules/linux/common/paths.sh"
   "lib/modules/linux/common/validation.sh"
+  "lib/modules/linux/cluster/lifecycle.sh"
   "cfg/nodeextension/debian13/scripts/download-k8s-packages.sh"
   "cfg/nodeextension/debian13/scripts/install-k8s-packages.sh"
 )
