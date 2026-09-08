@@ -11,6 +11,8 @@ export K2S_LOG_FILE="${K2S_LOG_FILE:-/var/log/k2s.log}"
 source "$K2S_INSTALL_DIR/lib/modules/linux/common/logging.sh"
 source "$K2S_INSTALL_DIR/lib/modules/linux/common/paths.sh"
 source "$K2S_INSTALL_DIR/lib/modules/linux/common/validation.sh"
-source "$K2S_INSTALL_DIR/lib/modules/linux/cluster/lifecycle.sh"
 
-k2s_dispatch_lifecycle status status "$@"
+k2s_initialize_logging
+k2s_require_install_dir || { k2s_log ERROR 'Native K2s installation directory is invalid.'; exit 1; }
+k2s_log INFO 'Dispatching native Debian 13 status through the K2s CLI.'
+exec "$K2S_INSTALL_DIR/k2s" status "$@"
