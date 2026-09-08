@@ -19,6 +19,7 @@ required_files=(
   "lib/scripts/linux/debian/linuxonly/Uninstall.sh"
   "lib/scripts/linux/debian/linuxonly/ProvisionPackages.sh"
   "lib/modules/linux/common/logging.sh"
+  "lib/modules/linux/common/command.sh"
   "lib/modules/linux/common/paths.sh"
   "lib/modules/linux/common/validation.sh"
   "lib/modules/linux/cluster/lifecycle.sh"
