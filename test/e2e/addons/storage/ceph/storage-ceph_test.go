@@ -46,10 +46,12 @@ const (
 	winTestMarker       = "hello from k2s ceph windows e2e"
 	cephSmbNamespace    = "storage-smb-ceph"
 	cephSmbStorageClass = "ceph-smb"
+	winPVCName          = "ceph-share-win-pvc"
 
 	testClusterTimeout     = time.Minute * 20
 	addonEnableMaxAttempts = 2
 	addonEnableRetryDelay  = 10 * time.Second
+	windowsPodReadyTimeout = 10 * time.Minute
 )
 
 var (
@@ -230,10 +232,21 @@ var _ = Describe("storage ceph addon", Ordered, func() {
 			suite.Kubectl().MustExec(ctx, "apply", "-k", windowsManifestDir)
 		})
 
+		It("binds the Windows Ceph SMB PVC", func(ctx context.Context) {
+			skipIfLinuxOnly()
+			suite.Kubectl().MustExec(ctx,
+				"wait",
+				"--for=jsonpath={.status.phase}=Bound",
+				"pvc/"+winPVCName,
+				"-n", namespace,
+				"--timeout=300s",
+			)
+		})
+
 		It("runs the Windows writer and reader pods", func(ctx context.Context) {
 			skipIfLinuxOnly()
-			suite.Kubectl().MustExec(ctx, "wait", "--for=condition=Ready", "pod/"+winWriterPod, "-n", namespace, "--timeout=300s")
-			suite.Kubectl().MustExec(ctx, "wait", "--for=condition=Ready", "pod/"+winReaderPod, "-n", namespace, "--timeout=300s")
+			suite.Kubectl().MustExec(ctx, "wait", "--for=condition=Ready", "pod/"+winWriterPod, "-n", namespace, "--timeout="+windowsPodReadyTimeout.String())
+			suite.Kubectl().MustExec(ctx, "wait", "--for=condition=Ready", "pod/"+winReaderPod, "-n", namespace, "--timeout="+windowsPodReadyTimeout.String())
 		})
 
 		It("shares data across Windows pods through the CephFS SMB share", func(ctx context.Context) {
