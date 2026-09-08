@@ -10,15 +10,16 @@ readonly K2S_LIFECYCLE_SH_LOADED=1
 k2s_load_operation() {
   [[ "${1:-}" == '--operation-file' && -f "${2:-}" ]] || return 2
   [[ $(stat -c '%a' "$2") == 600 ]] || return 1
-  K2S_INSTALL_DIR=$(jq -er '.installDir' "$2")
-  K2S_CONFIG_DIR=$(jq -er '.configDir' "$2")
-  K2S_VERSION=$(jq -r '.version // empty' "$2")
-  K2S_CLUSTER_NAME=$(jq -r '.clusterName // "k2s-cluster"' "$2")
-  K2S_CONTROL_PLANE_HOSTNAME=$(jq -r '.controlPlaneHostname // empty' "$2")
-  K2S_PROXY=$(jq -r '.proxy // empty' "$2")
-  K2S_NO_PROXY=$(jq -r '.noProxy // [] | join(",")' "$2")
-  K2S_SKIP_START=$(jq -r '.skipStart // false' "$2")
-  K2S_SKIP_PURGE=$(jq -r '.skipPurge // false' "$2")
+  jq -e '(.installDir | type == "string" and length > 0) and (.configDir | type == "string" and length > 0) and ((.noProxy // []) | type == "array") and ((.skipStart // false) | type == "boolean") and ((.skipPurge // false) | type == "boolean")' "$2" >/dev/null || return 2
+  K2S_INSTALL_DIR=$(jq -er '.installDir' "$2") || return 2
+  K2S_CONFIG_DIR=$(jq -er '.configDir' "$2") || return 2
+  K2S_VERSION=$(jq -r '.version // empty' "$2") || return 2
+  K2S_CLUSTER_NAME=$(jq -r '.clusterName // "k2s-cluster"' "$2") || return 2
+  K2S_CONTROL_PLANE_HOSTNAME=$(jq -r '.controlPlaneHostname // empty' "$2") || return 2
+  K2S_PROXY=$(jq -r '.proxy // empty' "$2") || return 2
+  K2S_NO_PROXY=$(jq -r '.noProxy // [] | join(",")' "$2") || return 2
+  K2S_SKIP_START=$(jq -r '.skipStart // false' "$2") || return 2
+  K2S_SKIP_PURGE=$(jq -r '.skipPurge // false' "$2") || return 2
   export K2S_INSTALL_DIR K2S_CONFIG_DIR K2S_VERSION K2S_CLUSTER_NAME K2S_CONTROL_PLANE_HOSTNAME K2S_PROXY K2S_NO_PROXY K2S_SKIP_START K2S_SKIP_PURGE
 }
 
@@ -27,6 +28,10 @@ k2s_lock_and_run() {
   exec 9>"$K2S_CONFIG_DIR/lifecycle.lock"
   flock -w 300 9 || { k2s_log ERROR 'Timed out waiting for another K2s lifecycle operation.'; return 1; }
   "$@"
+  local exit_code=$?
+  flock -u 9
+  exec 9>&-
+  return "$exit_code"
 }
 k2s_cfg() { jq -er "$1" "$K2S_INSTALL_DIR/cfg/config.json"; }
 k2s_kubectl() { kubectl --kubeconfig /etc/kubernetes/admin.conf "$@"; }
