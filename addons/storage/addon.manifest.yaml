@@ -94,6 +94,8 @@ spec:
             - quay.io/cephcsi/cephcsi:v3.17.0
             - quay.io/samba.org/samba-metrics:ceph20-centos-amd64
             - quay.io/samba.org/samba-server:ceph20-centos-amd64
+            - registry.k8s.io/sig-storage/csi-attacher:v4.12.0
+            - registry.k8s.io/sig-storage/csi-snapshotter:v8.5.0
           additionalImagesFiles:
             - manifests/operator.yaml
             - manifests/csi-rbac.yaml
