@@ -107,10 +107,10 @@ Write-Log '---------------------------------------------------------------'
 # ceph-config.json, prepare it as an OSD host now that it has joined the cluster. The ceph
 # Update.ps1 is idempotent and only provisions hosts that are not yet part of the Ceph cluster.
 try {
-    $cephAddonsModule = "$PSScriptRoot\..\..\..\..\..\addons\addons.module.psm1"
+    $cephAddonsModule = "$PSScriptRoot\..\..\..\..\..\..\addons\addons.module.psm1"
     Import-Module $cephAddonsModule -DisableNameChecking
     if ((Test-IsAddonEnabled -Addon ([pscustomobject] @{Name = 'storage'; Implementation = 'ceph' })) -eq $true) {
-        $cephUpdateScript = "$PSScriptRoot\..\..\..\..\..\addons\storage\ceph\Update.ps1"
+        $cephUpdateScript = "$PSScriptRoot\..\..\..\..\..\..\addons\storage\ceph\Update.ps1"
         if (Test-Path $cephUpdateScript) {
             Write-Log '[NodeAdd] storage/ceph addon is enabled; reconciling Ceph OSD hosts for the newly added node...' -Console
             & $cephUpdateScript -ShowLogs:$ShowLogs
