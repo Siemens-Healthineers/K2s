@@ -55,12 +55,20 @@ function Get-CephadminDownloadUrlFromStorageManifest {
         throw "[Ceph] Storage addon manifest is empty: '$manifestPath'"
     }
 
-    $urlRef = Get-Content -Path $manifestPath | ForEach-Object { $_.Trim() } | Where-Object { $_ -like 'url: https://download.ceph.com/rpm*' } | Select-Object -First 1
+    $urlRef = Get-Content -Path $manifestPath |
+        ForEach-Object {
+            if ($_ -match '^\s*url:\s*(https?://\S+)\s*$') {
+                $Matches[1]
+            }
+        } |
+        Select-Object -First 1
+
     if ([string]::IsNullOrWhiteSpace($urlRef)) {
-        throw "[Ceph] No download URL found in storage addon additionalImages in '$manifestPath'"
+        throw "[Ceph] No valid cephadm download URL found in storage addon manifest '$manifestPath'"
     }
+
     Write-Log "[Ceph] Using Ceph admin download URL: '$urlRef'" -Console
-    return ($urlRef -replace '^-\s*url:\s*', '')
+    return $urlRef
 }
 
 <#
