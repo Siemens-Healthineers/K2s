@@ -116,6 +116,10 @@ fi
 
 mkdir -p "$test_result_path"
 
+# Validate the platform-first native Linux layout before acceptance tests use a
+# cluster. This check is read-only and catches missing script/module paths.
+bash "$repo_root/test/native-linux-layout.sh"
+
 label_terms=()
 if [[ -n "$tags" ]]; then
   IFS=',' read -ra include_tags <<< "$tags"

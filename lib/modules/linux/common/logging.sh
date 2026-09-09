@@ -22,7 +22,9 @@ k2s_log() {
   shift
 
   local message="$(date -Is) [$level] $*"
-  printf '%s\n' "$message" >> "$K2S_LOG_FILE"
+  if [[ ${K2S_LOG_STREAMED:-false} != true ]]; then
+    printf '%s\n' "$message" >> "$K2S_LOG_FILE"
+  fi
   if [[ "$level" == "ERROR" || "$level" == "WARN" ]]; then
     printf '%s\n' "$message" >&2
   else
