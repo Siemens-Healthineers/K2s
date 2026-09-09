@@ -20,6 +20,9 @@ required_files=(
   "lib/scripts/linux/debian/linuxonly/ProvisionPackages.sh"
   "lib/modules/linux/common/logging.sh"
   "lib/modules/linux/common/command.sh"
+  "lib/modules/linux/infra/proxy.sh"
+  "lib/modules/linux/networking/dns.sh"
+  "lib/modules/linux/node/packages.sh"
   "lib/modules/linux/common/paths.sh"
   "lib/modules/linux/common/validation.sh"
   "lib/modules/linux/cluster/lifecycle.sh"
@@ -42,5 +45,31 @@ for operation in Install Start Stop Status Uninstall; do
     exit 1
   fi
 done
+
+legacy_paths=(
+  "lib/scripts/k2s"
+  "lib/scripts/linuxonly"
+  "lib/scripts/buildonly"
+  "lib/scripts/worker"
+  "lib/modules/k2s"
+)
+
+for legacy_path in "${legacy_paths[@]}"; do
+  if git -C "$repo_root" ls-files --error-unmatch "$legacy_path/*" >/dev/null 2>&1; then
+    printf 'error: tracked legacy automation path must not be reintroduced: %s\n' "$legacy_path" >&2
+    exit 1
+  fi
+done
+
+legacy_references=$(git -C "$repo_root" grep -nE 'lib/(scripts/(k2s|linuxonly|buildonly|worker)|modules/k2s)(/|\b)' -- \
+  ':!.github/copilot-instructions.md' \
+  ':!docs/dev-guide/architecture.md' \
+  ':!docs/dev-guide/host-automation-option-3-migration-plan.md' \
+  ':!test/native-linux-layout.sh' || true)
+if [[ -n "$legacy_references" ]]; then
+  printf '%s\n' 'error: active legacy automation references must not be reintroduced:' >&2
+  printf '%s\n' "$legacy_references" >&2
+  exit 1
+fi
 
 printf '%s\n' 'Native Debian 13 lifecycle layout validation passed.'

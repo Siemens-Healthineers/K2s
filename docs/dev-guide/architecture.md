@@ -319,6 +319,29 @@ See [Security Features](../security/security-features.md) for details.
 
 ---
 
+## Automation Layout Contract
+
+Platform-specific automation is organized under `lib/scripts/<host-os>/` and
+`lib/modules/<host-os>/`. New automation must be added to this layout; the
+legacy `lib/scripts/{k2s,linuxonly,buildonly,worker}/` and
+`lib/modules/k2s/` locations must not be recreated.
+
+| Host | Script locations | Module locations | Implementation boundary |
+|---|---|---|---|
+| Windows | `lib/scripts/windows/{host,linuxonly,buildonly,worker}/` | `lib/modules/windows/{common,infra,cluster,node}/` | Go providers dispatch to PowerShell entry scripts; PowerShell modules own host operations. |
+| Debian 13 | `lib/scripts/linux/debian/{host,linuxonly,worker}/` | `lib/modules/linux/{common,infra,cluster,node,networking,services}/` | Go providers dispatch lifecycle operations to Bash entry scripts; Bash modules own install, start, stop, and uninstall. `k2s status` remains Go-native to preserve typed status output. |
+
+`cfg/nodeextension/<os>/` contains only operating-system-specific assets used
+to extend a cluster with nodes. It is not a location for host lifecycle
+automation. Debian package assets remain in `cfg/nodeextension/debian13/`
+because Windows-host Linux node provisioning also consumes them.
+
+Run `bash test/native-linux-layout.sh` on a Bash-capable host after changing
+automation layout. The check validates the required Linux module graph and
+rejects tracked legacy paths or active references.
+
+---
+
 ## Configuration Files Overview
 
 | File | Location | Purpose |
