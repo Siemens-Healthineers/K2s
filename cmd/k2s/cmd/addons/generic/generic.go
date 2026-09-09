@@ -68,6 +68,7 @@ func newAddonCmd(addon addons.Addon, cmdName string) (*cobra.Command, error) {
 	cmd := &cobra.Command{
 		Use:   addon.Metadata.Name,
 		Short: fmt.Sprintf("Runs '%s' for '%s' addon", cmdName, addon.Metadata.Name),
+		Long:  addonCommandLongDescription(addon, cmdName),
 		Args:  validateAddonCommandArgs,
 	}
 
@@ -142,6 +143,7 @@ func newImplementationCmd(addon addons.Addon, cmdName string, implementation add
 	cmd := &cobra.Command{
 		Use:   implementation.Name,
 		Short: fmt.Sprintf("Runs '%s' for '%s' implementation of '%s' addon", cmdName, implementation.Name, addon.Metadata.Name),
+		Long:  implementationCommandLongDescription(addon, cmdName, implementation, implementationName),
 		Args:  validateAddonCommandArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCmd(cmd, addon, cmdName, implementation, args)

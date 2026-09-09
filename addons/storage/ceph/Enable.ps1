@@ -795,6 +795,7 @@ Write-Log "[Ceph] Ceph CSI pods are Ready" -Console
 # consume CephFS over SMB: Ceph's native mgr/smb module (cephadm-managed Samba) exports the CephFS
 # volume as an SMB share and the SMB CSI driver provisions PVCs from it. Only run this for a k2s
 # cluster that actually has a Windows node.
+$smbStorageClassName = ''
 if ($SetupWindowsNode -eq $true) {
   if ($setupInfo.LinuxOnly -eq $true) {
     Write-Log '[Ceph] setupWindowsNode flag was provided, but this is a Linux-only setup; skipping Windows Ceph SMB setup.' -Console
