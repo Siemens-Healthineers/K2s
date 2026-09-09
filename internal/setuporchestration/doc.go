@@ -6,5 +6,6 @@
 // implementation.
 //
 // On Windows the orchestration delegates to PowerShell scripts (existing behavior).
-// On Linux the orchestration calls native kubeadm/systemd/libvirt directly.
+// Native Linux lifecycle operations delegate from the Linux provider to Bash
+// modules under lib/modules/linux. This package retains libvirt support.
 package setuporchestration

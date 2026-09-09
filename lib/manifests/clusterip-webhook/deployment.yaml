@@ -28,6 +28,7 @@ spec:
         app.kubernetes.io/part-of: k2s
     spec:
       securityContext:
+        # init-cert runs as 65534 and must write the TLS pair to emptyDir.
         fsGroup: 65534
       serviceAccountName: clusterip-webhook
       nodeSelector:
