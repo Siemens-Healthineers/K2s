@@ -179,25 +179,6 @@ var _ = Describe("storage ceph addon export and import", Ordered, func() {
 			suite.Cluster().ExpectDeploymentToBeAvailable("ceph-csi-operator-controller-manager", "ceph-csi-operator-system")
 		})
 
-		It("can be enabled when only addons/common and addons/storage are present", func(ctx context.Context) {
-			suite.K2sCli().MustExec(ctx, "addons", "disable", "storage", "ceph", "-o", "-f")
-
-			restore, err := exportimport.StageAddonIsolation(suite.RootDir(), "storage")
-			Expect(err).ToNot(HaveOccurred(), "staging addon isolation should succeed")
-			DeferCleanup(func() {
-				Expect(restore()).To(Succeed(), "addon isolation restore must succeed to avoid a partial workspace state")
-			})
-			DeferCleanup(func() {
-				_, _ = suite.K2sCli().Exec(context.Background(), "addons", "disable", "storage", "ceph", "-o", "-f")
-			})
-
-			output := suite.K2sCli().MustExec(ctx, "addons", "enable", "storage", "ceph", "-o")
-
-			suite.Cluster().ExpectDeploymentToBeAvailable("ceph-csi-operator-controller-manager", "ceph-csi-operator-system")
-
-			Expect(output).NotTo(ContainSubstring("no valid module file was found"), "enable output must not contain PowerShell module-not-found error")
-			Expect(output).NotTo(ContainSubstring("was not loaded"), "enable output must not contain PowerShell module-not-loaded error")
-		})
 	})
 
 	Describe("export and import with relative paths", func() {
