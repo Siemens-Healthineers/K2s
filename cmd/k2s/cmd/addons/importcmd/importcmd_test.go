@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText:  Â© 2026 Siemens Healthineers AG
+// SPDX-FileCopyrightText:  © 2026 Siemens Healthineers AG
 // SPDX-License-Identifier:   MIT
 
 package importcmd
