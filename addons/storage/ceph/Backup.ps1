@@ -91,7 +91,8 @@ try {
 
     $storageAddonConfig = Get-AddonConfig -Name 'storage'
     if ($null -ne $storageAddonConfig -and ($null -eq $storageAddonConfig.Implementation -or $storageAddonConfig.Implementation -eq 'ceph')) {
-        $storageAddonConfig | ConvertTo-Json -Depth 100 | Set-Content -Path $addonConfigSnapshotPath -Encoding UTF8 -Force
+        $storageAddonConfigJson = $storageAddonConfig | ConvertTo-Json -Depth 100
+        [System.IO.File]::WriteAllText($addonConfigSnapshotPath, $storageAddonConfigJson, [System.Text.UTF8Encoding]::new($false))
         $files += (Split-Path -Leaf $addonConfigSnapshotPath)
 
         # Persist whether Ceph SMB for Windows was enabled so restore can replay
@@ -177,7 +178,8 @@ $manifest = [pscustomobject]@{
 }
 
 $manifestPath = Join-Path $BackupDir 'backup.json'
-$manifest | ConvertTo-Json -Depth 20 | Set-Content -Path $manifestPath -Encoding UTF8 -Force
+$manifestJson = $manifest | ConvertTo-Json -Depth 20
+[System.IO.File]::WriteAllText($manifestPath, $manifestJson, [System.Text.UTF8Encoding]::new($false))
 
 Write-Log "[StorageCephBackup] Backup artifacts prepared" -Console
 
