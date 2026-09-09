@@ -140,12 +140,10 @@ func expectCephSmbResourcesPresent(ctx context.Context) {
 
 var _ = Describe("'storage ceph' addon backup/restore", Ordered, func() {
 	var (
-		zipPathWithoutWindows string
-		zipPathWithWindows    string
+		zipPathWithWindows string
 	)
 
 	BeforeAll(func() {
-		zipPathWithoutWindows = backupZipPath("without-w")
 		zipPathWithWindows = backupZipPath("with-w")
 		_ = os.RemoveAll(backupDir)
 		_ = os.MkdirAll(backupDir, os.ModePerm)
