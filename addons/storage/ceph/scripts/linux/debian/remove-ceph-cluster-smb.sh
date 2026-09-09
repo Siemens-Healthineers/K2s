@@ -75,12 +75,12 @@ else
     log_info "mgr/smb cluster '$SMB_CLUSTER_ID' not found; nothing to remove."
 fi
 
-# Drop the placement label from every host so no orphan Samba daemons remain.
-SMB_HOSTS="$(ceph_cmd orch host ls 2>/dev/null | awk 'NR>1 && $1 != "" && $0 !~ /hosts in cluster/ {print $1}')"
-while IFS= read -r smb_host; do
-    [ -n "$smb_host" ] || continue
-    ceph_cmd orch host label rm "$smb_host" "$PLACEMENT_LABEL" >/dev/null 2>&1 || true
-done <<< "$SMB_HOSTS"
+# Remove the placement label only from the bootstrap host that ran the SMB service. We intentionally
+# do not remove labels from every Ceph host, because the service itself is bound to the cluster host.
+CURRENT_HOST="$(hostname -s 2>/dev/null || hostname)"
+if [ -n "$CURRENT_HOST" ] && [ -n "$PLACEMENT_LABEL" ]; then
+    ceph_cmd orch host label rm "$CURRENT_HOST" "$PLACEMENT_LABEL" >/dev/null 2>&1 || true
+fi
 
 # Remove the shared CephFS subvolume that backed the SMB share (best-effort; this deletes the
 # cross-OS shared data). Only attempted when both the volume and subvolume names were provided.

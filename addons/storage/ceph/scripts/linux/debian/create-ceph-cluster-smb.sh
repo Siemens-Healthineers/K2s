@@ -148,19 +148,17 @@ for attempt in $(seq 1 12); do
     sleep 5
 done
 
-# Label the orchestrated host(s) so cephadm can place the Samba daemons via 'label:<PLACEMENT_LABEL>'.
-# In the single-node K2s cluster-host layout there is exactly one host, but label every registered
-# host to be robust to multi-host setups.
-SMB_HOSTS="$(ceph_cmd orch host ls 2>/dev/null | awk 'NR>1 && $1 != "" && $0 !~ /hosts in cluster/ {print $1}')"
-if [ -z "$SMB_HOSTS" ]; then
-    log_error "No orchestrated Ceph hosts found ('ceph orch host ls'). Cannot place Samba daemons."
-    exit 1
+# Only the Ceph bootstrap host should own the Samba service. The SMB CSI StorageClass connects to
+# the cluster-host IP (for example 172.19.1.100), so deploying Ceph mgr/smb daemons onto every OSD
+# host is not only unnecessary, it can cause CEPHADM_FAILED_DAEMON when one of those hosts does not
+# have the needed network/runtime setup for the share. Use a label-based placement and keep that
+# label only on the bootstrap host so the service is pinned to the master node.
+CURRENT_HOST="$(hostname -s 2>/dev/null || hostname)"
+SMB_PLACEMENT_SPEC="label:${PLACEMENT_LABEL}"
+if [ -n "$CURRENT_HOST" ]; then
+    log_info "Ensuring the current Ceph host '$CURRENT_HOST' carries the SMB placement label '$PLACEMENT_LABEL'"
+    ceph_cmd orch host label add "$CURRENT_HOST" "$PLACEMENT_LABEL" >/dev/null 2>&1 || log_info "Failed to add label '$PLACEMENT_LABEL' to '$CURRENT_HOST' (may already be present; continuing)"
 fi
-while IFS= read -r smb_host; do
-    [ -n "$smb_host" ] || continue
-    log_info "Adding placement label '$PLACEMENT_LABEL' to host '$smb_host'"
-    ceph_cmd orch host label add "$smb_host" "$PLACEMENT_LABEL" >/dev/null 2>&1 || log_info "Failed to add label '$PLACEMENT_LABEL' to '$smb_host' (may already be present; continuing)"
-done <<< "$SMB_HOSTS"
 
 # Recreate the SMB cluster idempotently: remove any pre-existing cluster with the same id (this also
 # removes its shares) so a re-enable always yields a clean, correctly-configured cluster.
@@ -169,10 +167,10 @@ if ceph_cmd smb cluster ls 2>/dev/null | grep -q "\"cluster_id\":[[:space:]]*\"$
     ceph_cmd smb cluster rm "$SMB_CLUSTER_ID" --recursive >/dev/null 2>&1 || log_info "Failed to remove existing smb cluster '$SMB_CLUSTER_ID' (continuing)"
 fi
 
-log_info "Creating mgr/smb cluster '$SMB_CLUSTER_ID' (user auth, placement label '$PLACEMENT_LABEL')"
+log_info "Creating mgr/smb cluster '$SMB_CLUSTER_ID' (user auth, placement '$SMB_PLACEMENT_SPEC')"
 if ! ceph_cmd smb cluster create "$SMB_CLUSTER_ID" user \
         --define-user-pass="${SMB_USER}%${SMB_PASS}" \
-        --placement="label:${PLACEMENT_LABEL}"; then
+        --placement="$SMB_PLACEMENT_SPEC"; then
     log_error "Failed to create mgr/smb cluster '$SMB_CLUSTER_ID'"
     exit 1
 fi
