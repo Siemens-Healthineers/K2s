@@ -37,14 +37,15 @@ EOF
 }
 
 k2s_proxy_install() {
-  local gateway pod service primary args
+  local gateway pod service primary args worker_proxy_cidr=''
   gateway=$(k2s_cfg '.smallsetup.kubeSwitch')
   pod=$(k2s_cfg '.smallsetup.podNetworkCIDR')
   service=$(k2s_cfg '.smallsetup.servicesCIDR')
   primary=$(ip -4 route get 1.1.1.1 | awk '/src/ {for(i=1;i<=NF;i++)if($i=="src"){print $(i+1);exit}}')
   [[ -x "$K2S_INSTALL_DIR/bin/httpproxy" && -n "$primary" ]] || return 1
 
-  args="--addr :8181 --allowed-cidr 127.0.0.0/8 --allowed-cidr $pod --allowed-cidr $service --allowed-cidr $(k2s_cfg '.smallsetup.masterNetworkCIDR') --allowed-cidr $primary/32"
+  [[ ${K2S_LINUX_ONLY:-true} == true ]] || worker_proxy_cidr=' --allowed-cidr 172.19.2.0/24'
+  args="--addr :8181 --allowed-cidr 127.0.0.0/8 --allowed-cidr $pod --allowed-cidr $service --allowed-cidr $(k2s_cfg '.smallsetup.masterNetworkCIDR')$worker_proxy_cidr --allowed-cidr $primary/32"
   [[ -n "$K2S_PROXY" ]] && args="$args --forwardproxy $K2S_PROXY"
   mkdir -p /var/log/httpproxy /etc/apt/apt.conf.d "$K2S_CONFIG_DIR"
   if [[ -f "$K2S_APT_PROXY_CONFIG" ]] && ! grep -Fq "$K2S_APT_PROXY_HEADER" "$K2S_APT_PROXY_CONFIG"; then

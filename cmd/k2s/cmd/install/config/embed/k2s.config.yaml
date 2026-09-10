@@ -12,6 +12,12 @@ nodes:
       memoryMin: # optional, minimum RAM for dynamic memory (auto-enables dynamic memory)
       memoryMax: # optional, maximum RAM for dynamic memory (auto-enables dynamic memory)
       disk: 50GB # default
+  - role: worker # managed Windows worker on native Linux hosts
+    resources:
+      cpu: 4 # default
+      memory: 8GB # default startup memory
+      disk: 64GB # default
+windowsIsoPath: # native Linux only; user-provided Windows installation ISO
 env:
   httpProxy: # default
   additionalHooksDir: # default

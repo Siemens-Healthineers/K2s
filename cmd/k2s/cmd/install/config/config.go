@@ -56,12 +56,13 @@ type configOverwriter interface {
 }
 
 type InstallConfig struct {
-	Kind       string         `mapstructure:"kind"`
-	ApiVersion string         `mapstructure:"apiVersion"`
-	Nodes      []NodeConfig   `mapstructure:"nodes"`
-	Env        EnvConfig      `mapstructure:"env"`
-	Behavior   BehaviorConfig `mapstructure:"installBehavior"`
-	LinuxOnly  bool           `mapstructure:"linuxOnly"`
+	Kind            string         `mapstructure:"kind"`
+	ApiVersion      string         `mapstructure:"apiVersion"`
+	Nodes           []NodeConfig   `mapstructure:"nodes"`
+	Env             EnvConfig      `mapstructure:"env"`
+	Behavior        BehaviorConfig `mapstructure:"installBehavior"`
+	LinuxOnly       bool           `mapstructure:"linuxOnly"`
+	WindowsIsoPath  string         `mapstructure:"windowsIsoPath"`
 }
 
 type NodeConfig struct {
@@ -101,6 +102,7 @@ const (
 
 	SupportedApiVersion  = "v1"
 	ControlPlaneRoleName = "control-plane"
+	WorkerRoleName       = "worker"
 
 	ControlPlaneCPUsFlagName  = "master-cpus"
 	ControlPlaneCPUsFlagUsage = "Number of CPUs allocated to master VM"
@@ -117,6 +119,18 @@ const (
 
 	ControlPlaneDiskSizeFlagName  = "master-disk"
 	ControlPlaneDiskSizeFlagUsage = "Disk size allocated to the master VM (minimum 10GB, format: <number>[<unit>], where unit = KB, MB or GB)"
+
+	WorkerCPUsFlagName  = "worker-cpus"
+	WorkerCPUsFlagUsage = "Number of CPUs allocated to the managed Windows worker VM"
+
+	WorkerMemoryFlagName  = "worker-memory"
+	WorkerMemoryFlagUsage = "Amount of RAM to allocate to the managed Windows worker VM (minimum 2GB, format: <number>[<unit>], where unit = KB, MB or GB)"
+
+	WorkerDiskSizeFlagName  = "worker-disk"
+	WorkerDiskSizeFlagUsage = "Disk size allocated to the managed Windows worker VM (minimum 20GB, format: <number>[<unit>], where unit = KB, MB or GB)"
+
+	WindowsIsoPathFlagName  = "windows-iso-path"
+	WindowsIsoPathFlagUsage = "Path to a user-provided Windows installation ISO for the managed Windows worker VM"
 
 	ProxyFlagName      = "proxy"
 	ProxyFlagShorthand = "p"
@@ -218,6 +232,14 @@ func (config *InstallConfig) GetNodeByRole(role string) (*NodeConfig, error) {
 	return result, nil
 }
 
+func (config *InstallConfig) GetOrCreateNodeByRole(role string, defaults ResourceConfig) *NodeConfig {
+	if node, found := config.findNodeByRole(role); found {
+		return node
+	}
+	config.Nodes = append(config.Nodes, NodeConfig{Role: role, Resources: defaults})
+	return &config.Nodes[len(config.Nodes)-1]
+}
+
 func (i *installConfigAccess) loadBaseConfig(kind Kind) error {
 	configPath := fmt.Sprintf("embed/%s", configFileMap[kind])
 
@@ -287,10 +309,13 @@ func (*userConfigValidator) validate(kind Kind, config *viper.Viper) error {
 
 	nodes := config.Get("nodes").([]any)
 	for _, node := range nodes {
-		n := node.(map[string]any)
+		n, ok := node.(map[string]any)
+		if !ok {
+			return fmt.Errorf("error in user-provided config: invalid node configuration")
+		}
 
-		if n["role"] != ControlPlaneRoleName {
-			return fmt.Errorf("error in user-provided config: Invalid node role name. Supported: (%s), found: '%s'", ControlPlaneRoleName, n["role"])
+		if n["role"] != ControlPlaneRoleName && n["role"] != WorkerRoleName {
+			return fmt.Errorf("error in user-provided config: Invalid node role name. Supported: (%s, %s), found: '%s'", ControlPlaneRoleName, WorkerRoleName, n["role"])
 		}
 	}
 
@@ -367,6 +392,14 @@ func overwriteConfigWithCliParam(iConfig *InstallConfig, vConfig *viper.Viper, f
 		(iConfig.getNodeByRolePanic(ControlPlaneRoleName)).Resources.MemoryMin = vConfig.GetString(flagName)
 	case ControlPlaneMemoryMaxFlagName:
 		(iConfig.getNodeByRolePanic(ControlPlaneRoleName)).Resources.MemoryMax = vConfig.GetString(flagName)
+	case WorkerCPUsFlagName:
+		iConfig.GetOrCreateNodeByRole(WorkerRoleName, ResourceConfig{Cpu: "4", Memory: "8GB", Disk: "64GB"}).Resources.Cpu = vConfig.GetString(flagName)
+	case WorkerMemoryFlagName:
+		iConfig.GetOrCreateNodeByRole(WorkerRoleName, ResourceConfig{Cpu: "4", Memory: "8GB", Disk: "64GB"}).Resources.Memory = vConfig.GetString(flagName)
+	case WorkerDiskSizeFlagName:
+		iConfig.GetOrCreateNodeByRole(WorkerRoleName, ResourceConfig{Cpu: "4", Memory: "8GB", Disk: "64GB"}).Resources.Disk = vConfig.GetString(flagName)
+	case WindowsIsoPathFlagName:
+		iConfig.WindowsIsoPath = vConfig.GetString(flagName)
 	case ProxyFlagName:
 		iConfig.Env.Proxy = vConfig.GetString(flagName)
 	case NoProxyFlagName:

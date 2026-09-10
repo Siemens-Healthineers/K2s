@@ -21,7 +21,12 @@ k2s_load_operation() {
   K2S_NO_PROXY=$(jq -r '.noProxy // [] | join(",")' "$2") || return 2
   K2S_SKIP_START=$(jq -r '.skipStart // false' "$2") || return 2
   K2S_SKIP_PURGE=$(jq -r '.skipPurge // false' "$2") || return 2
-  export K2S_INSTALL_DIR K2S_CONFIG_DIR K2S_VERSION K2S_CLUSTER_NAME K2S_CONTROL_PLANE_HOSTNAME K2S_PROXY K2S_NO_PROXY K2S_SKIP_START K2S_SKIP_PURGE
+  K2S_LINUX_ONLY=$(jq -r '.linuxOnly // false' "$2") || return 2
+  K2S_WORKER_CPU_COUNT=$(jq -r '.workerCPUCount // "4"' "$2") || return 2
+  K2S_WORKER_MEMORY=$(jq -r '.workerMemory // "8GB"' "$2") || return 2
+  K2S_WORKER_DISK_SIZE=$(jq -r '.workerDiskSize // "64GB"' "$2") || return 2
+  K2S_WINDOWS_ISO_PATH=$(jq -r '.windowsIsoPath // empty' "$2") || return 2
+  export K2S_INSTALL_DIR K2S_CONFIG_DIR K2S_VERSION K2S_CLUSTER_NAME K2S_CONTROL_PLANE_HOSTNAME K2S_PROXY K2S_NO_PROXY K2S_SKIP_START K2S_SKIP_PURGE K2S_LINUX_ONLY K2S_WORKER_CPU_COUNT K2S_WORKER_MEMORY K2S_WORKER_DISK_SIZE K2S_WINDOWS_ISO_PATH
 }
 
 k2s_lock_and_run() {
@@ -54,6 +59,10 @@ k2s_require_host() {
     k2s_require_command "$tool" || return 4
   done
   [[ $(wc -l < /proc/swaps) -le 1 ]] || return 3
+}
+
+k2s_windows_worker_install() {
+  [[ "$K2S_LINUX_ONLY" == true ]] || k2s_windows_worker_provision
 }
 
 k2s_control_plane_install() {
@@ -133,7 +142,8 @@ k2s_install_cluster() {
   k2s_log INFO 'Configuring K2s host DNS proxy.'
   k2s_save_resolver || return 1
   k2s_dns_start || { k2s_restore_resolver; return 1; }
-  jq -n --arg v "$K2S_VERSION" --arg n "$K2S_CLUSTER_NAME" --arg h "$K2S_CONTROL_PLANE_HOSTNAME" '{SetupType:"k2s",LinuxOnly:true,Version:$v,ClusterName:$n,ControlPlaneNodeHostname:$h,WSL:false}' > "$K2S_CONFIG_DIR/setup.json"; chmod 644 "$K2S_CONFIG_DIR/setup.json"
+  k2s_windows_worker_install || return $?
+  jq -n --arg v "$K2S_VERSION" --arg n "$K2S_CLUSTER_NAME" --arg h "$K2S_CONTROL_PLANE_HOSTNAME" --argjson linux_only "$K2S_LINUX_ONLY" '{SetupType:"k2s",LinuxOnly:$linux_only,Version:$v,ClusterName:$n,ControlPlaneNodeHostname:$h,WSL:false}' > "$K2S_CONFIG_DIR/setup.json"; chmod 644 "$K2S_CONFIG_DIR/setup.json"
 }
 
 k2s_start_cluster() {
@@ -148,9 +158,10 @@ k2s_start_cluster() {
     sleep 3
   done
   k2s_dns_start
+  [[ "$K2S_LINUX_ONLY" == true ]] || k2s_windows_worker_start
 }
-k2s_stop_cluster() { k2s_dns_stop; systemctl stop kubelet 2>/dev/null || true; systemctl stop crio k2s-httpproxy k2s-proxy-network 2>/dev/null || true; }
-k2s_uninstall_cluster() { k2s_stop_cluster; if [[ "$K2S_SKIP_PURGE" != true ]]; then k2s_kubectl delete namespace k2s-webhook --ignore-not-found --wait=false 2>/dev/null || true; kubeadm reset -f 2>/dev/null || true; rm -rf /etc/kubernetes /var/lib/etcd /var/lib/kubelet /etc/cni/net.d/10-flannel.conflist /run/flannel; fi; ip link delete cni0 2>/dev/null || true; ip link delete flannel.1 2>/dev/null || true; rm -f /etc/systemd/system/k2s-dnsproxy.service /etc/k2s/dnsproxy.yaml /etc/systemd/system/kubelet.service.d/20-k2s-logging.conf; k2s_proxy_cleanup; rm -rf "$K2S_CONFIG_DIR"; }
+k2s_stop_cluster() { [[ "$K2S_LINUX_ONLY" == true ]] || k2s_windows_worker_stop || true; k2s_dns_stop; systemctl stop kubelet 2>/dev/null || true; systemctl stop crio k2s-httpproxy k2s-proxy-network 2>/dev/null || true; }
+k2s_uninstall_cluster() { k2s_stop_cluster; [[ "$K2S_LINUX_ONLY" == true ]] || k2s_windows_worker_remove || true; if [[ "$K2S_SKIP_PURGE" != true ]]; then k2s_kubectl delete namespace k2s-webhook --ignore-not-found --wait=false 2>/dev/null || true; kubeadm reset -f 2>/dev/null || true; rm -rf /etc/kubernetes /var/lib/etcd /var/lib/kubelet /etc/cni/net.d/10-flannel.conflist /run/flannel; fi; ip link delete cni0 2>/dev/null || true; ip link delete flannel.1 2>/dev/null || true; rm -f /etc/systemd/system/k2s-dnsproxy.service /etc/k2s/dnsproxy.yaml /etc/systemd/system/kubelet.service.d/20-k2s-logging.conf; k2s_proxy_cleanup; rm -rf "$K2S_CONFIG_DIR"; }
 
 k2s_dispatch_lifecycle() {
   local operation="$1"

@@ -26,6 +26,10 @@ type Operation struct {
 	SkipStart            bool     `json:"skipStart"`
 	SkipPurge            bool     `json:"skipPurge"`
 	LinuxOnly            bool     `json:"linuxOnly"`
+	WorkerCPUCount       string   `json:"workerCPUCount"`
+	WorkerMemory         string   `json:"workerMemory"`
+	WorkerDiskSize       string   `json:"workerDiskSize"`
+	WindowsIsoPath       string   `json:"windowsIsoPath"`
 }
 
 // Execute invokes the platform-first native Linux lifecycle script.
