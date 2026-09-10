@@ -104,7 +104,7 @@ if ($modulePathWasNormalized) {
     Write-Log "[Invoke-ExecScript] PSModulePath normalized to WinPS 5.1 canonical paths (pwsh 7 environment detected)"
 }
 
-if ($Script.Contains("-ShowLogs")) {
+if ($Script -and $Script.Contains("-ShowLogs")) {
     Initialize-Logging -ShowLogs:$true
 }
 
