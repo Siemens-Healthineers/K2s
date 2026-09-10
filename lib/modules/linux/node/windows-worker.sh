@@ -20,7 +20,7 @@ k2s_windows_worker_state_file() { printf '%s/windows-worker.json' "$K2S_CONFIG_D
 
 k2s_windows_worker_install_host_dependencies() {
   local package
-  local packages='qemu-kvm qemu-utils libvirt-daemon-system libvirt-clients ovmf xorriso openssh-client'
+  local packages='qemu-system-x86 qemu-utils libvirt-daemon-system libvirt-clients ovmf xorriso openssh-client'
   k2s_log INFO 'Installing KVM Windows worker host dependencies.'
   k2s_wait_for_dpkg_lock || return 1
   k2s_run env DEBIAN_FRONTEND=noninteractive apt-get update || return 1
