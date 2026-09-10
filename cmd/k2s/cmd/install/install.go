@@ -175,6 +175,11 @@ func install(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return err
 	}
+	linuxOnly, err := cmd.Flags().GetBool(ic.LinuxOnlyFlagName)
+	if err != nil {
+		return err
+	}
+	installConfig.LinuxOnly = linuxOnly
 
 	if runtime.GOOS == "linux" {
 		if err := validateLinuxInstallOptions(cmd, installConfig.LinuxOnly); err != nil {
