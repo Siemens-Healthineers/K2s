@@ -18,6 +18,19 @@ readonly K2S_WINDOWS_WORKER_POD_SUBNET='172.20.1.0/24'
 
 k2s_windows_worker_state_file() { printf '%s/windows-worker.json' "$K2S_CONFIG_DIR"; }
 
+k2s_windows_worker_install_host_dependencies() {
+  local package
+  local packages='qemu-kvm qemu-utils libvirt-daemon-system libvirt-clients ovmf xorriso openssh-client'
+  k2s_log INFO 'Installing KVM Windows worker host dependencies.'
+  k2s_wait_for_dpkg_lock || return 1
+  DEBIAN_FRONTEND=noninteractive apt-get update || return 1
+  DEBIAN_FRONTEND=noninteractive apt-get install -y $packages || return 1
+  for package in $packages; do
+    dpkg-query -W -f='${Status}' "$package" 2>/dev/null | grep -Fq 'install ok installed' || return 1
+  done
+  systemctl enable --now libvirtd || return 1
+}
+
 k2s_windows_worker_memory_mb() {
   [[ "$K2S_WORKER_MEMORY" =~ ^([2-9]|[1-9][0-9]+)(GB|G)$ ]] || { k2s_log ERROR "Invalid --worker-memory value: $K2S_WORKER_MEMORY"; return 2; }
   printf '%s\n' "$(( ${BASH_REMATCH[1]} * 1024 ))"
