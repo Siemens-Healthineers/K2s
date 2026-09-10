@@ -7,18 +7,7 @@
 # in the calling script's scope for error handling.
 
 Add-Type -AssemblyName System.IO.Compression
-$zipFileType = 'System.IO.Compression.ZipFile' -as [type]
-if (-not $zipFileType) {
-    try {
-        Add-Type -AssemblyName System.IO.Compression.FileSystem -ErrorAction Stop
-    }
-    catch { }
-
-    $zipFileType = 'System.IO.Compression.ZipFile' -as [type]
-    if (-not $zipFileType) {
-        throw "System.IO.Compression.ZipFile type is unavailable. Failed to load assembly 'System.IO.Compression.FileSystem'."
-    }
-}
+Add-Type -AssemblyName System.IO.Compression.FileSystem
 
 function New-ZipArchive() {
     Param(

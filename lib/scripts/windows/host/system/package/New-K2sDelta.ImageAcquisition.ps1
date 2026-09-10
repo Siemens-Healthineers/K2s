@@ -318,19 +318,7 @@ function Copy-WindowsImageFromPackage {
         Write-Log "[ImageAcq] Opening WindowsNodeArtifacts.zip to extract $sourceTarName" -Console
 
         # Open zip and find the image tar
-        $zipFileType = 'System.IO.Compression.ZipFile' -as [type]
-        if (-not $zipFileType) {
-            try {
-                Add-Type -AssemblyName System.IO.Compression.FileSystem -ErrorAction Stop
-            }
-            catch { }
-
-            $zipFileType = 'System.IO.Compression.ZipFile' -as [type]
-            if (-not $zipFileType) {
-                throw "System.IO.Compression.ZipFile type is unavailable. Failed to load assembly 'System.IO.Compression.FileSystem'."
-            }
-        }
-
+        Add-Type -AssemblyName System.IO.Compression.FileSystem
         $zip = [System.IO.Compression.ZipFile]::OpenRead($winArtifactsZip)
 
         try {

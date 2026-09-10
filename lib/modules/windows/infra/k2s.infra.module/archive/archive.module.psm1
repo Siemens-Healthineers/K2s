@@ -6,18 +6,7 @@
 # therefore have **no 2 GB size limit**.
 
 Add-Type -AssemblyName System.IO.Compression
-$zipFileType = 'System.IO.Compression.ZipFile' -as [type]
-if (-not $zipFileType) {
-    try {
-        Add-Type -AssemblyName System.IO.Compression.FileSystem -ErrorAction Stop
-    }
-    catch { }
-
-    $zipFileType = 'System.IO.Compression.ZipFile' -as [type]
-    if (-not $zipFileType) {
-        throw "System.IO.Compression.ZipFile type is unavailable. Failed to load assembly 'System.IO.Compression.FileSystem'."
-    }
-}
+Add-Type -AssemblyName System.IO.Compression.FileSystem
 
 function Format-Size {
     param(

@@ -67,33 +67,6 @@ function Resolve-CraneExe {
     throw "[HlPlugin] crane not found. Install crane (google/go-containerregistry) or pass -CraneExe. See build/README.md."
 }
 
-function Get-Sha256HexLower {
-    <#
-    .SYNOPSIS
-    Computes SHA256 for a file and returns a lowercase hexadecimal hash without relying on Get-FileHash
-    #>
-    param(
-        [Parameter(Mandatory = $true)]
-        [string]$Path
-    )
-
-    $stream = [System.IO.File]::OpenRead($Path)
-    try {
-        $sha256 = [System.Security.Cryptography.SHA256]::Create()
-        try {
-            $hashBytes = $sha256.ComputeHash($stream)
-        }
-        finally {
-            $sha256.Dispose()
-        }
-    }
-    finally {
-        $stream.Dispose()
-    }
-
-    return ([System.BitConverter]::ToString($hashBytes).Replace('-', '').ToLowerInvariant())
-}
-
 function Invoke-PluginAcquisition {
     <#
     .SYNOPSIS
@@ -168,7 +141,7 @@ function Invoke-PluginAcquisition {
             Invoke-WebRequest @iwrParams
         }
 
-        $actual = Get-Sha256HexLower -Path $tar
+        $actual = (Get-FileHash -Path $tar -Algorithm SHA256).Hash.ToLowerInvariant()
         $expected = "$($Plugin.prebuilt.sha256)".ToLowerInvariant()
         if ($expected -eq 'to-pin' -or [string]::IsNullOrWhiteSpace($expected)) {
             if (-not $UpdateLock) {

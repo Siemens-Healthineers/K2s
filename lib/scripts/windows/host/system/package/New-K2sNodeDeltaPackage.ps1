@@ -83,29 +83,6 @@ if ($EncodeStructuredOutput) {
 
 $ErrorActionPreference = 'Stop'
 
-function Get-Sha256HexLower {
-    param(
-        [Parameter(Mandatory = $true)]
-        [string] $LiteralPath
-    )
-
-    $sha256 = [System.Security.Cryptography.SHA256]::Create()
-    try {
-        $stream = [System.IO.File]::OpenRead($LiteralPath)
-        try {
-            $hashBytes = $sha256.ComputeHash($stream)
-        }
-        finally {
-            $stream.Dispose()
-        }
-    }
-    finally {
-        $sha256.Dispose()
-    }
-
-    return ([System.BitConverter]::ToString($hashBytes).Replace('-', '').ToLowerInvariant())
-}
-
 function Resolve-NodeDeltaOS {
     param(
         [string] $OldPackagesRoot,
@@ -161,7 +138,7 @@ function Get-HashMap {
 
     foreach ($item in $items) {
         $rel = $item.FullName.Substring($Root.Length).TrimStart('\', '/') -replace '\\', '/'
-          $hash = Get-Sha256HexLower -LiteralPath $item.FullName
+              $hash = (Get-FileHash -LiteralPath $item.FullName -Algorithm SHA256).Hash
         $map[$rel] = [pscustomobject]@{
             Path = $item.FullName
             Hash = $hash

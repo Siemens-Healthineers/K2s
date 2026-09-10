@@ -54,19 +54,7 @@ function Get-WindowsImagesFromPackage {
         Write-Log "[ImageDiff] Extracting Windows image list from WindowsNodeArtifacts.zip..." -Console
 
         # Load the zip file
-        $zipFileType = 'System.IO.Compression.ZipFile' -as [type]
-        if (-not $zipFileType) {
-            try {
-                Add-Type -AssemblyName System.IO.Compression.FileSystem -ErrorAction Stop
-            }
-            catch { }
-
-            $zipFileType = 'System.IO.Compression.ZipFile' -as [type]
-            if (-not $zipFileType) {
-                throw "System.IO.Compression.ZipFile type is unavailable. Failed to load assembly 'System.IO.Compression.FileSystem'."
-            }
-        }
-
+        Add-Type -AssemblyName System.IO.Compression.FileSystem
         $zip = [System.IO.Compression.ZipFile]::OpenRead($winArtifactsZip)
 
         try {

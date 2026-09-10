@@ -5,29 +5,6 @@
 $infraModule = "$PSScriptRoot\..\..\..\..\infra\k2s.infra.module\k2s.infra.module.psm1"
 Import-Module $infraModule
 
-function Get-Sha512HexLower {
-    param(
-        [Parameter(Mandatory = $true)]
-        [string]$LiteralPath
-    )
-
-    $sha512 = [System.Security.Cryptography.SHA512]::Create()
-    try {
-        $stream = [System.IO.File]::OpenRead($LiteralPath)
-        try {
-            $hashBytes = $sha512.ComputeHash($stream)
-        }
-        finally {
-            $stream.Dispose()
-        }
-    }
-    finally {
-        $sha512.Dispose()
-    }
-
-    return ([System.BitConverter]::ToString($hashBytes).Replace('-', '').ToLowerInvariant())
-}
-
 # Base image
 
 <#
@@ -106,15 +83,15 @@ function Invoke-DownloadLinuxImage {
             $allHashes = curl.exe --retry 3 --connect-timeout 60 --retry-connrefused --silent --disable --fail "$urlRoot/SHA512SUMS" --noproxy '*'
         }
 
-        $computedHash = Get-Sha512HexLower -LiteralPath $imgFile
+        $computedHash = Get-FileHash $imgFile -Algorithm SHA512
         $m = [regex]::Matches($allHashes, "(?<Hash>\w{128})\s\s$urlFile")
         if (-not $m[0]) { throw "[LinuxImage] Cannot find hash for '$urlFile' in SHA512SUMS" }
-        $expectedHash = $m[0].Groups['Hash'].Value.ToLowerInvariant()
+        $expectedHash = $m[0].Groups['Hash'].Value
         
         Write-Log "[LinuxImage] Expected hash: $expectedHash"
-        Write-Log "[LinuxImage] Computed hash: $computedHash"
+        Write-Log "[LinuxImage] Computed hash: $($computedHash.Hash)"
         
-        if ($computedHash -ne $expectedHash) { 
+        if ($computedHash.Hash -ne $expectedHash) { 
             throw "[LinuxImage] Integrity check failed for '$imgFile' - hash mismatch" 
         }
         Write-Log "[LinuxImage] Integrity check passed" -Console

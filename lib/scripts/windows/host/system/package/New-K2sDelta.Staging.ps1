@@ -273,67 +273,6 @@ function Copy-WindowsNodeArtifactsToStaging {
         ErrorMessage        = ''
     }
 
-    # Complete-content hashing is required because ZIP timestamps and lengths can match after content changes.
-    function Get-ZipEntryContentHash {
-        param(
-            [Parameter(Mandatory = $true)]
-            $Entry
-        )
-
-        $stream = $Entry.Open()
-        $sha256 = [System.Security.Cryptography.SHA256]::Create()
-        try {
-            $hashBytes = $sha256.ComputeHash($stream)
-
-            return [System.BitConverter]::ToString($hashBytes).Replace('-', '').ToLowerInvariant()
-        }
-        finally {
-            if ($stream) {
-                $stream.Dispose()
-            }
-            if ($sha256) {
-                $sha256.Dispose()
-            }
-        }
-    }
-
-    function Resolve-ZipEntryDestination {
-        param(
-            [Parameter(Mandatory = $true)]
-            [string] $TargetRoot,
-            [Parameter(Mandatory = $true)]
-            [string] $RelativePath
-        )
-
-        # Security invariant: archive extraction must stay within its mapping root, as required by the delta packaging extraction contract.
-        $canonicalRoot = [System.IO.Path]::GetFullPath($TargetRoot).TrimEnd('\', '/')
-        $normalizedPath = $RelativePath -replace '/', '\'
-        if ([System.IO.Path]::IsPathRooted($normalizedPath) -or $normalizedPath -match '(^|\\)\.\.($|\\)') {
-            throw "ZIP entry path '$RelativePath' is absolute or contains parent-directory traversal."
-        }
-
-        $canonicalDestination = [System.IO.Path]::GetFullPath((Join-Path $canonicalRoot $normalizedPath))
-        $rootPrefix = $canonicalRoot + [System.IO.Path]::DirectorySeparatorChar
-        if (-not $canonicalDestination.StartsWith($rootPrefix, [System.StringComparison]::OrdinalIgnoreCase)) {
-            throw "ZIP entry path '$RelativePath' escapes extraction root '$canonicalRoot'."
-        }
-
-        return $canonicalDestination
-    }
-
-    $zipFileType = 'System.IO.Compression.ZipFile' -as [type]
-    if (-not $zipFileType) {
-        try {
-            Add-Type -AssemblyName System.IO.Compression.FileSystem -ErrorAction Stop
-        }
-            catch { }
-
-        $zipFileType = 'System.IO.Compression.ZipFile' -as [type]
-        if (-not $zipFileType) {
-            throw "System.IO.Compression.ZipFile type is unavailable. Failed to load assembly 'System.IO.Compression.FileSystem'."
-        }
-    }
-
     # Mapping from ZIP folder names to target bin/ folder names
     # Each entry: SourceFolder = @{ Target = 'target/path'; Subdir = 'optional/subdir'; Rename = @{'old.exe'='new.exe'} }
     #
@@ -376,7 +315,6 @@ function Copy-WindowsNodeArtifactsToStaging {
 
     $winArtifactsZip = Join-Path $Context.NewExtract 'bin\WindowsNodeArtifacts.zip'
     $oldWinArtifactsZip = Join-Path $Context.OldExtract 'bin\WindowsNodeArtifacts.zip'
-    $hasLoggedZeroTicksWarning = $false
 
     if (-not (Test-Path $winArtifactsZip)) {
         $result.ErrorMessage = "WindowsNodeArtifacts.zip not found at: $winArtifactsZip"
@@ -386,6 +324,7 @@ function Copy-WindowsNodeArtifactsToStaging {
         return $result
     }
 
+    # Build hash map of old ZIP entries for comparison (using CRC32 for efficiency)
     $oldEntryMap = @{}
     if (Test-Path $oldWinArtifactsZip) {
         Write-Log "[WinArtifacts] Building hash map from old WindowsNodeArtifacts.zip for comparison..." -Console
@@ -394,16 +333,10 @@ function Copy-WindowsNodeArtifactsToStaging {
             try {
                 foreach ($entry in $oldZip.Entries) {
                     if (-not $entry.FullName.EndsWith('/')) {
-                        $entryLastWriteTicks = $entry.LastWriteTime.UtcDateTime.Ticks
-                        if ($entryLastWriteTicks -eq 0 -and -not $hasLoggedZeroTicksWarning) {
-                            Write-Log "[WinArtifacts][Warning] ZIP entry '$($entry.FullName)' has LastWriteTime ticks 0; using sample-hash fallback for safe comparison." -Console
-                            $hasLoggedZeroTicksWarning = $true
-                        }
-
+                        # Use CRC32 + length as a fast comparison key
                         $oldEntryMap[$entry.FullName] = @{
-                            LastWriteTimeUtcTicks = $entryLastWriteTicks
-                            Length                = $entry.Length
-                            ContentHash           = Get-ZipEntryContentHash -Entry $entry
+                            Crc32  = $entry.Crc32
+                            Length = $entry.Length
                         }
                     }
                 }
@@ -423,6 +356,7 @@ function Copy-WindowsNodeArtifactsToStaging {
     Write-Log "[WinArtifacts] Extracting changed Windows binaries from WindowsNodeArtifacts.zip..." -Console
 
     try {
+        Add-Type -AssemblyName System.IO.Compression.FileSystem
         $zip = [System.IO.Compression.ZipFile]::OpenRead($winArtifactsZip)
 
         try {
@@ -431,7 +365,7 @@ function Copy-WindowsNodeArtifactsToStaging {
                 $targetFolder = $mapping.Target
                 $sourceSubdir = if ($mapping.Subdir) { $mapping.Subdir } else { '' }
                 $renameMap = if ($mapping.Rename) { $mapping.Rename } else { @{} }
-                $targetPath = Resolve-ZipEntryDestination -TargetRoot $Context.StageDir -RelativePath $targetFolder
+                $targetPath = Join-Path $Context.StageDir $targetFolder
 
                 # Build the source path pattern (may include subdir like containerd/bin/)
                 $sourcePattern = if ($sourceSubdir) {
@@ -469,27 +403,20 @@ function Copy-WindowsNodeArtifactsToStaging {
                         continue
                     }
 
-                    $newEntryLastWriteTicks = $entry.LastWriteTime.UtcDateTime.Ticks
-                    if ($newEntryLastWriteTicks -eq 0 -and -not $hasLoggedZeroTicksWarning) {
-                        Write-Log "[WinArtifacts][Warning] ZIP entry '$($entry.FullName)' has LastWriteTime ticks 0; using sample-hash fallback for safe comparison." -Console
-                        $hasLoggedZeroTicksWarning = $true
-                    }
-
                     # Check if file changed compared to old package
                     $isNew = $false
+                    $isChanged = $false
                     if ($oldEntryMap.Count -gt 0) {
                         $oldEntry = $oldEntryMap[$entry.FullName]
                         if ($null -eq $oldEntry) {
                             $isNew = $true
-                        } elseif ($oldEntry.LastWriteTimeUtcTicks -ne $newEntryLastWriteTicks -or $oldEntry.Length -ne $entry.Length) {
+                        } elseif ($oldEntry.Crc32 -ne $entry.Crc32 -or $oldEntry.Length -ne $entry.Length) {
+                            $isChanged = $true
                         } else {
-                            $newEntryContentHash = Get-ZipEntryContentHash -Entry $entry
-                            if ($oldEntry.ContentHash -ne $newEntryContentHash) {
-                            } else {
-                                $skippedCount++
-                                $result.UnchangedFiles++
-                                continue
-                            }
+                            # File unchanged - skip extraction
+                            $skippedCount++
+                            $result.UnchangedFiles++
+                            continue
                         }
                     } else {
                         # No old package to compare - treat all as new
@@ -504,7 +431,7 @@ function Copy-WindowsNodeArtifactsToStaging {
                         Write-Log "[WinArtifacts] Renaming '$fileName' to '$newFileName'" -Console
                     }
 
-                    $destFile = Resolve-ZipEntryDestination -TargetRoot $targetPath -RelativePath $relativePath
+                    $destFile = Join-Path $targetPath $relativePath
                     $destDir = Split-Path $destFile -Parent
 
                     if (-not (Test-Path $destDir)) {
