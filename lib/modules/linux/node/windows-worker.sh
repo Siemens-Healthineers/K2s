@@ -20,7 +20,7 @@ k2s_windows_worker_state_file() { printf '%s/windows-worker.json' "$K2S_CONFIG_D
 
 k2s_windows_worker_install_host_dependencies() {
   local package
-  local packages='qemu-system-x86 qemu-utils libvirt-daemon-system libvirt-clients ovmf xorriso openssh-client'
+  local packages='qemu-system-x86 qemu-utils libvirt-daemon-system libvirt-daemon-driver-qemu libvirt-clients ovmf xorriso openssh-client'
   k2s_log INFO 'Installing KVM Windows worker host dependencies.'
   k2s_wait_for_dpkg_lock || return 1
   k2s_run env DEBIAN_FRONTEND=noninteractive apt-get update || return 1
@@ -35,12 +35,14 @@ k2s_windows_worker_install_host_dependencies() {
 }
 
 k2s_windows_worker_start_libvirt() {
-  if systemctl list-unit-files --type=service | grep -Fq 'libvirtd.service'; then
+  if systemctl cat libvirtd.service >/dev/null 2>&1; then
     k2s_run systemctl enable --now libvirtd || return 1
-  elif systemctl list-unit-files --type=socket | grep -Fq 'virtqemud.socket'; then
+  elif systemctl cat virtqemud.socket >/dev/null 2>&1; then
     k2s_run systemctl enable --now virtqemud.socket || return 1
+  elif systemctl cat virtqemud.service >/dev/null 2>&1; then
+    k2s_run systemctl enable --now virtqemud || return 1
   else
-    k2s_log ERROR 'Neither libvirtd.service nor virtqemud.socket is available after libvirt installation.'
+    k2s_log ERROR 'Neither libvirtd.service, virtqemud.socket, nor virtqemud.service is available after libvirt installation.'
     return 1
   fi
   if ! virsh -c qemu:///system uri >/dev/null 2>&1; then
