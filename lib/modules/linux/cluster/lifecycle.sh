@@ -164,7 +164,20 @@ k2s_start_cluster() {
   [[ "$K2S_LINUX_ONLY" == true ]] || k2s_windows_worker_start
 }
 k2s_stop_cluster() { [[ "$K2S_LINUX_ONLY" == true ]] || k2s_windows_worker_stop || true; k2s_dns_stop; systemctl stop kubelet 2>/dev/null || true; systemctl stop crio k2s-httpproxy k2s-proxy-network 2>/dev/null || true; }
-k2s_uninstall_cluster() { k2s_stop_cluster; [[ "$K2S_LINUX_ONLY" == true ]] || k2s_windows_worker_remove || true; if [[ "$K2S_SKIP_PURGE" != true ]]; then k2s_kubectl delete namespace k2s-webhook --ignore-not-found --wait=false 2>/dev/null || true; kubeadm reset -f 2>/dev/null || true; rm -rf /etc/kubernetes /var/lib/etcd /var/lib/kubelet /etc/cni/net.d/10-flannel.conflist /run/flannel; fi; ip link delete cni0 2>/dev/null || true; ip link delete flannel.1 2>/dev/null || true; rm -f /etc/systemd/system/k2s-dnsproxy.service /etc/k2s/dnsproxy.yaml /etc/systemd/system/kubelet.service.d/20-k2s-logging.conf; k2s_proxy_cleanup; rm -rf "$K2S_CONFIG_DIR"; }
+k2s_uninstall_cluster() {
+  k2s_stop_cluster || return $?
+  [[ "$K2S_LINUX_ONLY" == true ]] || k2s_windows_worker_remove || true
+  if [[ "$K2S_SKIP_PURGE" != true ]]; then
+    k2s_kubectl delete namespace k2s-webhook --ignore-not-found --wait=false 2>/dev/null || true
+    kubeadm reset -f 2>/dev/null || true
+    rm -rf /etc/kubernetes /var/lib/etcd /var/lib/kubelet /etc/cni/net.d/10-flannel.conflist /run/flannel
+  fi
+  ip link delete cni0 2>/dev/null || true
+  ip link delete flannel.1 2>/dev/null || true
+  rm -f /etc/systemd/system/k2s-dnsproxy.service /etc/k2s/dnsproxy.yaml /etc/systemd/system/kubelet.service.d/20-k2s-logging.conf
+  k2s_proxy_cleanup || return $?
+  rm -rf "$K2S_CONFIG_DIR"
+}
 
 k2s_dispatch_lifecycle() {
   local operation="$1"
