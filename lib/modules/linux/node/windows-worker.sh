@@ -62,7 +62,7 @@ k2s_windows_worker_disk_gb() {
 }
 
 k2s_windows_worker_preflight() {
-  local command memory_mb available_mb disk_gb available_gb
+  local command memory_mb available_mb total_mb disk_gb available_gb
   [[ -r /dev/kvm && -c /dev/kvm ]] || { k2s_log ERROR 'KVM is unavailable. Enable nested virtualization and expose /dev/kvm to the Debian host.'; return 3; }
   for command in virsh qemu-img ssh scp ssh-keyscan ssh-keygen xorriso sha256sum; do k2s_require_command "$command" || return 4; done
   k2s_windows_worker_start_libvirt || return 3
@@ -70,7 +70,9 @@ k2s_windows_worker_preflight() {
   memory_mb=$(k2s_windows_worker_memory_mb) || return $?
   disk_gb=$(k2s_windows_worker_disk_gb) || return $?
   available_mb=$(awk '/MemAvailable:/ {print int($2 / 1024)}' /proc/meminfo)
-  (( available_mb - memory_mb >= available_mb / 4 )) || { k2s_log ERROR 'Windows worker would leave less than 25% of host memory available.'; return 3; }
+  total_mb=$(awk '/MemTotal:/ {print int($2 / 1024)}' /proc/meminfo)
+  (( memory_mb * 4 <= total_mb * 3 )) || { k2s_log ERROR 'Windows worker memory must not exceed 75% of host memory.'; return 3; }
+  (( available_mb >= memory_mb + 2048 )) || { k2s_log ERROR 'Windows worker would leave less than 2GB of host memory available.'; return 3; }
   available_gb=$(df -BG --output=avail "$K2S_CONFIG_DIR" | tail -1 | tr -dc '0-9')
   (( available_gb - disk_gb >= 20 )) || { k2s_log ERROR 'Windows worker would leave less than 20GB of host disk space available.'; return 3; }
 }

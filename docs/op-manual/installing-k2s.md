@@ -237,7 +237,8 @@ only accepts loopback, pod-CIDR, service-CIDR, and K2s-switch clients.
 
 The managed worker requires nested virtualization, `/dev/kvm`, a running
 `libvirtd` or `virtqemud`, `virsh`, `qemu-img`, OpenSSH tools, and a minimum remaining host
-reserve of 25% memory and 20GB disk after the worker allocation. Its default
+reserve of 2GB memory and 20GB disk after the worker allocation. Worker memory
+must not exceed 75% of total host memory. Its default
 allocation is 4 CPUs, 8GB RAM, and a 64GB disk. K2s owns the domain, disk,
 network, and lifecycle; `k2s uninstall` removes these K2s-managed resources.
 
