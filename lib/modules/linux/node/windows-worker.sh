@@ -9,7 +9,7 @@ readonly K2S_WINDOWS_WORKER_SH_LOADED=1
 
 readonly K2S_WINDOWS_WORKER_NAME='k2s-win-worker'
 readonly K2S_WINDOWS_WORKER_NETWORK='k2s-switch'
-readonly K2S_WINDOWS_WORKER_BRIDGE='virbr-k2s-switch'
+readonly K2S_WINDOWS_WORKER_BRIDGE='virbr-k2s-win'
 readonly K2S_WINDOWS_WORKER_HOST_IP='172.19.2.1'
 readonly K2S_WINDOWS_WORKER_IP='172.19.2.101'
 readonly K2S_WINDOWS_WORKER_MAC='52:54:00:25:57:01'
