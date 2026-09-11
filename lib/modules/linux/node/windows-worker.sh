@@ -9,15 +9,19 @@ readonly K2S_WINDOWS_WORKER_SH_LOADED=1
 
 readonly K2S_WINDOWS_WORKER_NAME='k2s-win-worker'
 readonly K2S_WINDOWS_WORKER_NETWORK='k2s-switch'
-readonly K2S_WINDOWS_WORKER_BRIDGE='virbr-k2s-win'
-readonly K2S_WINDOWS_WORKER_HOST_IP='172.19.2.1'
-readonly K2S_WINDOWS_WORKER_IP='172.19.2.101'
+readonly K2S_WINDOWS_WORKER_BRIDGE='kubeswitch'
 readonly K2S_WINDOWS_WORKER_MAC='52:54:00:25:57:01'
-readonly K2S_WINDOWS_WORKER_SUBNET='172.19.2.0/24'
 readonly K2S_WINDOWS_WORKER_POD_SUBNET='172.20.1.0/24'
 
 k2s_windows_worker_state_file() { printf '%s/windows-worker.json' "$K2S_CONFIG_DIR"; }
 k2s_windows_worker_vm_dir() { printf '%s' '/var/lib/libvirt/images/k2s'; }
+k2s_windows_worker_gateway() { k2s_cfg '.smallsetup.kubeSwitch'; }
+k2s_windows_worker_network_cidr() { k2s_cfg '.smallsetup.masterNetworkCIDR'; }
+k2s_windows_worker_ip() {
+  local gateway
+  gateway=$(k2s_windows_worker_gateway) || return 1
+  printf '%s.101\n' "${gateway%.*}"
+}
 
 k2s_windows_worker_install_host_dependencies() {
   local package
@@ -79,20 +83,33 @@ k2s_windows_worker_preflight() {
 }
 
 k2s_windows_worker_network_create() {
+  local gateway network_cidr worker_ip prefix network_xml result existing_xml
+  gateway=$(k2s_windows_worker_gateway) || return 1
+  network_cidr=$(k2s_windows_worker_network_cidr) || return 1
+  worker_ip=$(k2s_windows_worker_ip) || return 1
+  prefix=${network_cidr#*/}
+  [[ "$prefix" == '24' ]] || { k2s_log ERROR "Managed KubeSwitch requires a /24 masterNetworkCIDR, found: $network_cidr"; return 2; }
   if virsh net-info "$K2S_WINDOWS_WORKER_NETWORK" >/dev/null 2>&1; then
-    virsh net-start "$K2S_WINDOWS_WORKER_NETWORK" 2>/dev/null || true
-    virsh net-autostart "$K2S_WINDOWS_WORKER_NETWORK" || return 1
-    ip route replace "$K2S_WINDOWS_WORKER_POD_SUBNET" via "$K2S_WINDOWS_WORKER_IP"
-    return 0
+    existing_xml=$(virsh net-dumpxml "$K2S_WINDOWS_WORKER_NETWORK") || return 1
+    if ! printf '%s' "$existing_xml" | grep -Fq "bridge name='$K2S_WINDOWS_WORKER_BRIDGE'" || ! printf '%s' "$existing_xml" | grep -Fq "address='$gateway'"; then
+      k2s_log INFO 'Replacing a prior K2s-managed libvirt network definition with the configured KubeSwitch network.'
+      virsh net-destroy "$K2S_WINDOWS_WORKER_NETWORK" 2>/dev/null || true
+      virsh net-undefine "$K2S_WINDOWS_WORKER_NETWORK" || return 1
+    else
+      virsh net-start "$K2S_WINDOWS_WORKER_NETWORK" 2>/dev/null || true
+      virsh net-autostart "$K2S_WINDOWS_WORKER_NETWORK" || return 1
+      ip route replace "$K2S_WINDOWS_WORKER_POD_SUBNET" via "$worker_ip"
+      return 0
+    fi
   fi
-  local network_xml; network_xml=$(mktemp)
+  network_xml=$(mktemp)
   cat > "$network_xml" <<EOF
-<network><name>$K2S_WINDOWS_WORKER_NETWORK</name><forward mode='nat'/><bridge name='$K2S_WINDOWS_WORKER_BRIDGE' stp='on' delay='0'/><ip address='$K2S_WINDOWS_WORKER_HOST_IP' netmask='255.255.255.0'><dhcp><range start='172.19.2.100' end='172.19.2.199'/><host mac='$K2S_WINDOWS_WORKER_MAC' name='$K2S_WINDOWS_WORKER_NAME' ip='$K2S_WINDOWS_WORKER_IP'/></dhcp></ip></network>
+<network><name>$K2S_WINDOWS_WORKER_NETWORK</name><forward mode='nat'/><bridge name='$K2S_WINDOWS_WORKER_BRIDGE' stp='on' delay='0'/><ip address='$gateway' netmask='255.255.255.0'><dhcp><range start='${gateway%.*}.100' end='${gateway%.*}.199'/><host mac='$K2S_WINDOWS_WORKER_MAC' name='$K2S_WINDOWS_WORKER_NAME' ip='$worker_ip'/></dhcp></ip></network>
 EOF
   virsh net-define "$network_xml" && virsh net-start "$K2S_WINDOWS_WORKER_NETWORK" && virsh net-autostart "$K2S_WINDOWS_WORKER_NETWORK"
-  local result=$?; rm -f "$network_xml"
+  result=$?; rm -f "$network_xml"
   (( result == 0 )) || return "$result"
-  ip route replace "$K2S_WINDOWS_WORKER_POD_SUBNET" via "$K2S_WINDOWS_WORKER_IP"
+  ip route replace "$K2S_WINDOWS_WORKER_POD_SUBNET" via "$worker_ip"
 }
 
 k2s_windows_worker_prepare_image() {
@@ -149,7 +166,7 @@ New-Item -ItemType Directory -Path 'C:\k2s' -Force | Out-Null
 Copy-Item -Path "$source\*" -Destination 'C:\k2s' -Recurse -Force
 $password = ConvertTo-SecureString -String (New-Guid).Guid -AsPlainText -Force
 if (-not (Get-LocalUser -Name remote -ErrorAction SilentlyContinue)) { New-LocalUser -Name remote -Password $password -PasswordNeverExpires | Out-Null }
-netsh winhttp set proxy '172.19.1.1:8181' | Out-Null
+netsh winhttp set proxy '@KUBESWITCH_PROXY@' | Out-Null
 Add-WindowsCapability -Online -Name OpenSSH.Server~~~~0.0.1.0
 Set-Service -Name sshd -StartupType Automatic
 Start-Service sshd
@@ -163,6 +180,7 @@ Set-Content -Path 'C:\ProgramData\K2s\windows-worker-bootstrap-ready' -Value 're
 Stop-Computer -Force
 EOF
   sed -i "s|@SSH_PUBLIC_KEY@|$public_key|" "$stage/bootstrap.ps1"
+  sed -i "s|@KUBESWITCH_PROXY@|$(k2s_windows_worker_gateway):8181|" "$stage/bootstrap.ps1"
   cat > "$stage/autounattend.xml" <<EOF
 <?xml version="1.0" encoding="utf-8"?>
 <unattend xmlns="urn:schemas-microsoft-com:unattend" xmlns:wcm="http://schemas.microsoft.com/WMIConfig/2002/State"><settings pass="windowsPE"><component name="Microsoft-Windows-Setup" processorArchitecture="amd64" publicKeyToken="31bf3856ad364e35" language="neutral" versionScope="nonSxS"><UserData><AcceptEula>true</AcceptEula><FullName>K2s</FullName><Organization>Siemens Healthineers</Organization></UserData><DiskConfiguration><Disk wcm:action="add" wcm:keyValue="1"><DiskID>0</DiskID><WillWipeDisk>true</WillWipeDisk><CreatePartitions><CreatePartition wcm:action="add"><Order>1</Order><Type>EFI</Type><Size>100</Size></CreatePartition><CreatePartition wcm:action="add"><Order>2</Order><Type>MSR</Type><Size>16</Size></CreatePartition><CreatePartition wcm:action="add"><Order>3</Order><Type>Primary</Type><Extend>true</Extend></CreatePartition></CreatePartitions><ModifyPartitions><ModifyPartition wcm:action="add"><Order>1</Order><PartitionID>1</PartitionID><Format>FAT32</Format><Label>System</Label></ModifyPartition><ModifyPartition wcm:action="add"><Order>2</Order><PartitionID>3</PartitionID><Format>NTFS</Format><Label>Windows</Label><Letter>C</Letter></ModifyPartition></ModifyPartitions></Disk></DiskConfiguration><ImageInstall><OSImage><InstallTo><DiskID>0</DiskID><PartitionID>3</PartitionID></InstallTo><InstallFrom><MetaData wcm:action="add"><Key>/IMAGE/INDEX</Key><Value>1</Value></MetaData></InstallFrom></OSImage></ImageInstall></component></settings><settings pass="oobeSystem"><component name="Microsoft-Windows-Shell-Setup" processorArchitecture="amd64" publicKeyToken="31bf3856ad364e35" language="neutral" versionScope="nonSxS"><ComputerName>$K2S_WINDOWS_WORKER_NAME</ComputerName><AutoLogon><Password><Value>$admin_password</Value><PlainText>true</PlainText></Password><Username>Administrator</Username><Enabled>true</Enabled><LogonCount>1</LogonCount></AutoLogon><UserAccounts><AdministratorPassword><Value>$admin_password</Value><PlainText>true</PlainText></Password></UserAccounts><OOBE><HideEULAPage>true</HideEULAPage><HideLocalAccountScreen>true</HideLocalAccountScreen><ProtectYourPC>3</ProtectYourPC></OOBE><FirstLogonCommands><SynchronousCommand wcm:action="add"><Order>1</Order><CommandLine>powershell.exe -NoProfile -ExecutionPolicy Bypass -Command &quot;&amp; { \$v = Get-Volume | Where-Object { \$_.FileSystemLabel -eq 'K2SBOOT' } | Select-Object -First 1; &amp; &quot;&quot;\$(\$v.DriveLetter):\bootstrap.ps1&quot;&quot; }&quot;</CommandLine><Description>K2s worker bootstrap</Description></SynchronousCommand></FirstLogonCommands></component></settings></unattend>
@@ -180,14 +198,15 @@ k2s_windows_worker_wait_for_shutdown() {
 }
 
 k2s_windows_worker_ssh() {
-  ssh -i "$(k2s_windows_worker_private_key)" -o BatchMode=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile="$(k2s_windows_worker_known_hosts)" -o ConnectTimeout=10 "remote@$K2S_WINDOWS_WORKER_IP" "$@"
+  ssh -i "$(k2s_windows_worker_private_key)" -o BatchMode=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile="$(k2s_windows_worker_known_hosts)" -o ConnectTimeout=10 "remote@$(k2s_windows_worker_ip)" "$@"
 }
 
 k2s_windows_worker_wait_for_ssh() {
-  local known_hosts deadline=$((SECONDS + 900))
+  local known_hosts worker_ip deadline=$((SECONDS + 900))
   known_hosts=$(k2s_windows_worker_known_hosts)
+  worker_ip=$(k2s_windows_worker_ip) || return 1
   : > "$known_hosts"; chmod 600 "$known_hosts"
-  while ! ssh-keyscan -T 10 -H "$K2S_WINDOWS_WORKER_IP" >> "$known_hosts" 2>/dev/null; do
+  while ! ssh-keyscan -T 10 -H "$worker_ip" >> "$known_hosts" 2>/dev/null; do
     (( SECONDS < deadline )) || { k2s_log ERROR 'Timed out waiting for Windows worker SSH host key.'; return 1; }
     sleep 10
   done
@@ -198,9 +217,10 @@ k2s_windows_worker_wait_for_ssh() {
 }
 
 k2s_windows_worker_join_cluster() {
-  local join_command join_script escaped_join
+  local join_command join_script escaped_join gateway
   join_command=$(kubeadm token create --ttl 30m --print-join-command) || return 1
   escaped_join=${join_command//\'/\'\'}
+  gateway=$(k2s_windows_worker_gateway) || return 1
   join_script=$(mktemp)
   cat > "$join_script" <<EOF
 \$ErrorActionPreference = 'Stop'
@@ -210,10 +230,10 @@ Import-Module 'C:\\k2s\\lib\\modules\\windows\\node\\k2s.node.module\\k2s.node.m
 Import-Module 'C:\\k2s\\lib\\modules\\windows\\cluster\\k2s.cluster.module\\k2s.cluster.module.psm1' -Force
 Initialize-Logging
 \$kubernetesVersion = Get-DefaultK8sVersion
-Initialize-WinNode -KubernetesVersion \$kubernetesVersion -HostGW:\$true -Proxy 'http://172.19.1.1:8181' -PodSubnetworkNumber '1'
+Initialize-WinNode -KubernetesVersion \$kubernetesVersion -HostGW:\$true -Proxy 'http://$gateway:8181' -PodSubnetworkNumber '1'
 Initialize-KubernetesCluster -PodSubnetworkNumber '1' -JoinCommand '$escaped_join'
 EOF
-  scp -i "$(k2s_windows_worker_private_key)" -o BatchMode=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile="$(k2s_windows_worker_known_hosts)" "$join_script" "remote@$K2S_WINDOWS_WORKER_IP:C:/ProgramData/K2s/JoinWorker.ps1"
+  scp -i "$(k2s_windows_worker_private_key)" -o BatchMode=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile="$(k2s_windows_worker_known_hosts)" "$join_script" "remote@$(k2s_windows_worker_ip):C:/ProgramData/K2s/JoinWorker.ps1"
   local result=$?; rm -f "$join_script"; (( result == 0 )) || return "$result"
   k2s_windows_worker_ssh 'powershell.exe -NoProfile -ExecutionPolicy Bypass -File C:\ProgramData\K2s\JoinWorker.ps1'
 }
@@ -267,8 +287,11 @@ EOF
 }
 
 k2s_windows_worker_write_state() {
-  local disk="$1" state; state=$(k2s_windows_worker_state_file)
-  jq -n --arg name "$K2S_WINDOWS_WORKER_NAME" --arg network "$K2S_WINDOWS_WORKER_NETWORK" --arg ip "$K2S_WINDOWS_WORKER_IP" --arg mac "$K2S_WINDOWS_WORKER_MAC" --arg disk "$disk" --arg proxy "http://$K2S_WINDOWS_WORKER_HOST_IP:8181" '{name:$name,network:$network,ip:$ip,mac:$mac,disk:$disk,proxy:$proxy}' > "$state"
+  local disk="$1" state gateway worker_ip
+  state=$(k2s_windows_worker_state_file)
+  gateway=$(k2s_windows_worker_gateway) || return 1
+  worker_ip=$(k2s_windows_worker_ip) || return 1
+  jq -n --arg name "$K2S_WINDOWS_WORKER_NAME" --arg network "$K2S_WINDOWS_WORKER_NETWORK" --arg ip "$worker_ip" --arg mac "$K2S_WINDOWS_WORKER_MAC" --arg disk "$disk" --arg proxy "http://$gateway:8181" '{name:$name,network:$network,ip:$ip,mac:$mac,disk:$disk,proxy:$proxy}' > "$state"
   chmod 600 "$state"
 }
 

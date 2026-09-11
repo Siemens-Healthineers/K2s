@@ -87,6 +87,18 @@ EOF
   local user="${SUDO_USER:-root}" home; home=$(getent passwd "$user" | cut -d: -f6); mkdir -p "$home/.kube"; cp /etc/kubernetes/admin.conf "$home/.kube/config"; chown -R "$user":"$(id -gn "$user")" "$home/.kube"
 }
 
+k2s_configure_kube_proxy_kubeswitch() {
+  [[ "$K2S_LINUX_ONLY" == true ]] && return 0
+  local kube_switch config_map
+  kube_switch=$(k2s_cfg '.smallsetup.kubeSwitch') || return 1
+  config_map=$(mktemp)
+  k2s_kubectl -n kube-system get configmap kube-proxy -o json > "$config_map" || { rm -f "$config_map"; return 1; }
+  jq --arg address "$kube_switch" '.data["config.conf"] |= sub("bindAddress: [^\\n]+"; "bindAddress: " + $address)' "$config_map" | k2s_kubectl apply -f - || { rm -f "$config_map"; return 1; }
+  rm -f "$config_map"
+  k2s_kubectl -n kube-system delete pods -l k8s-app=kube-proxy --ignore-not-found || return 1
+  k2s_kubectl -n kube-system rollout status daemonset/kube-proxy --timeout=120s
+}
+
 k2s_install_control_plane_tools() {
   local script="$K2S_INSTALL_DIR/lib/modules/windows/node/k2s.node.module/linuxnode/distros/scripts/install-cli-tools.sh"
   [[ -f "$script" ]] || return 1
@@ -99,21 +111,25 @@ k2s_install_cluster() {
   k2s_log INFO 'Validating native Debian 13 host prerequisites.'
   k2s_require_host || return $?
   k2s_merge_no_proxy || return $?
+  if [[ "$K2S_LINUX_ONLY" != true ]]; then
+    k2s_windows_worker_install_host_dependencies || return $?
+  fi
   k2s_log INFO 'Configuring K2s proxy compatibility network.'
   k2s_proxy_network_install || return $?
   k2s_log INFO 'Configuring K2s HTTP proxy service.'
   k2s_proxy_install || return $?
-  if [[ "$K2S_LINUX_ONLY" != true ]]; then
-    k2s_windows_worker_install_host_dependencies || return $?
-  fi
   k2s_log INFO 'Provisioning Kubernetes and CRI-O packages.'
   k2s_packages_install || return $?
   k2s_log INFO 'Initializing the Kubernetes control plane.'
   k2s_control_plane_install || return $?
+  k2s_log INFO 'Binding kube-proxy to the configured KubeSwitch IPv4 address.'
+  k2s_configure_kube_proxy_kubeswitch || return $?
   local flannel="$K2S_INSTALL_DIR/lib/modules/windows/node/k2s.node.module/linuxnode/distros/containernetwork/masternode/flannel.template.yml"
   [[ -f "$flannel" ]] || return 1
   k2s_log INFO 'Deploying Flannel CNI.'
-  sed -e 's|NETWORK.NAME|cbr0|g' -e "s|NETWORK.ADDRESS|$(k2s_cfg '.smallsetup.podNetworkCIDR')|g" -e 's|NETWORK.TYPE|vxlan|g' "$flannel" | k2s_kubectl apply -f - || return 1
+  local flannel_backend='vxlan'
+  [[ "$K2S_LINUX_ONLY" == true ]] || flannel_backend='host-gw'
+  sed -e 's|NETWORK.NAME|cbr0|g' -e "s|NETWORK.ADDRESS|$(k2s_cfg '.smallsetup.podNetworkCIDR')|g" -e "s|NETWORK.TYPE|$flannel_backend|g" "$flannel" | k2s_kubectl apply -f - || return 1
   k2s_log INFO 'Waiting for Flannel CNI to become ready.'
   if ! k2s_kubectl -n kube-flannel rollout status daemonset/kube-flannel-ds --timeout=120s; then
     k2s_log ERROR 'Flannel did not become ready. Capturing pod and event diagnostics.'
@@ -151,7 +167,11 @@ k2s_install_cluster() {
 
 k2s_start_cluster() {
   k2s_log INFO 'Starting native Debian 13 K2s services.'
-  systemctl start k2s-proxy-network || return 1
+  if [[ "$K2S_LINUX_ONLY" == true ]]; then
+    systemctl start k2s-proxy-network || return 1
+  else
+    k2s_windows_worker_network_create || return 1
+  fi
   systemctl start k2s-httpproxy || return 1
   systemctl start crio || return 1
   systemctl start kubelet || return 1
