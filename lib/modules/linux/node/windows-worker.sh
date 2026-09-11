@@ -95,7 +95,9 @@ EOF
 }
 
 k2s_windows_worker_prepare_image() {
-  local vm_dir="$K2S_CONFIG_DIR/vms" disk="$vm_dir/$K2S_WINDOWS_WORKER_NAME.qcow2" disk_gb
+  local vm_dir disk disk_gb
+  vm_dir="$K2S_CONFIG_DIR/vms"
+  disk="$vm_dir/$K2S_WINDOWS_WORKER_NAME.qcow2"
   disk_gb=$(k2s_windows_worker_disk_gb) || return $?
   mkdir -p "$vm_dir"; chmod 700 "$vm_dir"
   [[ ! -e "$disk" ]] || { printf '%s\n' "$disk"; return 0; }
