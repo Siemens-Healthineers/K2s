@@ -55,7 +55,7 @@ k2s_require_host() {
   k2s_require_install_dir || return 1
   [[ $(. /etc/os-release; printf '%s-%s' "$ID" "$VERSION_ID") == debian-13* ]] || return 3
   local tool
-  for tool in jq flock systemctl apt-get dpkg modprobe sysctl chattr lsattr ip; do
+  for tool in jq flock systemctl apt-get dpkg modprobe sysctl chattr lsattr ip ss; do
     k2s_require_command "$tool" || return 4
   done
   [[ $(wc -l < /proc/swaps) -le 1 ]] || return 3
@@ -164,6 +164,39 @@ k2s_start_cluster() {
   [[ "$K2S_LINUX_ONLY" == true ]] || k2s_windows_worker_start
 }
 k2s_stop_cluster() { [[ "$K2S_LINUX_ONLY" == true ]] || k2s_windows_worker_stop || true; k2s_dns_stop; systemctl stop kubelet 2>/dev/null || true; systemctl stop crio k2s-httpproxy k2s-proxy-network 2>/dev/null || true; }
+
+k2s_wait_for_api_port_release() {
+  local deadline=$((SECONDS + 60))
+  while ss -ltn | awk '$4 ~ /:6443$/ { found=1 } END { exit !found }'; do
+    (( SECONDS < deadline )) || return 1
+    sleep 2
+  done
+}
+
+k2s_stop_cluster_for_uninstall() {
+  local container_id
+  [[ "$K2S_LINUX_ONLY" == true ]] || k2s_windows_worker_stop || true
+  k2s_dns_stop || true
+  systemctl disable --now kubelet 2>/dev/null || true
+
+  # Stop static-pod containers before CRI-O is disabled so kube-apiserver
+  # releases port 6443 deterministically for the next installation.
+  if command -v crictl >/dev/null 2>&1; then
+    for container_id in $(crictl --runtime-endpoint unix:///var/run/crio/crio.sock ps -q 2>/dev/null); do
+      crictl --runtime-endpoint unix:///var/run/crio/crio.sock stop "$container_id" 2>/dev/null || true
+      crictl --runtime-endpoint unix:///var/run/crio/crio.sock rm "$container_id" 2>/dev/null || true
+    done
+  fi
+  systemctl disable --now crio 2>/dev/null || true
+  systemctl stop k2s-httpproxy k2s-proxy-network 2>/dev/null || true
+
+  if ! k2s_wait_for_api_port_release; then
+    k2s_log WARN 'Port 6443 remained open after stopping CRI-O; forcing the K2s CRI-O service to stop.'
+    systemctl kill --kill-who=all --signal=SIGKILL crio 2>/dev/null || true
+    k2s_wait_for_api_port_release || { k2s_log ERROR 'Port 6443 remains in use after K2s service cleanup.'; return 1; }
+  fi
+}
+
 k2s_uninstall_cluster() {
   if [[ "$K2S_SKIP_PURGE" != true ]]; then
     # Keep the API server available long enough to remove all node records.
@@ -172,7 +205,7 @@ k2s_uninstall_cluster() {
     k2s_kubectl delete nodes --all --ignore-not-found --wait=true --timeout=60s 2>/dev/null || true
     k2s_kubectl delete namespace k2s-webhook kube-flannel --ignore-not-found --wait=true --timeout=120s 2>/dev/null || true
   fi
-  k2s_stop_cluster || return $?
+  k2s_stop_cluster_for_uninstall || return $?
   [[ "$K2S_LINUX_ONLY" == true ]] || k2s_windows_worker_remove || true
   if [[ "$K2S_SKIP_PURGE" != true ]]; then
     kubeadm reset -f 2>/dev/null || true
