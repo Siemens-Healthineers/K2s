@@ -26,6 +26,7 @@ Describe 'Get-FromYamlFile' -Tag 'unit', 'ci', 'yaml', 'infra', 'module', 'k2s' 
         BeforeAll {
             Mock -ModuleName $moduleName Test-Path { return $true } -ParameterFilter { $Path -eq 'yaml-path' }
             Mock -ModuleName $moduleName Get-KubeBinPath { return 'bin-path' }
+            Mock -ModuleName $moduleName New-YamlTempFile { return 'temp-file' }
             Mock -ModuleName $moduleName Invoke-Expression {}
             Mock -ModuleName $moduleName Test-LastExecutionForSuccess { return $false }
             Mock -ModuleName $moduleName Remove-Item {}
@@ -35,7 +36,7 @@ Describe 'Get-FromYamlFile' -Tag 'unit', 'ci', 'yaml', 'infra', 'module', 'k2s' 
             InModuleScope -ModuleName $moduleName {
                 { Get-FromYamlFile -Path 'yaml-path' } | Should -Throw -ExpectedMessage "yaml2json conversion failed for 'yaml-path'. See log output above for details."
 
-                Should -Invoke Invoke-Expression -Times 1 -Scope Context -ParameterFilter { $Command -match '&"bin-path\\yaml2json.exe" -input "yaml-path" -output "' }
+                Should -Invoke Invoke-Expression -Times 1 -Scope Context -ParameterFilter { $Command -match '&"bin-path\\yaml2json.exe" -input "yaml-path" -output "temp-file"' }
             }
         }
         
@@ -43,8 +44,7 @@ Describe 'Get-FromYamlFile' -Tag 'unit', 'ci', 'yaml', 'infra', 'module', 'k2s' 
             InModuleScope -ModuleName $moduleName {
                 { Get-FromYamlFile -Path 'yaml-path' } | Should -Throw
 
-                # Temp file path is generated via [System.IO.Path]::GetTempFileName(), so it is not a fixed value here.
-                Should -Invoke Remove-Item -Times 1 -Scope Context -ParameterFilter { -not [string]::IsNullOrWhiteSpace($Path) }
+                Should -Invoke Remove-Item -Times 1 -Scope Context -ParameterFilter { $Path -eq 'temp-file' }
             }
         }
     }
@@ -53,6 +53,7 @@ Describe 'Get-FromYamlFile' -Tag 'unit', 'ci', 'yaml', 'infra', 'module', 'k2s' 
         BeforeAll {
             Mock -ModuleName $moduleName Test-Path { return $true } -ParameterFilter { $Path -eq 'yaml-path' }
             Mock -ModuleName $moduleName Get-KubeBinPath { return 'bin-path' }
+            Mock -ModuleName $moduleName New-YamlTempFile { return 'temp-file' }
             Mock -ModuleName $moduleName Invoke-Expression {}
             Mock -ModuleName $moduleName Test-LastExecutionForSuccess { return $true }
             Mock -ModuleName $moduleName Get-Content { return 'content' }
@@ -65,8 +66,7 @@ Describe 'Get-FromYamlFile' -Tag 'unit', 'ci', 'yaml', 'infra', 'module', 'k2s' 
             InModuleScope -ModuleName $moduleName {
                 Get-FromYamlFile -Path 'yaml-path'
 
-                # Temp file path is generated via [System.IO.Path]::GetTempFileName(), so it is not a fixed value here.
-                Should -Invoke Remove-Item -Times 1 -Scope Context -ParameterFilter { -not [string]::IsNullOrWhiteSpace($Path) }
+                Should -Invoke Remove-Item -Times 1 -Scope Context -ParameterFilter { $Path -eq 'temp-file' }
             }
         }
 
@@ -76,7 +76,7 @@ Describe 'Get-FromYamlFile' -Tag 'unit', 'ci', 'yaml', 'infra', 'module', 'k2s' 
 
                 $result | Should -Be 'json'
 
-                Should -Invoke Invoke-Expression -Times 1 -Scope Context -ParameterFilter { $Command -match '&"bin-path\\yaml2json.exe" -input "yaml-path" -output "' }
+                Should -Invoke Invoke-Expression -Times 1 -Scope Context -ParameterFilter { $Command -match '&"bin-path\\yaml2json.exe" -input "yaml-path" -output "temp-file"' }
             }
         }
     }

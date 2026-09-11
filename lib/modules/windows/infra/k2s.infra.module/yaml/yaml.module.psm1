@@ -10,6 +10,11 @@ function Test-LastExecutionForSuccess {
     return $LASTEXITCODE -eq 0
 }
 
+# Keep temp-file creation behind a mockable boundary for isolated unit tests.
+function New-YamlTempFile {
+    return [System.IO.Path]::GetTempFileName()
+}
+
 function Get-FromYamlFile {
     param (
         [Parameter(Mandatory = $false)]
@@ -22,10 +27,7 @@ function Get-FromYamlFile {
 
     $kubeBinPath = Get-KubeBinPath
     $yaml2jsonExe = [System.IO.Path]::Combine($kubeBinPath, 'yaml2json.exe')
-    # Use .NET API instead of New-TemporaryFile: the latter depends on module
-    # auto-loading (Microsoft.PowerShell.Utility) which can fail to resolve
-    # under PowerShell 7 (pwsh) in some environments.
-    $tempJsonFile = [System.IO.Path]::GetTempFileName()
+    $tempJsonFile = New-YamlTempFile
 
     try {
         Invoke-Expression "&`"$yaml2jsonExe`" -input `"$Path`" -output `"$tempJsonFile`" -verbosity error"
