@@ -53,16 +53,16 @@ func CreateRootCmd(logger *logging.Slogger) (*cobra.Command, error) {
 
 			fileHandler := logging.NewFileHandler(bl.GlobalLogFilePath())
 
-			// Log CLI invocation to file only (before adding CLI handler)
+			// Initialize file logging before configuration and provider setup.
 			logger.SetHandlers(fileHandler).SetGlobally()
 			slog.Info("<*********************************>")
-			slog.Info("CLI invocation", "cmd", formatCLIInvocation(os.Args))
-			slog.Debug("log level set", "level", verbosity)
 
 			// Set up full handler chain including CLI handler if requested
 			if showLog {
 				logger.SetHandlers(fileHandler, logging.NewCliHandler()).SetGlobally()
 			}
+			slog.Info("CLI invocation", "cmd", formatCLIInvocation(os.Args))
+			slog.Debug("log level set", "level", verbosity)
 
 			// TODO: always load setup config and determine PS version?
 
