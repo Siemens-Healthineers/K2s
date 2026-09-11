@@ -245,11 +245,11 @@ network, and lifecycle; `k2s uninstall` removes these K2s-managed resources.
 For the first installation, supply a user-provided Windows 11 Enterprise ISO
 with `--windows-iso-path`. K2s creates protected unattended bootstrap media,
 installs Windows into a temporary QCOW2 disk, enables key-based OpenSSH access,
-and caches the completed base image as `bin/WindowsWorker-Base.qcow2`. Later
+and caches the completed base image as `/var/lib/libvirt/images/k2s/WindowsWorker-Base.qcow2`. Later
 installations create a disposable QCOW2 overlay from that cache. The base-image
 build requires `xorriso` and Internet access through the K2s host proxy so
 Windows can install its OpenSSH Server capability. For repeatable offline use,
-provide the cached `bin/WindowsWorker-Base.qcow2` in the K2s package.
+preserve the cached image under `/var/lib/libvirt/images/k2s/` for later installations.
 
 The following options are intentionally unavailable on a native Linux host:
 

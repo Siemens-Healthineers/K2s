@@ -17,6 +17,7 @@ readonly K2S_WINDOWS_WORKER_SUBNET='172.19.2.0/24'
 readonly K2S_WINDOWS_WORKER_POD_SUBNET='172.20.1.0/24'
 
 k2s_windows_worker_state_file() { printf '%s/windows-worker.json' "$K2S_CONFIG_DIR"; }
+k2s_windows_worker_vm_dir() { printf '%s' '/var/lib/libvirt/images/k2s'; }
 
 k2s_windows_worker_install_host_dependencies() {
   local package
@@ -96,20 +97,21 @@ EOF
 
 k2s_windows_worker_prepare_image() {
   local vm_dir disk disk_gb
-  vm_dir="$K2S_CONFIG_DIR/vms"
+  vm_dir=$(k2s_windows_worker_vm_dir)
   disk="$vm_dir/$K2S_WINDOWS_WORKER_NAME.qcow2"
   disk_gb=$(k2s_windows_worker_disk_gb) || return $?
-  mkdir -p "$vm_dir"; chmod 700 "$vm_dir"
+  install -d -m 0711 "$vm_dir" || return 1
   [[ ! -e "$disk" ]] || { printf '%s\n' "$disk"; return 0; }
-  if [[ -f "$K2S_INSTALL_DIR/bin/WindowsWorker-Base.qcow2" ]]; then
-    qemu-img create -f qcow2 -F qcow2 -b "$K2S_INSTALL_DIR/bin/WindowsWorker-Base.qcow2" "$disk" || return 1
+  local cache="$vm_dir/WindowsWorker-Base.qcow2"
+  if [[ -f "$cache" ]]; then
+    qemu-img create -f qcow2 -F qcow2 -b "$cache" "$disk" || return 1
   elif [[ -f "$K2S_INSTALL_DIR/bin/Kubenode-Base.vhdx" ]]; then
     qemu-img convert -f vhdx -O qcow2 -o compat=1.1 "$K2S_INSTALL_DIR/bin/Kubenode-Base.vhdx" "$disk" || return 1
   else
     [[ -f "$K2S_WINDOWS_ISO_PATH" ]] || { k2s_log ERROR 'A packaged Windows worker base image or --windows-iso-path is required.'; return 2; }
     k2s_windows_worker_build_base_from_iso "$disk" "$disk_gb" || return $?
     rm -f "$disk"
-    qemu-img create -f qcow2 -F qcow2 -b "$K2S_INSTALL_DIR/bin/WindowsWorker-Base.qcow2" "$disk" || return 1
+    qemu-img create -f qcow2 -F qcow2 -b "$cache" "$disk" || return 1
   fi
   printf '%s\n' "$disk"
 }
@@ -127,8 +129,10 @@ k2s_windows_worker_create_ssh_key() {
 }
 
 k2s_windows_worker_create_bootstrap_media() {
-  local stage media admin_password public_key
-  stage=$(mktemp -d); media="$K2S_CONFIG_DIR/windows-worker-bootstrap.iso"
+  local stage media vm_dir admin_password public_key
+  vm_dir=$(k2s_windows_worker_vm_dir)
+  install -d -m 0711 "$vm_dir" || return 1
+  stage=$(mktemp -d); media="$vm_dir/windows-worker-bootstrap.iso"
   admin_password=$(od -An -N16 -tx1 /dev/urandom | tr -d ' \n')
   public_key=$(cat "$(k2s_windows_worker_private_key).pub")
   mkdir -p "$stage/k2s"
@@ -164,7 +168,7 @@ EOF
 <unattend xmlns="urn:schemas-microsoft-com:unattend" xmlns:wcm="http://schemas.microsoft.com/WMIConfig/2002/State"><settings pass="windowsPE"><component name="Microsoft-Windows-Setup" processorArchitecture="amd64" publicKeyToken="31bf3856ad364e35" language="neutral" versionScope="nonSxS"><UserData><AcceptEula>true</AcceptEula><FullName>K2s</FullName><Organization>Siemens Healthineers</Organization></UserData><DiskConfiguration><Disk wcm:action="add" wcm:keyValue="1"><DiskID>0</DiskID><WillWipeDisk>true</WillWipeDisk><CreatePartitions><CreatePartition wcm:action="add"><Order>1</Order><Type>EFI</Type><Size>100</Size></CreatePartition><CreatePartition wcm:action="add"><Order>2</Order><Type>MSR</Type><Size>16</Size></CreatePartition><CreatePartition wcm:action="add"><Order>3</Order><Type>Primary</Type><Extend>true</Extend></CreatePartition></CreatePartitions><ModifyPartitions><ModifyPartition wcm:action="add"><Order>1</Order><PartitionID>1</PartitionID><Format>FAT32</Format><Label>System</Label></ModifyPartition><ModifyPartition wcm:action="add"><Order>2</Order><PartitionID>3</PartitionID><Format>NTFS</Format><Label>Windows</Label><Letter>C</Letter></ModifyPartition></ModifyPartitions></Disk></DiskConfiguration><ImageInstall><OSImage><InstallTo><DiskID>0</DiskID><PartitionID>3</PartitionID></InstallTo><InstallFrom><MetaData wcm:action="add"><Key>/IMAGE/INDEX</Key><Value>1</Value></MetaData></InstallFrom></OSImage></ImageInstall></component></settings><settings pass="oobeSystem"><component name="Microsoft-Windows-Shell-Setup" processorArchitecture="amd64" publicKeyToken="31bf3856ad364e35" language="neutral" versionScope="nonSxS"><ComputerName>$K2S_WINDOWS_WORKER_NAME</ComputerName><AutoLogon><Password><Value>$admin_password</Value><PlainText>true</PlainText></Password><Username>Administrator</Username><Enabled>true</Enabled><LogonCount>1</LogonCount></AutoLogon><UserAccounts><AdministratorPassword><Value>$admin_password</Value><PlainText>true</PlainText></Password></UserAccounts><OOBE><HideEULAPage>true</HideEULAPage><HideLocalAccountScreen>true</HideLocalAccountScreen><ProtectYourPC>3</ProtectYourPC></OOBE><FirstLogonCommands><SynchronousCommand wcm:action="add"><Order>1</Order><CommandLine>powershell.exe -NoProfile -ExecutionPolicy Bypass -Command &quot;&amp; { \$v = Get-Volume | Where-Object { \$_.FileSystemLabel -eq 'K2SBOOT' } | Select-Object -First 1; &amp; &quot;&quot;\$(\$v.DriveLetter):\bootstrap.ps1&quot;&quot; }&quot;</CommandLine><Description>K2s worker bootstrap</Description></SynchronousCommand></FirstLogonCommands></component></settings></unattend>
 EOF
   xorriso -as mkisofs -quiet -J -R -V K2SBOOT -o "$media" "$stage" || { rm -rf "$stage"; return 1; }
-  chmod 600 "$media"; rm -rf "$stage"
+  chmod 0644 "$media"; rm -rf "$stage"
 }
 
 k2s_windows_worker_wait_for_shutdown() {
@@ -224,18 +228,22 @@ k2s_windows_worker_wait_for_node() {
 }
 
 k2s_windows_worker_build_base_from_iso() {
-  local runtime_disk="$1" disk_gb="$2" build_disk="$K2S_CONFIG_DIR/vms/windows-worker-build.qcow2" cache="$K2S_INSTALL_DIR/bin/WindowsWorker-Base.qcow2"
+  local runtime_disk="$1" disk_gb="$2" vm_dir build_disk cache bootstrap_media
+  vm_dir=$(k2s_windows_worker_vm_dir)
+  build_disk="$vm_dir/windows-worker-build.qcow2"
+  cache="$vm_dir/WindowsWorker-Base.qcow2"
+  bootstrap_media="$vm_dir/windows-worker-bootstrap.iso"
   local iso_sha256; iso_sha256=$(sha256sum "$K2S_WINDOWS_ISO_PATH" | awk '{print $1}') || return 1
   k2s_log INFO "Creating cached Windows worker base image from ISO (SHA-256: $iso_sha256)."
   k2s_windows_worker_create_ssh_key || return 1
   k2s_windows_worker_create_bootstrap_media || return 1
   qemu-img create -f qcow2 "$build_disk" "${disk_gb}G" || return 1
-  k2s_windows_worker_define "$build_disk" "$K2S_WINDOWS_ISO_PATH" "$K2S_CONFIG_DIR/windows-worker-bootstrap.iso" || return 1
+  k2s_windows_worker_define "$build_disk" "$K2S_WINDOWS_ISO_PATH" "$bootstrap_media" || return 1
   virsh start "$K2S_WINDOWS_WORKER_NAME" || return 1
   k2s_windows_worker_wait_for_shutdown || return 1
   qemu-img check "$build_disk" || return 1
   qemu-img convert -O qcow2 -o compat=1.1 "$build_disk" "$cache.tmp" || return 1
-  chmod 600 "$cache.tmp"; mv "$cache.tmp" "$cache"; rm -f "$build_disk" "$K2S_CONFIG_DIR/windows-worker-bootstrap.iso"
+  chmod 0644 "$cache.tmp"; mv "$cache.tmp" "$cache"; rm -f "$build_disk" "$bootstrap_media"
   virsh undefine "$K2S_WINDOWS_WORKER_NAME" --nvram 2>/dev/null || true
 }
 
@@ -277,4 +285,4 @@ k2s_windows_worker_provision() {
 
 k2s_windows_worker_start() { virsh net-start "$K2S_WINDOWS_WORKER_NETWORK" 2>/dev/null || true; virsh start "$K2S_WINDOWS_WORKER_NAME" 2>/dev/null || true; }
 k2s_windows_worker_stop() { virsh shutdown "$K2S_WINDOWS_WORKER_NAME" 2>/dev/null || true; }
-k2s_windows_worker_remove() { ip route del "$K2S_WINDOWS_WORKER_POD_SUBNET" 2>/dev/null || true; virsh destroy "$K2S_WINDOWS_WORKER_NAME" 2>/dev/null || true; virsh undefine "$K2S_WINDOWS_WORKER_NAME" --remove-all-storage --nvram 2>/dev/null || true; virsh net-destroy "$K2S_WINDOWS_WORKER_NETWORK" 2>/dev/null || true; virsh net-undefine "$K2S_WINDOWS_WORKER_NETWORK" 2>/dev/null || true; rm -rf "$K2S_CONFIG_DIR/vms" "$(k2s_windows_worker_state_file)"; }
+k2s_windows_worker_remove() { local vm_dir; vm_dir=$(k2s_windows_worker_vm_dir); ip route del "$K2S_WINDOWS_WORKER_POD_SUBNET" 2>/dev/null || true; virsh destroy "$K2S_WINDOWS_WORKER_NAME" 2>/dev/null || true; virsh undefine "$K2S_WINDOWS_WORKER_NAME" --remove-all-storage --nvram 2>/dev/null || true; rm -f "$vm_dir/$K2S_WINDOWS_WORKER_NAME.qcow2" "$vm_dir/${K2S_WINDOWS_WORKER_NAME}_VARS.fd" "$vm_dir/windows-worker-build.qcow2" "$vm_dir/windows-worker-bootstrap.iso"; virsh net-destroy "$K2S_WINDOWS_WORKER_NETWORK" 2>/dev/null || true; virsh net-undefine "$K2S_WINDOWS_WORKER_NETWORK" 2>/dev/null || true; rm -f "$(k2s_windows_worker_state_file)"; }
