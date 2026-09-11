@@ -133,7 +133,9 @@ k2s_windows_worker_create_bootstrap_media() {
   public_key=$(cat "$(k2s_windows_worker_private_key).pub")
   mkdir -p "$stage/k2s"
   cp -a "$K2S_INSTALL_DIR/cfg" "$K2S_INSTALL_DIR/lib" "$K2S_INSTALL_DIR/smallsetup" "$stage/k2s/" || { rm -rf "$stage"; return 1; }
-  [[ ! -d "$K2S_INSTALL_DIR/bin" ]] || cp -a "$K2S_INSTALL_DIR/bin" "$stage/k2s/"
+  if [[ -d "$K2S_INSTALL_DIR/bin" ]]; then
+    tar -C "$K2S_INSTALL_DIR" --exclude='bin/*.iso' --exclude='bin/*.qcow2' --exclude='bin/*.vhdx' -cf - bin | tar -C "$stage/k2s" -xf - || { rm -rf "$stage"; return 1; }
+  fi
   cat > "$stage/bootstrap.ps1" <<'EOF'
 $ErrorActionPreference = 'Stop'
 $bootstrapVolume = Get-Volume | Where-Object { $_.FileSystemLabel -eq 'K2SBOOT' } | Select-Object -First 1
