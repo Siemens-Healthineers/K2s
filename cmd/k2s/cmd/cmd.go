@@ -9,6 +9,7 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 
 	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/addons"
@@ -55,7 +56,7 @@ func CreateRootCmd(logger *logging.Slogger) (*cobra.Command, error) {
 			// Log CLI invocation to file only (before adding CLI handler)
 			logger.SetHandlers(fileHandler).SetGlobally()
 			slog.Info("<*********************************>")
-			slog.Info("CLI invocation", "cmd", strings.Join(os.Args, " "))
+			slog.Info("CLI invocation", "cmd", formatCLIInvocation(os.Args))
 			slog.Debug("log level set", "level", verbosity)
 
 			// Set up full handler chain including CLI handler if requested
@@ -115,6 +116,25 @@ func CreateRootCmd(logger *logging.Slogger) (*cobra.Command, error) {
 	persistentFlags.StringVarP(&verbosity, cli.VerbosityFlagName, cli.VerbosityFlagShorthand, verbosity, cli.VerbosityFlagHelp())
 
 	return cmd, nil
+}
+
+func formatCLIInvocation(args []string) string {
+	if runtime.GOOS != "linux" {
+		return strings.Join(args, " ")
+	}
+	return formatLinuxCLIInvocation(args)
+}
+
+func formatLinuxCLIInvocation(args []string) string {
+	quotedArgs := make([]string, 0, len(args))
+	for _, arg := range args {
+		if arg != "" && !strings.ContainsAny(arg, " \t\n\r'\"\\$`;&|<>()[]{}*?!") {
+			quotedArgs = append(quotedArgs, arg)
+			continue
+		}
+		quotedArgs = append(quotedArgs, "'"+strings.ReplaceAll(arg, "'", "'\"'\"'")+"'")
+	}
+	return strings.Join(quotedArgs, " ")
 }
 
 // resolveInstallDirForDelta checks if the executable is running from a delta package
