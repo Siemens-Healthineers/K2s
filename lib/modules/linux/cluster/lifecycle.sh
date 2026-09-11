@@ -165,10 +165,16 @@ k2s_start_cluster() {
 }
 k2s_stop_cluster() { [[ "$K2S_LINUX_ONLY" == true ]] || k2s_windows_worker_stop || true; k2s_dns_stop; systemctl stop kubelet 2>/dev/null || true; systemctl stop crio k2s-httpproxy k2s-proxy-network 2>/dev/null || true; }
 k2s_uninstall_cluster() {
+  if [[ "$K2S_SKIP_PURGE" != true ]]; then
+    # Keep the API server available long enough to remove all node records.
+    # kubeadm reset clears host files but does not remove Nodes from the API.
+    [[ "$K2S_LINUX_ONLY" == true ]] || k2s_windows_worker_stop || true
+    k2s_kubectl delete nodes --all --ignore-not-found --wait=true --timeout=60s 2>/dev/null || true
+    k2s_kubectl delete namespace k2s-webhook kube-flannel --ignore-not-found --wait=true --timeout=120s 2>/dev/null || true
+  fi
   k2s_stop_cluster || return $?
   [[ "$K2S_LINUX_ONLY" == true ]] || k2s_windows_worker_remove || true
   if [[ "$K2S_SKIP_PURGE" != true ]]; then
-    k2s_kubectl delete namespace k2s-webhook --ignore-not-found --wait=false 2>/dev/null || true
     kubeadm reset -f 2>/dev/null || true
     rm -rf /etc/kubernetes /var/lib/etcd /var/lib/kubelet /etc/cni/net.d/10-flannel.conflist /run/flannel
   fi
