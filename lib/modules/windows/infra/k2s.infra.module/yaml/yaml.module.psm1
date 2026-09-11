@@ -22,7 +22,10 @@ function Get-FromYamlFile {
 
     $kubeBinPath = Get-KubeBinPath
     $yaml2jsonExe = [System.IO.Path]::Combine($kubeBinPath, 'yaml2json.exe')
-    $tempJsonFile = New-TemporaryFile
+    # Use .NET API instead of New-TemporaryFile: the latter depends on module
+    # auto-loading (Microsoft.PowerShell.Utility) which can fail to resolve
+    # under PowerShell 7 (pwsh) in some environments.
+    $tempJsonFile = [System.IO.Path]::GetTempFileName()
 
     try {
         Invoke-Expression "&`"$yaml2jsonExe`" -input `"$Path`" -output `"$tempJsonFile`" -verbosity error"
