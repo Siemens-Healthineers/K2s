@@ -242,7 +242,7 @@ k2s_windows_worker_build_base_from_iso() {
 k2s_windows_worker_define() {
   local disk="$1" install_iso="${2:-}" bootstrap_iso="${3:-}" memory_mb nvram domain_xml boot_order media_disks
   memory_mb=$(k2s_windows_worker_memory_mb) || return $?
-  nvram="$(dirname "$disk")/$K2S_WINDOWS_WORKER_NAME_VARS.fd"
+  nvram="$(dirname "$disk")/${K2S_WINDOWS_WORKER_NAME}_VARS.fd"
   domain_xml=$(mktemp)
   boot_order="<boot dev='hd'/>"; media_disks=''
   if [[ -n "$install_iso" && -n "$bootstrap_iso" ]]; then
