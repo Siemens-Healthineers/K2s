@@ -228,22 +228,25 @@ k2s_windows_worker_wait_for_node() {
 }
 
 k2s_windows_worker_build_base_from_iso() {
-  local runtime_disk="$1" disk_gb="$2" vm_dir build_disk cache bootstrap_media
+  local runtime_disk="$1" disk_gb="$2" vm_dir build_disk cache bootstrap_media installation_media
   vm_dir=$(k2s_windows_worker_vm_dir)
   build_disk="$vm_dir/windows-worker-build.qcow2"
   cache="$vm_dir/WindowsWorker-Base.qcow2"
   bootstrap_media="$vm_dir/windows-worker-bootstrap.iso"
+  installation_media="$vm_dir/windows-worker-install.iso"
   local iso_sha256; iso_sha256=$(sha256sum "$K2S_WINDOWS_ISO_PATH" | awk '{print $1}') || return 1
   k2s_log INFO "Creating cached Windows worker base image from ISO (SHA-256: $iso_sha256)."
   k2s_windows_worker_create_ssh_key || return 1
   k2s_windows_worker_create_bootstrap_media || return 1
+  cp --reflink=auto "$K2S_WINDOWS_ISO_PATH" "$installation_media" || return 1
+  chmod 0644 "$installation_media" || return 1
   qemu-img create -f qcow2 "$build_disk" "${disk_gb}G" || return 1
-  k2s_windows_worker_define "$build_disk" "$K2S_WINDOWS_ISO_PATH" "$bootstrap_media" || return 1
+  k2s_windows_worker_define "$build_disk" "$installation_media" "$bootstrap_media" || return 1
   virsh start "$K2S_WINDOWS_WORKER_NAME" || return 1
   k2s_windows_worker_wait_for_shutdown || return 1
   qemu-img check "$build_disk" || return 1
   qemu-img convert -O qcow2 -o compat=1.1 "$build_disk" "$cache.tmp" || return 1
-  chmod 0644 "$cache.tmp"; mv "$cache.tmp" "$cache"; rm -f "$build_disk" "$bootstrap_media"
+  chmod 0644 "$cache.tmp"; mv "$cache.tmp" "$cache"; rm -f "$build_disk" "$bootstrap_media" "$installation_media"
   virsh undefine "$K2S_WINDOWS_WORKER_NAME" --nvram 2>/dev/null || true
 }
 
@@ -285,4 +288,4 @@ k2s_windows_worker_provision() {
 
 k2s_windows_worker_start() { virsh net-start "$K2S_WINDOWS_WORKER_NETWORK" 2>/dev/null || true; virsh start "$K2S_WINDOWS_WORKER_NAME" 2>/dev/null || true; }
 k2s_windows_worker_stop() { virsh shutdown "$K2S_WINDOWS_WORKER_NAME" 2>/dev/null || true; }
-k2s_windows_worker_remove() { local vm_dir; vm_dir=$(k2s_windows_worker_vm_dir); ip route del "$K2S_WINDOWS_WORKER_POD_SUBNET" 2>/dev/null || true; virsh destroy "$K2S_WINDOWS_WORKER_NAME" 2>/dev/null || true; virsh undefine "$K2S_WINDOWS_WORKER_NAME" --remove-all-storage --nvram 2>/dev/null || true; rm -f "$vm_dir/$K2S_WINDOWS_WORKER_NAME.qcow2" "$vm_dir/${K2S_WINDOWS_WORKER_NAME}_VARS.fd" "$vm_dir/windows-worker-build.qcow2" "$vm_dir/windows-worker-bootstrap.iso"; virsh net-destroy "$K2S_WINDOWS_WORKER_NETWORK" 2>/dev/null || true; virsh net-undefine "$K2S_WINDOWS_WORKER_NETWORK" 2>/dev/null || true; rm -f "$(k2s_windows_worker_state_file)"; }
+k2s_windows_worker_remove() { local vm_dir; vm_dir=$(k2s_windows_worker_vm_dir); ip route del "$K2S_WINDOWS_WORKER_POD_SUBNET" 2>/dev/null || true; virsh destroy "$K2S_WINDOWS_WORKER_NAME" 2>/dev/null || true; virsh undefine "$K2S_WINDOWS_WORKER_NAME" --remove-all-storage --nvram 2>/dev/null || true; rm -f "$vm_dir/$K2S_WINDOWS_WORKER_NAME.qcow2" "$vm_dir/${K2S_WINDOWS_WORKER_NAME}_VARS.fd" "$vm_dir/windows-worker-build.qcow2" "$vm_dir/windows-worker-bootstrap.iso" "$vm_dir/windows-worker-install.iso"; virsh net-destroy "$K2S_WINDOWS_WORKER_NETWORK" 2>/dev/null || true; virsh net-undefine "$K2S_WINDOWS_WORKER_NETWORK" 2>/dev/null || true; rm -f "$(k2s_windows_worker_state_file)"; }
