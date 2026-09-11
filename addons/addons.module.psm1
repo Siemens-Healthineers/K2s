@@ -1959,8 +1959,12 @@ function Import-CertificateToTrustedRootStore {
 		[string]$CertStoreLocation
 	)
 
+	if (-not (Test-Path -LiteralPath $CertificatePath -PathType Leaf)) {
+		throw "Certificate file does not exist: '$CertificatePath'"
+	}
+
 	if (Test-CertificateProviderAvailable) {
-		Import-Certificate -FilePath $CertificatePath -CertStoreLocation $CertStoreLocation | Out-Null
+		Import-Certificate -FilePath $CertificatePath -CertStoreLocation $CertStoreLocation -ErrorAction Stop | Out-Null
 		return
 	}
 

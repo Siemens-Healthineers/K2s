@@ -1370,18 +1370,33 @@ Describe 'Import-CACertificateToWindowsStore' -Tag 'unit', 'ci', 'addon' {
 }
 
 Describe 'Import-CertificateToTrustedRootStore' -Tag 'unit', 'ci', 'addon' {
+    Context 'Certificate path does not exist' {
+        BeforeAll {
+            Mock -ModuleName $moduleName Test-Path { return $false } -ParameterFilter { $LiteralPath -eq 'C:\temp\missing.crt' -and $PathType -eq 'Leaf' }
+        }
+
+        It 'throws error when certificate file does not exist' {
+            InModuleScope -ModuleName $moduleName {
+                {
+                    Import-CertificateToTrustedRootStore -CertificatePath 'C:\temp\missing.crt' -CertStoreLocation 'Cert:\LocalMachine\Root'
+                } | Should -Throw "Certificate file does not exist: 'C:\temp\missing.crt'"
+            }
+        }
+    }
+
     Context 'Cert provider is available' {
         BeforeAll {
+            Mock -ModuleName $moduleName Test-Path { return $true }
             Mock -ModuleName $moduleName Test-CertificateProviderAvailable { return $true }
             Mock -ModuleName $moduleName Import-Certificate { }
         }
 
         It 'imports using Import-Certificate' {
             InModuleScope -ModuleName $moduleName {
-                Import-CertificateToTrustedRootStore -CertificatePath 'C:\\temp\\ca.crt' -CertStoreLocation 'Cert:\\LocalMachine\\Root'
+                Import-CertificateToTrustedRootStore -CertificatePath 'C:\temp\ca.crt' -CertStoreLocation 'Cert:\LocalMachine\Root'
 
                 Should -Invoke Import-Certificate -Times 1 -Scope It -ParameterFilter {
-                    $FilePath -eq 'C:\\temp\\ca.crt' -and $CertStoreLocation -eq 'Cert:\\LocalMachine\\Root'
+                    $FilePath -eq 'C:\temp\ca.crt' -and $CertStoreLocation -eq 'Cert:\LocalMachine\Root' -and $ErrorAction -eq 'Stop'
                 }
             }
         }
@@ -1400,7 +1415,7 @@ Describe 'Import-CertificateToTrustedRootStore' -Tag 'unit', 'ci', 'addon' {
 
                 try {
                     {
-                        Import-CertificateToTrustedRootStore -CertificatePath $tempNonCertFile -CertStoreLocation 'Cert:\\LocalMachine\\Root'
+                        Import-CertificateToTrustedRootStore -CertificatePath $tempNonCertFile -CertStoreLocation 'Cert:\LocalMachine\Root'
                     } | Should -Throw
                 }
                 finally {
