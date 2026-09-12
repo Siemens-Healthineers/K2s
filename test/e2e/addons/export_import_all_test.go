@@ -16,6 +16,7 @@ import (
 
 	"github.com/siemens-healthineers/k2s/internal/cli"
 	"github.com/siemens-healthineers/k2s/internal/core/addons"
+	"github.com/siemens-healthineers/k2s/test/e2e/addons/exportimport"
 	"github.com/siemens-healthineers/k2s/test/framework"
 	"github.com/siemens-healthineers/k2s/test/framework/dsl"
 
@@ -41,11 +42,12 @@ const testClusterTimeout = time.Minute * 60
 var testAddonNames = []string{"ingress", "storage"}
 
 var (
-	suite           *framework.K2sTestSuite
-	linuxOnly       bool
-	exportPath      string
-	testAddons      addons.Addons
-	exportedOciFile string
+	suite                   *framework.K2sTestSuite
+	linuxOnly               bool
+	exportPath              string
+	testAddons              addons.Addons
+	exportedOciFile         string
+	exportedOciFileChecksum string
 
 	controlPlaneIpAddress string
 
@@ -156,6 +158,7 @@ var _ = Describe("export and import a representative subset of addons and make s
 			Expect(err).To(BeNil())
 			Expect(len(files)).To(Equal(1), "Should create exactly one versioned OCI tar file")
 			exportedOciFile = files[0]
+			exportedOciFileChecksum = exportimport.Sha256OfFile(exportedOciFile)
 			GinkgoWriter.Printf("Exported OCI file: %s\n", exportedOciFile)
 		})
 
@@ -500,7 +503,120 @@ var _ = Describe("export and import a representative subset of addons and make s
 		})
 	})
 
+	// Guards the selective image import of 'k2s addons import --omit'.
+	//
+	// This block is placed between the clean-up and the full import on purpose: it reuses the
+	// multi-addon artifact exported above and the empty image state established by the previous
+	// block, and it restores that empty state afterwards so the expectations of the subsequent
+	// full import remain exactly as before.
+	//
+	// The scenarios protect the two rules that are easy to break during a refactoring:
+	//   - an image is only skipped when NO selected implementation still requires it, and
+	//   - being contained in the artifact is not the same as being selected for the import.
+	Describe("import selected addons while omitting the images of an omitted functionality", func() {
+		const omitCertMgrFlag = "omitCertMgr"
+
+		var (
+			certMgrImages     []string
+			nginxOtherImages  []string
+			storageOnlyImages []string
+		)
+
+		BeforeAll(func(ctx context.Context) {
+			GinkgoWriter.Println("=== IMPORT WITH --omit - BeforeAll START ===")
+
+			ingressAddon := exportimport.GetAddonByName(testAddons, "ingress")
+			Expect(ingressAddon).NotTo(BeNil(), "ingress addon must be part of the test subset")
+
+			nginxImpl := exportimport.GetImplementation(ingressAddon, "nginx")
+			Expect(nginxImpl).NotTo(BeNil(), "ingress nginx implementation must exist")
+
+			traefikImpl := exportimport.GetImplementation(ingressAddon, "traefik")
+			Expect(traefikImpl).NotTo(BeNil(), "ingress traefik implementation must exist (cross-implementation retention)")
+
+			// The expected images are resolved from the shipped manifests, so an image version
+			// bump does not require a test change.
+			certMgrImages = k2s.FilterOutK8sImages(suite.AddonsAdditionalInfo().GetOmittedImagesForFlag(*nginxImpl, omitCertMgrFlag))
+			Expect(certMgrImages).NotTo(BeEmpty(), "'--%s' must resolve to at least one image", omitCertMgrFlag)
+
+			nginxImages, err := suite.AddonsAdditionalInfo().GetImagesForAddonImplementation(*nginxImpl)
+			Expect(err).ToNot(HaveOccurred())
+			nginxOtherImages = k2s.FilterOutK8sImages(exportimport.ImagesExcept(nginxImages, certMgrImages))
+			Expect(nginxOtherImages).NotTo(BeEmpty(), "ingress nginx must ship images besides cert-manager")
+
+			// Images that only the unselected addon ships - they must stay absent when it is not selected.
+			var allIngressImages []string
+			for _, i := range ingressAddon.Spec.Implementations {
+				implImages, err := suite.AddonsAdditionalInfo().GetImagesForAddonImplementation(i)
+				Expect(err).ToNot(HaveOccurred())
+				allIngressImages = append(allIngressImages, implImages...)
+			}
+
+			storageAddon := exportimport.GetAddonByName(testAddons, "storage")
+			Expect(storageAddon).NotTo(BeNil(), "storage addon must be part of the test subset")
+
+			var allStorageImages []string
+			for _, i := range storageAddon.Spec.Implementations {
+				implImages, err := suite.AddonsAdditionalInfo().GetImagesForAddonImplementation(i)
+				Expect(err).ToNot(HaveOccurred())
+				allStorageImages = append(allStorageImages, implImages...)
+			}
+			storageOnlyImages = k2s.FilterOutK8sImages(exportimport.ImagesExcept(allStorageImages, allIngressImages))
+
+			GinkgoWriter.Printf("[BeforeAll] cert-manager images (omitted by --%s): %v\n", omitCertMgrFlag, certMgrImages)
+			GinkgoWriter.Printf("[BeforeAll] other ingress nginx images: %v\n", nginxOtherImages)
+			GinkgoWriter.Printf("[BeforeAll] storage-only images: %v\n", storageOnlyImages)
+
+			GinkgoWriter.Println("[BeforeAll] Importing 'ingress nginx' with --omit " + omitCertMgrFlag)
+			exportimport.ImportAddonsWithOmit(ctx, suite, exportedOciFile, []string{"ingress", "nginx"}, []string{omitCertMgrFlag})
+
+			GinkgoWriter.Println("=== IMPORT WITH --omit - BeforeAll END ===")
+		}, NodeTimeout(time.Minute*30))
+
+		AfterAll(func(ctx context.Context) {
+			// Restore the precondition of the subsequent full-import block.
+			exportimport.RemoveAllAddonImages(ctx, suite, k2s)
+		})
+
+		It("does not import the images belonging to the omitted functionality", func(ctx context.Context) {
+			GinkgoWriter.Println(">>> TEST: omitted images are not imported")
+			exportimport.VerifyImagesAbsentFromNodes(ctx, k2s, certMgrImages, "omitted via --omit "+omitCertMgrFlag)
+		})
+
+		It("imports the remaining images of the selected implementation", func(ctx context.Context) {
+			GinkgoWriter.Println(">>> TEST: images unrelated to the omitted functionality are imported")
+			exportimport.VerifyImagesPresentOnNodes(ctx, k2s, nginxOtherImages, "not covered by --omit "+omitCertMgrFlag)
+		})
+
+		It("does not import the images of addons that are contained in the artifact but were not selected", func(ctx context.Context) {
+			GinkgoWriter.Println(">>> TEST: being contained in the artifact does not mean being selected")
+			exportimport.VerifyImagesAbsentFromNodes(ctx, k2s, storageOnlyImages, "storage was not selected for this import")
+		})
+
+		It("keeps a shared image when another selected implementation still requires it", func(ctx context.Context) {
+			GinkgoWriter.Println(">>> TEST: shared image is retained when another selected implementation requires it")
+
+			// Precondition established by the import above: the shared cert-manager images are absent.
+			exportimport.VerifyImagesAbsentFromNodes(ctx, k2s, certMgrImages, "skipped by the previous import")
+
+			// ingress/nginx omits cert-manager, ingress/traefik does not -> the images must be imported.
+			exportimport.ImportAddonsWithOmit(ctx, suite, exportedOciFile,
+				[]string{"ingress", "nginx", "ingress", "traefik"},
+				[]string{"ingress/nginx:" + omitCertMgrFlag})
+
+			exportimport.VerifyImagesPresentOnNodes(ctx, k2s, certMgrImages,
+				"omitted by ingress/nginx but still required by the also selected ingress/traefik")
+		}, NodeTimeout(time.Minute*30))
+
+		It("leaves the OCI artifact unchanged", func(ctx context.Context) {
+			GinkgoWriter.Println(">>> TEST: the OCI artifact is not modified by --omit")
+			Expect(exportimport.Sha256OfFile(exportedOciFile)).To(Equal(exportedOciFileChecksum),
+				"'--omit' must not modify, shrink or repack the OCI artifact")
+		})
+	})
+
 	Describe("import addons", func() {
+
 		BeforeAll(func(ctx context.Context) {
 			GinkgoWriter.Println("=== IMPORT ADDONS - BeforeAll START ===")
 			GinkgoWriter.Printf("[BeforeAll] Importing from OCI tar file: %s\n", exportedOciFile)

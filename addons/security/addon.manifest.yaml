@@ -72,18 +72,42 @@ spec:
                 description: Omit hydra and login implementation
                 type: boolean
                 default: false
+                omittedImages:
+                  fromFiles:
+                    - manifests/keycloak/windowsprovider/hydra.yaml
+                    - manifests/keycloak/windowsprovider/windows-login.yaml
               - name: omitKeycloak
                 description: Omit keycloak and use external oauth2 provider
                 type: boolean
                 default: false
+                omittedImages:
+                  fromFiles:
+                    - manifests/keycloak/keycloak.yaml
+                    - manifests/keycloak/keycloak-postgres.yaml
               - name: omitOAuth2Proxy
                 description: Omit OAuth2 proxy deployment
                 type: boolean
                 default: false
+                omittedImages:
+                  fromFiles:
+                    - manifests/keycloak/oauth2-proxy.yaml
+                    - manifests/hydra/oauth2-proxy-hydra.yaml
               - name: omitPolicyEnf
                 description: Omit Kyverno policy enforcement engine
                 type: boolean
                 default: false
+                # Kyverno is installed from manifests/kyverno/kyverno-*.tgz and its
+                # values.yaml does not override the image coordinates, so the images
+                # cannot be discovered from a manifest file. Keep this list in sync with
+                # offline_usage.linux.additionalImages above.
+                omittedImages:
+                  explicit:
+                    - reg.kyverno.io/kyverno/kyverno:v1.19.0
+                    - reg.kyverno.io/kyverno/kyvernopre:v1.19.0
+                    - reg.kyverno.io/kyverno/background-controller:v1.19.0
+                    - reg.kyverno.io/kyverno/cleanup-controller:v1.19.0
+                    - reg.kyverno.io/kyverno/reports-controller:v1.19.0
+                    - reg.kyverno.io/kyverno/kyverno-cli:v1.19.0
             examples:
               - cmd: k2s addons enable security
                 comment: Enable security addon with CA issuer configured
