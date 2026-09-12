@@ -8,7 +8,7 @@ SPDX-License-Identifier: MIT
 The *k2s* CLI is the primary interface for managing a *K2s* cluster. It covers the full lifecycle — installation, startup, upgrade, image management, addon management, and system maintenance.
 
 !!! warning "Linux Host Support — Experimental"
-    Running the *k2s* CLI on a **Linux host** is an experimental feature. Core cluster lifecycle commands (`install`, `start`, `stop`, `uninstall`, `status`) and image/addon management work, but some system commands (`system upgrade`, `system package`, `system backup/restore`) are not yet implemented on Linux. See [Hosting Variants](hosting-variants.md#linux-host) for details.
+    Running the *k2s* CLI on a **Linux host** is an experimental feature. Core cluster lifecycle commands (`install`, `start`, `stop`, `uninstall`, `status`), image/addon management, and `system backup` work, but some system commands (`system upgrade`, `system package`, `system restore`) are not yet implemented on Linux. See [Hosting Variants](hosting-variants.md#linux-host) for details.
 
 Every command supports `--output` / `-o` (show log in terminal) and `--verbosity` / `-v` (log level, default `info`) as global flags.
 
@@ -515,7 +515,7 @@ k2s system package --node-package --os debian13 --include-gpu --target-dir "C:\o
 
 ### system backup
 
-Back up the cluster (resources, persistent volumes, user images).
+Back up the cluster (resources, persistent volumes, user images). Supported on both Windows and Linux hosts.
 
 ```console
 k2s system backup [flags]
@@ -523,10 +523,24 @@ k2s system backup [flags]
 
 | Flag | Short | Description |
 |------|-------|-------------|
-| `--file` | `-f` | Output zip file path |
+| `--file` | `-f` | Output zip file path (default: temp directory) |
 | `--skip-images` | | Skip container image backup |
 | `--skip-pvs` | | Skip persistent volume backup |
 | `--additional-hooks-dir` | | Directory with additional hook scripts |
+| `--output` | `-o` | Show command output in terminal |
+
+**Examples:**
+
+```console
+# Full backup (Windows)
+k2s system backup -f C:\backups\k2s-backup.zip
+
+# Full backup (Linux)
+k2s system backup -f /tmp/backups/k2s-backup.zip
+
+# Fast backup skipping images and persistent volumes with output display
+k2s system backup -f /tmp/backups/k2s-backup.zip --skip-images --skip-pvs -o
+```
 
 ### system restore
 

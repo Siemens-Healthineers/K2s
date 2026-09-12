@@ -4,16 +4,15 @@
 package backup
 
 import (
-	"strconv"
 	"fmt"
-	"time"
+	"os"
 	"path/filepath"
+	"time"
 
 	"github.com/pterm/pterm"
 	"github.com/spf13/cobra"
 
 	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/common"
-	"github.com/siemens-healthineers/k2s/cmd/k2s/utils"
 	"github.com/siemens-healthineers/k2s/internal/provider"
 )
 
@@ -21,9 +20,7 @@ const (
 	backupFileFlag = "file"
 	skipImagesFlag = "skip-images"
 	skipPVsFlag    = "skip-pvs"
-	defaultBackupDir = "C:\\Temp\\k2s\\backups"
 )
-
 
 var SystemBackupCmd = &cobra.Command{
 	Use:   "backup",
@@ -33,24 +30,37 @@ var SystemBackupCmd = &cobra.Command{
 
 func init() {
 	SystemBackupCmd.Flags().SortFlags = false
-	SystemBackupCmd.Flags().StringP(backupFileFlag, "f", "", "Backup file to create (zip). If omitted, a default file in C://Temp/k2s/backups is generated",)
-	SystemBackupCmd.Flags().String(common.AdditionalHooksDirFlagName, "", common.AdditionalHooksDirFlagUsage,)
-	SystemBackupCmd.Flags().Bool(skipImagesFlag, false, "Skip backing up container images",)
-	SystemBackupCmd.Flags().Bool(skipPVsFlag, false, "Skip backing up persistent volumes",)
+	SystemBackupCmd.Flags().StringP(backupFileFlag, "f", "", "Backup file to create (.zip). If omitted, a default file in temp directory is generated")
+	SystemBackupCmd.Flags().String(common.AdditionalHooksDirFlagName, "", common.AdditionalHooksDirFlagUsage)
+	SystemBackupCmd.Flags().Bool(skipImagesFlag, false, "Skip backing up container images")
+	SystemBackupCmd.Flags().Bool(skipPVsFlag, false, "Skip backing up persistent volumes")
 }
 
 func runSystemBackup(cmd *cobra.Command, args []string) error {
 	cmdSession := common.StartCmdSession(cmd.CommandPath())
 	pterm.Println("📦 Creating K2s system backup ...")
 
-	out, _ := strconv.ParseBool(cmd.Flags().Lookup(common.OutputFlagName).Value.String())
+	out, err := cmd.Flags().GetBool(common.OutputFlagName)
+	if err != nil {
+		return err
+	}
 
 	backupFile := resolveBackupFileName(cmd)
 
-	additionalHooksDir := cmd.Flags().Lookup(common.AdditionalHooksDirFlagName).Value.String()
+	additionalHooksDir, err := cmd.Flags().GetString(common.AdditionalHooksDirFlagName)
+	if err != nil {
+		return err
+	}
 
-	skipImages, _ := strconv.ParseBool(cmd.Flags().Lookup(skipImagesFlag).Value.String())
-	skipPVs, _ := strconv.ParseBool(cmd.Flags().Lookup(skipPVsFlag).Value.String())
+	skipImages, err := cmd.Flags().GetBool(skipImagesFlag)
+	if err != nil {
+		return err
+	}
+
+	skipPVs, err := cmd.Flags().GetBool(skipPVsFlag)
+	if err != nil {
+		return err
+	}
 
 	context := cmd.Context().Value(common.ContextKeyCmdContext).(*common.CmdContext)
 
@@ -68,48 +78,13 @@ func runSystemBackup(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
-func createSystemBackupPsCommand(cmd *cobra.Command) string {
-	psCmd := utils.FormatScriptFilePath(
-		utils.InstallDir() +
-			"\\lib\\scripts\\windows\\host\\system\\backup\\Start-SystemBackup.ps1",
-	)
-
-	out, _ := strconv.ParseBool(
-		cmd.Flags().Lookup(common.OutputFlagName).Value.String(),
-	)
-	if out {
-		psCmd += " -ShowLogs"
-	}
-
-	backupFile := resolveBackupFileName(cmd)
-	psCmd += " -BackupFile " + utils.EscapeWithSingleQuotes(backupFile)
-
-	additionalHooksDir := cmd.Flags().Lookup(common.AdditionalHooksDirFlagName).Value.String()
-	if additionalHooksDir != "" {
-		psCmd += " -AdditionalHooksDir " + utils.EscapeWithSingleQuotes(additionalHooksDir)
-	}
-
-	// Pass skip flags to PowerShell if set
-	skipImages, _ := strconv.ParseBool(cmd.Flags().Lookup(skipImagesFlag).Value.String())
-	if skipImages {
-		psCmd += " -SkipImages"
-	}
-
-	skipPVs, _ := strconv.ParseBool(cmd.Flags().Lookup(skipPVsFlag).Value.String())
-	if skipPVs {
-		psCmd += " -SkipPVs"
-	}
-
-	return psCmd
-}
-
 func resolveBackupFileName(cmd *cobra.Command) string {
-	file := cmd.Flags().Lookup(backupFileFlag).Value.String()
-	if file != "" {
+	file, err := cmd.Flags().GetString(backupFileFlag)
+	if err == nil && file != "" {
 		return file
 	}
 
 	timestamp := time.Now().Format("2006-01-02_15-04-05")
 	filename := fmt.Sprintf("k2s-backup-file-%s.zip", timestamp)
-	return filepath.Join(defaultBackupDir, filename)
+	return filepath.Join(os.TempDir(), "k2s", "backups", filename)
 }
