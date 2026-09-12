@@ -16,6 +16,8 @@ import (
 
 const proxyExecutable = "linkerd2-proxy.exe"
 const bootstrapOnlyEnvironment = "LINKERD2_PROXY_IDENTITY_BOOTSTRAP_ONLY"
+const identityDirEnvironment = "LINKERD2_PROXY_IDENTITY_DIR"
+const identityTokenFileEnvironment = "LINKERD2_PROXY_IDENTITY_TOKEN_FILE"
 
 var executablePath = os.Executable
 
@@ -31,7 +33,10 @@ func main() {
 }
 
 func run(args []string, getenv func(string) string, stdin, stdout, stderr *os.File) error {
-	identityDir := normalizeIdentityDir(getenv("LINKERD2_PROXY_IDENTITY_DIR"), getenv("SystemDrive"), runtime.GOOS == "windows")
+	isWindows := runtime.GOOS == "windows"
+	systemDrive := getenv("SystemDrive")
+	identityDir := normalizeUnixPath(getenv(identityDirEnvironment), systemDrive, isWindows)
+	tokenFile := normalizeUnixPath(getenv(identityTokenFileEnvironment), systemDrive, isWindows)
 	localName := getenv("LINKERD2_PROXY_IDENTITY_LOCAL_NAME")
 	trustAnchors := getenv("LINKERD2_PROXY_IDENTITY_TRUST_ANCHORS")
 
@@ -47,7 +52,7 @@ func run(args []string, getenv func(string) string, stdin, stdout, stderr *os.Fi
 		return fmt.Errorf("resolve proxy identity executable path: %w", err)
 	}
 	proxy := commandRunner(filepath.Join(filepath.Dir(identityExecutable), proxyExecutable), args...)
-	proxy.Env = identityEnvironment(identityDir)
+	proxy.Env = identityEnvironment(identityDir, tokenFile)
 	proxy.Stdin = stdin
 	proxy.Stdout = stdout
 	proxy.Stderr = stderr
@@ -57,25 +62,29 @@ func run(args []string, getenv func(string) string, stdin, stdout, stderr *os.Fi
 	return nil
 }
 
-func normalizeIdentityDir(identityDir, systemDrive string, isWindows bool) string {
-	if !isWindows || !strings.HasPrefix(identityDir, "/") || strings.HasPrefix(identityDir, "//") {
-		return identityDir
+func normalizeUnixPath(path, systemDrive string, isWindows bool) string {
+	if !isWindows || !strings.HasPrefix(path, "/") || strings.HasPrefix(path, "//") {
+		return path
 	}
 	if systemDrive == "" {
 		systemDrive = "C:"
 	}
 	systemDrive = strings.TrimRight(systemDrive, `\\/`)
-	return filepath.FromSlash(systemDrive + identityDir)
+	return filepath.FromSlash(systemDrive + path)
 }
 
-func identityEnvironment(identityDir string) []string {
-	environment := make([]string, 0, len(os.Environ())+1)
+func identityEnvironment(identityDir, tokenFile string) []string {
+	environment := make([]string, 0, len(os.Environ())+2)
 	for _, value := range os.Environ() {
-		if !strings.HasPrefix(value, "LINKERD2_PROXY_IDENTITY_DIR=") {
-			environment = append(environment, value)
+		if strings.HasPrefix(value, identityDirEnvironment+"=") || strings.HasPrefix(value, identityTokenFileEnvironment+"=") {
+			continue
 		}
+		environment = append(environment, value)
 	}
-	return append(environment, "LINKERD2_PROXY_IDENTITY_DIR="+identityDir)
+	return append(environment,
+		identityDirEnvironment+"="+identityDir,
+		identityTokenFileEnvironment+"="+tokenFile,
+	)
 }
 
 func exitCode(err error) int {
