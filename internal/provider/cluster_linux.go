@@ -37,6 +37,8 @@ func (p *linuxClusterProvider) Install(cfg ClusterInstallConfig) error {
 		InstallDir: cfg.InstallDir, ConfigDir: cfg.ConfigDir, Version: cfg.Version,
 		ClusterName: cfg.ClusterName, ControlPlaneHostname: cfg.ControlPlaneHostname,
 		Proxy: cfg.Proxy, NoProxy: cfg.NoProxy, SkipStart: cfg.SkipStart, LinuxOnly: cfg.LinuxOnly,
+		WorkerCPUCount: cfg.WorkerCPUCount, WorkerMemory: cfg.WorkerMemory,
+		WorkerDiskSize: cfg.WorkerDiskSize, WindowsIsoPath: cfg.WindowsIsoPath,
 	})
 }
 

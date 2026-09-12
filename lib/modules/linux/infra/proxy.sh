@@ -15,6 +15,10 @@ k2s_proxy_network_install() {
   local address cidr
   address=$(k2s_cfg '.smallsetup.kubeSwitch')
   cidr=$(k2s_cfg '.smallsetup.masterNetworkCIDR')
+  if [[ ${K2S_LINUX_ONLY:-true} != true ]]; then
+    k2s_windows_worker_network_create
+    return $?
+  fi
   if ip -o -4 addr show | grep -Fq "$address/" && ! ip -o -4 addr show dev k2s-proxy0 | grep -Fq "$address/"; then
     k2s_log ERROR "Configured KubeSwitch address is already used: $address"
     return 5
@@ -37,7 +41,7 @@ EOF
 }
 
 k2s_proxy_install() {
-  local gateway pod service primary args
+  local gateway pod service primary args network_dependencies
   gateway=$(k2s_cfg '.smallsetup.kubeSwitch')
   pod=$(k2s_cfg '.smallsetup.podNetworkCIDR')
   service=$(k2s_cfg '.smallsetup.servicesCIDR')
@@ -46,6 +50,9 @@ k2s_proxy_install() {
 
   args="--addr :8181 --allowed-cidr 127.0.0.0/8 --allowed-cidr $pod --allowed-cidr $service --allowed-cidr $(k2s_cfg '.smallsetup.masterNetworkCIDR') --allowed-cidr $primary/32"
   [[ -n "$K2S_PROXY" ]] && args="$args --forwardproxy $K2S_PROXY"
+  network_dependencies='After=network-online.target'
+  [[ ${K2S_LINUX_ONLY:-true} == true ]] && network_dependencies='After=network-online.target k2s-proxy-network.service
+Requires=k2s-proxy-network.service'
   mkdir -p /var/log/httpproxy /etc/apt/apt.conf.d "$K2S_CONFIG_DIR"
   if [[ -f "$K2S_APT_PROXY_CONFIG" ]] && ! grep -Fq "$K2S_APT_PROXY_HEADER" "$K2S_APT_PROXY_CONFIG"; then
     local backup="$K2S_CONFIG_DIR/$K2S_APT_PROXY_BACKUP"
@@ -56,8 +63,7 @@ k2s_proxy_install() {
   cat > /etc/systemd/system/k2s-httpproxy.service <<EOF
 [Unit]
 Description=K2s local HTTP proxy
-After=network-online.target k2s-proxy-network.service
-Requires=k2s-proxy-network.service
+$network_dependencies
 [Service]
 Type=simple
 ExecStart=$K2S_INSTALL_DIR/bin/httpproxy $args
@@ -86,8 +92,10 @@ k2s_proxy_cleanup() {
     fi
   fi
 
-  systemctl disable --now k2s-proxy-network 2>/dev/null || true
-  rm -f /etc/systemd/system/k2s-proxy-network.service
-  ip link delete k2s-proxy0 2>/dev/null || true
+  if [[ ${K2S_LINUX_ONLY:-true} == true ]]; then
+    systemctl disable --now k2s-proxy-network 2>/dev/null || true
+    rm -f /etc/systemd/system/k2s-proxy-network.service
+    ip link delete k2s-proxy0 2>/dev/null || true
+  fi
   systemctl daemon-reload || true
 }

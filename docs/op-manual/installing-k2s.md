@@ -200,15 +200,19 @@ To build and test containers without a *K8s* cluster, run:
 
 ### \[Experimental\] Linux Host
 
-The initial native Linux-host implementation supports **Debian 13** in
-Linux-only mode. The Kubernetes control plane runs directly on the host and
-uses **CRI-O** as its container runtime. Windows worker provisioning is not
-supported yet.
+The native Linux-host implementation supports **Debian 13**. The Kubernetes
+control plane runs directly on the host and uses **CRI-O** as its container
+runtime. By default, K2s also provisions one K2s-managed Windows worker with
+libvirt/KVM. Use `--linux-only` to install the native control plane without a
+Windows worker.
 
 Run the Linux binary with elevated privileges:
 
 ```console
 sudo ./k2s install --linux-only --proxy http://proxy.example:8080 --no-proxy localhost,127.0.0.1
+
+# Install the native control plane and a managed Windows worker from the packaged base image.
+sudo ./k2s install --worker-cpus 4 --worker-memory 8GB --worker-disk 64GB
 ```
 
 The equivalent platform-first lifecycle entry point is
@@ -225,16 +229,38 @@ service forwards external traffic through `--proxy` when supplied. The given
 `--no-proxy` values are merged with K2s internal addresses and applied only to
 K2s services; the installer does not change global proxy environment settings.
 
-For workload pods, the same proxy is available at the configured
+For workload pods and the managed Windows worker, the same proxy is available at the configured
 `smallsetup.kubeSwitch` address from [cfg/config.json](https://github.com/Siemens-Healthineers/K2s/blob/main/cfg/config.json){target="_blank"}
-on port `8181`, matching the Windows-host and Linux-host topology. The proxy only accepts loopback, pod-CIDR, and service-CIDR clients.
+on port `8181`. The Linux implementation creates a K2s-owned `k2s-switch`
+libvirt NAT network with the same addressing contract as KubeSwitch. The proxy
+only accepts loopback, pod-CIDR, service-CIDR, and K2s-switch clients.
+
+The managed worker requires nested virtualization, `/dev/kvm`, a running
+`libvirtd` or `virtqemud`, `virsh`, `qemu-img`, OpenSSH tools, and a minimum remaining host
+reserve of 2GB memory and 20GB disk after the worker allocation. Worker memory
+must not exceed 75% of total host memory. Its default
+allocation is 4 CPUs, 8GB RAM, and a 64GB disk. K2s owns the domain, disk,
+network, and lifecycle; `k2s uninstall` removes these K2s-managed resources.
+
+For the first installation, supply a user-provided Windows 11 Enterprise ISO
+with `--windows-iso-path`. K2s creates protected unattended bootstrap media,
+installs Windows into a temporary QCOW2 disk, enables key-based OpenSSH access,
+and caches the completed base image as `/var/lib/libvirt/images/k2s/WindowsWorker-Base.qcow2`. Later
+installations create a disposable QCOW2 overlay from that cache. The base-image
+build requires `xorriso` and Internet access through the K2s host proxy so
+Windows can install its OpenSSH Server capability. For repeatable offline use,
+preserve the cached image under `/var/lib/libvirt/images/k2s/` for later installations.
 
 The following options are intentionally unavailable on a native Linux host:
 
-- Windows-worker installation (omit `--linux-only`)
 - `--master-cpus`, `--master-memory`, `--master-disk`, dynamic-memory options,
   and `--wsl`
 - `--force-online-installation`, offline artifact cleanup, and `--k8s-bins`
+
+Native Linux exposes `--worker-cpus`, `--worker-memory`, `--worker-disk`, and
+`--windows-iso-path`; Windows hosts do not expose these options. In an install
+configuration, the corresponding resource fields belong to the `worker` node
+entry and `windowsIsoPath` supplies the media location.
 
 The administrator invoking `sudo` receives the generated kubeconfig at
 `~/.kube/config` after a successful installation.

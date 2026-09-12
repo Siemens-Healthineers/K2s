@@ -21,7 +21,12 @@ k2s_load_operation() {
   K2S_NO_PROXY=$(jq -r '.noProxy // [] | join(",")' "$2") || return 2
   K2S_SKIP_START=$(jq -r '.skipStart // false' "$2") || return 2
   K2S_SKIP_PURGE=$(jq -r '.skipPurge // false' "$2") || return 2
-  export K2S_INSTALL_DIR K2S_CONFIG_DIR K2S_VERSION K2S_CLUSTER_NAME K2S_CONTROL_PLANE_HOSTNAME K2S_PROXY K2S_NO_PROXY K2S_SKIP_START K2S_SKIP_PURGE
+  K2S_LINUX_ONLY=$(jq -r '.linuxOnly // false' "$2") || return 2
+  K2S_WORKER_CPU_COUNT=$(jq -r '.workerCPUCount // "4"' "$2") || return 2
+  K2S_WORKER_MEMORY=$(jq -r '.workerMemory // "8GB"' "$2") || return 2
+  K2S_WORKER_DISK_SIZE=$(jq -r '.workerDiskSize // "64GB"' "$2") || return 2
+  K2S_WINDOWS_ISO_PATH=$(jq -r '.windowsIsoPath // empty' "$2") || return 2
+  export K2S_INSTALL_DIR K2S_CONFIG_DIR K2S_VERSION K2S_CLUSTER_NAME K2S_CONTROL_PLANE_HOSTNAME K2S_PROXY K2S_NO_PROXY K2S_SKIP_START K2S_SKIP_PURGE K2S_LINUX_ONLY K2S_WORKER_CPU_COUNT K2S_WORKER_MEMORY K2S_WORKER_DISK_SIZE K2S_WINDOWS_ISO_PATH
 }
 
 k2s_lock_and_run() {
@@ -50,10 +55,14 @@ k2s_require_host() {
   k2s_require_install_dir || return 1
   [[ $(. /etc/os-release; printf '%s-%s' "$ID" "$VERSION_ID") == debian-13* ]] || return 3
   local tool
-  for tool in jq flock systemctl apt-get dpkg modprobe sysctl chattr lsattr ip; do
+  for tool in jq flock systemctl apt-get dpkg modprobe sysctl chattr lsattr ip ss; do
     k2s_require_command "$tool" || return 4
   done
   [[ $(wc -l < /proc/swaps) -le 1 ]] || return 3
+}
+
+k2s_windows_worker_install() {
+  [[ "$K2S_LINUX_ONLY" == true ]] || k2s_windows_worker_provision
 }
 
 k2s_control_plane_install() {
@@ -78,6 +87,18 @@ EOF
   local user="${SUDO_USER:-root}" home; home=$(getent passwd "$user" | cut -d: -f6); mkdir -p "$home/.kube"; cp /etc/kubernetes/admin.conf "$home/.kube/config"; chown -R "$user":"$(id -gn "$user")" "$home/.kube"
 }
 
+k2s_configure_kube_proxy_kubeswitch() {
+  [[ "$K2S_LINUX_ONLY" == true ]] && return 0
+  local kube_switch config_map
+  kube_switch=$(k2s_cfg '.smallsetup.kubeSwitch') || return 1
+  config_map=$(mktemp)
+  k2s_kubectl -n kube-system get configmap kube-proxy -o json > "$config_map" || { rm -f "$config_map"; return 1; }
+  jq --arg address "$kube_switch" '.data["config.conf"] |= sub("bindAddress: [^\\n]+"; "bindAddress: " + $address)' "$config_map" | k2s_kubectl apply -f - || { rm -f "$config_map"; return 1; }
+  rm -f "$config_map"
+  k2s_kubectl -n kube-system delete pods -l k8s-app=kube-proxy --ignore-not-found || return 1
+  k2s_kubectl -n kube-system rollout status daemonset/kube-proxy --timeout=120s
+}
+
 k2s_install_control_plane_tools() {
   local script="$K2S_INSTALL_DIR/lib/modules/windows/node/k2s.node.module/linuxnode/distros/scripts/install-cli-tools.sh"
   [[ -f "$script" ]] || return 1
@@ -90,6 +111,9 @@ k2s_install_cluster() {
   k2s_log INFO 'Validating native Debian 13 host prerequisites.'
   k2s_require_host || return $?
   k2s_merge_no_proxy || return $?
+  if [[ "$K2S_LINUX_ONLY" != true ]]; then
+    k2s_windows_worker_install_host_dependencies || return $?
+  fi
   k2s_log INFO 'Configuring K2s proxy compatibility network.'
   k2s_proxy_network_install || return $?
   k2s_log INFO 'Configuring K2s HTTP proxy service.'
@@ -98,10 +122,14 @@ k2s_install_cluster() {
   k2s_packages_install || return $?
   k2s_log INFO 'Initializing the Kubernetes control plane.'
   k2s_control_plane_install || return $?
+  k2s_log INFO 'Binding kube-proxy to the configured KubeSwitch IPv4 address.'
+  k2s_configure_kube_proxy_kubeswitch || return $?
   local flannel="$K2S_INSTALL_DIR/lib/modules/windows/node/k2s.node.module/linuxnode/distros/containernetwork/masternode/flannel.template.yml"
   [[ -f "$flannel" ]] || return 1
   k2s_log INFO 'Deploying Flannel CNI.'
-  sed -e 's|NETWORK.NAME|cbr0|g' -e "s|NETWORK.ADDRESS|$(k2s_cfg '.smallsetup.podNetworkCIDR')|g" -e 's|NETWORK.TYPE|vxlan|g' "$flannel" | k2s_kubectl apply -f - || return 1
+  local flannel_backend='vxlan'
+  [[ "$K2S_LINUX_ONLY" == true ]] || flannel_backend='host-gw'
+  sed -e 's|NETWORK.NAME|cbr0|g' -e "s|NETWORK.ADDRESS|$(k2s_cfg '.smallsetup.podNetworkCIDR')|g" -e "s|NETWORK.TYPE|$flannel_backend|g" "$flannel" | k2s_kubectl apply -f - || return 1
   k2s_log INFO 'Waiting for Flannel CNI to become ready.'
   if ! k2s_kubectl -n kube-flannel rollout status daemonset/kube-flannel-ds --timeout=120s; then
     k2s_log ERROR 'Flannel did not become ready. Capturing pod and event diagnostics.'
@@ -133,12 +161,17 @@ k2s_install_cluster() {
   k2s_log INFO 'Configuring K2s host DNS proxy.'
   k2s_save_resolver || return 1
   k2s_dns_start || { k2s_restore_resolver; return 1; }
-  jq -n --arg v "$K2S_VERSION" --arg n "$K2S_CLUSTER_NAME" --arg h "$K2S_CONTROL_PLANE_HOSTNAME" '{SetupType:"k2s",LinuxOnly:true,Version:$v,ClusterName:$n,ControlPlaneNodeHostname:$h,WSL:false}' > "$K2S_CONFIG_DIR/setup.json"; chmod 644 "$K2S_CONFIG_DIR/setup.json"
+  k2s_windows_worker_install || return $?
+  jq -n --arg v "$K2S_VERSION" --arg n "$K2S_CLUSTER_NAME" --arg h "$K2S_CONTROL_PLANE_HOSTNAME" --argjson linux_only "$K2S_LINUX_ONLY" '{SetupType:"k2s",LinuxOnly:$linux_only,Version:$v,ClusterName:$n,ControlPlaneNodeHostname:$h,WSL:false}' > "$K2S_CONFIG_DIR/setup.json"; chmod 644 "$K2S_CONFIG_DIR/setup.json"
 }
 
 k2s_start_cluster() {
   k2s_log INFO 'Starting native Debian 13 K2s services.'
-  systemctl start k2s-proxy-network || return 1
+  if [[ "$K2S_LINUX_ONLY" == true ]]; then
+    systemctl start k2s-proxy-network || return 1
+  else
+    k2s_windows_worker_network_create || return 1
+  fi
   systemctl start k2s-httpproxy || return 1
   systemctl start crio || return 1
   systemctl start kubelet || return 1
@@ -148,9 +181,62 @@ k2s_start_cluster() {
     sleep 3
   done
   k2s_dns_start
+  [[ "$K2S_LINUX_ONLY" == true ]] || k2s_windows_worker_start
 }
-k2s_stop_cluster() { k2s_dns_stop; systemctl stop kubelet 2>/dev/null || true; systemctl stop crio k2s-httpproxy k2s-proxy-network 2>/dev/null || true; }
-k2s_uninstall_cluster() { k2s_stop_cluster; if [[ "$K2S_SKIP_PURGE" != true ]]; then k2s_kubectl delete namespace k2s-webhook --ignore-not-found --wait=false 2>/dev/null || true; kubeadm reset -f 2>/dev/null || true; rm -rf /etc/kubernetes /var/lib/etcd /var/lib/kubelet /etc/cni/net.d/10-flannel.conflist /run/flannel; fi; ip link delete cni0 2>/dev/null || true; ip link delete flannel.1 2>/dev/null || true; rm -f /etc/systemd/system/k2s-dnsproxy.service /etc/k2s/dnsproxy.yaml /etc/systemd/system/kubelet.service.d/20-k2s-logging.conf; k2s_proxy_cleanup; rm -rf "$K2S_CONFIG_DIR"; }
+k2s_stop_cluster() { [[ "$K2S_LINUX_ONLY" == true ]] || k2s_windows_worker_stop || true; k2s_dns_stop; systemctl stop kubelet 2>/dev/null || true; systemctl stop crio k2s-httpproxy k2s-proxy-network 2>/dev/null || true; }
+
+k2s_wait_for_api_port_release() {
+  local deadline=$((SECONDS + 60))
+  while ss -ltn | awk '$4 ~ /:6443$/ { found=1 } END { exit !found }'; do
+    (( SECONDS < deadline )) || return 1
+    sleep 2
+  done
+}
+
+k2s_stop_cluster_for_uninstall() {
+  local container_id
+  [[ "$K2S_LINUX_ONLY" == true ]] || k2s_windows_worker_stop || true
+  k2s_dns_stop || true
+  systemctl disable --now kubelet 2>/dev/null || true
+
+  # Stop static-pod containers before CRI-O is disabled so kube-apiserver
+  # releases port 6443 deterministically for the next installation.
+  if command -v crictl >/dev/null 2>&1; then
+    for container_id in $(crictl --runtime-endpoint unix:///var/run/crio/crio.sock ps -q 2>/dev/null); do
+      crictl --runtime-endpoint unix:///var/run/crio/crio.sock stop "$container_id" 2>/dev/null || true
+      crictl --runtime-endpoint unix:///var/run/crio/crio.sock rm "$container_id" 2>/dev/null || true
+    done
+  fi
+  systemctl disable --now crio 2>/dev/null || true
+  systemctl stop k2s-httpproxy k2s-proxy-network 2>/dev/null || true
+
+  if ! k2s_wait_for_api_port_release; then
+    k2s_log WARN 'Port 6443 remained open after stopping CRI-O; forcing the K2s CRI-O service to stop.'
+    systemctl kill --kill-who=all --signal=SIGKILL crio 2>/dev/null || true
+    k2s_wait_for_api_port_release || { k2s_log ERROR 'Port 6443 remains in use after K2s service cleanup.'; return 1; }
+  fi
+}
+
+k2s_uninstall_cluster() {
+  if [[ "$K2S_SKIP_PURGE" != true ]]; then
+    # Keep the API server available long enough to remove all node records.
+    # kubeadm reset clears host files but does not remove Nodes from the API.
+    [[ "$K2S_LINUX_ONLY" == true ]] || k2s_windows_worker_stop || true
+    k2s_kubectl delete nodes --all --ignore-not-found --wait=true --timeout=60s 2>/dev/null || true
+    k2s_kubectl delete namespace k2s-webhook kube-flannel --ignore-not-found --wait=true --timeout=120s 2>/dev/null || true
+  fi
+  k2s_stop_cluster_for_uninstall || return $?
+  [[ "$K2S_LINUX_ONLY" == true ]] || k2s_windows_worker_remove || true
+  if [[ "$K2S_SKIP_PURGE" != true ]]; then
+    kubeadm reset -f 2>/dev/null || true
+    rm -rf /etc/kubernetes /var/lib/etcd /var/lib/kubelet /etc/cni/net.d/10-flannel.conflist /run/flannel
+  fi
+  ip link delete cni0 2>/dev/null || true
+  ip link delete flannel.1 2>/dev/null || true
+  rm -f /etc/systemd/system/k2s-dnsproxy.service /etc/k2s/dnsproxy.yaml /etc/systemd/system/kubelet.service.d/20-k2s-logging.conf
+  k2s_proxy_cleanup || return $?
+  rm -rf "$K2S_CONFIG_DIR"
+}
 
 k2s_dispatch_lifecycle() {
   local operation="$1"

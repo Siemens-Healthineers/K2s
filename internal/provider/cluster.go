@@ -33,6 +33,10 @@ type ClusterInstallConfig struct {
 	MasterVMMemoryMin      string
 	MasterVMMemoryMax      string
 	MasterDiskSize         string
+	WorkerCPUCount         string
+	WorkerMemory           string
+	WorkerDiskSize         string
+	WindowsIsoPath         string
 	DynamicMemory          bool
 	LinuxOnly              bool
 	WSL                    bool
