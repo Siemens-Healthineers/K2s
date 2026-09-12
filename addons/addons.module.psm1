@@ -1519,6 +1519,16 @@ function Resolve-AddonImportPath {
         [string]$AddonImplementation
     )
 
+    # Guard against artifacts whose addon-name annotation already carries the implementation
+	# as its final segment (e.g. name 'storage ceph' + implementation 'ceph'). Appending the
+	# implementation again would create a doubly-nested path such as addons/storage/ceph/ceph.
+	if (-not [string]::IsNullOrWhiteSpace($AddonImplementation)) {
+		$nameSegments = $AddonName -split '\s+' | Where-Object { $_ -ne '' }
+		if ($nameSegments.Count -gt 1 -and $nameSegments[-1] -eq $AddonImplementation) {
+			$AddonName = ($nameSegments[0..($nameSegments.Count - 2)] -join ' ')
+		}
+	}
+
 	if ([string]::IsNullOrWhiteSpace($AddonImplementation) -or $AddonImplementation -eq $AddonName) {
 		return @{
 			BaseAddonName      = $AddonName
@@ -2353,7 +2363,105 @@ function Assert-IngressTlsCertificate {
     return $certExists
 }
 
-Export-ModuleMember -Function Enable-AddonFromConfig, Get-EnabledAddons, Add-AddonToSetupJson, Remove-AddonFromSetupJson,
+<#
+.SYNOPSIS
+	Stores an additional property on an enabled addon entry in setup.json
+.DESCRIPTION
+	Finds the matching addon entry in the "EnabledAddons" array of setup.json (by Name and, if provided,
+	Implementation) and sets/updates a single property on it. Used to persist addon runtime data such as
+	the cephadm cluster public key so it can be retrieved later (e.g. by the addon Update script when a new
+	OSD host is added to the cluster).
+.PARAMETER Addon
+	The addon object containing a 'Name' property and optionally an 'Implementation' property.
+.PARAMETER PropertyName
+	Name of the property to store on the addon entry.
+.PARAMETER PropertyValue
+	Value of the property to store.
+.EXAMPLE
+	Set-AddonSetupJsonProperty -Addon ([pscustomobject]@{Name='storage';Implementation='ceph'}) -PropertyName 'CephPublicKey' -PropertyValue $key
+#>
+function Set-AddonSetupJsonProperty {
+	param (
+		[Parameter(Mandatory = $true)]
+		[pscustomobject]$Addon = $(throw 'Please specify the addon.'),
+		[Parameter(Mandatory = $true)]
+		[string]$PropertyName = $(throw 'Please specify the property name.'),
+		[Parameter(Mandatory = $false)]
+		[string]$PropertyValue = ''
+	)
+	if ($null -eq ($Addon | Get-Member -MemberType Properties -Name 'Name')) {
+		throw "Addon does not contain a property with name 'Name'"
+	}
+
+	$filePath = Get-SetupConfigFilePath
+	$parsedSetupJson = Get-Content -Raw $filePath | ConvertFrom-Json
+
+	$enabledAddonMemberExists = Get-Member -InputObject $parsedSetupJson -Name $ConfigKey_EnabledAddons -MemberType Properties
+	if (!$enabledAddonMemberExists) {
+		Write-Log "No enabled addons found in setup.json; cannot store property '$PropertyName' for addon '$($Addon.Name)'."
+		return
+	}
+
+	$matchingEntry = $parsedSetupJson.EnabledAddons | Where-Object {
+		($_.Name -eq $Addon.Name) -and ($null -eq $Addon.Implementation -or $_.Implementation -eq $Addon.Implementation)
+	} | Select-Object -First 1
+
+	if ($null -eq $matchingEntry) {
+		Write-Log "Addon '$($Addon.Name)' not found in setup.json; cannot store property '$PropertyName'."
+		return
+	}
+
+	$matchingEntry | Add-Member -NotePropertyName $PropertyName -NotePropertyValue $PropertyValue -Force
+	$parsedSetupJson | ConvertTo-Json -Depth 100 | Set-Content -Force $filePath -Confirm:$false
+}
+
+<#
+.SYNOPSIS
+	Reads an additional property from an enabled addon entry in setup.json
+.DESCRIPTION
+	Returns the value of a property previously stored on an addon entry in the "EnabledAddons" array of
+	setup.json (e.g. the cephadm cluster public key). Returns an empty string when the addon or the property
+	is not present.
+.PARAMETER Addon
+	The addon object containing a 'Name' property and optionally an 'Implementation' property.
+.PARAMETER PropertyName
+	Name of the property to read from the addon entry.
+.EXAMPLE
+	Get-AddonSetupJsonProperty -Addon ([pscustomobject]@{Name='storage';Implementation='ceph'}) -PropertyName 'CephPublicKey'
+#>
+function Get-AddonSetupJsonProperty {
+	param (
+		[Parameter(Mandatory = $true)]
+		[pscustomobject]$Addon = $(throw 'Please specify the addon.'),
+		[Parameter(Mandatory = $true)]
+		[string]$PropertyName = $(throw 'Please specify the property name.')
+	)
+	if ($null -eq ($Addon | Get-Member -MemberType Properties -Name 'Name')) {
+		throw "Addon does not contain a property with name 'Name'"
+	}
+
+	$addons = Get-AddonsConfig
+	if ($null -eq $addons) {
+		return ''
+	}
+
+	$matchingEntry = $addons | Where-Object {
+		($_.Name -eq $Addon.Name) -and ($null -eq $Addon.Implementation -or $_.Implementation -eq $Addon.Implementation)
+	} | Select-Object -First 1
+
+	if ($null -eq $matchingEntry) {
+		return ''
+	}
+
+	$propertyExists = $matchingEntry | Get-Member -MemberType Properties -Name $PropertyName
+	if ($null -eq $propertyExists) {
+		return ''
+	}
+
+	return "$($matchingEntry.$PropertyName)"
+}
+
+Export-ModuleMember -Function Enable-AddonFromConfig, Get-EnabledAddons, Add-AddonToSetupJson, Remove-AddonFromSetupJson, Set-AddonSetupJsonProperty, Get-AddonSetupJsonProperty,
 Install-DebianPackages, Get-DebianPackageAvailableOffline, Test-IsAddonEnabled, Invoke-AddonsHooks, Copy-ScriptsToHooksDir,
 Remove-ScriptsFromHooksDir, Get-AddonConfig, Backup-Addons, Restore-Addons, Get-AddonStatus, Find-AddonManifests,
 Get-ErrCodeAddonAlreadyDisabled, Get-ErrCodeAddonAlreadyEnabled, Get-ErrCodeAddonEnableFailed, Get-ErrCodeAddonNotFound, Get-ErrCodeInvalidParameter,

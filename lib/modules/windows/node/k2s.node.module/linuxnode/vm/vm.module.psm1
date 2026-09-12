@@ -644,7 +644,14 @@ function Copy-ToRemoteComputerViaSshKey($Source, $Target, $UserName, $IpAddress,
         return
     }
 
-    (Invoke-CmdOnControlPlaneViaSSHKey 'sudo rm -rf /tmp/copy.tar').Output | Write-Log
+    $isControlPlane = ($IpAddress -eq $ipControlPlane)
+    $invokeSshCmd = if ($isControlPlane) {
+        { param($cmd) (Invoke-CmdOnControlPlaneViaSSHKey $cmd).Output | Write-Log }
+    } else {
+        { param($cmd) (Invoke-CmdOnVmViaSSHKey -CmdToExecute $cmd -UserName $UserName -IpAddress $IpAddress).Output | Write-Log }
+    }
+
+    & $invokeSshCmd 'sudo rm -rf /tmp/copy.tar'
 
     $output = tar.exe -cf "$env:TEMP\copy.tar" -C $tarFolder .
     if ($LASTEXITCODE -ne 0 -and !$IgnoreErrors) {
@@ -656,9 +663,9 @@ function Copy-ToRemoteComputerViaSshKey($Source, $Target, $UserName, $IpAddress,
         throw "Could not copy '$Source' to '$Target': $output"
     }
 
-    (Invoke-CmdOnControlPlaneViaSSHKey "mkdir -p $targetDirectory").Output | Write-Log
-    (Invoke-CmdOnControlPlaneViaSSHKey "tar -xf /tmp/copy.tar -C $targetDirectory").Output | Write-Log
-    (Invoke-CmdOnControlPlaneViaSSHKey 'sudo rm -rf /tmp/copy.tar').Output | Write-Log
+    & $invokeSshCmd "mkdir -p $targetDirectory"
+    & $invokeSshCmd "tar -xf /tmp/copy.tar -C $targetDirectory"
+    & $invokeSshCmd 'sudo rm -rf /tmp/copy.tar'
     Remove-Item -Path "$env:temp\copy.tar" -Force -ErrorAction SilentlyContinue
     Remove-Item -Path "$tempDirectory" -Force -Recurse -ErrorAction SilentlyContinue
 }

@@ -53,24 +53,28 @@ if ($clusterState -notmatch $k8sFormattedNodeName) {
 }
 
 $connectionCheck = (Invoke-CmdOnVmViaSSHKey -CmdToExecute 'which ls' -UserName $UserName -IpAddress $IpAddress)
-if (!$connectionCheck.Success) {
-    throw "Cannot connect to the computer with IP address '$IpAddress'."
+$isNodeReachable = $connectionCheck.Success
+if (!$isNodeReachable) {
+    Write-Log "[WARN] Cannot connect to the computer with IP address '$IpAddress'. The node/VM may already be deleted. Proceeding with cluster-side cleanup only." -Console
 }
 
 $k8sFormattedNodeName = $NodeName.ToLower()
-$actualHostname = (Invoke-CmdOnVmViaSSHKey -CmdToExecute 'echo $(hostname)' -UserName $UserName -IpAddress $IpAddress).Output
-if ($k8sFormattedNodeName -ne $actualHostname.ToLower()) {
-    throw "The passed NodeName '$NodeName' is not the name of the node with IP '$IpAddress' ($actualHostname)"
-}
+if ($isNodeReachable) {
+    $actualHostname = (Invoke-CmdOnVmViaSSHKey -CmdToExecute 'echo $(hostname)' -UserName $UserName -IpAddress $IpAddress).Output
+    if ($k8sFormattedNodeName -ne $actualHostname.ToLower()) {
+        throw "The passed NodeName '$NodeName' is not the name of the node with IP '$IpAddress' ($actualHostname)"
+    }
 
-Write-Log 'Stop the worker node'
-& "$PSScriptRoot\Stop.ps1" -AdditionalHooksDir $AdditionalHooksDir -ShowLogs:$ShowLogs -SkipHeaderDisplay:$SkipHeaderDisplay -NodeName $NodeName
+    Write-Log 'Stop the worker node'
+    & "$PSScriptRoot\Stop.ps1" -AdditionalHooksDir $AdditionalHooksDir -ShowLogs:$ShowLogs -SkipHeaderDisplay:$SkipHeaderDisplay -NodeName $NodeName
+}
 
 $workerNodeParams = @{
     NodeName = $NodeName
     UserName = $UserName
     IpAddress = $IpAddress
     AdditionalHooksDir = $AdditionalHooksDir
+    SkipRemoteCleanup = (-not $isNodeReachable)
 }
 Remove-LinuxWorkerNode @workerNodeParams
 
