@@ -9,8 +9,10 @@ FROM mcr.microsoft.com/windows/nanoserver:${WINDOWS_VERSION}
 LABEL description='Linkerd data-plane proxy (Windows)'
 LABEL k2s.io/linkerd-image-model=merged
 LABEL k2s.io/linkerd-init-implementation=k2s-hns-noop
+LABEL k2s.io/linkerd-proxy-identity-implementation=k2s-proxy-identity
 
 COPY ["release/linkerd2-proxy.exe", "/"]
+COPY ["release/linkerd-proxy-identity.exe", "/"]
 COPY ["release/linkerd2-proxy-init.exe", "/usr/lib/linkerd/linkerd2-proxy-init.exe"]
 
 USER ContainerAdministrator
@@ -26,4 +28,4 @@ RUN net localgroup "Network Configuration Operators" "K2sSecurity" /add
 # K2s no-op (cmd/linkerdinit), the HNS redirection is programmed by the K2s CNI.
 USER K2sSecurity
 
-ENTRYPOINT ["linkerd2-proxy.exe"]
+ENTRYPOINT ["linkerd-proxy-identity.exe"]
