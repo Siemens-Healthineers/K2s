@@ -41,6 +41,125 @@ Import-Module $infraModule, $addonsModule, $ociModule
 
 <#
 .SYNOPSIS
+Reduces a container image reference to its registry + repository identity.
+.DESCRIPTION
+COMPARISON HELPER - used exclusively to decide whether an omit declaration and an artifact
+image denote the same image. It never rewrites a reference: export, the OCI artifact, the
+tar entry names and the normal import path keep the full original reference including its
+tag/digest.
+
+Strips the tag and/or digest while keeping registry host, port and the full repository path.
+Only the last path segment is searched for a tag separator, so a registry port
+('localhost:5000/repo/image') is never mistaken for a tag.
+.PARAMETER Image
+The container image reference, e.g. 'quay.io/jetstack/cert-manager-controller:v1.21.1'.
+.EXAMPLE
+ConvertTo-OmitComparableImageIdentity -Image 'quay.io/jetstack/cert-manager-controller:v1.21.1'
+# -> quay.io/jetstack/cert-manager-controller
+#>
+function ConvertTo-OmitComparableImageIdentity {
+    param(
+        [Parameter(Mandatory = $false)]
+        [AllowNull()]
+        [AllowEmptyString()]
+        [string] $Image
+    )
+
+    $reference = "$Image".Trim()
+    if ([string]::IsNullOrWhiteSpace($reference)) {
+        return ''
+    }
+
+    # A digest always terminates the reference, everything from '@' on can be dropped.
+    $digestIndex = $reference.IndexOf('@')
+    if ($digestIndex -ge 0) {
+        $reference = $reference.Substring(0, $digestIndex)
+    }
+
+    # A tag may only appear in the last path segment; a ':' before the last '/' is a port.
+    $separatorIndex = $reference.LastIndexOf('/')
+    $lastSegment = if ($separatorIndex -ge 0) { $reference.Substring($separatorIndex + 1) } else { $reference }
+    $tagIndex = $lastSegment.LastIndexOf(':')
+    if ($tagIndex -ge 0) {
+        $lastSegment = $lastSegment.Substring(0, $tagIndex)
+        $reference = if ($separatorIndex -ge 0) { $reference.Substring(0, $separatorIndex + 1) + $lastSegment } else { $lastSegment }
+    }
+
+    return $reference.Trim()
+}
+
+<#
+.SYNOPSIS
+Converts an image reference into the comparable identity key used for omit matching.
+.DESCRIPTION
+COMPARISON HELPER. Applies 'ConvertTo-OmitComparableImageIdentity' and then the very same
+sanitization 'ConvertTo-ImageTarFileName' applies, so a key derived from a manifest
+reference can be compared with a key derived from an artifact tar entry name.
+.PARAMETER Image
+The container image reference.
+#>
+function ConvertTo-OmitComparableImageKey {
+    param(
+        [Parameter(Mandatory = $false)]
+        [AllowNull()]
+        [AllowEmptyString()]
+        [string] $Image
+    )
+
+    $identity = ConvertTo-OmitComparableImageIdentity -Image $Image
+    if ([string]::IsNullOrWhiteSpace($identity)) {
+        return ''
+    }
+
+    return ($identity -replace '[:/]', '_') -replace '[^a-zA-Z0-9_.-]', ''
+}
+
+<#
+.SYNOPSIS
+Derives the comparable identity key of an image tar entry of an images layer.
+.DESCRIPTION
+COMPARISON HELPER. Removes the optional 'windows_' prefix, the '.tar' suffix and the last
+'_' separated segment (the sanitized tag) of an entry name. The entry name itself is never
+modified - the caller keeps skipping the exact, original artifact entry.
+
+Because the tar naming rule is lossy this deliberately removes only the LAST segment. An
+entry without a version segment yields an empty key and therefore never matches.
+.PARAMETER TarFileName
+The tar entry name, e.g. 'quay.io_jetstack_cert-manager-controller_v1.20.2.tar'.
+#>
+function Get-OmitComparableImageKeyFromTarFileName {
+    param(
+        [Parameter(Mandatory = $false)]
+        [AllowNull()]
+        [AllowEmptyString()]
+        [string] $TarFileName
+    )
+
+    $name = "$TarFileName".Trim()
+    if ([string]::IsNullOrWhiteSpace($name)) {
+        return ''
+    }
+
+    $name = [System.IO.Path]::GetFileName($name)
+    if (-not $name.EndsWith('.tar')) {
+        return ''
+    }
+
+    $name = $name.Substring(0, $name.Length - '.tar'.Length)
+    if ($name.StartsWith('windows_')) {
+        $name = $name.Substring('windows_'.Length)
+    }
+
+    $versionIndex = $name.LastIndexOf('_')
+    if ($versionIndex -le 0) {
+        return ''
+    }
+
+    return $name.Substring(0, $versionIndex)
+}
+
+<#
+.SYNOPSIS
 Parses '-Omit' tokens into structured scope/flag objects.
 .DESCRIPTION
 Accepted token forms:
@@ -342,6 +461,23 @@ function New-AddonImagePrunePlan {
         $entryOmitted = New-Object 'System.Collections.Generic.HashSet[string]'
         $entryKept = New-Object 'System.Collections.Generic.HashSet[string]'
 
+        # Index this entry's artifact files by image identity (registry + repository, without
+        # tag/digest). The omit declarations are resolved from the local working tree, whose
+        # image versions may differ from the versions carried by the artifact.
+        $entryFilesByIdentity = @{}
+        foreach ($entryFile in $entryFiles) {
+            $identityKey = Get-OmitComparableImageKeyFromTarFileName -TarFileName $entryFile
+            if ([string]::IsNullOrWhiteSpace($identityKey)) {
+                continue
+            }
+            if (-not $entryFilesByIdentity.ContainsKey($identityKey)) {
+                $entryFilesByIdentity[$identityKey] = @()
+            }
+            if ($entryFilesByIdentity[$identityKey] -notcontains $entryFile) {
+                $entryFilesByIdentity[$identityKey] += $entryFile
+            }
+        }
+
         foreach ($flag in @($entry.Flags)) {
             if ($null -eq $flag -or $null -eq $flag.omittedImages) {
                 continue
@@ -357,16 +493,29 @@ function New-AddonImagePrunePlan {
 
             $flagFiles = New-Object 'System.Collections.Generic.HashSet[string]'
             foreach ($image in $flagImages) {
-                $candidates = @(
-                    (ConvertTo-ImageTarFileName -Image $image),
-                    (ConvertTo-ImageTarFileName -Image $image -Windows)
-                )
+                # Exact match first (same version in manifest and artifact), then fall back to
+                # the image identity so a version drift between the local manifest and the
+                # artifact does not silently disable the omit option. The matched artifact
+                # entry always keeps its original tag - only the decision is version agnostic.
+                $matchedFiles = @()
 
-                foreach ($candidate in $candidates) {
-                    if (-not $entryFiles.Contains($candidate)) {
-                        continue
+                foreach ($candidate in @(
+                        (ConvertTo-ImageTarFileName -Image $image),
+                        (ConvertTo-ImageTarFileName -Image $image -Windows))) {
+                    if ($entryFiles.Contains($candidate)) {
+                        $matchedFiles += $candidate
                     }
+                }
 
+                if ($matchedFiles.Count -eq 0) {
+                    $identityKey = ConvertTo-OmitComparableImageKey -Image $image
+                    if (-not [string]::IsNullOrWhiteSpace($identityKey) -and $entryFilesByIdentity.ContainsKey($identityKey)) {
+                        $matchedFiles = @($entryFilesByIdentity[$identityKey])
+                        Write-Log "[Prune] '$($entry.Key)': '$image' matched $($matchedFiles.Count) artifact image(s) by identity '$identityKey' (different version in the artifact)."
+                    }
+                }
+
+                foreach ($candidate in $matchedFiles) {
                     [void]$flagFiles.Add($candidate)
 
                     if (-not $fileToImages.ContainsKey($candidate)) {
@@ -434,9 +583,19 @@ function New-AddonImagePrunePlan {
             continue
         }
 
-        if ($fileToImages.ContainsKey($file) -and $fileToImages[$file].Count -gt 1) {
-            $plan.Warnings += "[Prune] '$file' maps to more than one image reference ($($fileToImages[$file] -join ', ')) - keeping it to stay on the safe side."
-            continue
+        # The guard protects against sanitization collisions, i.e. two genuinely DIFFERENT
+        # images mapping onto the same tar name. Several references of the same image
+        # (e.g. two versions of cert-manager) are not a collision, so compare identities.
+        if ($fileToImages.ContainsKey($file)) {
+            $distinctIdentities = @($fileToImages[$file] |
+                ForEach-Object { ConvertTo-OmitComparableImageKey -Image $_ } |
+                Where-Object { -not [string]::IsNullOrWhiteSpace($_) } |
+                Select-Object -Unique)
+
+            if ($distinctIdentities.Count -gt 1) {
+                $plan.Warnings += "[Prune] '$file' maps to more than one image reference ($($fileToImages[$file] -join ', ')) - keeping it to stay on the safe side."
+                continue
+            }
         }
 
         [void]$prunableFiles.Add($file)
@@ -530,6 +689,7 @@ function Write-AddonImagePrunePlan {
     }
 }
 
-Export-ModuleMember -Function ConvertTo-OmitToken, Get-MatchingOmitToken, Get-OmitFlagsFromImplementation,
+Export-ModuleMember -Function ConvertTo-OmitComparableImageIdentity, ConvertTo-OmitComparableImageKey,
+    Get-OmitComparableImageKeyFromTarFileName, ConvertTo-OmitToken, Get-MatchingOmitToken, Get-OmitFlagsFromImplementation,
 Get-OmitFlagsForAddon, Get-OmittedImagesForFlag, New-AddonImagePrunePlan, Write-AddonImagePrunePlan
 

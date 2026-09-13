@@ -92,6 +92,76 @@ Describe 'ConvertTo-ImageTarFileName' -Tag 'unit', 'ci', 'addon' {
     }
 }
 
+Describe 'ConvertTo-OmitComparableImageIdentity' -Tag 'unit', 'ci', 'addon' {
+    It 'removes the tag' {
+        ConvertTo-OmitComparableImageIdentity -Image 'quay.io/jetstack/cert-manager-controller:v1.21.1' |
+            Should -Be 'quay.io/jetstack/cert-manager-controller'
+    }
+
+    It 'removes the digest' {
+        ConvertTo-OmitComparableImageIdentity -Image 'repo/image@sha256:0123456789abcdef' | Should -Be 'repo/image'
+    }
+
+    It 'removes a tag and a digest combined' {
+        ConvertTo-OmitComparableImageIdentity -Image 'repo/image:v1.2.3@sha256:0123456789abcdef' | Should -Be 'repo/image'
+    }
+
+    It 'keeps a registry port' {
+        ConvertTo-OmitComparableImageIdentity -Image 'localhost:5000/repo/image:v1.2.3' | Should -Be 'localhost:5000/repo/image'
+    }
+
+    It 'keeps a reference that carries no version' {
+        ConvertTo-OmitComparableImageIdentity -Image 'repo/image' | Should -Be 'repo/image'
+    }
+
+    It 'keeps repositories apart that only share a prefix' {
+        (ConvertTo-OmitComparableImageIdentity -Image 'repo/foo:v1') |
+            Should -Not -Be (ConvertTo-OmitComparableImageIdentity -Image 'repo/foo-bar:v1')
+    }
+
+    It 'returns an empty identity for an empty reference' {
+        ConvertTo-OmitComparableImageIdentity -Image '' | Should -Be ''
+    }
+}
+
+Describe 'ConvertTo-OmitComparableImageKey / Get-OmitComparableImageKeyFromTarFileName' -Tag 'unit', 'ci', 'addon' {
+    It 'derives the same key from a manifest reference and a differently versioned tar entry' {
+        $fromManifest = ConvertTo-OmitComparableImageKey -Image 'quay.io/jetstack/cert-manager-controller:v1.21.1'
+        $fromArtifact = Get-OmitComparableImageKeyFromTarFileName -TarFileName 'quay.io_jetstack_cert-manager-controller_v1.20.2.tar'
+
+        $fromManifest | Should -Be $fromArtifact
+    }
+
+    It 'derives the same key for identical versions' {
+        $fromManifest = ConvertTo-OmitComparableImageKey -Image 'quay.io/keycloak/keycloak:26.7.2'
+        $fromArtifact = Get-OmitComparableImageKeyFromTarFileName -TarFileName 'quay.io_keycloak_keycloak_26.7.2.tar'
+
+        $fromManifest | Should -Be $fromArtifact
+    }
+
+    It 'derives a different key for a different repository' {
+        (ConvertTo-OmitComparableImageKey -Image 'registry.io/repo/foo:v1') |
+            Should -Not -Be (Get-OmitComparableImageKeyFromTarFileName -TarFileName 'registry.io_repo_foo-bar_v1.tar')
+    }
+
+    It 'ignores the windows prefix' {
+        Get-OmitComparableImageKeyFromTarFileName -TarFileName 'windows_shsk2s.azurecr.io_login_v1.2.0.tar' |
+            Should -Be (ConvertTo-OmitComparableImageKey -Image 'shsk2s.azurecr.io/login:v9.9.9')
+    }
+
+    It 'returns an empty key for an entry without a version segment' {
+        Get-OmitComparableImageKeyFromTarFileName -TarFileName 'noversion.tar' | Should -Be ''
+    }
+
+    It 'returns an empty key for a non tar entry' {
+        Get-OmitComparableImageKeyFromTarFileName -TarFileName 'manifest.json' | Should -Be ''
+    }
+
+    It 'returns an empty key for an empty entry' {
+        Get-OmitComparableImageKeyFromTarFileName -TarFileName '' | Should -Be ''
+    }
+}
+
 Describe 'Get-TarEntryName' -Tag 'unit', 'ci', 'addon' {
     # Regression: an addon without a Windows images layer passes $null here. A mandatory
     # [string] parameter rejects that at binding time, which flooded the import output with
@@ -447,6 +517,160 @@ Describe 'New-AddonImagePrunePlan' -Tag 'unit', 'ci', 'addon' {
 
             @($plan.Pruned).Count | Should -Be 0
             $plan.UnmatchedOmit | Should -Contain 'omitKeycloak'
+        }
+    }
+
+    # Regression coverage for defect T16.
+    #
+    # The omit declarations are resolved from the manifests of the LOCAL working tree, while
+    # the images come from the artifact. When an artifact was exported from an older tree its
+    # image versions drift, so tag-exact matching silently skipped nothing. The matching is
+    # therefore done on the image identity (registry + repository, no tag/digest), while the
+    # artifact entry is still filtered by its original, full name.
+    Context 'artifact carries a different version than the local manifest (regression T16)' {
+        BeforeAll {
+            # local manifest declares v1.21.1 ...
+            New-Item -ItemType Directory -Path "$script:testRoot\drift\nginx" -Force | Out-Null
+            New-TestManifest -Path "$script:testRoot\drift\common\manifests\certmanager\cert-manager.yaml" `
+                -Images $script:certManagerImages
+
+            # ... while the artifact ships v1.20.2
+            $script:oldCertManagerImages = @(
+                'quay.io/jetstack/cert-manager-controller:v1.20.2',
+                'quay.io/jetstack/cert-manager-webhook:v1.20.2'
+            )
+
+            $ingress = New-TestEntry -Key 'ingress/nginx' -Name 'ingress' -Implementation 'nginx' `
+                -ImplementationPath "$script:testRoot\drift\nginx" `
+                -Flags @($script:certMgrFlag) `
+                -LinuxImages ($script:oldCertManagerImages + 'registry.k8s.io/ingress-nginx/controller:v1.15.1')
+
+            $script:driftPlan = New-AddonImagePrunePlan -Entries @($ingress) -Omit @('omitCertMgr')
+        }
+
+        It 'prunes the older artifact images although the manifest declares a newer version' {
+            @($script:driftPlan.Pruned).Count | Should -Be 2
+        }
+
+        It 'skips the exact artifact tar entries including their original version' {
+            $skipped = @($script:driftPlan.SkipByKey['ingress/nginx'].Linux)
+
+            $skipped.Count | Should -Be 2
+            $skipped | Should -Contain 'quay.io_jetstack_cert-manager-controller_v1.20.2.tar'
+            $skipped | Should -Contain 'quay.io_jetstack_cert-manager-webhook_v1.20.2.tar'
+        }
+
+        It 'never rewrites the artifact entry to the manifest version' {
+            @($script:driftPlan.SkipByKey['ingress/nginx'].Linux) |
+                Should -Not -Contain 'quay.io_jetstack_cert-manager-controller_v1.21.1.tar'
+        }
+
+        It 'still leaves images that no flag covers untouched' {
+            @($script:driftPlan.SkipByKey['ingress/nginx'].Linux) |
+                Should -Not -Contain (ConvertTo-ImageTarFileName -Image 'registry.k8s.io/ingress-nginx/controller:v1.15.1')
+        }
+
+        It 'records the omit option as applied' {
+            $script:driftPlan.AppliedOmit | Should -Contain 'omitCertMgr'
+        }
+    }
+
+    Context 'version drift with a shared image (global retention still wins)' {
+        BeforeAll {
+            New-Item -ItemType Directory -Path "$script:testRoot\driftshared\nginx" -Force | Out-Null
+            New-TestManifest -Path "$script:testRoot\driftshared\common\manifests\certmanager\cert-manager.yaml" `
+                -Images $script:certManagerImages
+
+            $oldCertManagerImages = @(
+                'quay.io/jetstack/cert-manager-controller:v1.20.2',
+                'quay.io/jetstack/cert-manager-webhook:v1.20.2'
+            )
+
+            $ingress = New-TestEntry -Key 'ingress/nginx' -Name 'ingress' -Implementation 'nginx' `
+                -ImplementationPath "$script:testRoot\driftshared\nginx" `
+                -Flags @($script:certMgrFlag) `
+                -LinuxImages $oldCertManagerImages
+
+            # security ships the very same (old) images but is imported without an omit option
+            $security = New-TestEntry -Key 'security' -Name 'security' -Implementation 'security' `
+                -ImplementationPath "$script:testRoot\security" `
+                -Flags @($script:keycloakFlag) `
+                -LinuxImages ($oldCertManagerImages + $script:keycloakImages)
+
+            $script:driftSharedPlan = New-AddonImagePrunePlan -Entries @($ingress, $security) -Omit @('omitCertMgr')
+        }
+
+        It 'keeps the shared image because the other addon still requires it' {
+            @($script:driftSharedPlan.Pruned).Count | Should -Be 0
+            @($script:driftSharedPlan.SkipByKey['ingress/nginx'].Linux).Count | Should -Be 0
+            @($script:driftSharedPlan.SkipByKey['security'].Linux).Count | Should -Be 0
+        }
+
+        It 'reports the drifted images as retained' {
+            @($script:driftSharedPlan.Retained).Count | Should -Be 2
+            @($script:driftSharedPlan.Retained)[0].RequiredBy | Should -Contain 'security'
+        }
+    }
+
+    Context 'identity matching does not widen to different repositories' {
+        BeforeAll {
+            New-Item -ItemType Directory -Path "$script:testRoot\lookalike\impl" -Force | Out-Null
+            New-TestManifest -Path "$script:testRoot\lookalike\impl\manifests\foo.yaml" -Images @('registry.io/repo/foo:v1.0.0')
+
+            $flag = New-TestFlag -Name 'omitFoo' -FromFiles @('manifests/foo.yaml')
+
+            # the artifact contains a DIFFERENT repository that merely shares a prefix
+            $entry = New-TestEntry -Key 'lookalike' -Name 'lookalike' -Implementation 'impl' `
+                -ImplementationPath "$script:testRoot\lookalike\impl" `
+                -Flags @($flag) `
+                -LinuxImages @('registry.io/repo/foo-bar:v2.0.0', 'registry.io/repo/foobar:v2.0.0')
+
+            $script:lookalikePlan = New-AddonImagePrunePlan -Entries @($entry) -Omit @('omitFoo')
+        }
+
+        It 'does not prune a repository that only shares a prefix' {
+            @($script:lookalikePlan.Pruned).Count | Should -Be 0
+            @($script:lookalikePlan.SkipByKey['lookalike'].Linux).Count | Should -Be 0
+        }
+    }
+
+    Context 'digest based reference in the local manifest' {
+        BeforeAll {
+            New-Item -ItemType Directory -Path "$script:testRoot\digest\impl" -Force | Out-Null
+            New-TestManifest -Path "$script:testRoot\digest\impl\manifests\pinned.yaml" `
+                -Images @('quay.io/jetstack/cert-manager-controller@sha256:0123456789abcdef')
+
+            $flag = New-TestFlag -Name 'omitCertMgr' -FromFiles @('manifests/pinned.yaml')
+
+            $entry = New-TestEntry -Key 'digest' -Name 'digest' -Implementation 'impl' `
+                -ImplementationPath "$script:testRoot\digest\impl" `
+                -Flags @($flag) `
+                -LinuxImages @('quay.io/jetstack/cert-manager-controller:v1.20.2')
+
+            $script:digestPlan = New-AddonImagePrunePlan -Entries @($entry) -Omit @('omitCertMgr')
+        }
+
+        It 'matches the tagged artifact image through the repository identity' {
+            @($script:digestPlan.SkipByKey['digest'].Linux) |
+                Should -Contain 'quay.io_jetstack_cert-manager-controller_v1.20.2.tar'
+        }
+    }
+
+    Context 'version drift without an omit option requested' {
+        It 'imports everything unchanged' {
+            New-Item -ItemType Directory -Path "$script:testRoot\driftnoomit\nginx" -Force | Out-Null
+            New-TestManifest -Path "$script:testRoot\driftnoomit\common\manifests\certmanager\cert-manager.yaml" `
+                -Images $script:certManagerImages
+
+            $ingress = New-TestEntry -Key 'ingress/nginx' -Name 'ingress' -Implementation 'nginx' `
+                -ImplementationPath "$script:testRoot\driftnoomit\nginx" `
+                -Flags @($script:certMgrFlag) `
+                -LinuxImages @('quay.io/jetstack/cert-manager-controller:v1.20.2')
+
+            $plan = New-AddonImagePrunePlan -Entries @($ingress) -Omit @()
+
+            @($plan.Pruned).Count | Should -Be 0
+            @($plan.SkipByKey['ingress/nginx'].Linux).Count | Should -Be 0
         }
     }
 }
