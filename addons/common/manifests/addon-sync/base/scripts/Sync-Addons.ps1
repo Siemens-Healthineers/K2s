@@ -372,7 +372,7 @@ function Sync-AddonFromOciLayout {
                             foreach ($line in ($originalContent -split "`r?`n")) {
                                 if ($line.StartsWith('#') -or $line.Trim() -eq '') { $headerLines += $line } else { break }
                             }
-                            $tempJson = New-TemporaryFile
+                            $tempJson = [System.IO.FileInfo]::new([System.IO.Path]::GetTempFileName())
                             try {
                                 $existingManifest | ConvertTo-Json -Depth 100 | Set-Content -Path $tempJson.FullName -Encoding UTF8
                                 $yamlOutput = & $yqExe eval -P '.' $tempJson.FullName

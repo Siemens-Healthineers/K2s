@@ -17,6 +17,11 @@ function Get-KubeToolsPath {
     return "$kubeBinPath\kube"
 }
 
+function New-K2sTempFile {
+    $path = [System.IO.Path]::GetTempFileName()
+    return [System.IO.FileInfo]::new($path)
+}
+
 function Get-CrictlExePath {
     $kubeBinPath = Get-KubeBinPath
     $crictlExe = "$kubeBinPath\crictl.exe"
@@ -186,7 +191,7 @@ function Write-RefreshEnvVariables {
     Write-Log ' ' -Console
 }
 
-Export-ModuleMember -Function Get-KubePath, Get-KubeBinPath, Get-KubeToolsPath, Get-CrictlExePath, Get-K2sExePath,
+Export-ModuleMember -Function Get-KubePath, Get-KubeBinPath, Get-KubeToolsPath, New-K2sTempFile, Get-CrictlExePath, Get-K2sExePath,
 Get-InstallationDriveLetter,
 Get-SystemDriveLetter,
 Test-PathPrerequisites,
