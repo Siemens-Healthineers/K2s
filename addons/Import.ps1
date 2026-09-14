@@ -492,7 +492,7 @@ foreach ($addon in $addonsToImport) {
                     $yqExe = Join-Path $kubeBinPath "windowsnode\yaml\yq.exe"
                     
                     if (Test-Path $yqExe) {
-                        $tempJsonFile = New-TemporaryFile
+                        $tempJsonFile = New-K2sTempFile
                         try {
                             $originalContent = Get-Content -Path $destManifestPath -Raw -Encoding UTF8
                             $headerLines = @()
@@ -505,7 +505,7 @@ foreach ($addon in $addonsToImport) {
                             }
                             
                             $mergedJson = $existingManifest | ConvertTo-Json -Depth 100
-                            Set-Content -Path $tempJsonFile.FullName -Value $mergedJson -Encoding UTF8
+                            Set-Content -Path $tempJsonFile -Value $mergedJson -Encoding UTF8
                             
                             $yamlOutput = & $yqExe eval -P '.' $tempJsonFile
                             if ($yamlOutput -is [array]) {
@@ -597,7 +597,7 @@ foreach ($addon in $addonsToImport) {
                     $yqExe = Join-Path $kubeBinPath "windowsnode\yaml\yq.exe"
                     
                     if (Test-Path $yqExe) {
-                        $tempJsonFile = New-TemporaryFile
+                        $tempJsonFile = New-K2sTempFile
                         try {
                             $originalContent = Get-Content -Path $parentManifestPath -Raw -Encoding UTF8
                             $headerLines = @()
@@ -610,7 +610,7 @@ foreach ($addon in $addonsToImport) {
                             }
                             
                             $mergedJson = $existingManifest | ConvertTo-Json -Depth 100
-                            Set-Content -Path $tempJsonFile.FullName -Value $mergedJson -Encoding UTF8
+                            Set-Content -Path $tempJsonFile -Value $mergedJson -Encoding UTF8
                             
                             $yamlOutput = & $yqExe eval -P '.' $tempJsonFile
                             if ($yamlOutput -is [array]) {
