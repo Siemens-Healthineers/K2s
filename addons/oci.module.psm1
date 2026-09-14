@@ -41,6 +41,24 @@ $script:MediaTypes = @{
 # OCI Image Layout version
 $script:OciLayoutVersion = '1.0.0'
 
+function Get-OciFileSha256 {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$Path
+    )
+
+    $stream = [System.IO.File]::OpenRead($Path)
+    $sha256 = [System.Security.Cryptography.SHA256]::Create()
+    try {
+        $hashBytes = $sha256.ComputeHash($stream)
+        return [System.BitConverter]::ToString($hashBytes).Replace('-', '').ToLowerInvariant()
+    }
+    finally {
+        $sha256.Dispose()
+        $stream.Dispose()
+    }
+}
+
 function Get-OciMediaTypes {
     <#
     .SYNOPSIS
@@ -108,8 +126,7 @@ function Add-ContentToBlobs {
         throw "Source path not found: $SourcePath"
     }
     
-    $hash = Get-FileHash -Path $SourcePath -Algorithm SHA256
-    $digest = $hash.Hash.ToLower()
+    $digest = Get-OciFileSha256 -Path $SourcePath
     $blobPath = Join-Path $BlobsDir $digest
     
     if ($Move) {
@@ -139,16 +156,16 @@ function Add-JsonContentToBlobs {
         [object]$Content
     )
     
-    $tempFile = New-TemporaryFile
+    $tempFile = [System.IO.Path]::GetTempFileName()
     try {
         $json = $Content | ConvertTo-Json -Depth 20
-        [System.IO.File]::WriteAllText($tempFile.FullName, $json, [System.Text.UTF8Encoding]::new($false))
-        $result = Add-ContentToBlobs -BlobsDir $BlobsDir -SourcePath $tempFile.FullName -Move
+        [System.IO.File]::WriteAllText($tempFile, $json, [System.Text.UTF8Encoding]::new($false))
+        $result = Add-ContentToBlobs -BlobsDir $BlobsDir -SourcePath $tempFile -Move
         return $result
     }
     finally {
-        if (Test-Path $tempFile.FullName) {
-            Remove-Item -Path $tempFile.FullName -Force -ErrorAction SilentlyContinue
+        if (Test-Path $tempFile) {
+            Remove-Item -Path $tempFile -Force -ErrorAction SilentlyContinue
         }
     }
 }
@@ -185,7 +202,7 @@ function Get-BlobByDigest {
     
     # Verify content integrity per OCI Image Spec descriptor verification
     if (-not $SkipVerification) {
-        $computedHash = (Get-FileHash -Path $blobPath -Algorithm SHA256).Hash.ToLower()
+        $computedHash = Get-OciFileSha256 -Path $blobPath
         if ($computedHash -ne $hash) {
             throw "Blob integrity check failed for digest: $Digest (computed: sha256:$computedHash)"
         }
