@@ -47,7 +47,14 @@ function Get-OciFileSha256 {
         [string]$Path
     )
 
-    $stream = [System.IO.File]::OpenRead($Path)
+    # Permit concurrent readers while preventing writes during hashing so the digest
+    # always represents a stable file.
+    $stream = [System.IO.File]::Open(
+        $Path,
+        [System.IO.FileMode]::Open,
+        [System.IO.FileAccess]::Read,
+        [System.IO.FileShare]::Read
+    )
     $sha256 = [System.Security.Cryptography.SHA256]::Create()
     try {
         $hashBytes = $sha256.ComputeHash($stream)
@@ -156,7 +163,7 @@ function Add-JsonContentToBlobs {
         [object]$Content
     )
     
-    $tempFile = [System.IO.Path]::GetTempFileName()
+    $tempFile = New-K2sTempFile
     try {
         $json = $Content | ConvertTo-Json -Depth 20
         [System.IO.File]::WriteAllText($tempFile, $json, [System.Text.UTF8Encoding]::new($false))

@@ -505,7 +505,7 @@ foreach ($addon in $addonsToImport) {
                             }
                             
                             $mergedJson = $existingManifest | ConvertTo-Json -Depth 100
-                            Set-Content -Path $tempJsonFile.FullName -Value $mergedJson -Encoding UTF8
+                            Set-Content -Path $tempJsonFile -Value $mergedJson -Encoding UTF8
                             
                             $yamlOutput = & $yqExe eval -P '.' $tempJsonFile
                             if ($yamlOutput -is [array]) {
@@ -610,7 +610,7 @@ foreach ($addon in $addonsToImport) {
                             }
                             
                             $mergedJson = $existingManifest | ConvertTo-Json -Depth 100
-                            Set-Content -Path $tempJsonFile.FullName -Value $mergedJson -Encoding UTF8
+                            Set-Content -Path $tempJsonFile -Value $mergedJson -Encoding UTF8
                             
                             $yamlOutput = & $yqExe eval -P '.' $tempJsonFile
                             if ($yamlOutput -is [array]) {
