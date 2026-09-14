@@ -22,7 +22,7 @@ function Get-FromYamlFile {
 
     $kubeBinPath = Get-KubeBinPath
     $yaml2jsonExe = [System.IO.Path]::Combine($kubeBinPath, 'yaml2json.exe')
-    $tempJsonFile = New-TemporaryFile
+    $tempJsonFile = New-K2sTempFile
 
     try {
         Invoke-Expression "&`"$yaml2jsonExe`" -input `"$Path`" -output `"$tempJsonFile`" -verbosity error"
