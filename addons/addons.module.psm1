@@ -3,11 +3,10 @@
 # SPDX-License-Identifier: MIT
 
 $infraModule = "$PSScriptRoot\..\lib\modules\windows\infra\k2s.infra.module\k2s.infra.module.psm1"
-$pathModule = "$PSScriptRoot\..\lib\modules\windows\infra\k2s.infra.module\path\path.module.psm1"
 $clusterModule = "$PSScriptRoot\..\lib\modules\windows\cluster\k2s.cluster.module\k2s.cluster.module.psm1"
 $nodeModule = "$PSScriptRoot/../lib/modules/windows/node/k2s.node.module/k2s.node.module.psm1"
 
-Import-Module $infraModule, $clusterModule, $nodeModule, $pathModule
+Import-Module $infraModule, $clusterModule, $nodeModule
 
 $ConfigKey_EnabledAddons = 'EnabledAddons'
 $hooksDir = "$PSScriptRoot\hooks"
@@ -1946,12 +1945,72 @@ function Remove-Cmctl {
     Remove-Item -Path $cmctlExe -Force -ErrorAction SilentlyContinue
 }
 
-function Get-TrustedRootStoreLocation {
-    return 'Cert:\LocalMachine\Root'
-}
-
 function Get-CAIssuerName {
     return 'K2s Self-Signed CA'
+}
+
+function ConvertFrom-PemCertificate {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$CertificatePem
+    )
+
+    $encodedCertificate = $CertificatePem.Replace('-----BEGIN CERTIFICATE-----', '').Replace('-----END CERTIFICATE-----', '') -replace '\s', ''
+    $certificateBytes = [Convert]::FromBase64String($encodedCertificate)
+    return [System.Security.Cryptography.X509Certificates.X509Certificate2]::new($certificateBytes)
+}
+
+function Add-PemCertificateToTrustedRootStore {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$CertificatePem
+    )
+
+    $certificate = ConvertFrom-PemCertificate -CertificatePem $CertificatePem
+    $store = [System.Security.Cryptography.X509Certificates.X509Store]::new(
+        [System.Security.Cryptography.X509Certificates.StoreName]::Root,
+        [System.Security.Cryptography.X509Certificates.StoreLocation]::LocalMachine
+    )
+
+    try {
+        $store.Open([System.Security.Cryptography.X509Certificates.OpenFlags]::ReadWrite)
+        $store.Add($certificate)
+    }
+    finally {
+        $store.Close()
+        $certificate.Dispose()
+    }
+}
+
+function Remove-CertificateFromTrustedRootStore {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$Subject
+    )
+
+    $store = [System.Security.Cryptography.X509Certificates.X509Store]::new(
+        [System.Security.Cryptography.X509Certificates.StoreName]::Root,
+        [System.Security.Cryptography.X509Certificates.StoreLocation]::LocalMachine
+    )
+
+    try {
+        $store.Open([System.Security.Cryptography.X509Certificates.OpenFlags]::ReadWrite)
+        $escapedSubject = [Regex]::Escape($Subject)
+        @($store.Certificates | Where-Object { $_.Subject -match $escapedSubject }) | ForEach-Object {
+            try {
+                $store.Remove($_)
+            }
+            finally {
+                $_.Dispose()
+            }
+        }
+    }
+    finally {
+        $store.Close()
+    }
 }
 
 
@@ -1969,17 +2028,8 @@ function Import-CACertificateToWindowsStore {
     Write-Log 'Importing CA root certificate to trusted authorities of your computer' -Console
     
     $b64secret = (Invoke-Kubectl -Params '-n', 'cert-manager', 'get', 'secrets', 'ca-issuer-root-secret', '-o', 'jsonpath', '--template', '{.data.ca\.crt}').Output
-    $tempFile = New-K2sTempFile
-    $certLocationStore = Get-TrustedRootStoreLocation
-    
-    [Text.Encoding]::Utf8.GetString([Convert]::FromBase64String($b64secret)) | Out-File -Encoding utf8 -FilePath $tempFile -Force
-    
-    $params = @{
-        FilePath          = $tempFile
-        CertStoreLocation = $certLocationStore
-    }
-    Import-Certificate @params
-    Remove-Item -Path $tempFile -Force
+    $certificatePem = [Text.Encoding]::Utf8.GetString([Convert]::FromBase64String($b64secret))
+    Add-PemCertificateToTrustedRootStore -CertificatePem $certificatePem
 }
 
 <#
@@ -2269,8 +2319,7 @@ function Uninstall-CertManager {
 
     Write-Log 'Removing CA issuer certificate from trusted root' -Console
     $caIssuerName = Get-CAIssuerName
-    $trustedRootStoreLocation = Get-TrustedRootStoreLocation
-    Get-ChildItem -Path $trustedRootStoreLocation | Where-Object { $_.Subject -match $caIssuerName } | Remove-Item
+    Remove-CertificateFromTrustedRootStore -Subject $caIssuerName
 }
 
 function Wait-ForK8sSecret {
