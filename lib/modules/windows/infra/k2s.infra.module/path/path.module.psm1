@@ -18,8 +18,7 @@ function Get-KubeToolsPath {
 }
 
 function New-K2sTempFile {
-    $path = [System.IO.Path]::GetTempFileName()
-    return [System.IO.FileInfo]::new($path)
+    return [System.IO.Path]::GetTempFileName()
 }
 
 function Get-CrictlExePath {

@@ -1971,14 +1971,14 @@ function Import-CACertificateToWindowsStore {
     $tempFile = New-K2sTempFile
     $certLocationStore = Get-TrustedRootStoreLocation
     
-    [Text.Encoding]::Utf8.GetString([Convert]::FromBase64String($b64secret)) | Out-File -Encoding utf8 -FilePath $tempFile.FullName -Force
+    [Text.Encoding]::Utf8.GetString([Convert]::FromBase64String($b64secret)) | Out-File -Encoding utf8 -FilePath $tempFile -Force
     
     $params = @{
-        FilePath          = $tempFile.FullName
+        FilePath          = $tempFile
         CertStoreLocation = $certLocationStore
     }
     Import-Certificate @params
-    Remove-Item -Path $tempFile.FullName -Force
+    Remove-Item -Path $tempFile -Force
 }
 
 <#
