@@ -3,10 +3,11 @@
 # SPDX-License-Identifier: MIT
 
 $infraModule = "$PSScriptRoot\..\lib\modules\windows\infra\k2s.infra.module\k2s.infra.module.psm1"
+$pathModule = "$PSScriptRoot\..\lib\modules\windows\infra\k2s.infra.module\path\path.module.psm1"
 $clusterModule = "$PSScriptRoot\..\lib\modules\windows\cluster\k2s.cluster.module\k2s.cluster.module.psm1"
 $nodeModule = "$PSScriptRoot/../lib/modules/windows/node/k2s.node.module/k2s.node.module.psm1"
 
-Import-Module $infraModule, $clusterModule, $nodeModule
+Import-Module $infraModule, $clusterModule, $nodeModule, $pathModule
 
 $ConfigKey_EnabledAddons = 'EnabledAddons'
 $hooksDir = "$PSScriptRoot\hooks"
@@ -1968,17 +1969,17 @@ function Import-CACertificateToWindowsStore {
     Write-Log 'Importing CA root certificate to trusted authorities of your computer' -Console
     
     $b64secret = (Invoke-Kubectl -Params '-n', 'cert-manager', 'get', 'secrets', 'ca-issuer-root-secret', '-o', 'jsonpath', '--template', '{.data.ca\.crt}').Output
-    $tempFile = New-TemporaryFile
+    $tempFile = New-K2sTempFile
     $certLocationStore = Get-TrustedRootStoreLocation
     
-    [Text.Encoding]::Utf8.GetString([Convert]::FromBase64String($b64secret)) | Out-File -Encoding utf8 -FilePath $tempFile.FullName -Force
+    [Text.Encoding]::Utf8.GetString([Convert]::FromBase64String($b64secret)) | Out-File -Encoding utf8 -FilePath $tempFile -Force
     
     $params = @{
-        FilePath          = $tempFile.FullName
+        FilePath          = $tempFile
         CertStoreLocation = $certLocationStore
     }
     Import-Certificate @params
-    Remove-Item -Path $tempFile.FullName -Force
+    Remove-Item -Path $tempFile -Force
 }
 
 <#
