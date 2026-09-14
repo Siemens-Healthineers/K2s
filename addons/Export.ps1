@@ -276,7 +276,7 @@ try {
                     try {
                         Copy-Item -Path $manifestFile -Destination $configManifestPath -Force
                         
-                        $tempFilterFile = New-TemporaryFile
+                        $tempFilterFile = New-K2sTempFile
                         $filterContent = ".spec.implementations |= [.[] | select(.name == `"$($implementation.name)`")]"
                         Set-Content -Path $tempFilterFile.FullName -Value $filterContent -Encoding ASCII
                         
@@ -833,7 +833,7 @@ try {
             } else {
                 # Use OCI empty descriptor as fallback 
                 $emptyJson = '{}'
-                $emptyTempFile = New-TemporaryFile
+                $emptyTempFile = New-K2sTempFile
                 try {
                     [System.IO.File]::WriteAllText($emptyTempFile.FullName, $emptyJson, [System.Text.UTF8Encoding]::new($false))
                     $emptyBlobResult = Add-ContentToBlobs -BlobsDir $blobsDir -SourcePath $emptyTempFile.FullName -Move

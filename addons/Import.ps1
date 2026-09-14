@@ -492,7 +492,7 @@ foreach ($addon in $addonsToImport) {
                     $yqExe = Join-Path $kubeBinPath "windowsnode\yaml\yq.exe"
                     
                     if (Test-Path $yqExe) {
-                        $tempJsonFile = New-TemporaryFile
+                        $tempJsonFile = New-K2sTempFile
                         try {
                             $originalContent = Get-Content -Path $destManifestPath -Raw -Encoding UTF8
                             $headerLines = @()
@@ -597,7 +597,7 @@ foreach ($addon in $addonsToImport) {
                     $yqExe = Join-Path $kubeBinPath "windowsnode\yaml\yq.exe"
                     
                     if (Test-Path $yqExe) {
-                        $tempJsonFile = New-TemporaryFile
+                        $tempJsonFile = New-K2sTempFile
                         try {
                             $originalContent = Get-Content -Path $parentManifestPath -Raw -Encoding UTF8
                             $headerLines = @()

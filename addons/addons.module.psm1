@@ -1968,7 +1968,7 @@ function Import-CACertificateToWindowsStore {
     Write-Log 'Importing CA root certificate to trusted authorities of your computer' -Console
     
     $b64secret = (Invoke-Kubectl -Params '-n', 'cert-manager', 'get', 'secrets', 'ca-issuer-root-secret', '-o', 'jsonpath', '--template', '{.data.ca\.crt}').Output
-    $tempFile = New-TemporaryFile
+    $tempFile = New-K2sTempFile
     $certLocationStore = Get-TrustedRootStoreLocation
     
     [Text.Encoding]::Utf8.GetString([Convert]::FromBase64String($b64secret)) | Out-File -Encoding utf8 -FilePath $tempFile.FullName -Force
