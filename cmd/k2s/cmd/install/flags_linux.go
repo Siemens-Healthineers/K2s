@@ -14,5 +14,5 @@ func bindPlatformFlags(cmd *cobra.Command) {
 	cmd.Flags().String(ic.WorkerCPUsFlagName, "", ic.WorkerCPUsFlagUsage)
 	cmd.Flags().String(ic.WorkerMemoryFlagName, "", ic.WorkerMemoryFlagUsage)
 	cmd.Flags().String(ic.WorkerDiskSizeFlagName, "", ic.WorkerDiskSizeFlagUsage)
-	cmd.Flags().String(ic.WindowsIsoPathFlagName, "", ic.WindowsIsoPathFlagUsage)
+	cmd.Flags().String(ic.WindowsQCOW2PathFlagName, "", ic.WindowsQCOW2PathFlagUsage)
 }

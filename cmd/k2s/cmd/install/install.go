@@ -239,7 +239,7 @@ func install(cmd *cobra.Command, args []string) error {
 		WorkerCPUCount:                    worker.Resources.Cpu,
 		WorkerMemory:                      worker.Resources.Memory,
 		WorkerDiskSize:                    worker.Resources.Disk,
-		WindowsIsoPath:                    installConfig.WindowsIsoPath,
+		WindowsQCOW2Path:                  installConfig.WindowsQCOW2Path,
 		DynamicMemory:                     node.Resources.DynamicMemory,
 		LinuxOnly:                         installConfig.LinuxOnly,
 		WSL:                               installConfig.Behavior.Wsl,

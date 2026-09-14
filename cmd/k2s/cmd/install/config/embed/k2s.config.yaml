@@ -17,7 +17,7 @@ nodes:
       cpu: 4 # default
       memory: 8GB # default startup memory
       disk: 64GB # default
-windowsIsoPath: # native Linux only; user-provided Windows installation ISO
+windowsQCOW2Path: # native Linux only; prepared Windows worker QCOW2 image
 env:
   httpProxy: # default
   additionalHooksDir: # default

@@ -29,7 +29,7 @@ type Operation struct {
 	WorkerCPUCount       string   `json:"workerCPUCount"`
 	WorkerMemory         string   `json:"workerMemory"`
 	WorkerDiskSize       string   `json:"workerDiskSize"`
-	WindowsIsoPath       string   `json:"windowsIsoPath"`
+	WindowsQCOW2Path     string   `json:"windowsQCOW2Path"`
 }
 
 // Execute invokes the platform-first native Linux lifecycle script.

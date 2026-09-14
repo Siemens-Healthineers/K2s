@@ -36,7 +36,7 @@ type ClusterInstallConfig struct {
 	WorkerCPUCount         string
 	WorkerMemory           string
 	WorkerDiskSize         string
-	WindowsIsoPath         string
+	WindowsQCOW2Path       string
 	DynamicMemory          bool
 	LinuxOnly              bool
 	WSL                    bool

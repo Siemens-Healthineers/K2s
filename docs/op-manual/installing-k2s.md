@@ -242,14 +242,12 @@ must not exceed 75% of total host memory. Its default
 allocation is 4 CPUs, 8GB RAM, and a 64GB disk. K2s owns the domain, disk,
 network, and lifecycle; `k2s uninstall` removes these K2s-managed resources.
 
-For the first installation, supply a user-provided Windows 11 Enterprise ISO
-with `--windows-iso-path`. K2s creates protected unattended bootstrap media,
-installs Windows into a temporary QCOW2 disk, enables key-based OpenSSH access,
-and caches the completed base image as `/var/lib/libvirt/images/k2s/WindowsWorker-Base.qcow2`. Later
-installations create a disposable QCOW2 overlay from that cache. The base-image
-build requires `xorriso` and Internet access through the K2s host proxy so
-Windows can install its OpenSSH Server capability. For repeatable offline use,
-preserve the cached image under `/var/lib/libvirt/images/k2s/` for later installations.
+For the first installation, supply a prepared Windows worker image with
+`--windows-qcow2-path`. K2s validates the QCOW2 format, imports it into the
+managed base-image cache at `/var/lib/libvirt/images/k2s/WindowsWorker-Base.qcow2`,
+and creates a disposable QCOW2 overlay from that cache for the worker. For
+repeatable offline use, preserve the cached image under
+`/var/lib/libvirt/images/k2s/` for later installations.
 
 The following options are intentionally unavailable on a native Linux host:
 
@@ -258,9 +256,9 @@ The following options are intentionally unavailable on a native Linux host:
 - `--force-online-installation`, offline artifact cleanup, and `--k8s-bins`
 
 Native Linux exposes `--worker-cpus`, `--worker-memory`, `--worker-disk`, and
-`--windows-iso-path`; Windows hosts do not expose these options. In an install
+`--windows-qcow2-path`; Windows hosts do not expose these options. In an install
 configuration, the corresponding resource fields belong to the `worker` node
-entry and `windowsIsoPath` supplies the media location.
+entry and `windowsQCOW2Path` supplies the prepared image location.
 
 The administrator invoking `sudo` receives the generated kubeconfig at
 `~/.kube/config` after a successful installation.

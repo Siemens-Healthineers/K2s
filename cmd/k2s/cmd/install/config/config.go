@@ -62,7 +62,7 @@ type InstallConfig struct {
 	Env             EnvConfig      `mapstructure:"env"`
 	Behavior        BehaviorConfig `mapstructure:"installBehavior"`
 	LinuxOnly       bool           `mapstructure:"linuxOnly"`
-	WindowsIsoPath  string         `mapstructure:"windowsIsoPath"`
+	WindowsQCOW2Path string        `mapstructure:"windowsQCOW2Path"`
 }
 
 type NodeConfig struct {
@@ -129,8 +129,8 @@ const (
 	WorkerDiskSizeFlagName  = "worker-disk"
 	WorkerDiskSizeFlagUsage = "Disk size allocated to the managed Windows worker VM (minimum 20GB, format: <number>[<unit>], where unit = KB, MB or GB)"
 
-	WindowsIsoPathFlagName  = "windows-iso-path"
-	WindowsIsoPathFlagUsage = "Path to a user-provided Windows installation ISO for the managed Windows worker VM"
+	WindowsQCOW2PathFlagName  = "windows-qcow2-path"
+	WindowsQCOW2PathFlagUsage = "Path to a prepared Windows QCOW2 image for the managed Windows worker VM"
 
 	ProxyFlagName      = "proxy"
 	ProxyFlagShorthand = "p"
@@ -398,8 +398,8 @@ func overwriteConfigWithCliParam(iConfig *InstallConfig, vConfig *viper.Viper, f
 		iConfig.GetOrCreateNodeByRole(WorkerRoleName, ResourceConfig{Cpu: "4", Memory: "8GB", Disk: "64GB"}).Resources.Memory = vConfig.GetString(flagName)
 	case WorkerDiskSizeFlagName:
 		iConfig.GetOrCreateNodeByRole(WorkerRoleName, ResourceConfig{Cpu: "4", Memory: "8GB", Disk: "64GB"}).Resources.Disk = vConfig.GetString(flagName)
-	case WindowsIsoPathFlagName:
-		iConfig.WindowsIsoPath = vConfig.GetString(flagName)
+	case WindowsQCOW2PathFlagName:
+		iConfig.WindowsQCOW2Path = vConfig.GetString(flagName)
 	case ProxyFlagName:
 		iConfig.Env.Proxy = vConfig.GetString(flagName)
 	case NoProxyFlagName:

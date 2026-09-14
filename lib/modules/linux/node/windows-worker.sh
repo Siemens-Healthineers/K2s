@@ -122,15 +122,25 @@ k2s_windows_worker_prepare_image() {
   local cache="$vm_dir/WindowsWorker-Base.qcow2"
   if [[ -f "$cache" ]]; then
     qemu-img create -f qcow2 -F qcow2 -b "$cache" "$disk" || return 1
-  elif [[ -f "$K2S_INSTALL_DIR/bin/Kubenode-Base.vhdx" ]]; then
-    qemu-img convert -f vhdx -O qcow2 -o compat=1.1 "$K2S_INSTALL_DIR/bin/Kubenode-Base.vhdx" "$disk" || return 1
   else
-    [[ -f "$K2S_WINDOWS_ISO_PATH" ]] || { k2s_log ERROR 'A packaged Windows worker base image or --windows-iso-path is required.'; return 2; }
-    k2s_windows_worker_build_base_from_iso "$disk" "$disk_gb" || return $?
-    rm -f "$disk"
+    k2s_windows_worker_import_qcow2 "$cache" || return $?
     qemu-img create -f qcow2 -F qcow2 -b "$cache" "$disk" || return 1
   fi
   printf '%s\n' "$disk"
+}
+
+k2s_windows_worker_import_qcow2() {
+  local cache="$1" source_format temporary_cache
+  [[ -f "$K2S_WINDOWS_QCOW2_PATH" ]] || { k2s_log ERROR 'A cached Windows worker base image or --windows-qcow2-path is required.'; return 2; }
+  source_format=$(qemu-img info --output=json "$K2S_WINDOWS_QCOW2_PATH" | jq -r '.format') || return 1
+  [[ "$source_format" == 'qcow2' ]] || { k2s_log ERROR "Windows worker image must use QCOW2 format, found: $source_format"; return 2; }
+  temporary_cache="$cache.tmp"
+  rm -f "$temporary_cache"
+  k2s_log INFO "Importing prepared Windows worker QCOW2 image: $K2S_WINDOWS_QCOW2_PATH"
+  qemu-img convert -f qcow2 -O qcow2 -o compat=1.1 "$K2S_WINDOWS_QCOW2_PATH" "$temporary_cache" || return 1
+  qemu-img check "$temporary_cache" || { rm -f "$temporary_cache"; return 1; }
+  chmod 0644 "$temporary_cache" || { rm -f "$temporary_cache"; return 1; }
+  mv "$temporary_cache" "$cache"
 }
 
 k2s_windows_worker_ssh_dir() { printf '%s/ssh' "$K2S_CONFIG_DIR"; }
@@ -245,29 +255,6 @@ k2s_windows_worker_wait_for_node() {
     sleep 10
   done
   k2s_kubectl wait --for=condition=Ready "node/$K2S_WINDOWS_WORKER_NAME" --timeout=10m
-}
-
-k2s_windows_worker_build_base_from_iso() {
-  local runtime_disk="$1" disk_gb="$2" vm_dir build_disk cache bootstrap_media installation_media
-  vm_dir=$(k2s_windows_worker_vm_dir)
-  build_disk="$vm_dir/windows-worker-build.qcow2"
-  cache="$vm_dir/WindowsWorker-Base.qcow2"
-  bootstrap_media="$vm_dir/windows-worker-bootstrap.iso"
-  installation_media="$vm_dir/windows-worker-install.iso"
-  local iso_sha256; iso_sha256=$(sha256sum "$K2S_WINDOWS_ISO_PATH" | awk '{print $1}') || return 1
-  k2s_log INFO "Creating cached Windows worker base image from ISO (SHA-256: $iso_sha256)."
-  k2s_windows_worker_create_ssh_key || return 1
-  k2s_windows_worker_create_bootstrap_media || return 1
-  cp --reflink=auto "$K2S_WINDOWS_ISO_PATH" "$installation_media" || return 1
-  chmod 0644 "$installation_media" || return 1
-  qemu-img create -f qcow2 "$build_disk" "${disk_gb}G" || return 1
-  k2s_windows_worker_define "$build_disk" "$installation_media" "$bootstrap_media" || return 1
-  virsh start "$K2S_WINDOWS_WORKER_NAME" || return 1
-  k2s_windows_worker_wait_for_shutdown || return 1
-  qemu-img check "$build_disk" || return 1
-  qemu-img convert -O qcow2 -o compat=1.1 "$build_disk" "$cache.tmp" || return 1
-  chmod 0644 "$cache.tmp"; mv "$cache.tmp" "$cache"; rm -f "$build_disk" "$bootstrap_media" "$installation_media"
-  virsh undefine "$K2S_WINDOWS_WORKER_NAME" --nvram 2>/dev/null || true
 }
 
 k2s_windows_worker_define() {
