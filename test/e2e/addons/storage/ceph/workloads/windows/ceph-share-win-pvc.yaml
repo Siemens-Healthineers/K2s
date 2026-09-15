@@ -1,0 +1,16 @@
+# SPDX-FileCopyrightText: © 2026 Siemens Healthineers AG
+#
+# SPDX-License-Identifier: MIT
+
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: ceph-share-win-pvc
+  namespace: ceph-share-test
+spec:
+  accessModes:
+    - ReadWriteMany
+  storageClassName: ceph-smb
+  resources:
+    requests:
+      storage: 1Gi
