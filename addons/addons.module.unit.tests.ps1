@@ -1308,26 +1308,66 @@ Describe 'Remove-Cmctl' -Tag 'unit', 'ci', 'addon' {
     }
 }
 
+Describe 'ConvertFrom-PemCertificate' -Tag 'unit', 'ci', 'addon' {
+    It 'creates an X509 certificate from PEM content' {
+        InModuleScope -ModuleName $moduleName {
+            $rsa = [System.Security.Cryptography.RSA]::Create(2048)
+            $sourceCertificate = $null
+            $convertedCertificate = $null
+
+            try {
+                $request = [System.Security.Cryptography.X509Certificates.CertificateRequest]::new(
+                    'CN=K2s Test CA',
+                    $rsa,
+                    [System.Security.Cryptography.HashAlgorithmName]::SHA256,
+                    [System.Security.Cryptography.RSASignaturePadding]::Pkcs1
+                )
+                $sourceCertificate = $request.CreateSelfSigned(
+                    [DateTimeOffset]::Now.AddMinutes(-1),
+                    [DateTimeOffset]::Now.AddMinutes(5)
+                )
+                $encodedCertificate = [Convert]::ToBase64String(
+                    $sourceCertificate.Export([System.Security.Cryptography.X509Certificates.X509ContentType]::Cert),
+                    [Base64FormattingOptions]::InsertLineBreaks
+                )
+                $certificatePem = "-----BEGIN CERTIFICATE-----`n$encodedCertificate`n-----END CERTIFICATE-----"
+
+                $convertedCertificate = ConvertFrom-PemCertificate -CertificatePem $certificatePem
+
+                $convertedCertificate.Thumbprint | Should -Be $sourceCertificate.Thumbprint
+            }
+            finally {
+                if ($null -ne $convertedCertificate) {
+                    $convertedCertificate.Dispose()
+                }
+                if ($null -ne $sourceCertificate) {
+                    $sourceCertificate.Dispose()
+                }
+                $rsa.Dispose()
+            }
+        }
+    }
+}
+
 Describe 'Import-CACertificateToWindowsStore' -Tag 'unit', 'ci', 'addon' {
     BeforeAll {
         Mock -ModuleName $moduleName Write-Log { }
-        Mock -ModuleName $moduleName Get-TrustedRootStoreLocation { return 'Cert:\\LocalMachine\\Root' }
-        Mock -ModuleName $moduleName Invoke-Kubectl { return [pscustomobject]@{ Output = $script:b64 } }
-        Mock -ModuleName $moduleName Import-Certificate { }
-        Mock -CommandName New-TemporaryFile { return [pscustomobject]@{ FullName = 'C:\\temp\\ca.crt' } }
-        Mock -CommandName Out-File { }
-        Mock -CommandName Import-Certificate { }
-        Mock -CommandName Remove-Item { }
+        Mock -ModuleName $moduleName Invoke-Kubectl {
+            return [pscustomobject]@{
+                Output = [Convert]::ToBase64String([Text.Encoding]::Utf8.GetBytes('CERTDATA'))
+            }
+        }
+        Mock -ModuleName $moduleName Add-PemCertificateToTrustedRootStore { }
     }
 
     It 'extracts secret and imports certificate' {
         InModuleScope -ModuleName $moduleName {
-            $script:b64 = [Convert]::ToBase64String([Text.Encoding]::Utf8.GetBytes('CERTDATA'))
-
             Import-CACertificateToWindowsStore
 
             Should -Invoke Invoke-Kubectl -Times 1 -Scope It -ParameterFilter { $Params -contains 'ca-issuer-root-secret' }
-            Should -Invoke Import-Certificate -Times 1 -Scope It
+            Should -Invoke Add-PemCertificateToTrustedRootStore -Times 1 -Scope It -ParameterFilter {
+                $CertificatePem -eq 'CERTDATA'
+            }
         }
 
     }
@@ -1601,14 +1641,7 @@ Describe 'Uninstall-CertManager' -Tag 'unit', 'ci', 'addon' {
         Mock -ModuleName $moduleName Invoke-Kubectl { return [pscustomobject]@{ Output = 'ok' } }
         Mock -ModuleName $moduleName Remove-Cmctl { }
         Mock -ModuleName $moduleName Get-CAIssuerName { return 'K2s Self-Signed CA' }
-        Mock -ModuleName $moduleName Get-TrustedRootStoreLocation { return 'Cert:\\LocalMachine\\Root' }
-        Mock -ModuleName $moduleName Get-ChildItem {
-            return @(
-                [pscustomobject]@{ Subject = 'CN=K2s Self-Signed CA' },
-                [pscustomobject]@{ Subject = 'CN=Other' }
-            )
-        }
-        Mock -ModuleName $moduleName Remove-Item { }
+        Mock -ModuleName $moduleName Remove-CertificateFromTrustedRootStore { }
         Mock -ModuleName $moduleName Test-IsAddonEnabled { return $false }
     }
 
@@ -1618,7 +1651,9 @@ Describe 'Uninstall-CertManager' -Tag 'unit', 'ci', 'addon' {
 
             Should -Invoke Invoke-Kubectl -Times 2 -Scope It -ParameterFilter { $Params -contains 'delete' -and $Params -contains '-f' }
             Should -Invoke Remove-Cmctl -Times 0 -Scope It
-            Should -Invoke Remove-Item -Times 1 -Scope It
+            Should -Invoke Remove-CertificateFromTrustedRootStore -Times 1 -Scope It -ParameterFilter {
+                $Subject -eq 'K2s Self-Signed CA'
+            }
         }
     }
 
@@ -1631,7 +1666,7 @@ Describe 'Uninstall-CertManager' -Tag 'unit', 'ci', 'addon' {
             # Implementation always uninstalls regardless of security addon
             Should -Invoke Invoke-Kubectl -Times 2 -Scope It
             Should -Invoke Remove-Cmctl -Times 0 -Scope It
-            Should -Invoke Remove-Item -Times 1 -Scope It
+            Should -Invoke Remove-CertificateFromTrustedRootStore -Times 1 -Scope It
         }
     }
 }
