@@ -1187,7 +1187,7 @@ Describe 'Install-CmctlCli' -Tag 'unit', 'ci', 'addon' {
                                 windows = [pscustomobject]@{
                                     curl = @(
                                         [pscustomobject]@{ destination = 'bin\\cmctl.exe'; url = 'http://example/cmctl.exe' }
-                                        [pscustomobject]@{ destination = 'bin\\kyverno.exe'; url = 'http://example/kyverno-cli_v1.19.0_windows_x86_64.zip' }
+                                        [pscustomobject]@{ destination = 'bin\\kyverno.exe'; url = 'http://example/kyverno-cli_v1.19.1_windows_x86_64.zip' }
                                     )
                                 }
                             }
@@ -1216,7 +1216,7 @@ Describe 'Install-CmctlCli' -Tag 'unit', 'ci', 'addon' {
 
             # Only cmctl.exe should be downloaded; the kyverno ZIP is handled by Install-KyvernoCli
             $script:downloadedUrls | Should -Contain 'http://example/cmctl.exe'
-            $script:downloadedUrls | Should -Not -Contain 'http://example/kyverno-cli_v1.19.0_windows_x86_64.zip'
+            $script:downloadedUrls | Should -Not -Contain 'http://example/kyverno-cli_v1.19.1_windows_x86_64.zip'
             Should -Invoke -ModuleName $moduleName Invoke-DownloadFile -Times 1 -Scope It
             Should -Invoke -ModuleName $moduleName Invoke-DownloadFile -Times 1 -Scope It -ParameterFilter {
                 $destination -match 'cmctl\.exe$' -and $source -eq 'http://example/cmctl.exe'
@@ -1358,8 +1358,6 @@ Describe 'Import-CACertificateToWindowsStore' -Tag 'unit', 'ci', 'addon' {
 
     It 'extracts secret and imports certificate' {
         InModuleScope -ModuleName $moduleName {
-            $script:b64 = [Convert]::ToBase64String([Text.Encoding]::Utf8.GetBytes('CERTDATA'))
-
             Import-CACertificateToWindowsStore
 
             Should -Invoke Invoke-Kubectl -Times 1 -Scope It -ParameterFilter { $Params -contains 'ca-issuer-root-secret' }

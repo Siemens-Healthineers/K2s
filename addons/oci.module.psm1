@@ -24,7 +24,8 @@ Media Types:
 #>
 
 $infraModule = "$PSScriptRoot/../lib/modules/windows/infra/k2s.infra.module/k2s.infra.module.psm1"
-Import-Module $infraModule
+$pathModule = "$PSScriptRoot/../lib/modules/windows/infra/k2s.infra.module/path/path.module.psm1"
+Import-Module $infraModule, $pathModule
 
 # OCI Media Types for K2s addon artifacts
 $script:MediaTypes = @{
