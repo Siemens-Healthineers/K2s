@@ -121,10 +121,10 @@ k2s_windows_worker_prepare_image() {
   [[ ! -e "$disk" ]] || { printf '%s\n' "$disk"; return 0; }
   local cache="$vm_dir/WindowsWorker-Base.qcow2"
   if [[ -f "$cache" ]]; then
-    qemu-img create -f qcow2 -F qcow2 -b "$cache" "$disk" || return 1
+    qemu-img create -f qcow2 -F qcow2 -b "$cache" "$disk" >&2 || return 1
   else
     k2s_windows_worker_import_qcow2 "$cache" || return $?
-    qemu-img create -f qcow2 -F qcow2 -b "$cache" "$disk" || return 1
+    qemu-img create -f qcow2 -F qcow2 -b "$cache" "$disk" >&2 || return 1
   fi
   printf '%s\n' "$disk"
 }
