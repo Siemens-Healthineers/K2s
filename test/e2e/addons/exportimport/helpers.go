@@ -7,9 +7,12 @@ package exportimport
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"io/fs"
 	"os"
 	"path/filepath"
@@ -558,10 +561,23 @@ func VerifyResourcesCleanedUp(ctx context.Context, suite *framework.K2sTestSuite
 	GinkgoWriter.Println("=== VERIFY RESOURCES CLEANED UP END ===")
 }
 
-// ImportAddon imports an addon from an OCI tar file.
+// ImportAddon imports all addons contained in an OCI tar file.
 func ImportAddon(ctx context.Context, suite *framework.K2sTestSuite, ociTarPath string) {
+	ImportAddonsWithOmit(ctx, suite, ociTarPath, nil, nil)
+}
+
+// ImportAddonsWithOmit imports addons from an OCI tar file.
+//
+// addonArgs selects the addons/implementations to import as positional tokens exactly like on the
+// CLI (e.g. []string{"ingress", "nginx", "security"}); an empty slice imports everything.
+// omitFlags are passed as repeated '--omit' options and make the importer skip the container images
+// of the omitted functionality. An image is only skipped when none of the SELECTED implementations
+// still requires it; the OCI artifact itself is never modified.
+func ImportAddonsWithOmit(ctx context.Context, suite *framework.K2sTestSuite, ociTarPath string, addonArgs []string, omitFlags []string) {
 	GinkgoWriter.Println("=== IMPORT ADDON START ===")
 	GinkgoWriter.Printf("[Import] OCI tar file: %s\n", ociTarPath)
+	GinkgoWriter.Printf("[Import] Selected addons: %v\n", addonArgs)
+	GinkgoWriter.Printf("[Import] Omit options: %v\n", omitFlags)
 
 	if info, err := os.Stat(ociTarPath); err == nil {
 		GinkgoWriter.Printf("[Import] OCI tar file size: %d bytes\n", info.Size())
@@ -569,10 +585,102 @@ func ImportAddon(ctx context.Context, suite *framework.K2sTestSuite, ociTarPath 
 		GinkgoWriter.Printf("[Import] WARNING: Cannot stat OCI tar file: %s - %v\n", ociTarPath, err)
 	}
 
-	GinkgoWriter.Println("[Import] Executing 'k2s addons import -f' command...")
-	suite.K2sCli().MustExec(ctx, "addons", "import", "-f", ociTarPath)
+	args := append([]string{"addons", "import"}, addonArgs...)
+	args = append(args, "-f", ociTarPath)
+	for _, omitFlag := range omitFlags {
+		args = append(args, "--omit", omitFlag)
+	}
+
+	GinkgoWriter.Printf("[Import] Executing 'k2s %s'\n", strings.Join(args, " "))
+	suite.K2sCli().MustExec(ctx, args...)
 	GinkgoWriter.Println("[Import] Import command completed successfully")
 	GinkgoWriter.Println("=== IMPORT ADDON END ===")
+}
+
+// VerifyImagesPresentOnNodes asserts that every given image is available on one of the cluster nodes.
+// Matching is substring-based like VerifyImportedImages, because node runtimes may report images
+// with additional registry prefixes.
+func VerifyImagesPresentOnNodes(ctx context.Context, k2sDsl *dsl.K2s, images []string, reason string) {
+	GinkgoWriter.Printf("=== VERIFY IMAGES PRESENT (%s) ===\n", reason)
+	Expect(images).ToNot(BeEmpty(), "[ImagesPresent] the expected image list must not be empty (%s)", reason)
+
+	imagesOnNodes := k2sDsl.GetNonK8sImagesFromNodes(ctx)
+	GinkgoWriter.Printf("[ImagesPresent] Images on nodes: %d\n", len(imagesOnNodes))
+
+	for i, image := range images {
+		found := slices.ContainsFunc(imagesOnNodes, func(onNode string) bool {
+			return strings.Contains(onNode, image)
+		})
+		GinkgoWriter.Printf("[ImagesPresent]   [%d] %s -> present=%v\n", i, image, found)
+		Expect(found).To(BeTrue(), "image '%s' must be available on a node (%s)", image, reason)
+	}
+}
+
+// VerifyImagesAbsentFromNodes asserts that none of the given images is available on any cluster node.
+func VerifyImagesAbsentFromNodes(ctx context.Context, k2sDsl *dsl.K2s, images []string, reason string) {
+	GinkgoWriter.Printf("=== VERIFY IMAGES ABSENT (%s) ===\n", reason)
+	Expect(images).ToNot(BeEmpty(), "[ImagesAbsent] the expected image list must not be empty (%s)", reason)
+
+	imagesOnNodes := k2sDsl.GetNonK8sImagesFromNodes(ctx)
+	GinkgoWriter.Printf("[ImagesAbsent] Images on nodes: %d\n", len(imagesOnNodes))
+
+	for i, image := range images {
+		found := slices.ContainsFunc(imagesOnNodes, func(onNode string) bool {
+			return strings.Contains(onNode, image)
+		})
+		GinkgoWriter.Printf("[ImagesAbsent]   [%d] %s -> present=%v\n", i, image, found)
+		Expect(found).To(BeFalse(), "image '%s' must NOT be available on any node (%s)", image, reason)
+	}
+}
+
+// ImagesExcept returns the images of 'all' that are not contained in any of the 'excluded' sets.
+// Used to derive the images that must still be imported when others are skipped via '--omit'.
+func ImagesExcept(all []string, excluded ...[]string) []string {
+	var result []string
+
+	for _, image := range all {
+		isExcluded := false
+		for _, exclusionSet := range excluded {
+			if slices.Contains(exclusionSet, image) {
+				isExcluded = true
+				break
+			}
+		}
+		if !isExcluded {
+			result = append(result, image)
+		}
+	}
+
+	return lo.Uniq(result)
+}
+
+// Sha256OfFile returns the hex-encoded SHA256 checksum of a file. Used to prove that importing
+// with '--omit' leaves the OCI artifact byte-identical.
+func Sha256OfFile(path string) string {
+	file, err := os.Open(path)
+	Expect(err).ToNot(HaveOccurred(), "should be able to open '%s' for hashing", path)
+	defer file.Close()
+
+	hasher := sha256.New()
+	_, err = io.Copy(hasher, file)
+	Expect(err).ToNot(HaveOccurred(), "should be able to hash '%s'", path)
+
+	checksum := hex.EncodeToString(hasher.Sum(nil))
+	GinkgoWriter.Printf("[Sha256] %s -> %s\n", path, checksum)
+
+	return checksum
+}
+
+// RemoveAllAddonImages removes every non-Kubernetes container image from the cluster nodes so that
+// a subsequent import starts from a defined, empty state.
+func RemoveAllAddonImages(ctx context.Context, suite *framework.K2sTestSuite, k2sDsl *dsl.K2s) {
+	GinkgoWriter.Println("=== REMOVE ALL ADDON IMAGES START ===")
+	suite.K2sCli().Exec(ctx, "image", "clean", "-o")
+
+	remaining := k2sDsl.GetNonK8sImagesFromNodes(ctx)
+	GinkgoWriter.Printf("[CleanImages] Non-K8s images remaining after clean: %d\n", len(remaining))
+	Expect(remaining).To(BeEmpty(), "all non-K8s images should be removed before an import test")
+	GinkgoWriter.Println("=== REMOVE ALL ADDON IMAGES END ===")
 }
 
 // VerifyImportedImages verifies that expected images are available after import.

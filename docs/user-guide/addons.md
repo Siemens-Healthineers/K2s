@@ -151,6 +151,10 @@ k2s addons enable security --type enhanced --omitKeycloak
 
 See [Security Features](../security/security-features.md) for details on the zero-trust architecture.
 
+!!! tip
+    In offline scenarios the container images of an omitted part do not have to be imported at all —
+    see [Omitting Images During Import](#omitting-images-during-import).
+
 ### rollout
 
 Two mutually exclusive GitOps implementations:
@@ -331,27 +335,130 @@ On the target system (which may be offline), import the previously exported arch
 
 ```console
 # Import all addons from archive
-k2s addons import -z C:\transfer\addons.oci.tar
+k2s addons import -f C:\transfer\addons.oci.tar
 
 # Import a specific addon
-k2s addons import registry -z C:\transfer\addons.oci.tar
+k2s addons import registry -f C:\transfer\addons.oci.tar
 
 # Import a specific implementation
-k2s addons import "ingress nginx" -z C:\transfer\addons.oci.tar
+k2s addons import ingress nginx -f C:\transfer\addons.oci.tar
+
+# Import several addons/implementations at once
+k2s addons import ingress nginx registry -f C:\transfer\addons.oci.tar
 ```
 
 After import, the addon images are loaded into the cluster's container runtime and the addon can be enabled normally.
+
+!!! note
+    If you name addons on the command line, only those addons take part in the import. If you name
+    none, all addons contained in the artifact are selected. An addon that is present in the artifact
+    but not selected is skipped entirely — its images are not imported.
+
+### Omitting Images During Import
+
+Some addons can be enabled without parts of their functionality, e.g. `k2s addons enable security --omitKeycloak`.
+The container images of those parts are still contained in the artifact, but they do not have to be
+loaded into the container runtime. `k2s addons import --omit` skips them and thereby reduces the
+disk footprint of an offline installation.
+
+#### Basic usage
+
+Pass the name of the `enable` flag whose functionality you do not intend to use:
+
+```console
+k2s addons import security -f C:\transfer\addons.oci.tar --omit omitKeycloak
+```
+
+The images belonging to Keycloak are not imported; everything else is imported as usual.
+
+#### Multiple omit options
+
+`--omit` is repeatable:
+
+```console
+k2s addons import security -f C:\transfer\addons.oci.tar --omit omitKeycloak --omit omitOAuth2Proxy
+```
+
+#### Multiple addons and scoping
+
+An import can select several addons and implementations. Omit processing only applies to the
+implementations that were selected for **this** import:
+
+```console
+k2s addons import ingress nginx security -f C:\transfer\addons.oci.tar --omit omitCertMgr
+```
+
+An omit option can be scoped so that it only applies to one addon or one implementation:
+
+| Token | Applies to |
+| --- | --- |
+| `omitCertMgr` | every selected implementation declaring that flag |
+| `ingress:omitCertMgr` | all selected implementations of the `ingress` addon |
+| `ingress/nginx:omitCertMgr` | the `ingress nginx` implementation only |
+
+Unknown or wrongly scoped options are ignored with a warning and never cause additional images to be
+skipped.
+
+#### Shared images
+
+Addons can share images. An image is only skipped when **no selected implementation still requires it**.
+
+For example, `ingress nginx` can omit cert-manager, but the `security` addon always requires it:
+
+```console
+k2s addons import ingress nginx security -f C:\transfer\addons.oci.tar --omit omitCertMgr
+```
+
+Result: the cert-manager images **are imported**, because `security` — which is part of the same
+import — still needs them. Importing `ingress nginx` alone with the same option does skip them.
+
+#### The artifact remains unchanged
+
+`--omit` does **not** modify, shrink or repack the OCI artifact. It only controls which images are
+loaded into the local container runtime. Importing with `--omit` also never deletes images that are
+already present locally.
+
+#### Re-import
+
+Because the artifact is untouched, importing it again later without `--omit` adds the previously
+skipped images:
+
+```console
+# initially imported without the Keycloak images
+k2s addons import security -f C:\transfer\addons.oci.tar --omit omitKeycloak
+
+# later on: add the missing images from the very same artifact
+k2s addons import security -f C:\transfer\addons.oci.tar
+```
+
+No re-export is required.
+
+#### Air-gapped environments
+
+If an image is omitted during import and the corresponding functionality is enabled later, that image
+must be available locally — an air-gapped cluster cannot pull it from a registry. Either keep the
+artifact available for a re-import, or enable the addon with the matching omit flag.
+
+!!! warning "Enable-time limitation"
+    The `--omit` choice made during import is **not** persisted as addon enable state. Running
+
+    ```console
+    k2s addons import security -f C:\transfer\addons.oci.tar --omit omitKeycloak
+    ```
+
+    does **not** make a later `k2s addons enable security` behave like `k2s addons enable security --omitKeycloak`.
+    Enable the addon with the matching flag, or re-import the artifact without `--omit` beforehand.
 
 ### Typical Offline Workflow
 
 1. **On an online machine** with K2s installed, export the addons you need:
    ```console
-   k2s addons export "ingress nginx" registry monitoring -d C:\export
+   k2s addons export ingress nginx registry monitoring -d C:\export
    ```
-2. **Transfer** the `addons.oci.tar` file to the air-gapped environment (USB drive, secure file transfer, etc.)
+2. **Transfer** the `.oci.tar` file to the air-gapped environment (USB drive, secure file transfer, etc.)
 3. **On the offline machine**, import and enable:
    ```console
-   k2s addons import -z D:\transfer\addons.oci.tar
+   k2s addons import -f D:\transfer\addons.oci.tar
    k2s addons enable ingress nginx
    k2s addons enable registry
    k2s addons enable monitoring
@@ -433,11 +540,11 @@ Combining OCI export/import with the rollout addon enables GitOps in air-gapped 
 
 1. **Export** the rollout addon (and any other addons your applications depend on):
    ```console
-   k2s addons export rollout "ingress nginx" registry -d C:\export
+   k2s addons export rollout ingress nginx registry -d C:\export
    ```
 2. **Transfer** and **import** on the offline cluster:
    ```console
-   k2s addons import -z D:\transfer\addons.oci.tar
+   k2s addons import -f D:\transfer\addons.oci.tar
    k2s addons enable rollout argocd --ingress nginx
    ```
 3. **Configure ArgoCD/Flux** to point to a local Git server (also deployed in the cluster or available on the local network) containing your application manifests.
