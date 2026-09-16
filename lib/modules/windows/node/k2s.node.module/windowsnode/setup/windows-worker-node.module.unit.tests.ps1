@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: © 2026 Siemens Healthineers AG
+# SPDX-License-Identifier: MIT
+
 BeforeAll {
     $modulePath = "$PSScriptRoot/windows-worker-node.module.psm1"
     $parseErrors = $null
