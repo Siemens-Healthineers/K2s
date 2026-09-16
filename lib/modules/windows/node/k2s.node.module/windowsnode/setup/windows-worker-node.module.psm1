@@ -412,27 +412,30 @@ function EnsureDirectoryPathExists(
 }
 
 function Set-RoutesToKubemaster {
-    # the usage of these routes was removed because windows takes care on it's own for such routes !!!
-    # route for VM
     $ipControlPlaneCIDR = Get-ConfiguredControlPlaneCIDR
     $windowsHostIpAddress = Get-ConfiguredKubeSwitchIP
 
-    # get the index of the master node switch
-    # $ipindex = Get-MasterNodeSwitchIndex
-    # if (-not $ipindex) {
-    Write-Log 'No index found for master node switch, set routes to kubemaster with no interface index'
-    Write-Log "Remove obsolete route to $ipControlPlaneCIDR"
-    route delete $ipControlPlaneCIDR >$null 2>&1
-    Write-Log "Add route to host network for master CIDR:$ipControlPlaneCIDR with metric 3"
-    route -p add $ipControlPlaneCIDR $windowsHostIpAddress METRIC 3 | Out-Null 
-    # }
-    # else {
-    #     Write-Log "Index for master node switch: $ipindex"
-    #     Write-Log "Remove obsolete route to $ipControlPlaneCIDR"
-    #     route delete $ipControlPlaneCIDR >$null 2>&1
-    #     Write-Log "Add route to host network for master CIDR:$ipControlPlaneCIDR with metric 3"
-    #     route -p add $ipControlPlaneCIDR $windowsHostIpAddress METRIC 3 IF $ipindex | Out-Null 
-    # }
+    $switchAddresses = @(Get-NetIPAddress -IPAddress $windowsHostIpAddress -AddressFamily IPv4 -ErrorAction Stop)
+    if ($switchAddresses.Count -ne 1) {
+        throw "Cannot identify a unique control-plane switch interface for $windowsHostIpAddress"
+    }
+    $switchIndex = $switchAddresses[0].InterfaceIndex
+    $connectedRoute = Get-NetRoute -AddressFamily IPv4 -PolicyStore ActiveStore -ErrorAction Stop |
+        Where-Object { $_.DestinationPrefix -eq $ipControlPlaneCIDR -and $_.InterfaceIndex -eq $switchIndex -and $_.NextHop -eq '0.0.0.0' }
+    if (-not $connectedRoute) {
+        Write-Log "[Routes] Restoring on-link route to $ipControlPlaneCIDR on interface $switchIndex"
+        New-NetRoute -DestinationPrefix $ipControlPlaneCIDR -InterfaceIndex $switchIndex -NextHop '0.0.0.0' `
+            -RouteMetric 3 -PolicyStore ActiveStore -ErrorAction Stop | Out-Null
+    }
+
+    foreach ($policyStore in @('PersistentStore', 'ActiveStore')) {
+        $obsoleteRoutes = Get-NetRoute -AddressFamily IPv4 -PolicyStore $policyStore -ErrorAction Stop |
+            Where-Object { $_.DestinationPrefix -eq $ipControlPlaneCIDR -and $_.NextHop -eq $windowsHostIpAddress }
+        foreach ($obsoleteRoute in $obsoleteRoutes) {
+            Write-Log "[Routes] Removing obsolete route to $ipControlPlaneCIDR via $windowsHostIpAddress from $policyStore"
+            $obsoleteRoute | Remove-NetRoute -Confirm:$false -ErrorAction Stop
+        }
+    }
 }
 
 function Set-RoutesToLinuxWorkloads {
