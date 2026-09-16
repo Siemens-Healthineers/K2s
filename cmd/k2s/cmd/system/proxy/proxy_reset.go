@@ -35,7 +35,7 @@ func resetProxyConfig(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	psCmd := utils.FormatScriptFilePath(path.Join(utils.InstallDir(), "lib", "scripts", "k2s", "system", "proxy", "ResetProxy.ps1"))
+	psCmd := utils.FormatScriptFilePath(path.Join(utils.InstallDir(), "lib", "scripts", "windows", "host", "system", "proxy", "ResetProxy.ps1"))
 	var params []string
 
 	result, err := powershell.ExecutePsWithStructuredResult[*common.CmdResult](psCmd, "ProxyOverrides", common.NewPtermWriter(), params...)

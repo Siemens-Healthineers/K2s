@@ -211,6 +211,14 @@ Run the Linux binary with elevated privileges:
 sudo ./k2s install --linux-only --proxy http://proxy.example:8080 --no-proxy localhost,127.0.0.1
 ```
 
+The equivalent platform-first lifecycle entry point is
+`lib/scripts/linux/debian/linuxonly/Install.sh`. It validates root access,
+records the dispatch in `/var/log/k2s.log`, and invokes the same `k2s` CLI
+implementation. The sibling `Start.sh`, `Stop.sh`, `Status.sh`, and
+`Uninstall.sh` scripts use that same lifecycle module. The corresponding
+`lib/scripts/linux/debian/host/` scripts delegate to these entry points; they
+do not maintain a separate native Linux implementation.
+
 The installer downloads the version-pinned Kubernetes and CRI-O Debian
 packages, then starts a local `httpproxy` service on `127.0.0.1:8181`. The
 service forwards external traffic through `--proxy` when supplied. The given

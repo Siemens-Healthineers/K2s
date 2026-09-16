@@ -23,8 +23,9 @@ Media Types:
 - application/vnd.k2s.addon.packages.v1.tar+gzip - Offline packages
 #>
 
-$infraModule = "$PSScriptRoot/../lib/modules/k2s/k2s.infra.module/k2s.infra.module.psm1"
-Import-Module $infraModule
+$infraModule = "$PSScriptRoot/../lib/modules/windows/infra/k2s.infra.module/k2s.infra.module.psm1"
+$pathModule = "$PSScriptRoot/../lib/modules/windows/infra/k2s.infra.module/path/path.module.psm1"
+Import-Module $infraModule, $pathModule
 
 # OCI Media Types for K2s addon artifacts
 $script:MediaTypes = @{
@@ -40,6 +41,31 @@ $script:MediaTypes = @{
 
 # OCI Image Layout version
 $script:OciLayoutVersion = '1.0.0'
+
+function Get-OciFileSha256 {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$Path
+    )
+
+    # Permit concurrent readers while preventing writes during hashing so the digest
+    # always represents a stable file.
+    $stream = [System.IO.File]::Open(
+        $Path,
+        [System.IO.FileMode]::Open,
+        [System.IO.FileAccess]::Read,
+        [System.IO.FileShare]::Read
+    )
+    $sha256 = [System.Security.Cryptography.SHA256]::Create()
+    try {
+        $hashBytes = $sha256.ComputeHash($stream)
+        return [System.BitConverter]::ToString($hashBytes).Replace('-', '').ToLowerInvariant()
+    }
+    finally {
+        $sha256.Dispose()
+        $stream.Dispose()
+    }
+}
 
 function Get-OciMediaTypes {
     <#
@@ -108,8 +134,7 @@ function Add-ContentToBlobs {
         throw "Source path not found: $SourcePath"
     }
     
-    $hash = Get-FileHash -Path $SourcePath -Algorithm SHA256
-    $digest = $hash.Hash.ToLower()
+    $digest = Get-OciFileSha256 -Path $SourcePath
     $blobPath = Join-Path $BlobsDir $digest
     
     if ($Move) {
@@ -139,16 +164,16 @@ function Add-JsonContentToBlobs {
         [object]$Content
     )
     
-    $tempFile = New-TemporaryFile
+    $tempFile = New-K2sTempFile
     try {
         $json = $Content | ConvertTo-Json -Depth 20
-        [System.IO.File]::WriteAllText($tempFile.FullName, $json, [System.Text.UTF8Encoding]::new($false))
-        $result = Add-ContentToBlobs -BlobsDir $BlobsDir -SourcePath $tempFile.FullName -Move
+        [System.IO.File]::WriteAllText($tempFile, $json, [System.Text.UTF8Encoding]::new($false))
+        $result = Add-ContentToBlobs -BlobsDir $BlobsDir -SourcePath $tempFile -Move
         return $result
     }
     finally {
-        if (Test-Path $tempFile.FullName) {
-            Remove-Item -Path $tempFile.FullName -Force -ErrorAction SilentlyContinue
+        if (Test-Path $tempFile) {
+            Remove-Item -Path $tempFile -Force -ErrorAction SilentlyContinue
         }
     }
 }
@@ -185,7 +210,7 @@ function Get-BlobByDigest {
     
     # Verify content integrity per OCI Image Spec descriptor verification
     if (-not $SkipVerification) {
-        $computedHash = (Get-FileHash -Path $blobPath -Algorithm SHA256).Hash.ToLower()
+        $computedHash = Get-OciFileSha256 -Path $blobPath
         if ($computedHash -ne $hash) {
             throw "Blob integrity check failed for digest: $Digest (computed: sha256:$computedHash)"
         }

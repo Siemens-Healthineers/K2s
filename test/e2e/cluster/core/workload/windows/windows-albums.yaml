@@ -34,7 +34,7 @@ spec:
               port: 80
             initialDelaySeconds: 30 # Windows containers need more time to start
             periodSeconds: 10 # Check every 10 seconds
-            timeoutSeconds: 5 # Allow 5 seconds for response
+            timeoutSeconds: 15 # Windows HNS/L2Bridge HTTP responses observed to exceed 5s under CI load
             failureThreshold: 6 # Allow 6 failures before marking unready (1 minute)
             successThreshold: 1 # Only 1 success needed to mark ready
           # Add liveness probe to restart unhealthy containers
@@ -44,7 +44,7 @@ spec:
               port: 80
             initialDelaySeconds: 60 # Give more time before first liveness check
             periodSeconds: 30 # Check every 30 seconds
-            timeoutSeconds: 10 # Allow 10 seconds for response
+            timeoutSeconds: 20 # Windows HNS/L2Bridge HTTP responses observed to exceed 10s under CI load
             failureThreshold: 3 # Allow 3 failures before restart (1.5 minutes)
           # Add resource limits to ensure consistent performance
           resources:
@@ -105,7 +105,7 @@ spec:
               port: 80
             initialDelaySeconds: 30 # Windows containers need more time to start
             periodSeconds: 10 # Check every 10 seconds
-            timeoutSeconds: 5 # Allow 5 seconds for response
+            timeoutSeconds: 15 # Windows HNS/L2Bridge HTTP responses observed to exceed 5s under CI load
             failureThreshold: 6 # Allow 6 failures before marking unready (1 minute)
             successThreshold: 1 # Only 1 success needed to mark ready
           # Add liveness probe to restart unhealthy containers
@@ -115,7 +115,7 @@ spec:
               port: 80
             initialDelaySeconds: 60 # Give more time before first liveness check
             periodSeconds: 30 # Check every 30 seconds
-            timeoutSeconds: 10 # Allow 10 seconds for response
+            timeoutSeconds: 20 # Windows HNS/L2Bridge HTTP responses observed to exceed 10s under CI load
             failureThreshold: 3 # Allow 3 failures before restart (1.5 minutes)
           # Add resource limits to ensure consistent performance
           resources:

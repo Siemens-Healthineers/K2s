@@ -243,7 +243,7 @@ K2s supports custom backup logic via hooks:
 
 ### Hook Locations
 
-- **Built-in**: `lib/scripts/k2s/system/backup/hooks/`
+- **Built-in**: `lib/scripts/windows/host/system/backup/hooks/`
 - **Custom**: Specify with `--additional-hooks-dir` flag
 
 ### Hook Types
