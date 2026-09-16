@@ -8,7 +8,7 @@
 $global:KubernetesPath = (Get-Item $PSScriptRoot).Parent.Parent.FullName
 $global:InstallationDriveLetter = ($global:KubernetesPath).Split(':')[0]
 # TODO: remove, when migrating to new PS modules code structure
-# new modules should use <root>\k2sSetup\lib\modules\k2s\k2s.infra.module\path\path.module.psm1::Get-SystemDriveLetter function instead
+# new modules should use <root>\k2sSetup\lib\modules\windows\infra\k2s.infra.module\path\path.module.psm1::Get-SystemDriveLetter function instead
 $global:SystemDriveLetter = 'C'
 
 if (! $(Test-Path $global:KubernetesPath)) {

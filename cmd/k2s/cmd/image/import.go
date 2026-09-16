@@ -147,7 +147,7 @@ func importImage(cmd *cobra.Command, args []string) error {
 }
 
 func buildImportPsCmd(cmd *cobra.Command, isWindowsImage bool) (psCmd string, params []string, err error) {
-	psCmd = utils.FormatScriptFilePath(filepath.Join(utils.InstallDir(), "lib", "scripts", "k2s", "image", "Import-Image.ps1"))
+	psCmd = utils.FormatScriptFilePath(filepath.Join(utils.InstallDir(), "lib", "scripts", "windows", "host", "image", "Import-Image.ps1"))
 
 	imagePath, err := cmd.Flags().GetString(tarFlag)
 	if err != nil {

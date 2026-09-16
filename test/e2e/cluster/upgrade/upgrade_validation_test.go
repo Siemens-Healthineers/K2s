@@ -5,7 +5,6 @@ package upgrade
 
 import (
 	"context"
-	"fmt"
 	"strings"
 	"testing"
 
@@ -23,6 +22,8 @@ import (
 const (
 	albumApp1Name   = "albums-win1"
 	albumApp2Name   = "albums-win2"
+	albumLinux1Name = "albums-linux1"
+	albumLinux2Name = "albums-linux2"
 	albumsNamespace = "k2s"
 	albumsImageRepo = "shsk2s.azurecr.io/example.albums-golang-win"
 )
@@ -107,53 +108,10 @@ var _ = Describe("Upgrade Validation", func() {
 				"expected to find pods with label 'app=%s' in namespace '%s'", albumApp2Name, albumsNamespace)
 		})
 
-		It("all user application pods are running after upgrade", func(ctx SpecContext) {
-			userNamespaces := []string{albumsNamespace}
-
-			for _, namespace := range userNamespaces {
-				// Get client to query pods
-				client := suite.Cluster().Client()
-				clientSet, err := kubernetes.NewForConfig(client.Resources().GetConfig())
-				Expect(err).To(BeNil())
-
-				// First verify the namespace exists
-				_, err = clientSet.CoreV1().Namespaces().Get(ctx, namespace, metav1.GetOptions{})
-				Expect(err).To(BeNil(), "namespace '%s' should exist after upgrade", namespace)
-
-				// List all pods in namespace
-				pods, err := clientSet.CoreV1().Pods(namespace).List(ctx, metav1.ListOptions{})
-				Expect(err).To(BeNil(), "cannot list pods in namespace '%s'", namespace)
-
-				// Check that user pods are in an acceptable state
-				problematicPods := []string{}
-				for _, pod := range pods.Items {
-					// User application pods should be running (and ready) or succeeded
-					// Exclude pods with prefixes that are typically system-related
-					if !strings.HasPrefix(pod.Name, "curl-") &&
-						!strings.HasPrefix(pod.Name, "job-") &&
-						!strings.HasPrefix(pod.Name, "test-") {
-
-						isOK := pod.Status.Phase == corev1.PodSucceeded ||
-							(pod.Status.Phase == corev1.PodRunning && isPodReady(pod))
-
-						if !isOK {
-							problematicPods = append(problematicPods,
-								fmt.Sprintf("Pod %s: %s (Ready: %t, Restarts: %d)",
-									pod.Name,
-									pod.Status.Phase,
-									isPodReady(pod),
-									getPodRestarts(pod)))
-						}
-					}
-				}
-
-				// Only fail if there are problematic user pods
-				if len(problematicPods) > 0 {
-					Fail(fmt.Sprintf(
-						"The following pods in namespace '%s' are not in Running+Ready or Succeeded state:\n%s",
-						namespace,
-						strings.Join(problematicPods, "\n")))
-				}
+		It("all baseline application deployments are available after upgrade", func(ctx SpecContext) {
+			for _, deploymentName := range []string{albumLinux1Name, albumLinux2Name, albumApp1Name, albumApp2Name} {
+				suite.Cluster().ExpectDeploymentToBeAvailable(deploymentName, albumsNamespace)
+				suite.Cluster().ExpectPodsUnderDeploymentReady(ctx, "app", deploymentName, albumsNamespace)
 			}
 		})
 	})

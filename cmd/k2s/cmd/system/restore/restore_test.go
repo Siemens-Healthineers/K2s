@@ -42,7 +42,7 @@ var _ = Describe("restore", func() {
 
 		When("only mandatory flags are set", func() {
 			It("creates minimal restore command", func() {
-				const staticPart = `\lib\scripts\k2s\system\restore\Start-SystemRestore.ps1`
+				const staticPart = `\lib\scripts\windows\host\system\restore\Start-SystemRestore.ps1`
 				const args = ` -BackupFile 'C:\temp\backup.zip'`
 
 				expected := utils.FormatScriptFilePath(
@@ -60,7 +60,7 @@ var _ = Describe("restore", func() {
 
 		When("show logs flag is enabled", func() {
 			It("adds -ShowLogs to restore command", func() {
-				const staticPart = `\lib\scripts\k2s\system\restore\Start-SystemRestore.ps1`
+				const staticPart = `\lib\scripts\windows\host\system\restore\Start-SystemRestore.ps1`
 				const args = ` -ShowLogs -BackupFile 'C:\temp\backup.zip'`
 
 				expected := utils.FormatScriptFilePath(
@@ -80,7 +80,7 @@ var _ = Describe("restore", func() {
 
 		When("error-on-failure flag is enabled", func() {
 			It("adds -ErrorOnFailure to restore command", func() {
-				const staticPart = `\lib\scripts\k2s\system\restore\Start-SystemRestore.ps1`
+				const staticPart = `\lib\scripts\windows\host\system\restore\Start-SystemRestore.ps1`
 				const args = ` -BackupFile 'C:\temp\backup.zip' -ErrorOnFailure`
 
 				expected := utils.FormatScriptFilePath(
@@ -100,7 +100,7 @@ var _ = Describe("restore", func() {
 
 		When("additional hooks directory is provided", func() {
 			It("adds -AdditionalHooksDir to restore command", func() {
-				const staticPart = `\lib\scripts\k2s\system\restore\Start-SystemRestore.ps1`
+				const staticPart = `\lib\scripts\windows\host\system\restore\Start-SystemRestore.ps1`
 				const args = ` -BackupFile 'C:\temp\backup.zip' -AdditionalHooksDir 'hooksDir'`
 
 				expected := utils.FormatScriptFilePath(
@@ -120,7 +120,7 @@ var _ = Describe("restore", func() {
 
 		When("all flags are enabled together", func() {
 			It("creates full restore command", func() {
-				const staticPart = `\lib\scripts\k2s\system\restore\Start-SystemRestore.ps1`
+				const staticPart = `\lib\scripts\windows\host\system\restore\Start-SystemRestore.ps1`
 				const args = ` -ShowLogs -BackupFile 'C:\temp\backup.zip' -ErrorOnFailure -AdditionalHooksDir 'hooksDir'`
 
 				expected := utils.FormatScriptFilePath(

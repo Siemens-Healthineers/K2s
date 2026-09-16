@@ -31,7 +31,7 @@ func (p *windowsNodeProvider) Add(cfg NodeAddConfig) error {
 	if cfg.IsLocalVM {
 		scriptDir = filepath.Join("hyper-v-vm", "existing-vm")
 	}
-	psCmd := utils.FormatScriptFilePath(filepath.Join(p.installDir, "lib", "scripts", "worker", "linux", scriptDir, "Add.ps1"))
+	psCmd := utils.FormatScriptFilePath(filepath.Join(p.installDir, "lib", "scripts", "windows", "worker", "linux", scriptDir, "Add.ps1"))
 
 	var params string
 	if cfg.UserName != "" {
@@ -54,7 +54,7 @@ func (p *windowsNodeProvider) Add(cfg NodeAddConfig) error {
 }
 
 func (p *windowsNodeProvider) Remove(cfg NodeRemoveConfig) error {
-	psCmd := utils.FormatScriptFilePath(filepath.Join(p.installDir, "lib", "scripts", "worker", "linux", "bare-metal", "Remove.ps1"))
+	psCmd := utils.FormatScriptFilePath(filepath.Join(p.installDir, "lib", "scripts", "windows", "worker", "linux", "bare-metal", "Remove.ps1"))
 
 	var params string
 	if cfg.NodeName != "" {

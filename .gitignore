@@ -74,7 +74,7 @@ containerd/*.tar.gz
 /bin/*.msi
 /lib/NSSM/*
 
-/lib/modules/k2s/k2s.node.module/linuxnode/distros/containernetwork/masternode/flannel.yml
+/lib/modules/windows/node/k2s.node.module/linuxnode/distros/containernetwork/masternode/flannel.yml
 
 bin/dnsproxy.exe
 containerd/vfprules.log
@@ -199,3 +199,8 @@ bin/debian-13-genericcloud-amd64.qcow2
 # AI assistant context
 claude.md
 testResults.xml
+.github/agents
+.github/instructions
+.github/prompts
+.github/skills
+

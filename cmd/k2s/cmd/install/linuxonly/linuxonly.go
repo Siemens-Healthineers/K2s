@@ -24,7 +24,7 @@ func BuildCmd(config *ic.InstallConfig) (cmd string, err error) {
 		return "", err
 	}
 
-	path := fmt.Sprintf("%s\\lib\\scripts\\linuxonly\\install\\install.ps1", utils.InstallDir())
+	path := fmt.Sprintf("%s\\lib\\scripts\\windows\\linuxonly\\install\\install.ps1", utils.InstallDir())
 	formattedPath := utils.FormatScriptFilePath(path)
 	cmd = fmt.Sprintf("%s -MasterVMProcessorCount %s -MasterVMMemory %s -MasterDiskSize %s",
 		formattedPath,

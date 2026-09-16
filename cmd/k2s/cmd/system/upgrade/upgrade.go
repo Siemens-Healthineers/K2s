@@ -331,7 +331,7 @@ func copyLegacyConfigFile(legacyDir string, targetDir string) error {
 }
 
 func createUpgradeCommand(cmd *cobra.Command) string {
-	psCmd := utils.FormatScriptFilePath(filepath.Join(utils.InstallDir(), "lib", "scripts", "k2s", "system", "upgrade", "Start-ClusterUpgrade.ps1"))
+	psCmd := utils.FormatScriptFilePath(filepath.Join(utils.InstallDir(), "lib", "scripts", "windows", "host", "system", "upgrade", "Start-ClusterUpgrade.ps1"))
 	out, _ := strconv.ParseBool(cmd.Flags().Lookup(common.OutputFlagName).Value.String())
 	if out {
 		psCmd += " -ShowLogs"

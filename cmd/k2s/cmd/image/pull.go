@@ -144,7 +144,7 @@ func getImageToPull(args []string) string {
 }
 
 func buildPullPsCmd(imageToPull string, pullForWindows bool, showOutput bool, nodeSelector string) (psCmd string, params []string) {
-	psCmd = utils.FormatScriptFilePath(filepath.Join(utils.InstallDir(), "lib", "scripts", "k2s", "image", "Pull-Image.ps1"))
+	psCmd = utils.FormatScriptFilePath(filepath.Join(utils.InstallDir(), "lib", "scripts", "windows", "host", "image", "Pull-Image.ps1"))
 
 	params = append(params, " -ImageName "+imageToPull)
 	params = appendNodesParam(params, nodeSelector)

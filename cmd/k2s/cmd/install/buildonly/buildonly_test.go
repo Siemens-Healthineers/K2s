@@ -64,7 +64,7 @@ var _ = Describe("buildonly", func() {
 
 		Context("without switches", func() {
 			It("returns expected command", func() {
-				const staticPartOfExpectedCmd = `\lib\scripts\buildonly\install\install.ps1' -MasterVMProcessorCount 5 -MasterVMMemory 6GB -MasterDiskSize 7GB`
+				const staticPartOfExpectedCmd = `\lib\scripts\windows\buildonly\install\install.ps1' -MasterVMProcessorCount 5 -MasterVMMemory 6GB -MasterDiskSize 7GB`
 				expected := "&'" + utils.InstallDir() + staticPartOfExpectedCmd
 
 				config := &ic.InstallConfig{
@@ -86,7 +86,7 @@ var _ = Describe("buildonly", func() {
 
 		Context("with all switches", func() {
 			It("returns expected command", func() {
-				const staticPartOfExpectedCmd = `\lib\scripts\buildonly\install\install.ps1' -MasterVMProcessorCount 5 -MasterVMMemory 6GB -MasterDiskSize 7GB` +
+				const staticPartOfExpectedCmd = `\lib\scripts\windows\buildonly\install\install.ps1' -MasterVMProcessorCount 5 -MasterVMMemory 6GB -MasterDiskSize 7GB` +
 					` -Proxy my_proxy -ShowLogs -DeleteFilesForOfflineInstallation -ForceOnlineInstallation -WSL -AppendLogFile`
 				expected := "&'" + utils.InstallDir() + staticPartOfExpectedCmd
 

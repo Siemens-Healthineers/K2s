@@ -15,7 +15,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/siemens-healthineers/k2s/internal/setuporchestration"
+	linuxlifecycle "github.com/siemens-healthineers/k2s/internal/linux/lifecycle"
 )
 
 const linuxAdminKubeconfig = "/etc/kubernetes/admin.conf"
@@ -33,59 +33,23 @@ func newLinuxClusterProvider(cfg ProviderConfig) *linuxClusterProvider {
 }
 
 func (p *linuxClusterProvider) Install(cfg ClusterInstallConfig) error {
-	orch := setuporchestration.NewOrchestrator(nil)
-	return orch.Install(setuporchestration.InstallConfig{
-		ShowLogs:                cfg.ShowLogs,
-		SkipStart:               cfg.SkipStart,
-		MasterVMProcessorCount:  cfg.MasterVMProcessorCount,
-		MasterVMMemory:          cfg.MasterVMMemory,
-		MasterDiskSize:          cfg.MasterDiskSize,
-		LinuxOnly:               cfg.LinuxOnly,
-		WSL:                     cfg.WSL,
-		ForceOnlineInstallation: cfg.ForceOnlineInstallation,
-		Proxy:                   cfg.Proxy,
-		NoProxy:                 cfg.NoProxy,
-		AdditionalHooksDir:      cfg.AdditionalHooksDir,
-		ConfigDir:               cfg.ConfigDir,
-		InstallDir:              cfg.InstallDir,
-		Version:                 cfg.Version,
-		ClusterName:             cfg.ClusterName,
-		ControlPlaneHostname:    cfg.ControlPlaneHostname,
+	return linuxlifecycle.Execute("Install", linuxlifecycle.Operation{
+		InstallDir: cfg.InstallDir, ConfigDir: cfg.ConfigDir, Version: cfg.Version,
+		ClusterName: cfg.ClusterName, ControlPlaneHostname: cfg.ControlPlaneHostname,
+		Proxy: cfg.Proxy, NoProxy: cfg.NoProxy, SkipStart: cfg.SkipStart, LinuxOnly: cfg.LinuxOnly,
 	})
 }
 
 func (p *linuxClusterProvider) Uninstall(cfg ClusterUninstallConfig) error {
-	orch := setuporchestration.NewOrchestrator(nil)
-	return orch.Uninstall(setuporchestration.UninstallConfig{
-		ShowLogs:                          cfg.ShowLogs,
-		SkipPurge:                         cfg.SkipPurge,
-		LinuxOnly:                         cfg.LinuxOnly,
-		DeleteFilesForOfflineInstallation: cfg.DeleteFilesForOfflineInstallation,
-		AdditionalHooksDir:                cfg.AdditionalHooksDir,
-		ConfigDir:                         cfg.ConfigDir,
-	})
+	return linuxlifecycle.Execute("Uninstall", linuxlifecycle.Operation{InstallDir: p.installDir, ConfigDir: cfg.ConfigDir, LinuxOnly: cfg.LinuxOnly, SkipPurge: cfg.SkipPurge})
 }
 
 func (p *linuxClusterProvider) Start(cfg ClusterStartConfig) error {
-	orch := setuporchestration.NewOrchestrator(nil)
-	return orch.Start(setuporchestration.StartConfig{
-		ShowLogs:            cfg.ShowLogs,
-		LinuxOnly:           cfg.LinuxOnly,
-		AdditionalHooksDir:  cfg.AdditionalHooksDir,
-		UseCachedK2sVSwitch: cfg.UseCachedK2sVSwitch,
-		ConfigDir:           p.configDir,
-		InstallDir:          p.installDir,
-	})
+	return linuxlifecycle.Execute("Start", linuxlifecycle.Operation{InstallDir: p.installDir, ConfigDir: p.configDir, LinuxOnly: cfg.LinuxOnly})
 }
 
 func (p *linuxClusterProvider) Stop(cfg ClusterStopConfig) error {
-	orch := setuporchestration.NewOrchestrator(nil)
-	return orch.Stop(setuporchestration.StopConfig{
-		ShowLogs:           cfg.ShowLogs,
-		LinuxOnly:          cfg.LinuxOnly,
-		AdditionalHooksDir: cfg.AdditionalHooksDir,
-		ConfigDir:          p.configDir,
-	})
+	return linuxlifecycle.Execute("Stop", linuxlifecycle.Operation{InstallDir: p.installDir, ConfigDir: p.configDir, LinuxOnly: cfg.LinuxOnly})
 }
 
 func (p *linuxClusterProvider) Status(_ ClusterStatusConfig) (*ClusterStatus, error) {

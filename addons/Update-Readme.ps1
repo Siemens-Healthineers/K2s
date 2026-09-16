@@ -2,7 +2,7 @@
 #
 # SPDX-License-Identifier: MIT
 
-Import-Module "$PSScriptRoot\..\lib\modules\k2s\k2s.infra.module\yaml\yaml.module.psm1"
+Import-Module "$PSScriptRoot\..\lib\modules\windows\infra\k2s.infra.module\yaml\yaml.module.psm1"
 
 $ErrorActionPreference = 'Stop'
 

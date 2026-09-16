@@ -37,7 +37,7 @@ k2s image push -n shsk2s.azurecr.io/clusterip-webhook:<version>
 When changing the webhook code, update the image tag in:
 
 1. `lib/manifests/clusterip-webhook/deployment.yaml` — both `init-cert` and `webhook` containers
-2. `lib/modules/k2s/k2s.node.module/linuxnode/distros/common-setup.module.psm1` — image pull during cluster setup
+2. `lib/modules/windows/node/k2s.node.module/linuxnode/distros/common-setup.module.psm1` — image pull during cluster setup
 
 ## Operating Modes
 

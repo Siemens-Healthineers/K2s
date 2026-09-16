@@ -8,13 +8,14 @@ metadata:
   name: nginx-gw-controller-cert-generator
   namespace: nginx-gw
   labels:
-    helm.sh/chart: nginx-gateway-fabric-2.6.7
+    helm.sh/chart: nginx-gateway-fabric-2.7.0
     app.kubernetes.io/name: nginx-gw
     app.kubernetes.io/instance: nginx-gw
-    app.kubernetes.io/version: "2.6.7"
+    app.kubernetes.io/version: "2.7.0"
     app.kubernetes.io/managed-by: Helm
   annotations:
-    "helm.sh/hook": pre-install
+    "helm.sh/hook": pre-install, pre-upgrade
+    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: Role

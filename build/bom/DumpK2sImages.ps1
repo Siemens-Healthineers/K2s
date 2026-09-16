@@ -25,8 +25,8 @@ Param(
 &$PSScriptRoot\..\..\smallsetup\common\GlobalVariables.ps1
 
 $addonsModule = "$PSScriptRoot\..\..\addons\addons.module.psm1"
-$yamlModule = "$PSScriptRoot\..\..\lib\modules\k2s\k2s.infra.module\yaml\yaml.module.psm1"
-$pathModule = "$PSScriptRoot\..\..\lib\modules\k2s\k2s.infra.module\path\path.module.psm1"
+$yamlModule = "$PSScriptRoot\..\..\lib\modules\windows\infra\k2s.infra.module\yaml\yaml.module.psm1"
+$pathModule = "$PSScriptRoot\..\..\lib\modules\windows\infra\k2s.infra.module\path\path.module.psm1"
 
 Import-Module $addonsModule, $yamlModule, $pathModule
 

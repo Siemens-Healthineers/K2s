@@ -46,7 +46,7 @@ var _ = Describe("linuxonly", func() {
 
 		When("minimal config set", func() {
 			It("returns cmd with minimal params", func() {
-				const rawExpected = `\lib\scripts\linuxonly\install\install.ps1' -MasterVMProcessorCount 5 -MasterVMMemory 6GB -MasterDiskSize 7GB`
+				const rawExpected = `\lib\scripts\windows\linuxonly\install\install.ps1' -MasterVMProcessorCount 5 -MasterVMMemory 6GB -MasterDiskSize 7GB`
 				expected := "&'" + utils.InstallDir() + rawExpected
 
 				config := &config.InstallConfig{
@@ -71,7 +71,7 @@ var _ = Describe("linuxonly", func() {
 
 		When("maximal config set", func() {
 			It("returns cmd with maximal params", func() {
-				const rawExpected = `\lib\scripts\linuxonly\install\install.ps1' -MasterVMProcessorCount 5 -MasterVMMemory 6GB -MasterDiskSize 7GB` +
+				const rawExpected = `\lib\scripts\windows\linuxonly\install\install.ps1' -MasterVMProcessorCount 5 -MasterVMMemory 6GB -MasterDiskSize 7GB` +
 					` -Proxy my_proxy -AdditionalHooksDir 'c:\my\dir' -ShowLogs -SkipStart -DeleteFilesForOfflineInstallation -ForceOnlineInstallation -AppendLogFile`
 				expected := "&'" + utils.InstallDir() + rawExpected
 

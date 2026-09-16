@@ -167,7 +167,7 @@ func extractRemoveOptions(cmd *cobra.Command) (*removeOptions, error) {
 }
 
 func buildRemovePsCmd(removeOptions *removeOptions) (psCmd string, params []string) {
-	psCmd = utils.FormatScriptFilePath(filepath.Join(utils.InstallDir(), "lib", "scripts", "k2s", "image", "Remove-Image.ps1"))
+	psCmd = utils.FormatScriptFilePath(filepath.Join(utils.InstallDir(), "lib", "scripts", "windows", "host", "image", "Remove-Image.ps1"))
 
 	if removeOptions.imageId != "" {
 		params = append(params, " -ImageId "+removeOptions.imageId)

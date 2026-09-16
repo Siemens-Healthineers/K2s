@@ -3,7 +3,7 @@
 # SPDX-License-Identifier: MIT
 
 # Import the leaf vm.module in THIS module's scope so Invoke-CmdOnControlPlaneViaSSHKey resolves (not the admin-gated node aggregator).
-$vmModule = "$PSScriptRoot/../../../../lib/modules/k2s/k2s.node.module/linuxnode/vm/vm.module.psm1"
+$vmModule = "$PSScriptRoot/../../../../lib/modules/windows/node/k2s.node.module/linuxnode/vm/vm.module.psm1"
 Import-Module $vmModule
 
 # Default fstab SMB dialect (vers=) used when smbDialect is 'auto' or unset.

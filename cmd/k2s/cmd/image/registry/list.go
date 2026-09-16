@@ -101,7 +101,7 @@ func listRegistries(cmd *cobra.Command, args []string) error {
 }
 
 func listRegistriesOnNodes(cmd *cobra.Command, nodesParam string) error {
-	psCmd := utils.FormatScriptFilePath(filepath.Join(utils.InstallDir(), "lib", "scripts", "k2s", "image", "registry", "List-Registries.ps1"))
+	psCmd := utils.FormatScriptFilePath(filepath.Join(utils.InstallDir(), "lib", "scripts", "windows", "host", "image", "registry", "List-Registries.ps1"))
 
 	showOutput, err := strconv.ParseBool(cmd.Flags().Lookup(common.OutputFlagName).Value.String())
 	if err != nil {
