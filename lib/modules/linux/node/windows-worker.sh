@@ -213,6 +213,7 @@ k2s_windows_worker_ssh() {
 
 k2s_windows_worker_wait_for_ssh() {
   local known_hosts worker_ip deadline=$((SECONDS + 900))
+  k2s_windows_worker_create_ssh_key || return 1
   known_hosts=$(k2s_windows_worker_known_hosts)
   worker_ip=$(k2s_windows_worker_ip) || return 1
   : > "$known_hosts"; chmod 600 "$known_hosts"
