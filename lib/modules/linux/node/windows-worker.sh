@@ -123,7 +123,7 @@ k2s_windows_worker_prepare_image() {
   if [[ -f "$cache" ]]; then
     qemu-img create -f qcow2 -F qcow2 -b "$cache" "$disk" >&2 || return 1
   else
-    k2s_windows_worker_import_qcow2 "$cache" || return $?
+    k2s_windows_worker_import_qcow2 "$cache" >&2 || return $?
     qemu-img create -f qcow2 -F qcow2 -b "$cache" "$disk" >&2 || return 1
   fi
   printf '%s\n' "$disk"
