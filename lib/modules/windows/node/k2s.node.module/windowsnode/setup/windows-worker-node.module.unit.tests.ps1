@@ -62,6 +62,53 @@ Describe 'Set-RoutesToKubemaster' -Tag 'unit', 'ci', 'network' {
         }
     }
 
+    It 'accepts an empty persistent store during Windows-hosted Linux-only startup' {
+        Mock Get-NetRoute {
+            if ($AddressFamily) {
+                throw "No MSFT_NetRoute objects found with property 'AddressFamily' equal to 'IPv4'"
+            }
+            if ($PolicyStore -eq 'ActiveStore') {
+                [pscustomobject]@{ DestinationPrefix = '172.19.1.0/24'; InterfaceIndex = 27; NextHop = '0.0.0.0' }
+            }
+        }
+
+        Set-RoutesToKubemaster
+
+        Should -Invoke Get-NetRoute -Times 1 -Exactly -ParameterFilter { $PolicyStore -eq 'PersistentStore' -and -not $AddressFamily }
+        Should -Invoke Get-NetRoute -Times 0 -Exactly -ParameterFilter { $AddressFamily }
+        Should -Invoke New-NetRoute -Times 0 -Exactly
+        Should -Invoke Remove-NetRoute -Times 0 -Exactly
+    }
+
+    It 'restores the on-link route when stores contain only unrelated IPv6 routes' {
+        Mock Get-NetRoute {
+            if ($AddressFamily) {
+                throw "No MSFT_NetRoute objects found with property 'AddressFamily' equal to 'IPv4'"
+            }
+            [pscustomobject]@{ DestinationPrefix = 'fe80::/64'; InterfaceIndex = 27; NextHop = '::' }
+        }
+
+        Set-RoutesToKubemaster
+
+        Should -Invoke New-NetRoute -Times 1 -Exactly -ParameterFilter {
+            $DestinationPrefix -eq '172.19.1.0/24' -and $InterfaceIndex -eq 27 -and $NextHop -eq '0.0.0.0'
+        }
+        Should -Invoke Remove-NetRoute -Times 0 -Exactly
+    }
+
+    It 'propagates genuine persistent-store query failures' {
+        Mock Get-NetRoute {
+            if ($PolicyStore -eq 'PersistentStore') {
+                throw 'Access denied reading route store'
+            }
+            [pscustomobject]@{ DestinationPrefix = '172.19.1.0/24'; InterfaceIndex = 27; NextHop = '0.0.0.0' }
+        }
+
+        { Set-RoutesToKubemaster } | Should -Throw '*Access denied reading route store*'
+
+        Should -Invoke Remove-NetRoute -Times 0 -Exactly
+    }
+
     It 'uses the current interface index after switch recreation or for WSL' {
         Mock Get-NetIPAddress { [pscustomobject]@{ InterfaceIndex = 42 } }
 
