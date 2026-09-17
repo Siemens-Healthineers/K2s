@@ -2025,24 +2025,27 @@ Describe 'Get-StorageConfigFromRaw' -Tag 'unit', 'ci', 'addon', 'storage smb' {
 }
 
 Describe 'Hooks path resolution' -Tag 'unit', 'ci', 'addon', 'storage smb' {
-    It 'resolves module paths correctly when hook scripts are installed in addons\hooks' {
-        $fakeHooksDir = Join-Path $PSScriptRoot '..\..\..\hooks'
-        $hookFiles = Get-ChildItem -Path "$PSScriptRoot\..\hooks" -Filter '*.ps1'
+    It 'resolves module paths correctly when hook scripts are executed from runtime location (addons\hooks)' {
+        # Runtime location where Copy-ScriptsToHooksDir installs hook scripts
+        $runtimeHooksDir = [System.IO.Path]::GetFullPath([System.IO.Path]::Combine($PSScriptRoot, '..\..\..\hooks'))
+        $sourceHooksDir = [System.IO.Path]::GetFullPath([System.IO.Path]::Combine($PSScriptRoot, '..\hooks'))
+
+        $hookFiles = Get-ChildItem -Path $sourceHooksDir -Filter '*.ps1'
         $hookFiles.Count | Should -BeGreaterThan 0
 
         foreach ($hookFile in $hookFiles) {
             $content = Get-Content -Path $hookFile.FullName -Raw
 
-            if ($content -match '\$logModule\s*=\s*["''](?:\$PSScriptRoot[/\\])?([^"'']+)["'']') {
-                $relPath = $matches[1]
-                $resolvedLogModule = [System.IO.Path]::GetFullPath([System.IO.Path]::Combine($fakeHooksDir, $relPath))
-                (Test-Path -Path $resolvedLogModule) | Should -BeTrue -Because "logModule '$resolvedLogModule' in $($hookFile.Name) should exist"
-            }
+            # Match module import variables (e.g., $logModule, $smbShareModule)
+            $matches = [regex]::Matches($content, '\$(\w+Module)\s*=\s*["''](?:\$PSScriptRoot[/\\])?([^"'']+)["'']')
+            $matches.Count | Should -BeGreaterThan 0 -Because "Hook script '$($hookFile.Name)' should define module paths"
 
-            if ($content -match '\$smbShareModule\s*=\s*["''](?:\$PSScriptRoot[/\\])?([^"'']+)["'']') {
-                $relPath = $matches[1]
-                $resolvedSmbModule = [System.IO.Path]::GetFullPath([System.IO.Path]::Combine($fakeHooksDir, $relPath))
-                (Test-Path -Path $resolvedSmbModule) | Should -BeTrue -Because "smbShareModule '$resolvedSmbModule' in $($hookFile.Name) should exist"
+            foreach ($m in $matches) {
+                $varName = $m.Groups[1].Value
+                $relPath = $m.Groups[2].Value
+                $resolvedPath = [System.IO.Path]::GetFullPath([System.IO.Path]::Combine($runtimeHooksDir, $relPath))
+
+                (Test-Path -Path $resolvedPath) | Should -BeTrue -Because "Variable `$$varName with relative path '$relPath' in hook '$($hookFile.Name)' must resolve to an existing file at '$resolvedPath' when executed from runtime hooks directory '$runtimeHooksDir'"
             }
         }
     }
