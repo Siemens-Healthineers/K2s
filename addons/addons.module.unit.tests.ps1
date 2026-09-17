@@ -405,6 +405,30 @@ Describe 'Remove-ScriptsFromHooksDir' -Tag 'unit', 'ci', 'addon' {
     }
 }
 
+Describe 'Addon Hook Scripts Path Integrity' -Tag 'unit', 'ci', 'addon' {
+    It 'all hook scripts resolve imported modules and scripts correctly from runtime addons\hooks location' {
+        $runtimeHooksDir = Join-Path $PSScriptRoot 'hooks'
+
+        $hookFiles = Get-ChildItem -Path $PSScriptRoot -Recurse -Filter '*.ps1' | Where-Object {
+            $_.DirectoryName -match '[\\/]hooks$' -or $_.Name -match '\.(AfterStart|BeforeUninstall|AfterUninstall|Backup|Restore)\.ps1$'
+        }
+
+        $hookFiles.Count | Should -BeGreaterThan 0
+
+        foreach ($hookFile in $hookFiles) {
+            $content = Get-Content -Path $hookFile.FullName -Raw
+
+            $matches = [regex]::Matches($content, '\$\w+\s*=\s*["''](?:\$PSScriptRoot[/\\])?([^"'']+\.psm?1)["'']')
+
+            foreach ($m in $matches) {
+                $relPath = $m.Groups[1].Value
+                $resolvedPath = [System.IO.Path]::GetFullPath([System.IO.Path]::Combine($runtimeHooksDir, $relPath))
+                (Test-Path -Path $resolvedPath) | Should -BeTrue -Because "In hook script '$($hookFile.FullName)', relative path '$relPath' must resolve to existing file '$resolvedPath' when executed from '$runtimeHooksDir'"
+            }
+        }
+    }
+}
+
 Describe 'Get-AddonConfig' -Tag 'unit', 'ci', 'addon' {
     Context 'addon name not specified' {
         It 'throws' {

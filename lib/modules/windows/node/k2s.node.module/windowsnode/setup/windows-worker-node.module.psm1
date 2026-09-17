@@ -420,7 +420,7 @@ function Set-RoutesToKubemaster {
         throw "Cannot identify a unique control-plane switch interface for $windowsHostIpAddress"
     }
     $switchIndex = $switchAddresses[0].InterfaceIndex
-    $connectedRoute = Get-NetRoute -AddressFamily IPv4 -PolicyStore ActiveStore -ErrorAction Stop |
+    $connectedRoute = Get-NetRoute -PolicyStore ActiveStore -ErrorAction Stop |
         Where-Object { $_.DestinationPrefix -eq $ipControlPlaneCIDR -and $_.InterfaceIndex -eq $switchIndex -and $_.NextHop -eq '0.0.0.0' }
     if (-not $connectedRoute) {
         Write-Log "[Routes] Restoring on-link route to $ipControlPlaneCIDR on interface $switchIndex"
@@ -429,7 +429,7 @@ function Set-RoutesToKubemaster {
     }
 
     foreach ($policyStore in @('PersistentStore', 'ActiveStore')) {
-        $obsoleteRoutes = Get-NetRoute -AddressFamily IPv4 -PolicyStore $policyStore -ErrorAction Stop |
+        $obsoleteRoutes = Get-NetRoute -PolicyStore $policyStore -ErrorAction Stop |
             Where-Object { $_.DestinationPrefix -eq $ipControlPlaneCIDR -and $_.NextHop -eq $windowsHostIpAddress }
         foreach ($obsoleteRoute in $obsoleteRoutes) {
             Write-Log "[Routes] Removing obsolete route to $ipControlPlaneCIDR via $windowsHostIpAddress from $policyStore"
