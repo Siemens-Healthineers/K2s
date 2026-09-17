@@ -549,9 +549,15 @@ func tarGzDirectory(srcDir, destTarGz string) error {
 	var closed bool
 	defer func() {
 		if !closed {
-			_ = tw.Close()
-			_ = gw.Close()
-			_ = out.Close()
+			if err := tw.Close(); err != nil {
+				slog.Debug("[System Backup] Failed to close tar writer during cleanup", "error", err)
+			}
+			if err := gw.Close(); err != nil {
+				slog.Debug("[System Backup] Failed to close gzip writer during cleanup", "error", err)
+			}
+			if err := out.Close(); err != nil {
+				slog.Debug("[System Backup] Failed to close archive file during cleanup", "error", err, "path", destTarGz)
+			}
 		}
 	}()
 
@@ -629,9 +635,15 @@ func tarGzSingleFile(srcFile, destTarGz string) error {
 	var closed bool
 	defer func() {
 		if !closed {
-			_ = tw.Close()
-			_ = gw.Close()
-			_ = out.Close()
+			if err := tw.Close(); err != nil {
+				slog.Debug("[System Backup] Failed to close tar writer during cleanup", "error", err)
+			}
+			if err := gw.Close(); err != nil {
+				slog.Debug("[System Backup] Failed to close gzip writer during cleanup", "error", err)
+			}
+			if err := out.Close(); err != nil {
+				slog.Debug("[System Backup] Failed to close archive file during cleanup", "error", err, "path", destTarGz)
+			}
 		}
 	}()
 
@@ -852,9 +864,7 @@ func generateBackupManifest(stagingDir string, bcfg *backupConfig, includedNames
 }
 
 func createZipFromDirectory(sourceDir, zipPath string) error {
-	_ = os.Remove(zipPath)
-
-	zipFile, err := os.Create(zipPath)
+	zipFile, err := os.OpenFile(zipPath, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0644)
 	if err != nil {
 		return fmt.Errorf("failed to create zip file '%s': %w", zipPath, err)
 	}
