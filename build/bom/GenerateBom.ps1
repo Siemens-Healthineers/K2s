@@ -104,29 +104,24 @@ function GenerateBomGolang($dirname) {
     Write-Output "bom now available: $bomfile"
 }
 
-function Update-K2sStaticVersion() {
-    Write-Output 'Update k2s-static.json with current version from VERSION file'
-
-    # Read version from VERSION file
+function Prepare-K2sStaticBom() {
+    Write-Output 'Prepare static BOM with current K2s version'
     $versionFile = "$global:KubernetesPath\VERSION"
-    if (!(Test-Path $versionFile)) {
-        throw "VERSION file not found at: $versionFile"
-    }
-    
+    $staticBomPath = "$bomRootDir\merge\k2s-static.json"
+    $generatedStaticBomPath = "$bomRootDir\merge\k2s-static-generated.json"
+    if (!(Test-Path $versionFile)) { throw "VERSION file not found at: $versionFile" }
+    if (!(Test-Path $staticBomPath)) { throw "k2s-static.json not found at: $staticBomPath" }
+
     $version = (Get-Content -Path $versionFile -Raw).Trim()
-    Write-Output "  -> K2s version from VERSION file: $version"
-    
-    # Update k2s-static.json with the version
-    $staticJsonPath = "$bomRootDir\merge\k2s-static.json"
-    if (!(Test-Path $staticJsonPath)) {
-        throw "k2s-static.json not found at: $staticJsonPath"
-    }
-    
-    $jsonContent = Get-Content -Path $staticJsonPath -Raw
+    Copy-Item -Path $staticBomPath -Destination $generatedStaticBomPath -Force
+    $jsonContent = Get-Content -Path $generatedStaticBomPath -Raw
     $jsonContent = $jsonContent -replace '"version":\s*"VERSION_PLACEHOLDER"', "`"version`": `"v$version`""
-    Set-Content -Path $staticJsonPath -Value $jsonContent -NoNewline
-    
-    Write-Output "  -> Updated k2s-static.json with version: v$version"
+    Set-Content -Path $generatedStaticBomPath -Value $jsonContent -NoNewline
+
+    if ($Annotate) {
+        Write-Output 'Enriching static BOM with self-rooted executable provenance'
+        &$bomRootDir\sbomgenerator.exe -e $generatedStaticBomPath -r component
+    }
 }
 
 function MergeBomFilesFromDirectory() {
@@ -140,9 +135,13 @@ function MergeBomFilesFromDirectory() {
     $bomfiles = (Get-ChildItem -Path "$bomRootDir\merge" -Filter *.json -Recurse).FullName | Sort-Object length -Descending
     $CMD = "$global:BinPath\cyclonedx-win-x64"
     $MERGE = @('merge', '--input-files')
-    # adding at the beginning just to have the right naming for the component
-    $MERGE += "`"$bomRootDir\merge\k2s-static.json`""
-    foreach ($bomfile in $bomfiles) { $MERGE += "`"$bomfile`"" }
+    # Adding the static BOM first gives the merged document the K2s root component.
+    $MERGE += "`"$bomRootDir\merge\k2s-static-generated.json`""
+    foreach ($bomfile in $bomfiles) {
+        if ($bomfile -notin @("$bomRootDir\merge\k2s-static.json", "$bomRootDir\merge\k2s-static-generated.json")) {
+            $MERGE += "`"$bomfile`""
+        }
+    }
     $MERGE += '--output-file'
     $MERGE += "`"$bomRootDir\k2s-bom.json`""
     & $CMD $MERGE
@@ -156,12 +155,7 @@ function MergeBomFilesFromDirectory() {
     $COMPOSE += "`"$bomRootDir\k2s-bom.xml`""
     & $CMD $COMPOSE
     
-    # Restore placeholder in k2s-static.json to keep file clean in git
-    Write-Output "Restore VERSION_PLACEHOLDER in k2s-static.json"
-    $staticJsonPath = "$bomRootDir\merge\k2s-static.json"
-    $jsonContent = Get-Content -Path $staticJsonPath -Raw
-    $jsonContent = $jsonContent -replace '"version":\s*"v[\d\.]+(-[\w\.]+)?"', "`"version`": `"VERSION_PLACEHOLDER`""
-    Set-Content -Path $staticJsonPath -Value $jsonContent -NoNewline
+    Remove-Item -Path "$bomRootDir\merge\k2s-static-generated.json" -Force -ErrorAction SilentlyContinue
 }
 
 function ValidateResultBom() {
@@ -331,9 +325,9 @@ function GenerateBomContainers() {
 
             if ($Annotate) {
                 $imageSBOMJsonFile = "$bomRootDir\merge\$imageName.json"
-                Write-Output "Enriching generated sbom with command 'sbomgenerator.exe -e `"$imageSBOMJsonFile`" -t `"$type`" -c `"$version`" "
+                Write-Output "Enriching generated sbom with command 'sbomgenerator.exe -e `"$imageSBOMJsonFile`" -t `"$type`" -c `"$version`" -root-component-name `"$name`"'"
                 try {
-                    &"$bomRootDir\sbomgenerator.exe" -e `"$imageSBOMJsonFile`" -t `"$type`" -c `"$version`"
+                    &$bomRootDir\sbomgenerator.exe -e `"$imageSBOMJsonFile`" -t `"$type`" -c `"$version`" -root-component-name `"$name`" -root-component-bom-ref `"$fullname`"
                 }
                 catch {
                     Write-Output "  -> WARNING: SBOM enrichment failed for image ${fullname}: $($_.Exception.Message)"
@@ -430,9 +424,9 @@ function GenerateBomContainers() {
 
         if ($Annotate) {
             $imageSBOMJsonFile = "$bomRootDir\merge\$imageName.json"
-            Write-Output "Enriching generated sbom with command 'sbomgenerator.exe -e `"$imageSBOMJsonFile`" -t `"$type`" -c `"$version`""
+            Write-Output "Enriching generated sbom with command 'sbomgenerator.exe -e `"$imageSBOMJsonFile`" -t `"$type`" -c `"$version`" -root-component-name `"$image`"'"
             try {
-                &"$bomRootDir\sbomgenerator.exe" -e `"$imageSBOMJsonFile`" -t `"$type`" -c `"$version`"
+                &$bomRootDir\sbomgenerator.exe -e `"$imageSBOMJsonFile`" -t `"$type`" -c `"$version`" -root-component-name `"$image`" -root-component-bom-ref `"$imagefullname`"
             }
             catch {
                 Write-Output "  -> WARNING: SBOM enrichment failed for windows image ${imagefullname}: $($_.Exception.Message)"
@@ -506,7 +500,7 @@ LoadK2sImages
 Write-Output '8 -> Generate bom for containers'
 GenerateBomContainers
 Write-Output '9 -> Update k2s version in static BOM'
-Update-K2sStaticVersion
+Prepare-K2sStaticBom
 Write-Output '10 -> Merge bom files'
 MergeBomFilesFromDirectory
 
