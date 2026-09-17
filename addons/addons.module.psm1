@@ -1690,8 +1690,6 @@ function Install-CmctlCli {
         [Parameter(Mandatory = $false)]
         [string] $Proxy
     )
-    Write-Log 'Downloading cert-manager CLI tools' -Console
-    
     $manifest = Get-FromYamlFile -Path $ManifestPath
     
     # Get the first implementation (nginx) which contains the cmctl download specification
@@ -1723,6 +1721,7 @@ function Install-CmctlCli {
             Write-Log "File $destination already exists. Skipping download." -Console
             continue
         }
+        Write-Log 'Downloading cert-manager CLI tools' -Console
         Invoke-DownloadFile $destination $url $true -ProxyToUse $Proxy
     }
 }
@@ -1743,11 +1742,17 @@ function Install-CertManagerControllers {
     # deadline waiting for a cold network pull from quay.io.
     Write-Log '[CertManager] Pre-pulling cert-manager images on control-plane node' -Console
     $certManagerConfig = Get-CertManagerConfig
-    $certManagerImages = Get-ImagesFromYaml -YamlContent (Get-Content -Path $certManagerConfig -Raw)
+    $certManagerImages = Get-ImagesFromYaml -YamlContent (Get-Content -Path $certManagerConfig -Raw) | Select-Object -Unique
     
     foreach ($image in $certManagerImages) {
+        $inspectResult = Invoke-CmdOnControlPlaneViaSSHKey -CmdToExecute "sudo crictl inspecti '$image' >/dev/null 2>&1" -IgnoreErrors
+        if ($inspectResult.Success -eq $true) {
+            Write-Log "[CertManager] Image '$image' is already cached on control-plane node, skipping pull" -Console
+            continue
+        }
+
         Write-Log "[CertManager] Pre-pulling image: $image" -Console
-        $pullResult = Invoke-CmdOnControlPlaneViaSSHKey -CmdToExecute "sudo timeout 300 crictl pull '$image' 2>&1"
+        $pullResult = Invoke-CmdOnControlPlaneViaSSHKey -CmdToExecute "sudo timeout 300 crictl pull '$image' 2>&1" -IgnoreErrors
         if ($pullResult.Success -eq $true) {
             Write-Log "[CertManager] Pre-pull succeeded: $image"
         }
