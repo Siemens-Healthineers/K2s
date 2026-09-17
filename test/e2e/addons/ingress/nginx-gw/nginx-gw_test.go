@@ -99,8 +99,10 @@ var _ = Describe("'ingress nginx-gw' addon", Ordered, func() {
 
 		k2s.VerifyAddonIsEnabled("ingress", nginxGw)
 		suite.Cluster().ExpectDeploymentToBeAvailable("nginx-gw-controller", nginxGw)
+		suite.Cluster().ExpectDeploymentToBeAvailable("external-dns", "kube-system")
 
 		suite.Cluster().ExpectPodsUnderDeploymentReady(ctx, "app.kubernetes.io/name", nginxGw, nginxGw)
+		suite.Cluster().ExpectPodsUnderDeploymentReady(ctx, "app", "external-dns", "kube-system")
 	})
 
 	It("installs cmctl.exe, the cert-manager CLI", func(ctx context.Context) {
