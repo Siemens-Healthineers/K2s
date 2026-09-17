@@ -2023,3 +2023,27 @@ Describe 'Get-StorageConfigFromRaw' -Tag 'unit', 'ci', 'addon', 'storage smb' {
         }
     }
 }
+
+Describe 'Hooks path resolution' -Tag 'unit', 'ci', 'addon', 'storage smb' {
+    It 'resolves module paths correctly when hook scripts are installed in addons\hooks' {
+        $fakeHooksDir = Join-Path $PSScriptRoot '..\..\..\hooks'
+        $hookFiles = Get-ChildItem -Path "$PSScriptRoot\..\hooks" -Filter '*.ps1'
+        $hookFiles.Count | Should -BeGreaterThan 0
+
+        foreach ($hookFile in $hookFiles) {
+            $content = Get-Content -Path $hookFile.FullName -Raw
+
+            if ($content -match '\$logModule\s*=\s*["''](?:\$PSScriptRoot[/\\])?([^"'']+)["'']') {
+                $relPath = $matches[1]
+                $resolvedLogModule = [System.IO.Path]::GetFullPath([System.IO.Path]::Combine($fakeHooksDir, $relPath))
+                (Test-Path -Path $resolvedLogModule) | Should -BeTrue -Because "logModule '$resolvedLogModule' in $($hookFile.Name) should exist"
+            }
+
+            if ($content -match '\$smbShareModule\s*=\s*["''](?:\$PSScriptRoot[/\\])?([^"'']+)["'']') {
+                $relPath = $matches[1]
+                $resolvedSmbModule = [System.IO.Path]::GetFullPath([System.IO.Path]::Combine($fakeHooksDir, $relPath))
+                (Test-Path -Path $resolvedSmbModule) | Should -BeTrue -Because "smbShareModule '$resolvedSmbModule' in $($hookFile.Name) should exist"
+            }
+        }
+    }
+}
