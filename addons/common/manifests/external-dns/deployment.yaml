@@ -34,6 +34,7 @@ spec:
         args:
         - --source=ingress
         - --provider=coredns
+        - --policy=sync
         - --log-level=debug # debug only
         volumeMounts:
         - mountPath: /etc/kubernetes/pki/etcd-ca
