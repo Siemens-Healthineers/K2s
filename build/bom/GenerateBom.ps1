@@ -126,36 +126,44 @@ function Prepare-K2sStaticBom() {
 
 function MergeBomFilesFromDirectory() {
     Write-Output "Merge bom files from '$bomRootDir\merge'"
+    $generatedStaticBomPath = "$bomRootDir\merge\k2s-static-generated.json"
 
-    # cleanup files
-    Remove-Item -Path "$bomRootDir\k2s-bom.json" -ErrorAction SilentlyContinue
-    Remove-Item -Path "$bomRootDir\k2s-bom.xml" -ErrorAction SilentlyContinue
+    try {
+        # cleanup files
+        Remove-Item -Path "$bomRootDir\k2s-bom.json" -ErrorAction SilentlyContinue
+        Remove-Item -Path "$bomRootDir\k2s-bom.xml" -ErrorAction SilentlyContinue
 
-    # merge all files to one bom file
-    $bomfiles = (Get-ChildItem -Path "$bomRootDir\merge" -Filter *.json -Recurse).FullName | Sort-Object length -Descending
-    $CMD = "$global:BinPath\cyclonedx-win-x64"
-    $MERGE = @('merge', '--input-files')
-    # Adding the static BOM first gives the merged document the K2s root component.
-    $MERGE += "`"$bomRootDir\merge\k2s-static-generated.json`""
-    foreach ($bomfile in $bomfiles) {
-        if ($bomfile -notin @("$bomRootDir\merge\k2s-static.json", "$bomRootDir\merge\k2s-static-generated.json")) {
-            $MERGE += "`"$bomfile`""
+        # merge all files to one bom file
+        $bomfiles = (Get-ChildItem -Path "$bomRootDir\merge" -Filter *.json -Recurse).FullName | Sort-Object length -Descending
+        $CMD = "$global:BinPath\cyclonedx-win-x64"
+        $MERGE = @('merge', '--input-files')
+        # Adding the static BOM first gives the merged document the K2s root component.
+        $MERGE += "`"$generatedStaticBomPath`""
+        foreach ($bomfile in $bomfiles) {
+            if ($bomfile -notin @("$bomRootDir\merge\k2s-static.json", $generatedStaticBomPath)) {
+                $MERGE += "`"$bomfile`""
+            }
+        }
+        $MERGE += '--output-file'
+        $MERGE += "`"$bomRootDir\k2s-bom.json`""
+        & $CMD $MERGE
+        if ($LASTEXITCODE -ne 0) { throw "CycloneDX BOM merge failed with exit code $LASTEXITCODE." }
+
+        # generate xml
+        Write-Output "Create additional xml format file '$bomRootDir\k2s-bom.xml'"
+        $COMPOSE = @('convert')
+        $COMPOSE += '--input-file'
+        $COMPOSE += "`"$bomRootDir\k2s-bom.json`""
+        $COMPOSE += '--output-file'
+        $COMPOSE += "`"$bomRootDir\k2s-bom.xml`""
+        & $CMD $COMPOSE
+        if ($LASTEXITCODE -ne 0) { throw "CycloneDX BOM conversion failed with exit code $LASTEXITCODE." }
+    }
+    finally {
+        if (Test-Path -Path $generatedStaticBomPath) {
+            Remove-Item -Path $generatedStaticBomPath -Force
         }
     }
-    $MERGE += '--output-file'
-    $MERGE += "`"$bomRootDir\k2s-bom.json`""
-    & $CMD $MERGE
-
-    # generate xml
-    Write-Output "Create additional xml format file '$bomRootDir\k2s-bom.xml'"
-    $COMPOSE = @('convert')
-    $COMPOSE += '--input-file'
-    $COMPOSE += "`"$bomRootDir\k2s-bom.json`""
-    $COMPOSE += '--output-file'
-    $COMPOSE += "`"$bomRootDir\k2s-bom.xml`""
-    & $CMD $COMPOSE
-    
-    Remove-Item -Path "$bomRootDir\merge\k2s-static-generated.json" -Force -ErrorAction SilentlyContinue
 }
 
 function ValidateResultBom() {
@@ -325,9 +333,9 @@ function GenerateBomContainers() {
 
             if ($Annotate) {
                 $imageSBOMJsonFile = "$bomRootDir\merge\$imageName.json"
-                Write-Output "Enriching generated sbom with command 'sbomgenerator.exe -e `"$imageSBOMJsonFile`" -t `"$type`" -c `"$version`" -root-component-name `"$name`"'"
+                Write-Output "Enriching generated SBOM for container image '$fullname'"
                 try {
-                    &$bomRootDir\sbomgenerator.exe -e `"$imageSBOMJsonFile`" -t `"$type`" -c `"$version`" -root-component-name `"$name`" -root-component-bom-ref `"$fullname`"
+                    & "$bomRootDir\sbomgenerator.exe" -e "$imageSBOMJsonFile" -t "$type" -c "$version" -root-component-name "$name" -root-component-bom-ref "$fullname"
                 }
                 catch {
                     Write-Output "  -> WARNING: SBOM enrichment failed for image ${fullname}: $($_.Exception.Message)"
@@ -424,9 +432,9 @@ function GenerateBomContainers() {
 
         if ($Annotate) {
             $imageSBOMJsonFile = "$bomRootDir\merge\$imageName.json"
-            Write-Output "Enriching generated sbom with command 'sbomgenerator.exe -e `"$imageSBOMJsonFile`" -t `"$type`" -c `"$version`" -root-component-name `"$image`"'"
+            Write-Output "Enriching generated SBOM for Windows container image '$imagefullname'"
             try {
-                &$bomRootDir\sbomgenerator.exe -e `"$imageSBOMJsonFile`" -t `"$type`" -c `"$version`" -root-component-name `"$image`" -root-component-bom-ref `"$imagefullname`"
+                & "$bomRootDir\sbomgenerator.exe" -e "$imageSBOMJsonFile" -t "$type" -c "$version" -root-component-name "$image" -root-component-bom-ref "$imagefullname"
             }
             catch {
                 Write-Output "  -> WARNING: SBOM enrichment failed for windows image ${imagefullname}: $($_.Exception.Message)"
