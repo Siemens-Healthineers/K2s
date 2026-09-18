@@ -144,6 +144,7 @@ build/bom/merge/zap.json
 build/bom/merge/pause.json
 build/bom/merge/yaml2json.json
 build/bom/merge/c-*.json
+build/bom/merge/kubemaster-go-executables.tsv
 build/bom/container-images-used.json
 
 bin/cyclonedx-win-x64.exe
