@@ -137,7 +137,7 @@ function Disable-LinuxWorkerNodeSwap {
 
     Write-Log "$LogPrefix Disabling swap on remote node at $IpAddress" -Console
     $swapUnitsResult = Invoke-CmdOnVmViaSSHKey -CmdToExecute 'systemctl list-units --type=swap --all --plain --no-legend' -UserName $UserName -IpAddress $IpAddress -IgnoreErrors:$true
-    $swapUnitLines = @($swapUnitsResult.Output)
+    $swapUnitLines = @(($swapUnitsResult.Output | Out-String) -split '\r?\n' | Where-Object { -not [string]::IsNullOrWhiteSpace($_) })
     (Invoke-CmdOnVmViaSSHKey -CmdToExecute 'sudo swapoff -a' -UserName $UserName -IpAddress $IpAddress).Output | Write-Log
     (Invoke-CmdOnVmViaSSHKey -CmdToExecute "sudo sed -i '/[[:space:]]swap[[:space:]]/d' /etc/fstab" -UserName $UserName -IpAddress $IpAddress).Output | Write-Log
 
