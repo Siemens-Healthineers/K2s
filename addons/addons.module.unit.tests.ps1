@@ -405,6 +405,30 @@ Describe 'Remove-ScriptsFromHooksDir' -Tag 'unit', 'ci', 'addon' {
     }
 }
 
+Describe 'Addon Hook Scripts Path Integrity' -Tag 'unit', 'ci', 'addon' {
+    It 'all hook scripts resolve imported modules and scripts correctly from runtime addons\hooks location' {
+        $runtimeHooksDir = Join-Path $PSScriptRoot 'hooks'
+
+        $hookFiles = Get-ChildItem -Path $PSScriptRoot -Recurse -Filter '*.ps1' | Where-Object {
+            $_.DirectoryName -match '[\\/]hooks$' -or $_.Name -match '\.(AfterStart|BeforeUninstall|AfterUninstall|Backup|Restore)\.ps1$'
+        }
+
+        $hookFiles.Count | Should -BeGreaterThan 0
+
+        foreach ($hookFile in $hookFiles) {
+            $content = Get-Content -Path $hookFile.FullName -Raw
+
+            $matches = [regex]::Matches($content, '\$\w+\s*=\s*["''](?:\$PSScriptRoot[/\\])?([^"'']+\.psm?1)["'']')
+
+            foreach ($m in $matches) {
+                $relPath = $m.Groups[1].Value
+                $resolvedPath = [System.IO.Path]::GetFullPath([System.IO.Path]::Combine($runtimeHooksDir, $relPath))
+                (Test-Path -Path $resolvedPath) | Should -BeTrue -Because "In hook script '$($hookFile.FullName)', relative path '$relPath' must resolve to existing file '$resolvedPath' when executed from '$runtimeHooksDir'"
+            }
+        }
+    }
+}
+
 Describe 'Get-AddonConfig' -Tag 'unit', 'ci', 'addon' {
     Context 'addon name not specified' {
         It 'throws' {
@@ -570,10 +594,7 @@ Describe 'Backup-Addons' -Tag 'unit', 'ci', 'addon' {
                 )
             }
             Mock -ModuleName $moduleName Join-Path { return 'path' } -ParameterFilter { $Path[0] -eq 'dir' -and $Path[1] -eq $backupFileName }
-            Mock -ModuleName $moduleName ConvertTo-Json { return 'json' } -ParameterFilter { $InputObject.Config -eq @(
-                [pscustomobject]@{ Name = 'Addon1' },
-                [pscustomobject]@{ Name = $null }
-            ) }
+            Mock -ModuleName $moduleName ConvertTo-Json { return 'json' }
             Mock -ModuleName $moduleName Set-Content {  }
             Mock -ModuleName $moduleName Get-ScriptRoot { return 'C:\Scripts' }
             Mock -ModuleName $moduleName Test-Path { return $true } -ParameterFilter { $Path -eq 'C:\Scripts\Addon1\hooks' }
@@ -868,7 +889,7 @@ Describe 'Get-AddonStatus' -Tag 'unit', 'ci', 'addon' {
     Context 'addon not existing' {
         BeforeAll {
             $addonDirectory = 'test-addon-dir'
-            Mock -ModuleName $moduleName Test-Path { return $false } -ParameterFilter { $Path -match "\\$addonDirectory" }
+            Mock -ModuleName $moduleName Test-Path { return $false } -ParameterFilter { $Path -match $addonDirectory }
         }
 
         It 'returns addon-not-found error' {
@@ -1112,9 +1133,12 @@ Describe 'Install-CmctlCli' -Tag 'unit', 'ci', 'addon' {
             }
         }
 
-        It 'downloads cmctl with provided proxy' {
+        It 'downloads cmctl with provided proxy and logs downloading' {
             InModuleScope -ModuleName $moduleName {
                 Install-CmctlCli -ManifestPath 'C:\test\manifest.yaml' -K2sRoot 'C:\k2s' -Proxy 'http://proxy:8080'
+
+                Should -Invoke Write-Log -Times 1 -Scope It -ParameterFilter { $Messages -match 'Downloading cert-manager CLI tools' }
+                Should -Invoke Invoke-DownloadFile -Times 1 -Scope It
             }
 
             $script:downloadArgs | Should -Not -BeNullOrEmpty
@@ -1123,7 +1147,6 @@ Describe 'Install-CmctlCli' -Tag 'unit', 'ci', 'addon' {
             ($script:downloadArgs | Where-Object { $_ -eq 'http://proxy:8080' }).Count | Should -BeGreaterThan 0
             $script:downloadedUrls | Should -Contain 'http://example/cmctl.exe'
             $script:downloadedUrls | Should -Not -Contain 'http://example/linkerd.exe'
-            Should -Invoke -ModuleName $moduleName Invoke-DownloadFile -Times 1 -Scope It
         }
     }
 
@@ -1152,11 +1175,13 @@ Describe 'Install-CmctlCli' -Tag 'unit', 'ci', 'addon' {
             Mock -ModuleName $moduleName Invoke-DownloadFile { }
         }
 
-        It 'skips download' {
+        It 'skips download and does not log downloading' {
             InModuleScope -ModuleName $moduleName {
                 Install-CmctlCli -ManifestPath 'C:\test\manifest.yaml' -K2sRoot 'C:\k2s'
 
                 Should -Invoke Invoke-DownloadFile -Times 0 -Scope Context
+                Should -Invoke Write-Log -Times 0 -Scope It -ParameterFilter { $Messages -match 'Downloading cert-manager CLI tools' }
+                Should -Invoke Write-Log -Times 1 -Scope It -ParameterFilter { $Messages -match 'already exists\. Skipping download' }
             }
         }
     }
@@ -1374,35 +1399,159 @@ Describe 'Import-CACertificateToWindowsStore' -Tag 'unit', 'ci', 'addon' {
 }
 
 Describe 'Install-CertManagerControllers' -Tag 'unit', 'ci', 'addon' {
-    BeforeAll {
-        Mock -ModuleName $moduleName Write-Log { }
-        Mock -ModuleName $moduleName Invoke-CmdOnControlPlaneViaSSHKey { return [pscustomobject]@{ Success = $true; Output = 'ok' } }
-        Mock -ModuleName $moduleName Invoke-Kubectl { return [pscustomobject]@{ Success = $true; Output = 'ok' } }
-        Mock -ModuleName $moduleName Wait-ForCertManagerAvailable { return $true }
-        Mock -ModuleName $moduleName Clear-KubectlDiscoveryCache { }
+    Context 'images are already cached locally' {
+        BeforeAll {
+            Mock -ModuleName $moduleName Write-Log { }
+            Mock -ModuleName $moduleName Get-CertManagerConfig { return 'cert-manager.yaml' }
+            Mock -ModuleName $moduleName Get-ImagesFromYaml { return @('img1:v1', 'img2:v1') }
+            Mock -ModuleName $moduleName Get-Content { return 'dummy-yaml' }
+            Mock -ModuleName $moduleName Invoke-CmdOnControlPlaneViaSSHKey {
+                return [pscustomobject]@{ Success = $true; Output = 'cached' }
+            }
+            Mock -ModuleName $moduleName Invoke-Kubectl { return [pscustomobject]@{ Success = $true; Output = 'ok' } }
+            Mock -ModuleName $moduleName Wait-ForCertManagerAvailable { return $true }
+            Mock -ModuleName $moduleName Clear-KubectlDiscoveryCache { }
+        }
+
+        It 'inspects images, skips pull, applies manifest, waits for API and CRDs' {
+            InModuleScope -ModuleName $moduleName {
+                Install-CertManagerControllers
+
+                Should -Invoke Invoke-CmdOnControlPlaneViaSSHKey -Times 2 -Scope It -ParameterFilter {
+                    $CmdToExecute -like '*crictl inspecti*'
+                }
+                Should -Invoke Invoke-CmdOnControlPlaneViaSSHKey -Times 0 -Scope It -ParameterFilter {
+                    $CmdToExecute -like '*crictl pull*'
+                }
+                Should -Invoke Write-Log -Times 1 -Scope It -ParameterFilter {
+                    $Messages -match "Image 'img1:v1' is already cached on control-plane node, skipping pull"
+                }
+                Should -Invoke Write-Log -Times 1 -Scope It -ParameterFilter {
+                    $Messages -match "Image 'img2:v1' is already cached on control-plane node, skipping pull"
+                }
+                Should -Invoke Invoke-Kubectl -Times 1 -Scope It -ParameterFilter {
+                    $Params -contains 'apply' -and $Params -contains '-f' -and $Params -contains 'cert-manager.yaml'
+                }
+                Should -Invoke Wait-ForCertManagerAvailable -Times 1 -Scope It
+                Should -Invoke Invoke-Kubectl -Times 1 -Scope It -ParameterFilter {
+                    $Params -contains 'wait' -and $Params -contains '--for=condition=Established'
+                }
+                Should -Invoke Clear-KubectlDiscoveryCache -Times 1 -Scope It
+            }
+        }
     }
 
-    It 'applies the manifest, waits for API, waits for CRDs, and clears discovery cache' {
-        InModuleScope -ModuleName $moduleName {
-            Install-CertManagerControllers
+    Context 'images are not cached locally and pull succeeds' {
+        BeforeAll {
+            Mock -ModuleName $moduleName Write-Log { }
+            Mock -ModuleName $moduleName Get-CertManagerConfig { return 'cert-manager.yaml' }
+            Mock -ModuleName $moduleName Get-ImagesFromYaml { return @('img1:v1') }
+            Mock -ModuleName $moduleName Get-Content { return 'dummy-yaml' }
+            Mock -ModuleName $moduleName Invoke-CmdOnControlPlaneViaSSHKey {
+                if ($CmdToExecute -like '*inspecti*') {
+                    return [pscustomobject]@{ Success = $false; Output = 'not found' }
+                }
+                return [pscustomobject]@{ Success = $true; Output = 'pulled' }
+            }
+            Mock -ModuleName $moduleName Invoke-Kubectl { return [pscustomobject]@{ Success = $true; Output = 'ok' } }
+            Mock -ModuleName $moduleName Wait-ForCertManagerAvailable { return $true }
+            Mock -ModuleName $moduleName Clear-KubectlDiscoveryCache { }
+        }
 
-            Should -Invoke Invoke-Kubectl -Times 1 -Scope It -ParameterFilter {
-                $Params -contains 'apply' -and $Params -contains '-f' -and $Params -like '*cert-manager.yaml'
+        It 'pulls images when inspecti fails' {
+            InModuleScope -ModuleName $moduleName {
+                Install-CertManagerControllers
+
+                Should -Invoke Invoke-CmdOnControlPlaneViaSSHKey -Times 1 -Scope It -ParameterFilter {
+                    $CmdToExecute -like '*crictl inspecti*'
+                }
+                Should -Invoke Invoke-CmdOnControlPlaneViaSSHKey -Times 1 -Scope It -ParameterFilter {
+                    $CmdToExecute -like '*crictl pull*'
+                }
+                Should -Invoke Write-Log -Times 1 -Scope It -ParameterFilter {
+                    $Messages -match "Pre-pulling image: img1:v1"
+                }
+                Should -Invoke Write-Log -Times 1 -Scope It -ParameterFilter {
+                    $Messages -match "Pre-pull succeeded: img1:v1"
+                }
+                Should -Invoke Invoke-Kubectl -Times 1 -Scope It -ParameterFilter {
+                    $Params -contains 'apply'
+                }
             }
-            Should -Invoke Wait-ForCertManagerAvailable -Times 1 -Scope It
-            Should -Invoke Invoke-Kubectl -Times 1 -Scope It -ParameterFilter {
-                $Params -contains 'wait' -and $Params -contains '--for=condition=Established'
+        }
+    }
+
+    Context 'images are not cached locally and pull fails' {
+        BeforeAll {
+            Mock -ModuleName $moduleName Write-Log { }
+            Mock -ModuleName $moduleName Get-CertManagerConfig { return 'cert-manager.yaml' }
+            Mock -ModuleName $moduleName Get-ImagesFromYaml { return @('img1:v1') }
+            Mock -ModuleName $moduleName Get-Content { return 'dummy-yaml' }
+            Mock -ModuleName $moduleName Invoke-CmdOnControlPlaneViaSSHKey {
+                if ($CmdToExecute -like '*inspecti*') {
+                    return [pscustomobject]@{ Success = $false; Output = 'not found' }
+                }
+                return [pscustomobject]@{ Success = $false; Output = 'network unreachable' }
             }
-            Should -Invoke Clear-KubectlDiscoveryCache -Times 1 -Scope It
+            Mock -ModuleName $moduleName Invoke-Kubectl { return [pscustomobject]@{ Success = $true; Output = 'ok' } }
+            Mock -ModuleName $moduleName Wait-ForCertManagerAvailable { return $true }
+            Mock -ModuleName $moduleName Clear-KubectlDiscoveryCache { }
+        }
+
+        It 'logs warning and continues installation without throwing on pull failure' {
+            InModuleScope -ModuleName $moduleName {
+                Install-CertManagerControllers
+
+                Should -Invoke Invoke-CmdOnControlPlaneViaSSHKey -Times 1 -Scope It -ParameterFilter {
+                    $CmdToExecute -like '*crictl pull*'
+                }
+                Should -Invoke Write-Log -Times 1 -Scope It -ParameterFilter {
+                    $Messages -match "WARNING: Pre-pull of 'img1:v1' failed \(will fall back to runtime pull\): network unreachable"
+                }
+                Should -Invoke Invoke-Kubectl -Times 1 -Scope It -ParameterFilter {
+                    $Params -contains 'apply'
+                }
+            }
         }
     }
 
     Context 'cert-manager never becomes ready' {
         BeforeAll {
+            Mock -ModuleName $moduleName Write-Log { }
+            Mock -ModuleName $moduleName Get-CertManagerConfig { return 'cert-manager.yaml' }
+            Mock -ModuleName $moduleName Get-ImagesFromYaml { return @('img1:v1') }
+            Mock -ModuleName $moduleName Get-Content { return 'dummy-yaml' }
+            Mock -ModuleName $moduleName Invoke-CmdOnControlPlaneViaSSHKey { return [pscustomobject]@{ Success = $true; Output = 'ok' } }
+            Mock -ModuleName $moduleName Invoke-Kubectl { return [pscustomobject]@{ Success = $true; Output = 'ok' } }
             Mock -ModuleName $moduleName Wait-ForCertManagerAvailable { return $false }
+            Mock -ModuleName $moduleName Clear-KubectlDiscoveryCache { }
         }
 
         It 'throws when cert-manager is not ready' {
+            InModuleScope -ModuleName $moduleName {
+                { Install-CertManagerControllers } | Should -Throw
+            }
+        }
+    }
+
+    Context 'cert-manager CRDs do not become established' {
+        BeforeAll {
+            Mock -ModuleName $moduleName Write-Log { }
+            Mock -ModuleName $moduleName Get-CertManagerConfig { return 'cert-manager.yaml' }
+            Mock -ModuleName $moduleName Get-ImagesFromYaml { return @('img1:v1') }
+            Mock -ModuleName $moduleName Get-Content { return 'dummy-yaml' }
+            Mock -ModuleName $moduleName Invoke-CmdOnControlPlaneViaSSHKey { return [pscustomobject]@{ Success = $true; Output = 'ok' } }
+            Mock -ModuleName $moduleName Invoke-Kubectl {
+                if ($Params -contains 'wait') {
+                    return [pscustomobject]@{ Success = $false; Output = 'timed out waiting for condition' }
+                }
+                return [pscustomobject]@{ Success = $true; Output = 'ok' }
+            }
+            Mock -ModuleName $moduleName Wait-ForCertManagerAvailable { return $true }
+            Mock -ModuleName $moduleName Clear-KubectlDiscoveryCache { }
+        }
+
+        It 'throws when CRDs fail to become established' {
             InModuleScope -ModuleName $moduleName {
                 { Install-CertManagerControllers } | Should -Throw
             }
