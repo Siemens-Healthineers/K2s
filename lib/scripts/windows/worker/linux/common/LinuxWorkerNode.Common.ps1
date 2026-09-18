@@ -136,12 +136,23 @@ function Disable-LinuxWorkerNodeSwap {
     )
 
     Write-Log "$LogPrefix Disabling swap on remote node at $IpAddress" -Console
-    (Invoke-CmdOnVmViaSSHKey -CmdToExecute 'sudo swapon --show' -UserName $UserName -IpAddress $IpAddress).Output | Write-Log
-    (Invoke-CmdOnVmViaSSHKey -CmdToExecute "swapFiles=`$(cat /proc/swaps | awk 'NR>1 {print `$1}')" -UserName $UserName -IpAddress $IpAddress).Output | Write-Log
+    $swapUnitsResult = Invoke-CmdOnVmViaSSHKey -CmdToExecute 'systemctl list-units --type=swap --all --plain --no-legend' -UserName $UserName -IpAddress $IpAddress -IgnoreErrors:$true
+    $swapUnitLines = @($swapUnitsResult.Output)
     (Invoke-CmdOnVmViaSSHKey -CmdToExecute 'sudo swapoff -a' -UserName $UserName -IpAddress $IpAddress).Output | Write-Log
-    (Invoke-CmdOnVmViaSSHKey -CmdToExecute "for swapFile in `$swapFiles; do sudo rm '`$swapFile'; done" -UserName $UserName -IpAddress $IpAddress).Output | Write-Log
-    (Invoke-CmdOnVmViaSSHKey -CmdToExecute "sudo sed -i '/\sswap\s/d' /etc/fstab" -UserName $UserName -IpAddress $IpAddress).Output | Write-Log
-    (Invoke-CmdOnVmViaSSHKey -CmdToExecute 'sudo swapon --show' -UserName $UserName -IpAddress $IpAddress).Output | Write-Log
+    (Invoke-CmdOnVmViaSSHKey -CmdToExecute "sudo sed -i '/[[:space:]]swap[[:space:]]/d' /etc/fstab" -UserName $UserName -IpAddress $IpAddress).Output | Write-Log
+
+    foreach ($swapUnitLine in $swapUnitLines) {
+        $swapUnit = ([string]$swapUnitLine -split '\s+')[0]
+        if ($swapUnit -like '*.swap') {
+            Write-Log "$LogPrefix Masking swap unit '$swapUnit'"
+            (Invoke-CmdOnVmViaSSHKey -CmdToExecute "sudo systemctl mask '$swapUnit'" -UserName $UserName -IpAddress $IpAddress).Output | Write-Log
+        }
+    }
+
+    $swapVerification = Invoke-CmdOnVmViaSSHKey -CmdToExecute 'sudo swapon --show --noheadings' -UserName $UserName -IpAddress $IpAddress
+    if (-not [string]::IsNullOrWhiteSpace(($swapVerification.Output | Out-String))) {
+        throw "$LogPrefix Failed to disable swap on remote node at $IpAddress`: $($swapVerification.Output)"
+    }
     Write-Log "$LogPrefix Swap disabled successfully" -Console
 }
 
@@ -240,6 +251,8 @@ function Start-LinuxWorkerNodeServices {
         throw "$LogPrefix Failed to establish SSH connection to node '$workerNodeName' ($IpAddress) after $maxSshRetries retries"
     }
 
+    Disable-LinuxWorkerNodeSwap -UserName $UserName -IpAddress $IpAddress -LogPrefix $LogPrefix
+
     $startServicesResult = Invoke-CmdOnVmViaSSHKey -CmdToExecute $startServicesCmd -UserName $UserName -IpAddress $IpAddress -IgnoreErrors:$true -ExecutionTimeoutSeconds $startServicesTimeoutSeconds
     
     if ($startServicesResult.Success) {
@@ -274,6 +287,18 @@ function Start-LinuxWorkerNodeServices {
         $verifyResult = Invoke-CmdOnVmViaSSHKey -CmdToExecute $verifyCmd -UserName $UserName -IpAddress $IpAddress -IgnoreErrors:$true -ExecutionTimeoutSeconds 10
         $kubeletStatus = ($verifyResult.Output | Out-String).Trim()
 
+        if ($kubeletStatus -eq 'activating') {
+            $maxKubeletActivationRetries = 12
+            $kubeletActivationRetryDelaySeconds = 5
+            Write-Log "$LogPrefix kubelet is activating on '$workerNodeName'; waiting up to $($maxKubeletActivationRetries * $kubeletActivationRetryDelaySeconds) seconds..." -Console
+
+            for ($attempt = 1; $attempt -le $maxKubeletActivationRetries -and $kubeletStatus -eq 'activating'; $attempt++) {
+                Start-Sleep -Seconds $kubeletActivationRetryDelaySeconds
+                $verifyResult = Invoke-CmdOnVmViaSSHKey -CmdToExecute $verifyCmd -UserName $UserName -IpAddress $IpAddress -IgnoreErrors:$true -ExecutionTimeoutSeconds 10
+                $kubeletStatus = ($verifyResult.Output | Out-String).Trim()
+            }
+        }
+
         if ($kubeletStatus -eq 'active') {
             Write-Log "$LogPrefix kubelet is active on '$workerNodeName' despite non-zero start exit code; continuing." -Console
 
@@ -302,7 +327,7 @@ function Start-LinuxWorkerNodeServices {
         # kubelet truly not running — collect diagnostics and throw
         Write-Log "$LogPrefix Failed to start kubelet/runtime services on '$workerNodeName' (kubelet status: $kubeletStatus)" -Console
         try {
-            $diagCmd = 'journalctl -u kubelet -u crio -u containerd --no-pager -n 50 2>/dev/null; echo "---SERVICE-STATUS---"; systemctl is-active kubelet crio containerd 2>/dev/null'
+            $diagCmd = 'sudo journalctl -u kubelet -u crio -u containerd --no-pager -n 50; echo "---SERVICE-STATUS---"; sudo systemctl show kubelet -p ActiveState -p SubState -p Result -p ExecMainStatus; sudo systemctl is-active crio containerd 2>/dev/null'
             $diagResult = Invoke-CmdOnVmViaSSHKey -CmdToExecute $diagCmd -UserName $UserName -IpAddress $IpAddress -IgnoreErrors:$true -ExecutionTimeoutSeconds 15
             $diagOutput = ($diagResult.Output | Out-String).Trim()
             Write-Log "$LogPrefix Service diagnostics from '$workerNodeName':`n$diagOutput"
