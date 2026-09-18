@@ -187,6 +187,8 @@ function CheckVMState() {
 function Get-KubeMasterGoExecutableInventory([string] $OutputPath) {
     $remoteInventoryPath = '/home/remote/kubemaster-go-executables.tsv'
     $inventoryScript = @'
+rm -f /home/remote/kubemaster-go-executables.tsv
+
 if ! command -v go >/dev/null 2>&1; then
     echo 'Go toolchain is not available; executable-level Go module inventory cannot be generated.' >&2
     exit 2
@@ -215,9 +217,6 @@ done | sort -u > /home/remote/kubemaster-go-executables.tsv
     try {
         Write-Output 'Generate KubeMaster Go module-to-executable inventory'
         ExecCmdMaster "echo $encodedScript | base64 --decode | sudo bash" -NoLog
-        if ($LASTEXITCODE -ne 0) {
-            throw "KubeMaster executable inventory command failed with exit code $LASTEXITCODE."
-        }
 
         Copy-FromToMaster -Source "$global:Remote_Master`:$remoteInventoryPath" -Target $OutputPath
         $entryCount = @(Get-Content -Path $OutputPath).Count
