@@ -98,7 +98,7 @@ function GenerateBomGolang($dirname) {
 
     if ($Annotate) {
         Write-Output "Enriching generated SBOM for '$dirname'"
-        & "$bomRootDir\sbomgenerator.exe" -e "$bomfile"
+        & "$bomRootDir\sbomgenerator.exe" -e "$bomfile" -root-component-name "$dirname"
     }
 
     Write-Output "bom now available: $bomfile"
@@ -275,11 +275,11 @@ function GenerateBomDebian() {
             $inventoryAvailable = Get-KubeMasterGoExecutableInventory -OutputPath $kubeExecutableInventoryPath
             if ($inventoryAvailable) {
                 Write-Output 'Enriching KubeMaster SBOM with executable-level provenance'
-                & "$bomRootDir\sbomgenerator.exe" -e "$kubeSBOMJsonFile" -root-executable-map "$kubeExecutableInventoryPath"
+                & "$bomRootDir\sbomgenerator.exe" -e "$kubeSBOMJsonFile" -root-component-name kubemaster -root-executable-map "$kubeExecutableInventoryPath"
             }
             else {
                 Write-Warning 'Enriching KubeMaster SBOM without executable-level provenance.'
-                & "$bomRootDir\sbomgenerator.exe" -e "$kubeSBOMJsonFile"
+                & "$bomRootDir\sbomgenerator.exe" -e "$kubeSBOMJsonFile" -root-component-name kubemaster
             }
         }
         finally {
