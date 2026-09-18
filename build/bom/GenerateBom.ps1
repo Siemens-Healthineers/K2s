@@ -97,8 +97,8 @@ function GenerateBomGolang($dirname) {
     trivy.exe fs `"$indir`" --scanners license --license-full --format cyclonedx -o `"$bomfile`"
 
     if ($Annotate) {
-        Write-Output "Enriching generated sbom with command 'sbomgenerator.exe -e `"$bomfile`" "
-        &"$bomRootDir\sbomgenerator.exe" -e `"$bomfile`"
+        Write-Output "Enriching generated SBOM for '$dirname'"
+        & "$bomRootDir\sbomgenerator.exe" -e "$bomfile"
     }
 
     Write-Output "bom now available: $bomfile"
