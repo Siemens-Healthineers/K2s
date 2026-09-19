@@ -61,9 +61,8 @@ func (p *linuxSystemProvider) Compact(_ SystemCompactConfig) error {
 		"VHDX compaction is a Windows/Hyper-V operation; use 'qemu-img convert' to compact QCOW2 images")
 }
 
-func (p *linuxSystemProvider) Backup(_ SystemBackupConfig) error {
-	return NotSupportedError("system backup",
-		"cluster backup on Linux hosts is not yet implemented")
+func (p *linuxSystemProvider) Backup(cfg SystemBackupConfig) error {
+	return runLinuxSystemBackup(p.installDir, cfg)
 }
 
 func (p *linuxSystemProvider) Restore(_ SystemRestoreConfig) error {
