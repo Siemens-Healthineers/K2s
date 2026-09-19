@@ -4,8 +4,10 @@
 package addons
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
+	"io"
 	"io/fs"
 	"os"
 	"path/filepath"
@@ -90,12 +92,25 @@ type ScriptConfig struct {
 }
 
 type CliFlag struct {
-	Name           string       `yaml:"name"`
-	Shorthand      *string      `yaml:"shorthand"`
-	Default        any          `yaml:"default"`
-	Description    *string      `yaml:"description"`
-	Constraints    *Constraints `yaml:"constraints"`
-	ExclusionGroup *string      `yaml:"exclusionGroup"`
+	Name           string         `yaml:"name"`
+	Shorthand      *string        `yaml:"shorthand"`
+	Default        any            `yaml:"default"`
+	Description    *string        `yaml:"description"`
+	Constraints    *Constraints   `yaml:"constraints"`
+	ExclusionGroup *string        `yaml:"exclusionGroup"`
+	OmittedImages  *OmittedImages `yaml:"omittedImages"`
+}
+
+// OmittedImages declares the container images that become unnecessary when the owning
+// CLI flag selects its omitting value. It is consumed by 'k2s addons import --omit' to
+// skip images while leaving the OCI artifact untouched.
+//
+// FromFiles is preferred: it points at the Kubernetes manifests that already declare the
+// image tags, so the tags stay declared in exactly one place. Explicit is an escape hatch
+// for images that cannot be discovered statically (e.g. Helm chart internals).
+type OmittedImages struct {
+	FromFiles []string `yaml:"fromFiles"`
+	Explicit  []string `yaml:"explicit"`
 }
 
 type Constraints struct {
@@ -391,12 +406,27 @@ func extractImagesFromYAMLFile(filePath string) ([]string, error) {
 		return nil, err
 	}
 
-	var yamlContent interface{}
-	if err := yaml.Unmarshal(data, &yamlContent); err != nil {
-		return nil, err
+	var images []string
+
+	// Kubernetes manifests are commonly multi-document ('---' separated). yaml.Unmarshal
+	// would only decode the first document, silently dropping every image declared further
+	// down the file (e.g. cert-manager.yaml declares its images far beyond the first doc).
+	decoder := yaml.NewDecoder(bytes.NewReader(data))
+	for {
+		var document interface{}
+
+		err := decoder.Decode(&document)
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			return nil, err
+		}
+
+		images = append(images, extractImagesFromYAMLContent(document)...)
 	}
 
-	return extractImagesFromYAMLContent(yamlContent), nil
+	return images, nil
 }
 
 func extractImagesFromYAMLContent(content interface{}) []string {

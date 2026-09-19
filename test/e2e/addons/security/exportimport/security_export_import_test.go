@@ -1,4 +1,4 @@
-﻿// SPDX-FileCopyrightText: © 2026 Siemens Healthineers AG
+// SPDX-FileCopyrightText: © 2026 Siemens Healthineers AG
 //
 // SPDX-License-Identifier: MIT
 
@@ -23,14 +23,15 @@ import (
 const exportImportTestTimeout = time.Minute * 30
 
 var (
-	suite                 *framework.K2sTestSuite
-	k2s                   *dsl.K2s
-	exportPath            string
-	exportedOciFile       string
-	controlPlaneIpAddress string
-	addon                 *addons.Addon
-	impl                  *addons.Implementation
-	testFailed            = false
+	suite                   *framework.K2sTestSuite
+	k2s                     *dsl.K2s
+	exportPath              string
+	exportedOciFile         string
+	exportedOciFileChecksum string
+	controlPlaneIpAddress   string
+	addon                   *addons.Addon
+	impl                    *addons.Implementation
+	testFailed              = false
 )
 
 func TestSecurityExportImport(t *testing.T) {
@@ -106,6 +107,9 @@ var _ = Describe("security addon export and import", Ordered, func() {
 			info, err := os.Stat(exportedOciFile)
 			Expect(os.IsNotExist(err)).To(BeFalse(), "exported OCI tar file should exist at %s", exportedOciFile)
 			GinkgoWriter.Printf("[Test] OCI tar file verified: %d bytes\n", info.Size())
+
+			// Baseline for the artifact immutability check of the '--omit' block below.
+			exportedOciFileChecksum = exportimport.Sha256OfFile(exportedOciFile)
 		})
 
 		It("contains security addon folder with correct OCI structure", func(ctx context.Context) {
@@ -147,7 +151,106 @@ var _ = Describe("security addon export and import", Ordered, func() {
 		})
 	})
 
+	// Guards the selective image import of 'k2s addons import --omit' for an addon that declares
+	// several omit options.
+	//
+	// The block runs between the clean-up and the full import on purpose: it reuses the artifact
+	// exported above plus the empty image state established by the previous block, and restores
+	// that empty state afterwards so the subsequent full import behaves exactly as before.
+	Describe("import security addon while omitting the images of omitted functionality", func() {
+		const (
+			omitKeycloakFlag    = "omitKeycloak"
+			omitOAuth2ProxyFlag = "omitOAuth2Proxy"
+		)
+
+		var (
+			keycloakImages    []string
+			oauth2ProxyImages []string
+			remainingImages   []string
+			imagesBeforeOmit  []string
+		)
+
+		BeforeAll(func(ctx context.Context) {
+			GinkgoWriter.Println("=== IMPORT SECURITY WITH --omit - BeforeAll START ===")
+
+			// The expected images are resolved from the shipped manifests, so an image version
+			// bump does not require a test change.
+			keycloakImages = k2s.FilterOutK8sImages(suite.AddonsAdditionalInfo().GetOmittedImagesForFlag(*impl, omitKeycloakFlag))
+			oauth2ProxyImages = k2s.FilterOutK8sImages(suite.AddonsAdditionalInfo().GetOmittedImagesForFlag(*impl, omitOAuth2ProxyFlag))
+			Expect(keycloakImages).NotTo(BeEmpty(), "'--%s' must resolve to at least one image", omitKeycloakFlag)
+			Expect(oauth2ProxyImages).NotTo(BeEmpty(), "'--%s' must resolve to at least one image", omitOAuth2ProxyFlag)
+
+			allImages, err := suite.AddonsAdditionalInfo().GetImagesForAddonImplementation(*impl)
+			Expect(err).ToNot(HaveOccurred())
+			remainingImages = k2s.FilterOutK8sImages(exportimport.ImagesExcept(allImages, keycloakImages, oauth2ProxyImages))
+			Expect(remainingImages).NotTo(BeEmpty(), "security must ship images besides the omittable ones")
+
+			GinkgoWriter.Printf("[BeforeAll] --%s images: %v\n", omitKeycloakFlag, keycloakImages)
+			GinkgoWriter.Printf("[BeforeAll] --%s images: %v\n", omitOAuth2ProxyFlag, oauth2ProxyImages)
+			GinkgoWriter.Printf("[BeforeAll] remaining security images: %d\n", len(remainingImages))
+
+			exportimport.ImportAddonsWithOmit(ctx, suite, exportedOciFile,
+				[]string{"security"}, []string{omitKeycloakFlag, omitOAuth2ProxyFlag})
+
+			GinkgoWriter.Println("=== IMPORT SECURITY WITH --omit - BeforeAll END ===")
+		}, NodeTimeout(exportImportTestTimeout))
+
+		AfterAll(func(ctx context.Context) {
+			// Restore the precondition of the subsequent full-import block.
+			exportimport.RemoveAllAddonImages(ctx, suite, k2s)
+		})
+
+		It("does not import the images of the omitted functionality", func(ctx context.Context) {
+			GinkgoWriter.Println(">>> TEST: images of all requested omit options are skipped")
+			exportimport.VerifyImagesAbsentFromNodes(ctx, k2s, keycloakImages, "omitted via --omit "+omitKeycloakFlag)
+			exportimport.VerifyImagesAbsentFromNodes(ctx, k2s, oauth2ProxyImages, "omitted via --omit "+omitOAuth2ProxyFlag)
+		})
+
+		It("imports all images that are not covered by the requested omit options", func(ctx context.Context) {
+			GinkgoWriter.Println(">>> TEST: images unrelated to the omit options are imported")
+			exportimport.VerifyImagesPresentOnNodes(ctx, k2s, remainingImages, "not covered by the requested omit options")
+		})
+
+		It("restores the skipped images when the same artifact is imported again without omit options", func(ctx context.Context) {
+			GinkgoWriter.Println(">>> TEST: re-importing the same artifact without --omit restores the skipped images")
+
+			exportimport.VerifyImagesAbsentFromNodes(ctx, k2s, keycloakImages, "still skipped from the previous import")
+
+			// Deliberately the very same artifact - nothing is re-exported in between.
+			exportimport.ImportAddon(ctx, suite, exportedOciFile)
+
+			exportimport.VerifyImagesPresentOnNodes(ctx, k2s, keycloakImages, "restored by the re-import without --omit")
+			exportimport.VerifyImagesPresentOnNodes(ctx, k2s, oauth2ProxyImages, "restored by the re-import without --omit")
+		}, NodeTimeout(exportImportTestTimeout))
+
+		It("never removes images that are already present locally", func(ctx context.Context) {
+			GinkgoWriter.Println(">>> TEST: omitting an already present image does not delete it")
+
+			imagesBeforeOmit = k2s.GetNonK8sImagesFromNodes(ctx)
+			Expect(imagesBeforeOmit).NotTo(BeEmpty(), "the previous re-import must have populated the nodes")
+			GinkgoWriter.Printf("[Test] Images on nodes before the omitted import: %d\n", len(imagesBeforeOmit))
+
+			exportimport.ImportAddonsWithOmit(ctx, suite, exportedOciFile, []string{"security"}, []string{omitKeycloakFlag})
+
+			// Skipping an image means "do not import it", never "delete it from the runtime".
+			exportimport.VerifyImagesPresentOnNodes(ctx, k2s, keycloakImages, "already present locally before the omitted import")
+
+			imagesAfterOmit := k2s.GetNonK8sImagesFromNodes(ctx)
+			GinkgoWriter.Printf("[Test] Images on nodes after the omitted import: %d\n", len(imagesAfterOmit))
+			for _, image := range imagesBeforeOmit {
+				Expect(imagesAfterOmit).To(ContainElement(image), "image '%s' must not be removed by an import using --omit", image)
+			}
+		}, NodeTimeout(exportImportTestTimeout))
+
+		It("leaves the OCI artifact unchanged", func(ctx context.Context) {
+			GinkgoWriter.Println(">>> TEST: the OCI artifact is not modified by --omit")
+			Expect(exportimport.Sha256OfFile(exportedOciFile)).To(Equal(exportedOciFileChecksum),
+				"'--omit' must not modify, shrink or repack the OCI artifact")
+		})
+	})
+
 	Describe("import security addon", func() {
+
 		var restoreProxyEnvironment func()
 
 		BeforeAll(func(ctx context.Context) {
