@@ -23,6 +23,7 @@ required_files=(
   "lib/modules/linux/infra/proxy.sh"
   "lib/modules/linux/networking/dns.sh"
   "lib/modules/linux/node/packages.sh"
+  "lib/modules/linux/node/windows-worker.sh"
   "lib/modules/linux/common/paths.sh"
   "lib/modules/linux/common/validation.sh"
   "lib/modules/linux/cluster/lifecycle.sh"
