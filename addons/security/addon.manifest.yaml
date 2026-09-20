@@ -36,7 +36,7 @@ spec:
           additionalImages:
             - shsk2s.azurecr.io/linkerd/proxy:edge-26.6.3
           curl:
-            - url: https://github.com/cert-manager/cmctl/releases/download/v2.5.0/cmctl_windows_amd64.exe
+            - url: https://github.com/cert-manager/cmctl/releases/download/v2.6.1/cmctl_windows_amd64.exe
               destination: bin\cmctl.exe
             - url: https://github.com/kyverno/kyverno/releases/download/v1.19.1/kyverno-cli_v1.19.1_windows_x86_64.zip
               destination: bin\kyverno.exe
