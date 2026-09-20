@@ -444,6 +444,22 @@ var _ = Describe("config", func() {
 			})
 		})
 
+		When("nodes have worker role", func() {
+			It("returns nil", func() {
+				kind := "test-kind"
+				nodes := []any{map[string]any{"role": WorkerRoleName}}
+
+				config := viper.New()
+				config.Set("kind", kind)
+				config.Set("apiVersion", SupportedApiVersion)
+				config.Set("nodes", nodes)
+
+				sut := &userConfigValidator{}
+
+				Expect(sut.validate(Kind(kind), config)).To(Succeed())
+			})
+		})
+
 		When("no nodes exist", func() {
 			It("returns nil", func() {
 				kind := "test-kind"
