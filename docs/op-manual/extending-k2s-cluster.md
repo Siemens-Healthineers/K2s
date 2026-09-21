@@ -9,18 +9,77 @@ This guide explains how to extend a K2s cluster by adding additional nodes. At t
 
 ## Prerequisites
 
-1. **K2s Installed Machine**:
-   - Ensure the existing machine with K2s installed is accessible.
-   - Confirm that the K2s cluster is running and healthy.
+Complete the following preparation on the K2s host and on the Debian 13 target before running `k2s node add`.
 
-2. **New Host or VM Requirements**:
-     - Install a supported Debian Linux operating system. The currently supported Linux node versions are `debian12` and `debian13`.
-     - Install an SSH service on the new machine and ensure port 22 is enabled for connectivity.
-     - Ensure network connectivity with the K2s node.
-     - **IP Address Requirements**:
-         - The IP address of the new machine must be in the same subnet as the K2s setup (e.g., `172.94.91.0/24`).
-         - **Bare-metal target**: IP must be in a physical network subnet (LAN/WiFi/Ethernet) of the Windows host.
-         - **Existing Hyper-V VM target**: VM must be attached to KubeSwitch and have an IP in the KubeSwitch CIDR (for example `172.19.1.x`).
+### K2s host
+
+- K2s is installed and the cluster is running and healthy.
+- Run the command from an elevated PowerShell or command prompt on the K2s Windows host.
+- The K2s SSH key pair exists. The public key is `%USERPROFILE%\.ssh\k2s\id_rsa.pub`.
+
+### Debian 13 target
+
+- Install Debian 13 (Trixie) on a physical machine or an existing VM. The target must not already be a member of a Kubernetes cluster.
+- Configure a stable IPv4 address, either statically or with a DHCP reservation. K2s stores the address supplied to `k2s node add` for later node operations.
+- Set a hostname containing only lowercase letters. K2s uses the remote hostname as the Kubernetes node name; if `--name` is supplied, it must match that hostname.
+- Install and enable an SSH server, and make TCP port 22 reachable from the K2s host.
+- Use a user that can run commands with `sudo`. The K2s provisioning process uses `sudo` to install packages, configure services, and add routes.
+- Install `lsb-release`, which K2s uses to identify the Debian release:
+
+```console
+sudo apt-get update
+sudo apt-get install --yes openssh-server sudo lsb-release ca-certificates
+sudo systemctl enable --now ssh
+```
+
+- Ensure the user has a home directory and that SSH key authentication can read `~/.ssh/authorized_keys`:
+
+```console
+mkdir -p ~/.ssh
+chmod 700 ~/.ssh
+touch ~/.ssh/authorized_keys
+chmod 600 ~/.ssh/authorized_keys
+```
+
+- Disable swap permanently before adding the node. Kubelet cannot run while swap is enabled. If the Debian installer created a swap partition, disable it, remove its `/etc/fstab` entry, and mask its systemd swap unit:
+
+```bash
+swapUnits=$(systemctl list-units --type=swap --all --plain --no-legend | awk '{print $1}')
+sudo swapoff -a
+sudo sed -i.bak '/[[:space:]]swap[[:space:]]/d' /etc/fstab
+
+for unit in $swapUnits; do
+    sudo systemctl mask "$unit"
+done
+```
+
+Reboot the target and verify that swap remains disabled before running `k2s node add`:
+
+```bash
+sudo reboot
+```
+
+After reconnecting:
+
+```bash
+sudo swapon --show
+```
+
+The command must produce no output.
+
+Do not install kubelet, Kubernetes, CRI-O, containerd, or CNI components manually. `k2s node add` installs and configures the required worker-node components.
+
+### Network requirements
+
+- **Bare-metal target**: the target IP must be in a physical network subnet (LAN/Wi-Fi/Ethernet) reachable by the Windows host. It must not be an address from the K2s internal KubeSwitch network.
+- **Existing Hyper-V VM**: attach the VM to KubeSwitch, keep it running, and assign it an IP in the KubeSwitch CIDR, for example `172.19.1.x`. The Windows host's KubeSwitch network profile must be `Private`.
+- Verify reachability from the K2s host before continuing:
+
+```powershell
+Test-NetConnection -ComputerName <node-ip> -Port 22
+```
+
+The command must report `TcpTestSucceeded : True`.
 
 ---
 
@@ -50,37 +109,37 @@ Before running `k2s node add`, make sure your target matches one of the supporte
 - **Bare-metal host**: reachable over SSH and IP belongs to a physical host subnet.
 - **Existing Hyper-V VM**: reachable over SSH, connected to KubeSwitch, and currently running.
 
-### 1. Copy the public SSH Key to the new node
+### 1. Install and verify the K2s SSH key
 
 When K2s is installed, an SSH public key is available under the directory `%USERPROFILE%\.ssh\k2s\id_rsa.pub`.
 This key must be copied to the Linux physical host or VM to establish communication and initiate the installation.
 
-#### Manually
+Copy the public key to the target. For example, from the K2s host:
 
-Copy the file from `%USERPROFILE%\.ssh\k2s\id_rsa.pub` to any location on the machine `e.g. /tmp/ on Linux host` .
-
-#### Using `scp` and password
-
-##### Target Linux Node
-
-```cmd
-scp -o StrictHostKeyChecking=no %USERPROFILE%\.ssh\k2s\id_rsa.pub  <usernameOfNode>@<IpAddressOfNode>:/tmp/temp_k2s.pub
+```powershell
+scp -o StrictHostKeyChecking=no "$env:USERPROFILE\.ssh\k2s\id_rsa.pub" <usernameOfNode>@<IpAddressOfNode>:/tmp/temp_k2s.pub
 ```
 
 !!! hint "scp"
-    Typically the password will be requested for the user to complete scp operation.
+    The target user's password may be requested for this initial copy. The password is not needed by K2s after the public key is installed.
 
-### 2. Add copied public SSH Key to the Authorized Users Key File of *SSH* Service
+On the Debian 13 target, append the key and verify it:
 
-This operation ensures that the new node can be connected over SSH from K2s setup.
-
-#### On Target Linux Node
-
-```cmd
-cat /tmp/temp_k2s.pub >> ~/.ssh/authorized_keys && cat ~/.ssh/authorized_keys
+```bash
+cat /tmp/temp_k2s.pub >> ~/.ssh/authorized_keys
+chmod 600 ~/.ssh/authorized_keys
+grep -F "$(cat /tmp/temp_k2s.pub)" ~/.ssh/authorized_keys
 ```
 
-### 3. Add the new node with K2s CLI
+From the K2s host, verify key-based, non-interactive access before starting provisioning:
+
+```powershell
+ssh -o BatchMode=yes -o StrictHostKeyChecking=no <usernameOfNode>@<IpAddressOfNode> "hostname; lsb_release -is; lsb_release -rs; sudo -n true"
+```
+
+The command should print the hostname, `Debian`, `13`, and complete without asking for a password. If `sudo -n true` fails, configure sudo for the selected user before continuing.
+
+### 2. Add the new node with K2s CLI
 
 ```cmd
 k2s node add --ip-addr <IPAddressOfNewNode> --username <UserNameForRemoteConnection>
@@ -92,7 +151,7 @@ If the node should be installed **offline**, first create a node package and the
 k2s node add --ip-addr <IPAddressOfNewNode> --username <UserNameForRemoteConnection> --node-package <PathToNodePackageZip>
 ```
 
-### 4. Check new node status
+### 3. Check new node status
 
 ```cmd
 k2s status -o wide

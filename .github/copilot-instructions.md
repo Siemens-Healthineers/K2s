@@ -29,6 +29,27 @@ K2s is a dual‑platform Kubernetes distribution supporting both Windows and Lin
 - `build/` BOM, catalog metadata used for reproducibility & signing.
 - `docs/` MkDocs sources; includes dev guide, ops manual, troubleshooting.
 
+### Platform-First Automation Layout
+
+Treat the following locations as an enforced repository contract:
+
+- Windows scripts: `lib/scripts/windows/{host,linuxonly,buildonly,worker}/`
+- Windows modules: `lib/modules/windows/{common,infra,cluster,node}/`
+- Native Debian 13 scripts: `lib/scripts/linux/debian/{host,linuxonly,worker}/`
+- Native Linux modules: `lib/modules/linux/{common,infra,cluster,node,networking,services}/`
+- OS-specific node-extension assets only: `cfg/nodeextension/<os>/`
+
+Do not create or reintroduce `lib/scripts/k2s/`, `lib/scripts/linuxonly/`,
+`lib/scripts/buildonly/`, `lib/scripts/worker/`, or `lib/modules/k2s/`.
+When relocating automation, update all Go provider paths, PowerShell/Bash
+imports, tests, package/catalog/signing inputs, and documentation in the same
+change. Native Linux install/start/stop/uninstall are Bash-owned through
+`lib/scripts/linux/debian/linuxonly/` and `lib/modules/linux/`; retain
+Go-native `k2s status` so its typed output contract is unchanged.
+
+Run `bash test/native-linux-layout.sh` on a Bash-capable host after modifying
+these paths. It rejects tracked legacy locations and active legacy references.
+
 ## 2a. Documentation Guidelines
 - **Document at the k2s CLI level**: The `k2s.exe` CLI is the primary user-facing API. Documentation examples should use `k2s` commands (e.g., `k2s system package`, `k2s system upgrade`, `k2s addons enable`) rather than direct PowerShell script invocations.
 - PowerShell scripts are implementation details; users interact via the CLI.

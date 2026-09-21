@@ -312,8 +312,33 @@ See [Security Features](../security/security-features.md) for details.
 | **Addon lifecycle** | `addons/` | Per-addon Enable/Disable/Backup/Restore/Update/Get-Status scripts and Kubernetes manifests. |
 | **Multi-variant installs** | `lib/scripts/windows/buildonly/`, `lib/scripts/windows/linuxonly/` | Variant-specific install/uninstall/start/stop scripts. |
 | **Worker node setup** | `lib/scripts/windows/worker/` | Setup scripts for Windows-hosted Windows and Linux worker nodes. |
+| **Native Debian host lifecycle** | `lib/scripts/linux/debian/{host,linuxonly}/` | Root-only Debian 13 lifecycle entry points; both dispatch to the native Linux K2s CLI implementation. |
+| **Native Linux modules** | `lib/modules/linux/{common,infra,cluster,node,networking,services}/` | Reusable Bash modules for native Linux host operations, logging, validation, paths, services, DNS, and package handling. |
 | **Control plane setup** | `lib/scripts/control-plane/` | Control plane installation script. |
 | **Packaging** | `lib/scripts/windows/host/system/package/` | Full and delta package creation, image acquisition, signing, Debian diff, addon packaging. |
+
+---
+
+## Automation Layout Contract
+
+Platform-specific automation is organized under `lib/scripts/<host-os>/` and
+`lib/modules/<host-os>/`. New automation must be added to this layout; the
+legacy `lib/scripts/{k2s,linuxonly,buildonly,worker}/` and
+`lib/modules/k2s/` locations must not be recreated.
+
+| Host | Script locations | Module locations | Implementation boundary |
+|---|---|---|---|
+| Windows | `lib/scripts/windows/{host,linuxonly,buildonly,worker}/` | `lib/modules/windows/{common,infra,cluster,node}/` | Go providers dispatch to PowerShell entry scripts; PowerShell modules own host operations. |
+| Debian 13 | `lib/scripts/linux/debian/{host,linuxonly,worker}/` | `lib/modules/linux/{common,infra,cluster,node,networking,services}/` | Go providers dispatch lifecycle operations to Bash entry scripts; Bash modules own install, start, stop, and uninstall. `k2s status` remains Go-native to preserve typed status output. |
+
+`cfg/nodeextension/<os>/` contains only operating-system-specific assets used
+to extend a cluster with nodes. It is not a location for host lifecycle
+automation. Debian package assets remain in `cfg/nodeextension/debian13/`
+because Windows-host Linux node provisioning also consumes them.
+
+Run `bash test/native-linux-layout.sh` on a Bash-capable host after changing
+automation layout. The check validates the required Linux module graph and
+rejects tracked legacy paths or active references.
 
 ---
 

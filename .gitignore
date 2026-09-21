@@ -74,7 +74,7 @@ containerd/*.tar.gz
 /bin/*.msi
 /lib/NSSM/*
 
-/lib/modules/k2s/k2s.node.module/linuxnode/distros/containernetwork/masternode/flannel.yml
+/lib/modules/windows/node/k2s.node.module/linuxnode/distros/containernetwork/masternode/flannel.yml
 
 bin/dnsproxy.exe
 containerd/vfprules.log
@@ -144,6 +144,7 @@ build/bom/merge/zap.json
 build/bom/merge/pause.json
 build/bom/merge/yaml2json.json
 build/bom/merge/c-*.json
+build/bom/merge/kubemaster-go-executables.tsv
 build/bom/container-images-used.json
 
 bin/cyclonedx-win-x64.exe
@@ -199,4 +200,8 @@ bin/debian-13-genericcloud-amd64.qcow2
 # AI assistant context
 claude.md
 testResults.xml
+.github/agents
+.github/instructions
+.github/prompts
+.github/skills
 
