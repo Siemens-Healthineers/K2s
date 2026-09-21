@@ -271,7 +271,7 @@ function Wait-NetworkL2BridgeReady {
         if (Test-NetworkL2BridgeReady -PodSubnetworkNumber $PodSubnetworkNumber) {
             $l2BridgeSwitchName = Get-L2BridgeSwitchName
             $endpointInterfaceAlias = "vEthernet ($($l2BridgeSwitchName)_ep)"
-            $l2BridgeInterfaceIndex = (Get-NetAdapter -Name $endpointInterfaceAlias -ErrorAction Stop).ifIndex
+            $l2BridgeInterfaceIndex = (Get-NetAdapter -Name $endpointInterfaceAlias -IncludeHidden -ErrorAction Stop).ifIndex
             Write-Output "           OK: $endpointInterfaceAlias is ready"
             Write-Output "`nOK: $endpointInterfaceAlias is ready"
 
@@ -314,7 +314,7 @@ function Test-NetworkL2BridgeReady {
 
     $l2BridgeSwitchName = Get-L2BridgeSwitchName
     $endpointInterfaceAlias = "vEthernet ($($l2BridgeSwitchName)_ep)"
-    $adapter = Get-NetAdapter -Name $endpointInterfaceAlias -ErrorAction SilentlyContinue
+    $adapter = Get-NetAdapter -Name $endpointInterfaceAlias -IncludeHidden -ErrorAction SilentlyContinue
     if ($null -eq $adapter) {
         return $false
     }
@@ -322,7 +322,7 @@ function Test-NetworkL2BridgeReady {
     if ($adapter.Status -eq 'Disabled') {
         Write-Log "[Network] Enabling disabled cbr0 endpoint adapter '$endpointInterfaceAlias'"
         Enable-NetAdapter -Name $endpointInterfaceAlias -Confirm:$false -ErrorAction SilentlyContinue
-        $adapter = Get-NetAdapter -Name $endpointInterfaceAlias -ErrorAction SilentlyContinue
+        $adapter = Get-NetAdapter -Name $endpointInterfaceAlias -IncludeHidden -ErrorAction SilentlyContinue
     }
     if ($null -eq $adapter -or $adapter.Status -ne 'Up') {
         return $false
@@ -365,7 +365,7 @@ function Write-NetworkL2BridgeDiagnostics {
     $endpointInterfaceAlias = "vEthernet ($($l2BridgeSwitchName)_ep)"
     $podSubnet = Get-ConfiguredClusterCIDRHost -PodSubnetworkNumber $PodSubnetworkNumber
     Write-Log "[Network] cbr0 endpoint diagnostics for '$endpointInterfaceAlias' and '$podSubnet'"
-    Get-NetAdapter -Name $endpointInterfaceAlias -ErrorAction SilentlyContinue | Format-List * | Out-String | Write-Log
+    Get-NetAdapter -Name $endpointInterfaceAlias -IncludeHidden -ErrorAction SilentlyContinue | Format-List * | Out-String | Write-Log
     Get-NetIPAddress -InterfaceAlias $endpointInterfaceAlias -AddressFamily IPv4 -ErrorAction SilentlyContinue | Format-List * | Out-String | Write-Log
     Get-NetRoute -DestinationPrefix $podSubnet -PolicyStore ActiveStore -ErrorAction SilentlyContinue | Format-List * | Out-String | Write-Log
 }
