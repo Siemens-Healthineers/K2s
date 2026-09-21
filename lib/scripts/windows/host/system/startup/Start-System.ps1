@@ -441,6 +441,7 @@ function Start-K8sNetworkingServices {
     }
 }
 
+$networkStartupAttempted = $false
 try {
     Write-Log "[$logUseCase] started"
     # check if k2s is running
@@ -450,12 +451,23 @@ try {
         Write-Log "[$logUseCase] finished"
         return
     }
+
+    Write-Log "[$logUseCase] Validating Hyper-V Default Switch network"
+    Test-DefaultSwitch
+    $networkStartupAttempted = $true
+
     # check if there is an HNS network with l2 bridge
+    $PodSubnetworkNumber = '1'
     $l2BridgeSwitchName = Get-L2BridgeSwitchName
     $found = Invoke-HNSCommand -Command {
         param($l2BridgeSwitchName)
         Get-HNSNetwork | Where-Object Name -Like $l2BridgeSwitchName
     } -ArgumentList $l2BridgeSwitchName
+    if ($found -and -not (Test-NetworkL2BridgeReady -PodSubnetworkNumber $PodSubnetworkNumber)) {
+        Write-Log "[$logUseCase] Existing cbr0 network has no healthy endpoint and route; rebuilding it"
+        Write-NetworkL2BridgeDiagnostics -PodSubnetworkNumber $PodSubnetworkNumber
+        $found = $null
+    }
     if ($found) {
         Write-Log "[$logUseCase] External switch with l2 bridge network already exists"
         # cbr0 survived the reboot — Stop-System.ps1 either didn't run or failed
@@ -498,7 +510,6 @@ try {
                 # Adapter is enabled, must be after a reboot where no stop was done before
                 Write-Log "[$logUseCase] Loopback Adapter is not disabled, must be a start of windows after no stop was done"
                 $adapterName = Get-L2BridgeName
-                $PodSubnetworkNumber = '1'
 
                 # Stop k8s networking services to prevent race condition with L2 bridge recreation.
                 # All NSSM-managed services auto-started after unclean reboot and may have programmed
@@ -554,8 +565,10 @@ try {
     }
 }
 catch {
-    Confirm-LoopbackAdapterIP
-    Start-Service -Name 'flanneld' -ErrorAction SilentlyContinue
+    if ($networkStartupAttempted) {
+        Confirm-LoopbackAdapterIP
+        Start-Service -Name 'flanneld' -ErrorAction SilentlyContinue
+    }
     Write-Log "[$logUseCase] $($_.Exception.Message) - $($_.ScriptStackTrace)" -Error
 
     throw $_

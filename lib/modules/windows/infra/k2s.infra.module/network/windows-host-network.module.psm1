@@ -172,7 +172,7 @@ function Test-DefaultSwitch {
         if (Test-SubnetOverlap -Subnet1 $defaultSwitchSubnet -Subnet2 $k2sSubnet.Value) {
             $errorMsg = "Hyper-V Default Switch subnet ($defaultSwitchSubnet) collides with K2s network configuration $($k2sSubnet.Name) ($($k2sSubnet.Value))!`n" +
                         "The Default Switch is automatically created by Hyper-V and conflicts with K2s networking.`n" +
-                        "Please remove the Default Switch before installing K2s:`n" +
+                        "Please remove the Default Switch before installing or starting K2s:`n" +
                         "  Get-HnsNetwork | Where-Object Name -EQ 'Default Switch' | Remove-HnsNetwork"
             Write-Log $errorMsg -Error
             throw "[PREREQ-FAILED] $errorMsg"

@@ -76,7 +76,10 @@ function Wait-ForNodesReady {
     param(
         [Parameter()]
         [String]
-        $controlPlaneHostName
+        $controlPlaneHostName,
+        [Parameter()]
+        [int]
+        $KubeadmProcessId
     )
     # force import path module since this is executed in a script block
     for ($i = 0; $i -lt 60; $i++) {
@@ -92,7 +95,7 @@ function Wait-ForNodesReady {
             $masterReady = $nodes | Select-String -Pattern "$controlPlaneHostName\s*Ready"
             if ($masterReady) {
                 Write-Output "Master also ready, stopping 'kubeadm join'"
-                Stop-Process -Name kubeadm -Force -ErrorAction SilentlyContinue
+                Stop-Process -Id $KubeadmProcessId -Force -ErrorAction SilentlyContinue
                 break
             }
             else {
@@ -100,6 +103,46 @@ function Wait-ForNodesReady {
             }
         }
     }
+}
+
+function Wait-KubeadmJoinProcess {
+    param(
+        [Parameter(Mandatory = $true)]
+        [object] $Process,
+        [Parameter(Mandatory = $true)]
+        [string] $StandardOutputPath,
+        [Parameter(Mandatory = $true)]
+        [string] $StandardErrorPath,
+        [int] $TimeoutSeconds = 600
+    )
+
+    $null = $Process.Handle
+    if ($Process.WaitForExit($TimeoutSeconds * 1000)) {
+        return $Process.ExitCode
+    }
+
+    Write-Log "[KubeadmJoin] kubeadm join timed out after $TimeoutSeconds seconds. Terminating process $($Process.Id)." -Console
+    Stop-Process -Id $Process.Id -Force -ErrorAction SilentlyContinue
+    $Process.WaitForExit()
+
+    if (Test-Path -LiteralPath $StandardOutputPath) {
+        Get-Content -LiteralPath $StandardOutputPath -ErrorAction SilentlyContinue |
+            ForEach-Object { Write-Log "[KubeadmJoin][stdout] $_" }
+    }
+    if (Test-Path -LiteralPath $StandardErrorPath) {
+        Get-Content -LiteralPath $StandardErrorPath -ErrorAction SilentlyContinue |
+            ForEach-Object { Write-Log "[KubeadmJoin][stderr] $_" }
+    }
+
+    $kubectlPath = "$kubeToolsPath\kubectl.exe"
+    if (Test-Path -LiteralPath $kubectlPath) {
+        &$kubectlPath get nodes -o wide 2>&1 | Write-Log
+    }
+    Get-Service -Name 'containerd', 'kubelet', 'kubeproxy' -ErrorAction SilentlyContinue |
+        Format-Table Name, Status, StartType -AutoSize |
+        Out-String |
+        Write-Log
+    throw "kubeadm join timed out after $TimeoutSeconds seconds"
 }
 
 <#
@@ -232,7 +275,8 @@ function Join-WindowsNode {
         $content = (Get-Content -path $joinConfigurationTemplateFilePath -Raw)
         $content.Replace('__CA_CERT__', $caCertFilePath).Replace('__API__', $apiServerEndpoint).Replace('__TOKEN__', $token).Replace('__SHA__', $hash).Replace('__CRI_SOCKET__', 'npipe:////./pipe/containerd-containerd').Replace('__NODE_IP__', $windowsNodeIpAddress) | Set-Content -Path "$joinConfigurationFilePath"
 
-        $joinCommand = '.\' + "kubeadm join $apiServerEndpoint" + ' --node-name ' + $env:COMPUTERNAME + ' --ignore-preflight-errors IsPrivilegedUser,SystemVerification' + " --config `"$joinConfigurationFilePath`""
+        $joinArguments = "join $apiServerEndpoint" + ' --node-name ' + $env:COMPUTERNAME + ' --ignore-preflight-errors IsPrivilegedUser,SystemVerification' + " --config `"$joinConfigurationFilePath`""
+        $joinCommand = ".\kubeadm.exe $joinArguments"
 
         Write-Log $joinCommand
 
@@ -241,21 +285,39 @@ function Join-WindowsNode {
         Initialize-WindowsNodePodCIDR -NodeName $env:COMPUTERNAME.ToLower() -PodSubnetworkNumber $PodSubnetworkNumber
 
         $controlPlaneHostName = Get-ConfigControlPlaneNodeHostname
-        $job = Invoke-Expression "Start-Job -ScriptBlock `${Function:Wait-ForNodesReady} -ArgumentList $controlPlaneHostName"
-        Set-Location $tempKubeadmDirectory
-        $joinOutput = Invoke-Expression $joinCommand 2>&1
-        $joinOutput | Write-Log
-        Set-Location ..\..
-
-        # print the output of the WaitForJoin.ps1
-        Receive-Job $job
-        $job | Stop-Job
-
-        # delete path if was created
-        Remove-Item -Path $tempKubeadmDirectory\kubeadm.exe
-        if ( !$bPathAvailable ) { Remove-Item -Path $tempKubeadmDirectory }
-        $rule = Get-NetFirewallRule -DisplayName $tempRuleName -ErrorAction SilentlyContinue
-        if ($rule) { Remove-NetFirewallRule -DisplayName $tempRuleName -ErrorAction SilentlyContinue }
+        $joinStdoutPath = [System.IO.Path]::GetTempFileName()
+        $joinStderrPath = [System.IO.Path]::GetTempFileName()
+        $job = $null
+        try {
+            $joinProcess = Start-Process -FilePath "$tempKubeadmDirectory\kubeadm.exe" `
+                -ArgumentList $joinArguments `
+                -WorkingDirectory $tempKubeadmDirectory `
+                -NoNewWindow `
+                -PassThru `
+                -RedirectStandardOutput $joinStdoutPath `
+                -RedirectStandardError $joinStderrPath
+            Write-Log "[KubeadmJoin] Started process $($joinProcess.Id) with a 600 second timeout"
+            $job = Start-Job -ScriptBlock ${Function:Wait-ForNodesReady} -ArgumentList $controlPlaneHostName, $joinProcess.Id
+            $joinExitCode = Wait-KubeadmJoinProcess -Process $joinProcess `
+                -StandardOutputPath $joinStdoutPath `
+                -StandardErrorPath $joinStderrPath `
+                -TimeoutSeconds 600
+            Get-Content -LiteralPath $joinStdoutPath -ErrorAction SilentlyContinue | Write-Log
+            Get-Content -LiteralPath $joinStderrPath -ErrorAction SilentlyContinue | Write-Log
+            Write-Log "[KubeadmJoin] Process exited with code $joinExitCode"
+        }
+        finally {
+            if ($null -ne $job) {
+                Receive-Job $job -ErrorAction SilentlyContinue | Write-Log
+                Stop-Job $job -ErrorAction SilentlyContinue
+                Remove-Job $job -Force -ErrorAction SilentlyContinue
+            }
+            Remove-Item -LiteralPath $joinStdoutPath, $joinStderrPath -Force -ErrorAction SilentlyContinue
+            Remove-Item -Path "$tempKubeadmDirectory\kubeadm.exe" -Force -ErrorAction SilentlyContinue
+            if ( !$bPathAvailable ) { Remove-Item -Path $tempKubeadmDirectory -Force -ErrorAction SilentlyContinue }
+            $rule = Get-NetFirewallRule -DisplayName $tempRuleName -ErrorAction SilentlyContinue
+            if ($rule) { Remove-NetFirewallRule -DisplayName $tempRuleName -ErrorAction SilentlyContinue }
+        }
 
         # check success in joining
         $nodefound = &"$kubeToolsPath\kubectl.exe" get nodes | Select-String -Pattern $env:COMPUTERNAME -SimpleMatch
@@ -490,4 +552,5 @@ function New-JoinCommand {
 Export-ModuleMember Initialize-KubernetesCluster,
 Uninstall-Cluster, Set-KubeletDiskPressure,
 Join-WindowsNode, Join-LinuxNode, Add-K8sContext,
-New-JoinCommand, Remove-LinuxNode
+New-JoinCommand, Remove-LinuxNode,
+Wait-KubeadmJoinProcess
