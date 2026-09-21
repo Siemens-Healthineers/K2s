@@ -234,7 +234,9 @@ done | sort -u > /home/remote/kubemaster-go-executables.tsv
 
         Copy-FromToMaster -Source $localReaderPath -Target "$global:Remote_Master`:$remoteReaderPath"
         $null = ExecCmdMaster "chmod +x $remoteReaderPath" -NoLog
-        $null = ExecCmdMaster "echo $encodedScript | base64 --decode | sudo bash" -NoLog
+        # The SSH user owns /home/remote. Avoid sudo here because ExecCmdMaster runs
+        # non-interactively and does not surface a sudo failure to its caller.
+        $null = ExecCmdMaster "echo $encodedScript | base64 --decode | bash" -NoLog
 
         $null = Copy-FromToMaster -Source "$global:Remote_Master`:$remoteInventoryPath" -Target $OutputPath
         if (!(Test-Path -Path $OutputPath)) {
