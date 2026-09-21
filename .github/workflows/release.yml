@@ -129,6 +129,10 @@ jobs:
         run: |
           $ErrorActionPreference = 'Stop'
 
+          if (Get-Variable -Name PSNativeCommandUseErrorActionPreference -ErrorAction SilentlyContinue) {
+            $PSNativeCommandUseErrorActionPreference = $false
+          }
+
           $releaseTag = '${{ inputs.release_tag }}'
           $previousTag = '${{ inputs.previous_tag }}'
 
@@ -138,7 +142,7 @@ jobs:
             }
 
             $releaseVersion = [version]$Matches.version
-            $previousTag = git --no-pager tag --list 'v[0-9]*' |
+            $allCandidates = git --no-pager tag --list 'v[0-9]*' |
               ForEach-Object {
                 if ($_ -match '^v(?<version>\d+\.\d+\.\d+)$') {
                   [PSCustomObject]@{
@@ -148,8 +152,22 @@ jobs:
                 }
               } |
               Where-Object { $_.Version -lt $releaseVersion } |
-              Sort-Object -Property Version -Descending |
-              Select-Object -First 1 -ExpandProperty Tag
+              Sort-Object -Property Version -Descending
+
+            # Prefer the highest tag that is an ancestor in git history of the release tag
+            foreach ($candidate in $allCandidates) {
+              git merge-base --is-ancestor $candidate.Tag $releaseTag 2>$null
+              if ($LASTEXITCODE -eq 0) {
+                $previousTag = $candidate.Tag
+                break
+              }
+            }
+            $global:LASTEXITCODE = 0
+
+            # Fallback to the highest version tag if no ancestor is found
+            if ([string]::IsNullOrWhiteSpace($previousTag) -and $allCandidates.Count -gt 0) {
+              $previousTag = $allCandidates[0].Tag
+            }
           }
 
           if ([string]::IsNullOrWhiteSpace($previousTag)) {
@@ -157,6 +175,7 @@ jobs:
           }
 
           git rev-parse --verify "refs/tags/$previousTag" | Out-Null
+          $global:LASTEXITCODE = 0
 
           Write-Host "previousTag: $previousTag"
           "previousTag=$previousTag" >> $env:GITHUB_ENV
@@ -179,19 +198,21 @@ jobs:
           $releaseStart = [datetimeoffset](git log -1 --format=%cI $previousTag)
           $releaseEnd = [datetimeoffset](git log -1 --format=%cI $releaseTag)
 
-          $searchStart = $releaseStart.UtcDateTime.ToString('yyyy-MM-dd')
-          $searchEnd = $releaseEnd.UtcDateTime.ToString('yyyy-MM-dd')
+          # Start 1 day earlier to avoid timezone boundary issues
+          $searchStart = $releaseStart.UtcDateTime.AddDays(-1).ToString('yyyy-MM-dd')
+          $searchEnd = $releaseEnd.UtcDateTime.AddDays(1).ToString('yyyy-MM-dd')
           $query = "repo:$repo is:issue is:closed closed:$searchStart..$searchEnd"
           $issuesQueryUrl = "https://github.com/$repo/issues?q=is%3Aissue%20is%3Aclosed%20closed%3A$searchStart..$searchEnd"
           Write-Host "Searching release issues with query: $query"
 
-          $issueLines = New-Object System.Collections.Generic.List[string]
+          $issueMap = @{}
           $closedIssues = New-Object System.Collections.Generic.List[object]
           $page = 1
           try {
             do {
               $searchResponseJson = gh api --method GET search/issues -f q=$query -f per_page=100 -f page=$page
               if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($searchResponseJson)) {
+                $global:LASTEXITCODE = 0
                 Write-Warning "Failed to search issues closed between '$previousTag' and '$releaseTag'."
                 break
               }
@@ -201,15 +222,17 @@ jobs:
                 foreach ($issue in $searchResponse.items) {
                   $closedAt = [datetimeoffset]$issue.closed_at
 
-                  if ($closedAt -le $releaseStart -or $closedAt -gt $releaseEnd) {
+                  if ($closedAt -lt $releaseStart.AddHours(-12) -or $closedAt -gt $releaseEnd.AddHours(12)) {
                     continue
                   }
 
-                  $closedIssues.Add([PSCustomObject]@{
+                  $issueObj = [PSCustomObject]@{
                     Number = [int]$issue.number
                     Title = [string]$issue.title
                     ClosedAt = $closedAt
-                  })
+                  }
+                  $closedIssues.Add($issueObj)
+                  $issueMap[$issueObj.Number] = $issueObj
                 }
               }
 
@@ -219,7 +242,38 @@ jobs:
           catch {
             Write-Warning "Error while querying GitHub search API: $_"
           }
+          $global:LASTEXITCODE = 0
 
+          # Also scan commits between previousTag and releaseTag for referenced issue numbers
+          try {
+            $commits = git log "$releaseTag" --not "$previousTag" --oneline
+            $issueMatches = $commits | Select-String -Pattern '#(\d+)' -AllMatches | ForEach-Object { $_.Matches } | ForEach-Object { [int]$_.Groups[1].Value } | Select-Object -Unique
+            foreach ($num in $issueMatches) {
+              if (-not $issueMap.ContainsKey($num)) {
+                $issueJson = gh issue view $num --repo $repo --json "number,title,state,closedAt" 2>$null
+                if ($LASTEXITCODE -eq 0 -and -not [string]::IsNullOrWhiteSpace($issueJson)) {
+                  $issueData = $issueJson | ConvertFrom-Json
+                  if ($issueData.state -eq 'CLOSED') {
+                    $closedAt = if ($issueData.closedAt) { [datetimeoffset]$issueData.closedAt } else { $releaseEnd }
+                    $issueObj = [PSCustomObject]@{
+                      Number = [int]$issueData.number
+                      Title = [string]$issueData.title
+                      ClosedAt = $closedAt
+                    }
+                    $closedIssues.Add($issueObj)
+                    $issueMap[$num] = $issueObj
+                  }
+                }
+                $global:LASTEXITCODE = 0
+              }
+            }
+          }
+          catch {
+            Write-Warning "Error scanning commits for issue numbers: $_"
+          }
+          $global:LASTEXITCODE = 0
+
+          $issueLines = New-Object System.Collections.Generic.List[string]
           foreach ($issue in ($closedIssues | Sort-Object -Property ClosedAt, Number)) {
             $issueLines.Add("- [Issue #$($issue.Number)](https://github.com/$repo/issues/$($issue.Number)) $($issue.Title)")
           }
@@ -244,8 +298,14 @@ jobs:
           $releaseNotes.Add("In addition to GitHub's source code artifacts, this release includes a Windows package with executables built with ``.\bin\bgow``: ``$assetName``.")
           $releaseNotes.Add('')
 
-          git merge-base --is-ancestor $previousTag $releaseTag
+          $isAncestor = $false
+          git merge-base --is-ancestor $previousTag $releaseTag 2>$null
           if ($LASTEXITCODE -eq 0) {
+            $isAncestor = $true
+          }
+          $global:LASTEXITCODE = 0
+
+          if ($isAncestor) {
             $releaseNotes.Add("Full Changelog: [$previousTag...$releaseTag](https://github.com/$repo/compare/$previousTag...$releaseTag)")
           }
           else {
@@ -331,6 +391,7 @@ jobs:
           if ($LASTEXITCODE -eq 0) {
             $releaseExists = $true
           }
+          $global:LASTEXITCODE = 0
 
           if ($releaseExists) {
             gh release edit $releaseTag --title $releaseTag --notes-file release-notes.md --repo $env:GITHUB_REPOSITORY
