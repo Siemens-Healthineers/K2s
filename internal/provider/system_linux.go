@@ -22,10 +22,11 @@ func newLinuxSystemProvider(cfg ProviderConfig) *linuxSystemProvider {
 
 func (p *linuxSystemProvider) Dump(cfg SystemDumpConfig) error {
 	slog.Info("[System] Dumping cluster info")
-	cmd := exec.Command("kubectl", "cluster-info", "dump")
+	args := []string{"cluster-info", "dump"}
 	if cfg.OutputDir != "" {
-		cmd.Args = append(cmd.Args, "--output-directory="+cfg.OutputDir)
+		args = append(args, "--output-directory="+cfg.OutputDir)
 	}
+	cmd := exec.Command("kubectl", args...)
 	cmd.Stdout = nil
 	cmd.Stderr = nil
 	return cmd.Run()
