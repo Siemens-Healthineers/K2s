@@ -197,6 +197,7 @@ function Get-KubeMasterGoExecutableInventory([string] $OutputPath) {
     $script:KubeMasterExecutableInventoryEntryCount = 0
     $script:KubeMasterExecutableInventoryError = ''
     $inventoryScript = @'
+test -x /home/remote/read-go-buildinfo
 rm -f /home/remote/kubemaster-go-executables.tsv
 
 {
@@ -205,7 +206,7 @@ rm -f /home/remote/kubemaster-go-executables.tsv
         find "$directory" -xdev -type f -executable -print0 2>/dev/null
     done
 } | while IFS= read -r -d '' executable; do
-    /home/remote/read-go-buildinfo "$executable" 2>/dev/null
+    /home/remote/read-go-buildinfo "$executable" 2>/dev/null || true
 done | sort -u > /home/remote/kubemaster-go-executables.tsv
 '@
     $encodedScript = [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($inventoryScript))
@@ -232,13 +233,21 @@ done | sort -u > /home/remote/kubemaster-go-executables.tsv
             $env:CGO_ENABLED = $previousCgoEnabled
         }
 
-        Copy-FromToMaster -Source $localReaderPath -Target "$global:Remote_Master`:$remoteReaderPath"
-        $null = ExecCmdMaster "chmod +x $remoteReaderPath" -NoLog
-        # The SSH user owns /home/remote. Avoid sudo here because ExecCmdMaster runs
-        # non-interactively and does not surface a sudo failure to its caller.
-        $null = ExecCmdMaster "echo $encodedScript | base64 --decode | bash" -NoLog
+        $copyOutput = @(scp.exe -o StrictHostKeyChecking=no -i $global:LinuxVMKey $localReaderPath "$global:Remote_Master`:$remoteReaderPath" 2>&1)
+        if ($LASTEXITCODE -ne 0) {
+            throw "Could not upload KubeMaster build-info reader: $($copyOutput -join [Environment]::NewLine)"
+        }
 
-        $null = Copy-FromToMaster -Source "$global:Remote_Master`:$remoteInventoryPath" -Target $OutputPath
+        $remoteOutput = @(ssh.exe -T -n -o StrictHostKeyChecking=no -i $global:LinuxVMKey $global:Remote_Master "chmod +x $remoteReaderPath && echo $encodedScript | base64 --decode | bash && test -s $remoteInventoryPath" 2>&1)
+        if ($LASTEXITCODE -ne 0) {
+            throw "KubeMaster executable inventory command failed: $($remoteOutput -join [Environment]::NewLine)"
+        }
+
+        Remove-Item -Path $OutputPath -Force -ErrorAction SilentlyContinue
+        $copyOutput = @(scp.exe -o StrictHostKeyChecking=no -i $global:LinuxVMKey "$global:Remote_Master`:$remoteInventoryPath" $OutputPath 2>&1)
+        if ($LASTEXITCODE -ne 0) {
+            throw "Could not download KubeMaster executable inventory: $($copyOutput -join [Environment]::NewLine)"
+        }
         if (!(Test-Path -Path $OutputPath)) {
             throw "KubeMaster executable inventory was not copied to '$OutputPath'."
         }
@@ -254,8 +263,7 @@ done | sort -u > /home/remote/kubemaster-go-executables.tsv
         return $false
     }
     finally {
-        ExecCmdMaster "sudo rm -f $remoteInventoryPath" -IgnoreErrors -NoLog
-        ExecCmdMaster "rm -f $remoteReaderPath" -IgnoreErrors -NoLog
+        ExecCmdMaster "rm -f $remoteInventoryPath $remoteReaderPath" -IgnoreErrors -NoLog
         Remove-Item -Path $localReaderPath -Force -ErrorAction SilentlyContinue
     }
 }
