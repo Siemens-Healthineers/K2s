@@ -92,8 +92,18 @@ function GenerateBomGolang([string] $scanPath, [string] $bomName) {
         $env:https_proxy = $Proxy
     }
     $env:SCAN_DEBUG_MODE = 'debug'
-    Write-Output "Generate $scanPath with command '$global:BinPath\trivy.exe fs `"$scanPath`"' --scanners license --license-full --format cyclonedx -o `"$bomfile`" "
-    & "$global:BinPath\trivy.exe" fs "$scanPath" --scanners license --license-full --format cyclonedx -o "$bomfile"
+    $sbomToolPaths = @(
+        "$global:BinPath\trivy.exe",
+        "$global:BinPath\cyclonedx-win-x64.exe",
+        "$bomRootDir\sbomgenerator.exe"
+    )
+    $trivyArguments = @('fs', "$scanPath", '--scanners', 'license', '--license-full', '--format', 'cyclonedx', '-o', "$bomfile")
+    foreach ($sbomToolPath in $sbomToolPaths) {
+        $trivyArguments += '--skip-files'
+        $trivyArguments += $sbomToolPath
+    }
+    Write-Output "Generate $scanPath while excluding SBOM-generation tools"
+    & "$global:BinPath\trivy.exe" $trivyArguments
     if ($LASTEXITCODE -ne 0 -or !(Test-Path -Path $bomfile)) {
         throw "Trivy source scan failed for '$scanPath'."
     }
@@ -316,7 +326,7 @@ function GenerateBomDebian() {
             if ($inventoryAvailable) {
                 Write-Output "KubeMaster executable inventory contains $script:KubeMasterExecutableInventoryEntryCount module-to-executable entries"
                 Write-Output 'Enriching KubeMaster SBOM with executable-level provenance'
-                & "$bomRootDir\sbomgenerator.exe" -e "$kubeSBOMJsonFile" -root-component-name kubemaster -root-executable-map "$kubeExecutableInventoryPath"
+                & "$bomRootDir\sbomgenerator.exe" -e "$kubeSBOMJsonFile" -root-component-name kubemaster -root-executable-map "$kubeExecutableInventoryPath" -exclude-root-executables trivy
             }
             else {
                 Write-Output "WARNING: Could not generate KubeMaster executable inventory: $script:KubeMasterExecutableInventoryError"
