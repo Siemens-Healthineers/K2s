@@ -69,71 +69,6 @@ Describe 'Set-RoutesToKubemaster' -Tag 'unit', 'ci', 'network' {
         }
     }
 
-    Describe 'Test-NetworkL2BridgeReady' -Tag 'unit', 'ci', 'network' {
-        BeforeEach {
-            Mock Write-Log {}
-            Mock Get-NetAdapter { [pscustomobject]@{ Name = 'vEthernet (cbr0_ep)'; ifIndex = 31; Status = 'Up' } }
-            Mock Get-NetIPAddress { [pscustomobject]@{ IPAddress = '172.20.1.2'; InterfaceIndex = 31 } }
-            Mock Get-NetRoute { [pscustomobject]@{ DestinationPrefix = '172.20.1.0/24'; InterfaceIndex = 31; NextHop = '0.0.0.0' } }
-            Mock New-NetRoute {}
-            Mock Enable-NetAdapter {}
-        }
-
-        It 'accepts only the exact healthy cbr0 endpoint and route' {
-            Test-NetworkL2BridgeReady -PodSubnetworkNumber '1' | Should -BeTrue
-
-            Should -Invoke Get-NetAdapter -Times 1 -Exactly -ParameterFilter { $Name -eq 'vEthernet (cbr0_ep)' }
-            Should -Invoke Get-NetIPAddress -Times 1 -Exactly -ParameterFilter { $InterfaceIndex -eq 31 -and $AddressFamily -eq 'IPv4' }
-            Should -Invoke Get-NetRoute -Times 1 -Exactly -ParameterFilter {
-                $DestinationPrefix -eq '172.20.1.0/24' -and $InterfaceIndex -eq 31 -and $PolicyStore -eq 'ActiveStore'
-            }
-            Should -Invoke New-NetRoute -Times 0 -Exactly
-        }
-
-        It 'rejects a disconnected endpoint' {
-            Mock Get-NetAdapter { [pscustomobject]@{ Name = 'vEthernet (cbr0_ep)'; ifIndex = 31; Status = 'Disconnected' } }
-
-            Test-NetworkL2BridgeReady -PodSubnetworkNumber '1' | Should -BeFalse
-
-            Should -Invoke Get-NetIPAddress -Times 0 -Exactly
-            Should -Invoke New-NetRoute -Times 0 -Exactly
-        }
-
-        It 'rejects an endpoint without the expected bridge address' {
-            Mock Get-NetIPAddress { [pscustomobject]@{ IPAddress = '172.20.1.99'; InterfaceIndex = 31 } }
-
-            Test-NetworkL2BridgeReady -PodSubnetworkNumber '1' | Should -BeFalse
-
-            Should -Invoke New-NetRoute -Times 0 -Exactly
-        }
-
-        It 'repairs a missing active on-link route' {
-            Mock Get-NetRoute {}
-
-            Test-NetworkL2BridgeReady -PodSubnetworkNumber '1' | Should -BeTrue
-
-            Should -Invoke New-NetRoute -Times 1 -Exactly -ParameterFilter {
-                $DestinationPrefix -eq '172.20.1.0/24' -and $InterfaceIndex -eq 31 -and
-                $NextHop -eq '0.0.0.0' -and $PolicyStore -eq 'ActiveStore'
-            }
-        }
-
-        It 'enables a disabled endpoint before validating it' {
-            $script:adapterQuery = 0
-            Mock Get-NetAdapter {
-                $script:adapterQuery++
-                if ($script:adapterQuery -eq 1) {
-                    return [pscustomobject]@{ Name = 'vEthernet (cbr0_ep)'; ifIndex = 31; Status = 'Disabled' }
-                }
-                return [pscustomobject]@{ Name = 'vEthernet (cbr0_ep)'; ifIndex = 31; Status = 'Up' }
-            }
-
-            Test-NetworkL2BridgeReady -PodSubnetworkNumber '1' | Should -BeTrue
-
-            Should -Invoke Enable-NetAdapter -Times 1 -Exactly -ParameterFilter { $Name -eq 'vEthernet (cbr0_ep)' }
-        }
-    }
-
     It 'accepts an empty persistent store during Windows-hosted Linux-only startup' {
         Mock Get-NetRoute {
             if ($AddressFamily) {
@@ -216,5 +151,70 @@ Describe 'Set-RoutesToKubemaster' -Tag 'unit', 'ci', 'network' {
         { Set-RoutesToKubemaster } | Should -Throw '*route creation failed*'
 
         Should -Invoke Remove-NetRoute -Times 0 -Exactly
+    }
+}
+
+Describe 'Test-NetworkL2BridgeReady' -Tag 'unit', 'ci', 'network' {
+    BeforeEach {
+        Mock Write-Log {}
+        Mock Get-NetAdapter { [pscustomobject]@{ Name = 'vEthernet (cbr0_ep)'; ifIndex = 31; Status = 'Up' } }
+        Mock Get-NetIPAddress { [pscustomobject]@{ IPAddress = '172.20.1.2'; InterfaceIndex = 31 } }
+        Mock Get-NetRoute { [pscustomobject]@{ DestinationPrefix = '172.20.1.0/24'; InterfaceIndex = 31; NextHop = '0.0.0.0' } }
+        Mock New-NetRoute {}
+        Mock Enable-NetAdapter {}
+    }
+
+    It 'accepts only the exact healthy cbr0 endpoint and route' {
+        Test-NetworkL2BridgeReady -PodSubnetworkNumber '1' | Should -BeTrue
+
+        Should -Invoke Get-NetAdapter -Times 1 -Exactly -ParameterFilter { $Name -eq 'vEthernet (cbr0_ep)' }
+        Should -Invoke Get-NetIPAddress -Times 1 -Exactly -ParameterFilter { $InterfaceIndex -eq 31 -and $AddressFamily -eq 'IPv4' }
+        Should -Invoke Get-NetRoute -Times 1 -Exactly -ParameterFilter {
+            $DestinationPrefix -eq '172.20.1.0/24' -and $InterfaceIndex -eq 31 -and $PolicyStore -eq 'ActiveStore'
+        }
+        Should -Invoke New-NetRoute -Times 0 -Exactly
+    }
+
+    It 'rejects a disconnected endpoint' {
+        Mock Get-NetAdapter { [pscustomobject]@{ Name = 'vEthernet (cbr0_ep)'; ifIndex = 31; Status = 'Disconnected' } }
+
+        Test-NetworkL2BridgeReady -PodSubnetworkNumber '1' | Should -BeFalse
+
+        Should -Invoke Get-NetIPAddress -Times 0 -Exactly
+        Should -Invoke New-NetRoute -Times 0 -Exactly
+    }
+
+    It 'rejects an endpoint without the expected bridge address' {
+        Mock Get-NetIPAddress { [pscustomobject]@{ IPAddress = '172.20.1.99'; InterfaceIndex = 31 } }
+
+        Test-NetworkL2BridgeReady -PodSubnetworkNumber '1' | Should -BeFalse
+
+        Should -Invoke New-NetRoute -Times 0 -Exactly
+    }
+
+    It 'repairs a missing active on-link route' {
+        Mock Get-NetRoute {}
+
+        Test-NetworkL2BridgeReady -PodSubnetworkNumber '1' | Should -BeTrue
+
+        Should -Invoke New-NetRoute -Times 1 -Exactly -ParameterFilter {
+            $DestinationPrefix -eq '172.20.1.0/24' -and $InterfaceIndex -eq 31 -and
+            $NextHop -eq '0.0.0.0' -and $PolicyStore -eq 'ActiveStore'
+        }
+    }
+
+    It 'enables a disabled endpoint before validating it' {
+        $script:adapterQuery = 0
+        Mock Get-NetAdapter {
+            $script:adapterQuery++
+            if ($script:adapterQuery -eq 1) {
+                return [pscustomobject]@{ Name = 'vEthernet (cbr0_ep)'; ifIndex = 31; Status = 'Disabled' }
+            }
+            return [pscustomobject]@{ Name = 'vEthernet (cbr0_ep)'; ifIndex = 31; Status = 'Up' }
+        }
+
+        Test-NetworkL2BridgeReady -PodSubnetworkNumber '1' | Should -BeTrue
+
+        Should -Invoke Enable-NetAdapter -Times 1 -Exactly -ParameterFilter { $Name -eq 'vEthernet (cbr0_ep)' }
     }
 }

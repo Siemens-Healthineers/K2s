@@ -77,7 +77,8 @@ function Wait-ForNodesReady {
         [Parameter()]
         [String]
         $controlPlaneHostName,
-        [Parameter()]
+        [Parameter(Mandatory = $true)]
+        [ValidateRange(1, 2147483647)]
         [int]
         $KubeadmProcessId
     )
@@ -95,7 +96,9 @@ function Wait-ForNodesReady {
             $masterReady = $nodes | Select-String -Pattern "$controlPlaneHostName\s*Ready"
             if ($masterReady) {
                 Write-Output "Master also ready, stopping 'kubeadm join'"
-                Stop-Process -Id $KubeadmProcessId -Force -ErrorAction SilentlyContinue
+                if ($KubeadmProcessId -gt 0) {
+                    Stop-Process -Id $KubeadmProcessId -Force -ErrorAction SilentlyContinue
+                }
                 break
             }
             else {
@@ -288,6 +291,7 @@ function Join-WindowsNode {
         $joinStdoutPath = [System.IO.Path]::GetTempFileName()
         $joinStderrPath = [System.IO.Path]::GetTempFileName()
         $job = $null
+        $joinProcess = $null
         try {
             $joinProcess = Start-Process -FilePath "$tempKubeadmDirectory\kubeadm.exe" `
                 -ArgumentList $joinArguments `
@@ -307,6 +311,11 @@ function Join-WindowsNode {
             Write-Log "[KubeadmJoin] Process exited with code $joinExitCode"
         }
         finally {
+            if ($null -ne $joinProcess -and -not $joinProcess.HasExited) {
+                Write-Log "[KubeadmJoin] Terminating process $($joinProcess.Id) during cleanup"
+                Stop-Process -Id $joinProcess.Id -Force -ErrorAction SilentlyContinue
+                $joinProcess.WaitForExit()
+            }
             if ($null -ne $job) {
                 Receive-Job $job -ErrorAction SilentlyContinue | Write-Log
                 Stop-Job $job -ErrorAction SilentlyContinue
