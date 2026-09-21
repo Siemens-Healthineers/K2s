@@ -194,6 +194,8 @@ function Get-KubeMasterGoExecutableInventory([string] $OutputPath) {
     $remoteReaderPath = '/home/remote/read-go-buildinfo'
     $localReaderSourcePath = "$PSScriptRoot\read-go-buildinfo.go"
     $localReaderPath = "$env:TEMP\read-go-buildinfo"
+    $script:KubeMasterExecutableInventoryEntryCount = 0
+    $script:KubeMasterExecutableInventoryError = ''
     $inventoryScript = @'
 rm -f /home/remote/kubemaster-go-executables.tsv
 
@@ -209,7 +211,6 @@ done | sort -u > /home/remote/kubemaster-go-executables.tsv
     $encodedScript = [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($inventoryScript))
 
     try {
-        Write-Host 'Generate KubeMaster Go module-to-executable inventory'
         if (!(Test-Path -Path $localReaderSourcePath)) {
             throw "Go build-info reader source was not found at '$localReaderSourcePath'."
         }
@@ -243,11 +244,11 @@ done | sort -u > /home/remote/kubemaster-go-executables.tsv
         if ($entryCount -eq 0) {
             throw 'KubeMaster executable inventory is empty.'
         }
-        Write-Host "KubeMaster executable inventory contains $entryCount module-to-executable entries"
+        $script:KubeMasterExecutableInventoryEntryCount = $entryCount
         return $true
     }
     catch {
-        Write-Warning "Could not generate KubeMaster executable inventory: $($_.Exception.Message)"
+        $script:KubeMasterExecutableInventoryError = $_.Exception.Message
         return $false
     }
     finally {
@@ -302,11 +303,13 @@ function GenerateBomDebian() {
         try {
             $inventoryAvailable = Get-KubeMasterGoExecutableInventory -OutputPath $kubeExecutableInventoryPath
             if ($inventoryAvailable) {
+                Write-Output "KubeMaster executable inventory contains $script:KubeMasterExecutableInventoryEntryCount module-to-executable entries"
                 Write-Output 'Enriching KubeMaster SBOM with executable-level provenance'
                 & "$bomRootDir\sbomgenerator.exe" -e "$kubeSBOMJsonFile" -root-component-name kubemaster -root-executable-map "$kubeExecutableInventoryPath"
             }
             else {
-                Write-Warning 'Enriching KubeMaster SBOM without executable-level provenance.'
+                Write-Output "WARNING: Could not generate KubeMaster executable inventory: $script:KubeMasterExecutableInventoryError"
+                Write-Output 'WARNING: Enriching KubeMaster SBOM without executable-level provenance.'
                 & "$bomRootDir\sbomgenerator.exe" -e "$kubeSBOMJsonFile" -root-component-name kubemaster
             }
             if ($LASTEXITCODE -ne 0 -or !(Select-String -Path $kubeSBOMJsonFile -Pattern 'k2s:core:pkg:(deb|golang):kubemaster' -Quiet)) {
