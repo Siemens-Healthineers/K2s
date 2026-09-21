@@ -209,6 +209,7 @@ rm -f /home/remote/kubemaster-go-executables.tsv
     /home/remote/read-go-buildinfo "$executable" 2>/dev/null || true
 done | sort -u > /home/remote/kubemaster-go-executables.tsv
 '@
+    $inventoryScript = $inventoryScript -replace "`r`n", "`n"
     $encodedScript = [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($inventoryScript))
 
     try {
