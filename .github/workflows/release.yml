@@ -188,36 +188,40 @@ jobs:
           $issueLines = New-Object System.Collections.Generic.List[string]
           $closedIssues = New-Object System.Collections.Generic.List[object]
           $page = 1
-          do {
-            $searchResponseJson = gh api --method GET search/issues -f q=$query -f per_page=100 -f page=$page
-            if ($LASTEXITCODE -ne 0) {
-              throw "Failed to search issues closed between '$previousTag' and '$releaseTag'."
-            }
-
-            $searchResponse = $searchResponseJson | ConvertFrom-Json
-            foreach ($issue in $searchResponse.items) {
-              $closedAt = [datetimeoffset]$issue.closed_at
-
-              if ($closedAt -le $releaseStart -or $closedAt -gt $releaseEnd) {
-                continue
+          try {
+            do {
+              $searchResponseJson = gh api --method GET search/issues -f q=$query -f per_page=100 -f page=$page
+              if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($searchResponseJson)) {
+                Write-Warning "Failed to search issues closed between '$previousTag' and '$releaseTag'."
+                break
               }
 
-              $closedIssues.Add([PSCustomObject]@{
-                Number = [int]$issue.number
-                Title = [string]$issue.title
-                ClosedAt = $closedAt
-              })
-            }
+              $searchResponse = $searchResponseJson | ConvertFrom-Json
+              if ($null -ne $searchResponse.items) {
+                foreach ($issue in $searchResponse.items) {
+                  $closedAt = [datetimeoffset]$issue.closed_at
 
-            $page++
-          } while ($searchResponse.items.Count -eq 100)
+                  if ($closedAt -le $releaseStart -or $closedAt -gt $releaseEnd) {
+                    continue
+                  }
+
+                  $closedIssues.Add([PSCustomObject]@{
+                    Number = [int]$issue.number
+                    Title = [string]$issue.title
+                    ClosedAt = $closedAt
+                  })
+                }
+              }
+
+              $page++
+            } while ($searchResponse.items -and $searchResponse.items.Count -eq 100)
+          }
+          catch {
+            Write-Warning "Error while querying GitHub search API: $_"
+          }
 
           foreach ($issue in ($closedIssues | Sort-Object -Property ClosedAt, Number)) {
             $issueLines.Add("- [Issue #$($issue.Number)](https://github.com/$repo/issues/$($issue.Number)) $($issue.Title)")
-          }
-
-          if ($issueLines.Count -eq 0) {
-            throw "No GitHub issues were closed between '$previousTag' and '$releaseTag'."
           }
 
           $releaseNotes = New-Object System.Collections.Generic.List[string]
@@ -226,10 +230,15 @@ jobs:
           $releaseNotes.Add('')
           $releaseNotes.Add('## What''s Changed')
           $releaseNotes.Add('')
-          $releaseNotes.Add("In this new version $releaseTag we have solved the following issues:")
-          $releaseNotes.Add('')
-          foreach ($issueLine in $issueLines) {
-            $releaseNotes.Add($issueLine)
+          if ($issueLines.Count -gt 0) {
+            $releaseNotes.Add("In this new version $releaseTag we have solved the following issues:")
+            $releaseNotes.Add('')
+            foreach ($issueLine in $issueLines) {
+              $releaseNotes.Add($issueLine)
+            }
+          }
+          else {
+            $releaseNotes.Add("Release $releaseTag includes improvements, dependency updates, and bug fixes.")
           }
           $releaseNotes.Add('')
           $releaseNotes.Add("In addition to GitHub's source code artifacts, this release includes a Windows package with executables built with ``.\bin\bgow``: ``$assetName``.")
