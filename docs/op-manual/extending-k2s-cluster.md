@@ -23,7 +23,7 @@ Complete the following preparation on the K2s host and on the Debian 13 target b
 - Configure a stable IPv4 address, either statically or with a DHCP reservation. K2s stores the address supplied to `k2s node add` for later node operations.
 - Set a hostname containing only lowercase letters. K2s uses the remote hostname as the Kubernetes node name; if `--name` is supplied, it must match that hostname.
 - Install and enable an SSH server, and make TCP port 22 reachable from the K2s host.
-- Use a user that can run commands with `sudo`. The K2s provisioning process uses `sudo` to install packages, configure services, and add routes.
+- Use a user that can run commands with `sudo`. The K2s provisioning process uses `sudo` to install packages, configure services, disable swap, and add routes.
 - Install `lsb-release`, which K2s uses to identify the Debian release:
 
 ```console
@@ -40,32 +40,6 @@ chmod 700 ~/.ssh
 touch ~/.ssh/authorized_keys
 chmod 600 ~/.ssh/authorized_keys
 ```
-
-- Disable swap permanently before adding the node. Kubelet cannot run while swap is enabled. If the Debian installer created a swap partition, disable it, remove its `/etc/fstab` entry, and mask its systemd swap unit:
-
-```bash
-swapUnits=$(systemctl list-units --type=swap --all --plain --no-legend | awk '{print $1}')
-sudo swapoff -a
-sudo sed -i.bak '/[[:space:]]swap[[:space:]]/d' /etc/fstab
-
-for unit in $swapUnits; do
-    sudo systemctl mask "$unit"
-done
-```
-
-Reboot the target and verify that swap remains disabled before running `k2s node add`:
-
-```bash
-sudo reboot
-```
-
-After reconnecting:
-
-```bash
-sudo swapon --show
-```
-
-The command must produce no output.
 
 Do not install kubelet, Kubernetes, CRI-O, containerd, or CNI components manually. `k2s node add` installs and configures the required worker-node components.
 
