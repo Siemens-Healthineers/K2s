@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText:  © 2025 Siemens Healthineers AG
+// SPDX-FileCopyrightText:  © 2026 Siemens Healthineers AG
 // SPDX-License-Identifier:   MIT
 
 package naming_test
@@ -28,9 +28,7 @@ var _ = Describe("K2sUserNameProvider", func() {
 		It("creates K2s user name from OS user", func() {
 			user := users.NewOSUser("", "AD123\\test user", "")
 
-			sut := naming.NewK2sUserNameProvider()
-
-			actual := sut.DetermineK2sUserName(user)
+			actual := naming.DetermineK2sUserName(user)
 
 			Expect(actual).To(Equal("k2s-AD123-test-user"))
 		})

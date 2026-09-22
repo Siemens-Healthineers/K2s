@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText:  © 2024 Siemens Healthineers AG
+// SPDX-FileCopyrightText:  © 2026 Siemens Healthineers AG
 // SPDX-License-Identifier:   MIT
 
 package core_test
@@ -11,8 +11,8 @@ import (
 	"time"
 
 	"github.com/siemens-healthineers/k2s/internal/contracts/config"
-	"github.com/siemens-healthineers/k2s/internal/os"
-	"github.com/siemens-healthineers/k2s/internal/reflection"
+	"github.com/siemens-healthineers/k2s/internal/output"
+	"github.com/siemens-healthineers/k2s/internal/test/reflection"
 	"github.com/siemens-healthineers/k2s/internal/version"
 
 	ic "github.com/siemens-healthineers/k2s/cmd/k2s/cmd/install/config"
@@ -59,7 +59,7 @@ func (m *myMock) Load(kind ic.Kind, cmdFlags *pflag.FlagSet) (*ic.InstallConfig,
 	return args.Get(0).(*ic.InstallConfig), args.Error(1)
 }
 
-func (m *myMock) ExecutePs(script string, writer os.StdWriter) error {
+func (m *myMock) ExecutePs(script string, writer output.StreamWriter) error {
 	args := m.Called(script, writer)
 
 	return args.Error(0)

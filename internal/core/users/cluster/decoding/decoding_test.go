@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText:  © 2025 Siemens Healthineers AG
+// SPDX-FileCopyrightText:  © 2026 Siemens Healthineers AG
 // SPDX-License-Identifier:   MIT
 
 package decoding_test
@@ -10,8 +10,8 @@ import (
 	"github.com/go-logr/logr"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/siemens-healthineers/k2s/internal/contracts/kubeconfig"
 	"github.com/siemens-healthineers/k2s/internal/core/users/cluster/decoding"
+	"github.com/siemens-healthineers/k2s/internal/providers/kubeconfig"
 )
 
 func TestPkg(t *testing.T) {
@@ -25,15 +25,13 @@ var _ = BeforeSuite(func() {
 
 var _ = Describe("CredentialsDecoder", func() {
 	Describe("DecodeK8sApiCredentials", func() {
-		When("decoding cluster cert failes", func() {
+		When("decoding cluster cert fails", func() {
 			It("returns error", func() {
-				clusterConfig := &kubeconfig.ClusterConfig{
-					Cert: "invalid-base64",
+				clusterConfig := &kubeconfig.Cluster{
+					Details: kubeconfig.ClusterDetails{Cert: "invalid-base64"},
 				}
 
-				sut := decoding.NewCredentialsDecoder()
-
-				caCert, userCert, userKey, err := sut.DecodeK8sApiCredentials(clusterConfig, nil)
+				caCert, userCert, userKey, err := decoding.DecodeK8sApiCredentials(clusterConfig, nil)
 
 				Expect(err).To(MatchError(ContainSubstring("failed to decode cluster certificate")))
 				Expect(caCert).To(BeNil())
@@ -44,16 +42,14 @@ var _ = Describe("CredentialsDecoder", func() {
 
 		When("decoding user cert fails", func() {
 			It("returns error", func() {
-				clusterConfig := &kubeconfig.ClusterConfig{
-					Cert: "AFFE",
+				clusterConfig := &kubeconfig.Cluster{
+					Details: kubeconfig.ClusterDetails{Cert: "AFFE"},
 				}
-				userConfig := &kubeconfig.UserConfig{
-					Cert: "invalid-base64",
+				userConfig := &kubeconfig.User{
+					Details: kubeconfig.UserDetails{Cert: "invalid-base64"},
 				}
 
-				sut := decoding.NewCredentialsDecoder()
-
-				caCert, userCert, userKey, err := sut.DecodeK8sApiCredentials(clusterConfig, userConfig)
+				caCert, userCert, userKey, err := decoding.DecodeK8sApiCredentials(clusterConfig, userConfig)
 
 				Expect(err).To(MatchError(ContainSubstring("failed to decode user certificate")))
 				Expect(caCert).To(BeNil())
@@ -64,17 +60,14 @@ var _ = Describe("CredentialsDecoder", func() {
 
 		When("decoding user key fails", func() {
 			It("returns error", func() {
-				clusterConfig := &kubeconfig.ClusterConfig{
-					Cert: "AFFE",
+				clusterConfig := &kubeconfig.Cluster{
+					Details: kubeconfig.ClusterDetails{Cert: "AFFE"},
 				}
-				userConfig := &kubeconfig.UserConfig{
-					Cert: "AFFE",
-					Key:  "invalid-base64",
+				userConfig := &kubeconfig.User{
+					Details: kubeconfig.UserDetails{Cert: "AFFE", Key: "invalid-base64"},
 				}
 
-				sut := decoding.NewCredentialsDecoder()
-
-				caCert, userCert, userKey, err := sut.DecodeK8sApiCredentials(clusterConfig, userConfig)
+				caCert, userCert, userKey, err := decoding.DecodeK8sApiCredentials(clusterConfig, userConfig)
 
 				Expect(err).To(MatchError(ContainSubstring("failed to decode user key")))
 				Expect(caCert).To(BeNil())
@@ -85,17 +78,14 @@ var _ = Describe("CredentialsDecoder", func() {
 
 		When("decoding is successful", func() {
 			It("returns decoded credentials", func() {
-				clusterConfig := &kubeconfig.ClusterConfig{
-					Cert: "dGVzdC1jYQ==",
+				clusterConfig := &kubeconfig.Cluster{
+					Details: kubeconfig.ClusterDetails{Cert: "dGVzdC1jYQ=="},
 				}
-				userConfig := &kubeconfig.UserConfig{
-					Cert: "dGVzdC1jZXJ0",
-					Key:  "dGVzdC1rZXk=",
+				userConfig := &kubeconfig.User{
+					Details: kubeconfig.UserDetails{Cert: "dGVzdC1jZXJ0", Key: "dGVzdC1rZXk="},
 				}
 
-				sut := decoding.NewCredentialsDecoder()
-
-				caCert, userCert, userKey, err := sut.DecodeK8sApiCredentials(clusterConfig, userConfig)
+				caCert, userCert, userKey, err := decoding.DecodeK8sApiCredentials(clusterConfig, userConfig)
 
 				Expect(err).ToNot(HaveOccurred())
 				Expect(caCert).To(Equal([]byte("test-ca")))

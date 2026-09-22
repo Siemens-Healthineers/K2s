@@ -26,7 +26,7 @@ import (
 	"github.com/siemens-healthineers/k2s/internal/core/addons"
 	"github.com/siemens-healthineers/k2s/internal/core/config"
 	k2sos "github.com/siemens-healthineers/k2s/internal/os"
-	"github.com/siemens-healthineers/k2s/internal/powershell"
+	"github.com/siemens-healthineers/k2s/internal/providers/powershell"
 	"github.com/spf13/cobra"
 )
 
