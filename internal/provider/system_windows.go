@@ -149,10 +149,10 @@ func (p *windowsSystemProvider) Backup(cfg SystemBackupConfig) error {
 	psCmd := p.scriptPath("backup/Start-SystemBackup.ps1")
 	var params string
 	if cfg.BackupFile != "" {
-		params += fmt.Sprintf(" -BackupFile '%s'", cfg.BackupFile)
+		params += " -BackupFile " + utils.EscapeWithSingleQuotes(cfg.BackupFile)
 	}
 	if cfg.AdditionalHooksDir != "" {
-		params += fmt.Sprintf(" -AdditionalHooksDir '%s'", cfg.AdditionalHooksDir)
+		params += " -AdditionalHooksDir " + utils.EscapeWithSingleQuotes(cfg.AdditionalHooksDir)
 	}
 	if cfg.SkipImages {
 		params += " -SkipImages"
