@@ -8,7 +8,6 @@ import (
 	"log/slog"
 	"path/filepath"
 
-	"github.com/siemens-healthineers/k2s/internal/contracts/config"
 	"github.com/siemens-healthineers/k2s/internal/os"
 )
 
@@ -16,9 +15,9 @@ type Kubectl struct {
 	kubectlCmd string
 }
 
-func NewKubectl(hostConfig *config.HostConfig) *Kubectl {
+func NewKubectl(rootDir string) *Kubectl {
 	return &Kubectl{
-		kubectlCmd: filepath.Join(hostConfig.K2sInstallDir(), "bin", "kube", "kubectl.exe"),
+		kubectlCmd: filepath.Join(rootDir, "bin", "kube", "kubectl.exe"),
 	}
 }
 

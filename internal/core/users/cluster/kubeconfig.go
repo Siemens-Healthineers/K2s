@@ -22,7 +22,7 @@ func NewKubeconfigEditor(hostConfig *config.HostConfig, currentClusterName strin
 	return &KubeconfigEditor{
 		currentClusterName:    currentClusterName,
 		currentKubeconfigPath: hostConfig.KubeConfig().CurrentPath(),
-		kubeconfigWriter:      kubeconfig.NewKubeconfigWriter(kubectl.NewKubectl(hostConfig)),
+		kubeconfigWriter:      kubeconfig.NewKubeconfigWriter(kubectl.NewKubectl(hostConfig.K2sInstallDir())),
 	}
 }
 
