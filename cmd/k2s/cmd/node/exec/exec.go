@@ -9,8 +9,7 @@ import (
 	"time"
 
 	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/common"
-	cconfig "github.com/siemens-healthineers/k2s/internal/contracts/config"
-	cssh "github.com/siemens-healthineers/k2s/internal/contracts/ssh"
+	contracts_config "github.com/siemens-healthineers/k2s/internal/contracts/config"
 	"github.com/siemens-healthineers/k2s/internal/core/config"
 	"github.com/siemens-healthineers/k2s/internal/definitions"
 	"github.com/siemens-healthineers/k2s/internal/providers/ssh"
@@ -20,7 +19,7 @@ import (
 
 type cmdOptions struct {
 	cmd               string
-	connectionOptions cssh.ConnectionOptions
+	connectionOptions ssh.ConnectionOptions
 	rawOutput         bool
 }
 
@@ -77,10 +76,10 @@ func exec(cmd *cobra.Command, args []string) error {
 	k2sConfig := cmd.Context().Value(common.ContextKeyCmdContext).(*common.CmdContext).Config()
 	_, err = config.ReadRuntimeConfig(k2sConfig.Host().K2sSetupConfigDir())
 	if err != nil {
-		if errors.Is(err, cconfig.ErrSystemNotInstalled) {
+		if errors.Is(err, contracts_config.ErrSystemNotInstalled) {
 			return common.CreateSystemNotInstalledCmdFailure()
 		}
-		if errors.Is(err, cconfig.ErrSystemInCorruptedState) {
+		if errors.Is(err, contracts_config.ErrSystemInCorruptedState) {
 			return common.CreateSystemInCorruptedStateCmdFailure()
 		}
 		return fmt.Errorf("failed to read setup config: %w", err)
@@ -88,7 +87,7 @@ func exec(cmd *cobra.Command, args []string) error {
 
 	cmdOptions.connectionOptions.SshPrivateKeyPath = k2sConfig.Host().SshConfig().CurrentPrivateKeyPath()
 
-	err = ssh.Exec(cmdOptions.cmd, cmdOptions.connectionOptions)
+	err = ssh.NewSSH(cmdOptions.connectionOptions).Exec(cmdOptions.cmd)
 	if err != nil {
 		return fmt.Errorf("failed to exec: %w", err)
 	}
@@ -136,7 +135,7 @@ func extractOptions(flags *pflag.FlagSet) (*cmdOptions, error) {
 
 	return &cmdOptions{
 		cmd: command,
-		connectionOptions: cssh.ConnectionOptions{
+		connectionOptions: ssh.ConnectionOptions{
 			IpAddress:  ipAddress,
 			RemoteUser: username,
 			Timeout:    timeout,

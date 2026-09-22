@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText:  © 2025 Siemens Healthineers AG
+// SPDX-FileCopyrightText:  © 2026 Siemens Healthineers AG
 // SPDX-License-Identifier:   MIT
 
 package ssh
@@ -7,12 +7,10 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
-
-	contracts "github.com/siemens-healthineers/k2s/internal/contracts/ssh"
 )
 
-func Exec(command string, connectionOptions contracts.ConnectionOptions) error {
-	sshClient, err := Connect(connectionOptions)
+func (s *SSH) Exec(command string) error {
+	sshClient, err := Connect(s.connectionOptions)
 	if err != nil {
 		return fmt.Errorf("failed to dial SSH: %w", err)
 	}
@@ -28,8 +26,8 @@ func Exec(command string, connectionOptions contracts.ConnectionOptions) error {
 		return fmt.Errorf("failed to create SSH session: %w", err)
 	}
 
-	if connectionOptions.StdOutWriter != nil {
-		session.Stdout = connectionOptions.StdOutWriter
+	if s.connectionOptions.StdOutWriter != nil {
+		session.Stdout = s.connectionOptions.StdOutWriter
 	} else {
 		session.Stdout = os.Stdout
 	}

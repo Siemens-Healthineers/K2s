@@ -9,8 +9,8 @@ import (
 	"time"
 
 	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/common"
-	cconfig "github.com/siemens-healthineers/k2s/internal/contracts/config"
-	cssh "github.com/siemens-healthineers/k2s/internal/contracts/ssh"
+	contracts_config "github.com/siemens-healthineers/k2s/internal/contracts/config"
+	contracts_ssh "github.com/siemens-healthineers/k2s/internal/contracts/ssh"
 	"github.com/siemens-healthineers/k2s/internal/core/config"
 	"github.com/siemens-healthineers/k2s/internal/definitions"
 	"github.com/siemens-healthineers/k2s/internal/providers/ssh"
@@ -98,10 +98,10 @@ func copy(cmd *cobra.Command, args []string) error {
 	k2sConfig := cmd.Context().Value(common.ContextKeyCmdContext).(*common.CmdContext).Config()
 	_, err = config.ReadRuntimeConfig(k2sConfig.Host().K2sSetupConfigDir())
 	if err != nil {
-		if errors.Is(err, cconfig.ErrSystemNotInstalled) {
+		if errors.Is(err, contracts_config.ErrSystemNotInstalled) {
 			return common.CreateSystemNotInstalledCmdFailure()
 		}
-		if errors.Is(err, cconfig.ErrSystemInCorruptedState) {
+		if errors.Is(err, contracts_config.ErrSystemInCorruptedState) {
 			return common.CreateSystemInCorruptedStateCmdFailure()
 		}
 		return fmt.Errorf("failed to read setup config: %w", err)
@@ -109,7 +109,7 @@ func copy(cmd *cobra.Command, args []string) error {
 
 	connectionOptions.SshPrivateKeyPath = k2sConfig.Host().SshConfig().CurrentPrivateKeyPath()
 
-	err = ssh.Copy(*copyOptions, *connectionOptions)
+	err = ssh.NewSSH(*connectionOptions).Copy(*copyOptions)
 	if err != nil {
 		return fmt.Errorf("failed to copy: %w", err)
 	}
@@ -119,7 +119,7 @@ func copy(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
-func extractOptions(flags *pflag.FlagSet) (*cssh.CopyOptions, *cssh.ConnectionOptions, error) {
+func extractOptions(flags *pflag.FlagSet) (*contracts_ssh.CopyOptions, *ssh.ConnectionOptions, error) {
 	ipAddress, err := flags.GetString(ipAddressFlag)
 	if err != nil {
 		return nil, nil, err
@@ -140,9 +140,9 @@ func extractOptions(flags *pflag.FlagSet) (*cssh.CopyOptions, *cssh.ConnectionOp
 		return nil, nil, err
 	}
 
-	direction := cssh.CopyToNode
+	direction := contracts_ssh.CopyToNode
 	if reverse {
-		direction = cssh.CopyFromNode
+		direction = contracts_ssh.CopyFromNode
 	}
 
 	username, err := flags.GetString(usernameFlag)
@@ -165,14 +165,14 @@ func extractOptions(flags *pflag.FlagSet) (*cssh.CopyOptions, *cssh.ConnectionOp
 		return nil, nil, err
 	}
 
-	return &cssh.CopyOptions{
-			Source:    source,
-			Target:    target,
-			Direction: direction,
-		}, &cssh.ConnectionOptions{
-			IpAddress:  ipAddress,
-			RemoteUser: username,
-			Timeout:    timeout,
-			Port:       port,
-		}, nil
+	return &contracts_ssh.CopyOptions{
+		Source:    source,
+		Target:    target,
+		Direction: direction,
+	}, &ssh.ConnectionOptions{
+		IpAddress:  ipAddress,
+		RemoteUser: username,
+		Timeout:    timeout,
+		Port:       port,
+	}, nil
 }
