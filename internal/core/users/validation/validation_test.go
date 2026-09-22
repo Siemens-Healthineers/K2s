@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText:  © 2025 Siemens Healthineers AG
+// SPDX-FileCopyrightText:  © 2026 Siemens Healthineers AG
 // SPDX-License-Identifier:   MIT
 
 package validation_test
@@ -13,7 +13,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/siemens-healthineers/k2s/internal/contracts/users"
 	"github.com/siemens-healthineers/k2s/internal/core/users/validation"
-	"github.com/siemens-healthineers/k2s/internal/reflection"
+	"github.com/siemens-healthineers/k2s/internal/test/reflection"
 	"github.com/stretchr/testify/mock"
 )
 

@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText:  © 2024 Siemens Healthineers AG
+// SPDX-FileCopyrightText:  © 2026 Siemens Healthineers AG
 // SPDX-License-Identifier:   MIT
 package reflection
 
@@ -8,7 +8,7 @@ import (
 	"strings"
 )
 
-func GetFunctionName(function interface{}) string {
+func GetFunctionName(function any) string {
 	fullPath := runtime.FuncForPC(reflect.ValueOf(function).Pointer()).Name()
 	pathParts := strings.Split(fullPath, ".")
 	name := pathParts[len(pathParts)-1]
