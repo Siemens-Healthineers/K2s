@@ -600,6 +600,18 @@ k2s system users add [flags]
 | `--username` | `-u` | Windows user name (mutually exclusive with `--id`) |
 | `--id` | `-i` | Windows user ID (mutually exclusive with `--username`) |
 
+### system reset
+
+Reset the local K2s system state.
+
+```console
+k2s system reset
+```
+
+On Windows this runs the standard host reset flow.
+
+On Linux hosts this runs `kubeadm reset -f`, cleans up the common CNI interfaces and iptables state used by K2s, and removes the persisted K2s runtime configuration so a fresh install can be started afterwards.
+
 ### system reset network
 
 Reset the host network configuration (requires reboot).
@@ -611,6 +623,8 @@ k2s system reset network [flags]
 | Flag | Short | Description |
 |------|-------|-------------|
 | `--force` | `-f` | Force network reset |
+
+When a setup is still installed, uninstall it first or run `k2s system reset` before using the standalone network reset. On Linux hosts, `k2s system reset network` is the narrower host-network cleanup path; `k2s system reset` also clears kubeadm state and K2s runtime state.
 
 ---
 
