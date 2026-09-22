@@ -17,12 +17,12 @@ import (
 // WindowsOrchestrator implements Orchestrator by delegating to PowerShell scripts.
 // This preserves the existing Windows behavior.
 type WindowsOrchestrator struct {
-	stdWriter output.Writer
+	stdWriter output.StreamWriter
 }
 
 // NewOrchestrator returns the platform-specific orchestrator.
 // On Windows, it returns a PowerShell-based orchestrator.
-func NewOrchestrator(writer output.Writer) Orchestrator {
+func NewOrchestrator(writer output.StreamWriter) Orchestrator {
 	return &WindowsOrchestrator{stdWriter: writer}
 }
 

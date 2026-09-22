@@ -16,7 +16,7 @@ import (
 
 type windowsAddonProvider struct {
 	installDir string
-	stdWriter  output.Writer
+	stdWriter  output.StreamWriter
 }
 
 func newWindowsAddonProvider(cfg ProviderConfig) *windowsAddonProvider {

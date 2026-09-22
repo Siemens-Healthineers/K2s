@@ -17,7 +17,7 @@ import (
 
 type windowsImageProvider struct {
 	installDir string
-	stdWriter  output.Writer
+	stdWriter  output.StreamWriter
 }
 
 func newWindowsImageProvider(cfg ProviderConfig) *windowsImageProvider {

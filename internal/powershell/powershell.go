@@ -18,7 +18,7 @@ import (
 
 type structuredOutputWriter struct {
 	isEncodedMessage func(message string) bool
-	stdWriter        output.Writer
+	stdWriter        output.StreamWriter
 	rawMessages      []string
 }
 
@@ -26,7 +26,7 @@ type structuredOutputWriter struct {
 
 // ExecutePsWithStructuredResult waits until the command has finished and returns the structured data it received or errors that occurred
 // Calls to OutputWriter happen asynchronous
-func ExecutePsWithStructuredResult[T any](psScriptPath string, targetType string, writer output.Writer, additionalParams ...string) (v T, err error) {
+func ExecutePsWithStructuredResult[T any](psScriptPath string, targetType string, writer output.StreamWriter, additionalParams ...string) (v T, err error) {
 	if err := platformGuard(); err != nil {
 		return v, err
 	}
@@ -59,7 +59,7 @@ func ExecutePsWithStructuredResult[T any](psScriptPath string, targetType string
 	return convertToResult[T](decodedMessage)
 }
 
-func ExecutePs(script string, writer output.Writer) error {
+func ExecutePs(script string, writer output.StreamWriter) error {
 	if err := platformGuard(); err != nil {
 		return err
 	}

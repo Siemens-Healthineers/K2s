@@ -15,7 +15,7 @@ import (
 
 type windowsNodeProvider struct {
 	installDir string
-	stdWriter  output.Writer
+	stdWriter  output.StreamWriter
 }
 
 func newWindowsNodeProvider(cfg ProviderConfig) *windowsNodeProvider {

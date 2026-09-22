@@ -112,7 +112,7 @@ func NewPtermWriter() *PtermWriter {
 	}
 }
 
-func NewSlogWriter() output.Writer { return &SlogWriter{} }
+func NewSlogWriter() output.StreamWriter { return &SlogWriter{} }
 
 func NewCmdContext(config *config.K2sConfig, logger *logging.Slogger, providers *provider.Registry) *CmdContext {
 	return &CmdContext{

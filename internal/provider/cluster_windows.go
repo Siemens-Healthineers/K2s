@@ -19,7 +19,7 @@ import (
 
 type windowsClusterProvider struct {
 	installDir string
-	stdWriter  output.Writer
+	stdWriter  output.StreamWriter
 }
 
 func newWindowsClusterProvider(cfg ProviderConfig) *windowsClusterProvider {

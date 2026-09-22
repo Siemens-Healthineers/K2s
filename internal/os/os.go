@@ -23,7 +23,7 @@ type Files []fs.FileInfo
 type Paths []string
 
 type CmdExecutor struct {
-	stdWriter output.Writer
+	stdWriter output.StreamWriter
 	ctx       context.Context
 }
 
@@ -113,7 +113,7 @@ func FilesInDir(dir string) (files Files, err error) {
 	return files, nil
 }
 
-func NewCmdExecutor(stdWriter output.Writer) *CmdExecutor { // TODO: use optional out and err writer std. interfaces + flush callback instead?
+func NewCmdExecutor(stdWriter output.StreamWriter) *CmdExecutor { // TODO: use optional out and err writer std. interfaces + flush callback instead?
 	return &CmdExecutor{stdWriter: stdWriter}
 }
 
