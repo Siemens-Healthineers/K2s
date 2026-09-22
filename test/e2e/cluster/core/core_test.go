@@ -7,10 +7,14 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"os"
+	"os/exec"
+	"runtime"
 	"strings"
 	"testing"
 	"time"
 
+	core_config "github.com/siemens-healthineers/k2s/internal/core/config"
 	"github.com/siemens-healthineers/k2s/internal/definitions"
 	"github.com/siemens-healthineers/k2s/internal/providers/ssh"
 	"github.com/siemens-healthineers/k2s/test/framework"
@@ -19,7 +23,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 )
 
@@ -47,12 +51,14 @@ func TestClusterCore(t *testing.T) {
 
 var _ = BeforeSuite(func(ctx context.Context) {
 	manifestDir = "workload/windows"
-	proxy = "http://172.19.1.1:8181"
 
 	suite = framework.Setup(ctx, framework.SystemMustBeRunning,
 		framework.ClusterTestStepPollInterval(time.Millisecond*200),
 		framework.ClusterTestStepTimeout(12*time.Minute))
 	k2s = dsl.NewK2s(suite)
+	kubeSwitchConfig, err := core_config.ReadKubeSwitchConfig(suite.RootDir())
+	Expect(err).NotTo(HaveOccurred())
+	proxy = "http://" + kubeSwitchConfig.Address + ":8181"
 
 	if suite.SetupInfo().RuntimeConfig.InstallConfig().LinuxOnly() {
 		GinkgoWriter.Println("Found Linux-only setup, skipping Windows-based workloads")
@@ -112,6 +118,11 @@ var _ = BeforeSuite(func(ctx context.Context) {
 })
 
 var _ = AfterSuite(func(ctx context.Context) {
+	if suite == nil {
+		GinkgoWriter.Println("Skipping core test cleanup because BeforeSuite did not complete")
+		return
+	}
+
 	if podWatcher != nil {
 		podWatcher.Stop()
 	}
@@ -199,7 +210,7 @@ func waitForCoreWorkloadRollout(ctx context.Context) {
 		pending = pending[:0]
 
 		for _, deploymentName := range deploymentNames {
-			deployment, getErr := clientSet.AppsV1().Deployments(namespace).Get(ctx, deploymentName, metav1.GetOptions{})
+			deployment, getErr := clientSet.AppsV1().Deployments(namespace).Get(ctx, deploymentName, meta_v1.GetOptions{})
 			if getErr != nil {
 				pending = append(pending, fmt.Sprintf("%s: get failed: %v", deploymentName, getErr))
 				continue
@@ -369,13 +380,23 @@ func runDiagnosticCommand(ctx context.Context, args ...string) {
 	}
 }
 
+func controlPlaneNodeName() string {
+	if !suite.SetupInfo().RuntimeConfig.InstallConfig().LinuxOnly() || runtime.GOOS != "linux" {
+		return suite.SetupInfo().RuntimeConfig.ControlPlaneConfig().Hostname()
+	}
+
+	hostname, err := os.Hostname()
+	Expect(err).NotTo(HaveOccurred())
+	return strings.ToLower(hostname)
+}
+
 var _ = Describe("Cluster Core", func() {
 	systemNamespace := "kube-system"
 
 	Describe("Basic Components", func() {
 		Describe("System Nodes", func() {
 			It("control-plane is ready", func(ctx SpecContext) {
-				suite.Cluster().ExpectNodeToBeReady(suite.SetupInfo().RuntimeConfig.ControlPlaneConfig().Hostname(), ctx)
+				suite.Cluster().ExpectNodeToBeReady(controlPlaneNodeName(), ctx)
 			})
 
 			It("Windows worker is ready", func(ctx SpecContext) {
@@ -394,7 +415,17 @@ var _ = Describe("Cluster Core", func() {
 		})
 
 		Describe("Control Plane Tools", func() {
-			sshExec := func(cmd string) error {
+			controlPlaneExec := func(command string) error {
+				if runtime.GOOS == "linux" {
+					// The native Linux host is the control plane. SSH keys and a
+					// kubemaster VM are intentionally absent in this topology.
+					output, err := exec.Command("sh", "-c", command).CombinedOutput()
+					if err != nil {
+						return fmt.Errorf("run control-plane command %q locally: %w; output: %s", command, err, strings.TrimSpace(string(output)))
+					}
+					return nil
+				}
+
 				var buf bytes.Buffer
 				opts := ssh.ConnectionOptions{
 					IpAddress:         suite.SetupInfo().Config.ControlPlane().IpAddress(),
@@ -404,20 +435,20 @@ var _ = Describe("Cluster Core", func() {
 					Timeout:           time.Minute,
 					StdOutWriter:      &buf,
 				}
-				return ssh.NewSSH(opts).Exec(cmd)
+				return ssh.NewSSH(opts).Exec(command)
 			}
 
 			It("helm is installed on control-plane", func() {
-				Expect(sshExec("helm version")).To(Succeed())
+				Expect(controlPlaneExec("helm version")).To(Succeed())
 			})
 
 			It("yq is installed on control-plane", func() {
-				Expect(sshExec("yq --version")).To(Succeed())
+				Expect(controlPlaneExec("yq --version")).To(Succeed())
 			})
 		})
 
 		DescribeTable("System Pods", func(podName string) {
-			suite.Cluster().ExpectPodToBeReady(podName, systemNamespace, suite.SetupInfo().RuntimeConfig.ControlPlaneConfig().Hostname())
+			suite.Cluster().ExpectPodToBeReady(podName, systemNamespace, controlPlaneNodeName())
 		},
 			Entry("etcd-HOSTNAME_PLACEHOLDER is available", "etcd-HOSTNAME_PLACEHOLDER"),
 			Entry("kube-scheduler-HOSTNAME_PLACEHOLDER is available", "kube-scheduler-HOSTNAME_PLACEHOLDER"),
@@ -651,7 +682,7 @@ var _ = Describe("Cluster Core", func() {
 			clientSet, err := kubernetes.NewForConfig(suite.Cluster().Client().Resources().GetConfig())
 			Expect(err).NotTo(HaveOccurred())
 
-			svc, err := clientSet.CoreV1().Services(namespace).Get(ctx, "albums-win1", metav1.GetOptions{})
+			svc, err := clientSet.CoreV1().Services(namespace).Get(ctx, "albums-win1", meta_v1.GetOptions{})
 			Expect(err).NotTo(HaveOccurred(), "failed to get service albums-win1")
 
 			Expect(svc.Spec.ClusterIP).NotTo(BeEmpty(), "albums-win1 has no ClusterIP")
@@ -667,7 +698,7 @@ var _ = Describe("Cluster Core", func() {
 			clientSet, err := kubernetes.NewForConfig(suite.Cluster().Client().Resources().GetConfig())
 			Expect(err).NotTo(HaveOccurred())
 
-			svc, err := clientSet.CoreV1().Services(namespace).Get(ctx, "albums-win2", metav1.GetOptions{})
+			svc, err := clientSet.CoreV1().Services(namespace).Get(ctx, "albums-win2", meta_v1.GetOptions{})
 			Expect(err).NotTo(HaveOccurred(), "failed to get service albums-win2")
 
 			Expect(svc.Spec.ClusterIP).NotTo(BeEmpty(), "albums-win2 has no ClusterIP")
@@ -679,7 +710,7 @@ var _ = Describe("Cluster Core", func() {
 			clientSet, err := kubernetes.NewForConfig(suite.Cluster().Client().Resources().GetConfig())
 			Expect(err).NotTo(HaveOccurred())
 
-			svc, err := clientSet.CoreV1().Services(namespace).Get(ctx, "albums-linux1", metav1.GetOptions{})
+			svc, err := clientSet.CoreV1().Services(namespace).Get(ctx, "albums-linux1", meta_v1.GetOptions{})
 			Expect(err).NotTo(HaveOccurred(), "failed to get service albums-linux1")
 
 			Expect(svc.Spec.ClusterIP).NotTo(BeEmpty(), "albums-linux1 has no ClusterIP")
