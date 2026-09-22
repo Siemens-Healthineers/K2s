@@ -1,5 +1,4 @@
-// SPDX-FileCopyrightText: © 2024 Siemens Healthineers AG
-//
+// SPDX-FileCopyrightText: © 2026 Siemens Healthineers AG
 // SPDX-License-Identifier: MIT
 
 //go:build windows
@@ -15,7 +14,7 @@ import (
 
 	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/common"
 	"github.com/siemens-healthineers/k2s/cmd/k2s/utils"
-	"github.com/siemens-healthineers/k2s/internal/powershell"
+	"github.com/siemens-healthineers/k2s/internal/providers/powershell"
 )
 
 var kernel32 = syscall.NewLazyDLL("kernel32.dll")

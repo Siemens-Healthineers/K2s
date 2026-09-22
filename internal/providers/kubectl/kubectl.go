@@ -17,7 +17,7 @@ type Kubectl struct {
 
 func NewKubectl(rootDir string) *Kubectl {
 	return &Kubectl{
-		kubectlCmd: filepath.Join(rootDir, "bin\\kube\\kubectl.exe"),
+		kubectlCmd: filepath.Join(rootDir, "bin", "kube", "kubectl.exe"),
 	}
 }
 

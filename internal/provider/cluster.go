@@ -53,7 +53,7 @@ type ClusterInstallConfig struct {
 	ControlPlaneHostname              string
 	// StdWriter overrides the default writer for capturing PS output (Windows).
 	// Linux providers ignore this field.
-	StdWriter output.Writer
+	StdWriter output.StreamWriter
 }
 
 // ClusterUninstallConfig holds parameters for cluster uninstallation.
