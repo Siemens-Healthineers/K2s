@@ -20,6 +20,9 @@ Param(
     [parameter(Mandatory = $false, HelpMessage = 'Number of time-slicing replicas per GPU (1 = exclusive access, >1 = shared GPU)')]
     [ValidateRange(1, 16)]
     [int] $TimeSlices = 1,
+    [parameter(Mandatory = $false, HelpMessage = 'GPU target: control-plane configures KubeMaster GPU-PV; external-workers deploys only to prepared external Linux GPU workers')]
+    [ValidateSet('control-plane', 'external-workers')]
+    [string] $Mode = 'control-plane',
     [parameter(Mandatory = $false, HelpMessage = 'If set to true, will encode and send result as structured data to the CLI.')]
     [switch] $EncodeStructuredOutput,
     [parameter(Mandatory = $false, HelpMessage = 'Message type of the encoded structure; applies only if EncodeStructuredOutput was set to $true')]
@@ -60,6 +63,45 @@ if ((Test-IsAddonEnabled -Addon ([pscustomobject] @{Name = 'gpu-node' })) -eq $t
     exit 1
 }
 
+if ($null -ne $Config -and $null -ne $Config.Mode) {
+    $Mode = $Config.Mode
+} elseif ($Mode -eq 'control-plane') {
+    $storedConfig = Get-AddonsConfig | Where-Object { $_.Name -eq 'gpu-node' } | Select-Object -First 1
+    if ($null -ne $storedConfig -and $null -ne $storedConfig.Mode) {
+        $Mode = $storedConfig.Mode
+    }
+}
+
+$controlPlaneNodeName = (Invoke-Kubectl -Params 'get', 'nodes', '-l', 'node-role.kubernetes.io/control-plane', '-o', 'jsonpath={.items[0].metadata.name}').Output
+$allGpuNodesRaw = (Invoke-Kubectl -Params 'get', 'nodes', '-l', 'gpu=true,accelerator=nvidia', '-o', 'jsonpath={.items[*].metadata.name}').Output
+$allGpuNodes = if ([string]::IsNullOrWhiteSpace($allGpuNodesRaw)) { @() } else { $allGpuNodesRaw -split '\s+' }
+$externalGpuNodes = @($allGpuNodes | Where-Object { $_ -ne $controlPlaneNodeName })
+
+if ($Mode -eq 'external-workers') {
+    if ($TimeSlices -gt 1) {
+        $errMsg = 'GPU time-slicing is currently supported only for control-plane GPU-PV. Enable external workers with --time-slices 1.'
+        if ($EncodeStructuredOutput -eq $true) {
+            $err = New-Error -Severity Warning -Code (Get-ErrCodeAddonEnableFailed) -Message $errMsg
+            Send-ToCli -MessageType $MessageType -Message @{Error = $err }
+            return
+        }
+        Write-Log $errMsg -Error
+        exit 1
+    }
+    if ($externalGpuNodes.Count -eq 0) {
+        $errMsg = 'No external Linux worker with gpu=true and accelerator=nvidia is available. Add an NVIDIA-enabled Linux worker before enabling gpu-node in external-workers mode.'
+        if ($EncodeStructuredOutput -eq $true) {
+            $err = New-Error -Severity Warning -Code (Get-ErrCodeAddonEnableFailed) -Message $errMsg
+            Send-ToCli -MessageType $MessageType -Message @{Error = $err }
+            return
+        }
+        Write-Log $errMsg -Error
+        exit 1
+    }
+    Write-Log "[gpu-node] Enabling native NVIDIA device plugin for external GPU workers: $($externalGpuNodes -join ', ')" -Console
+}
+
+if ($Mode -eq 'control-plane') {
 Write-Log 'Checking Nvidia driver installation' -Console
 
 $WSL = Get-ConfigWslFlag
@@ -480,6 +522,7 @@ if ($installFailed) { exit 1 }
 # Remove legacy OCI hook — GPU injection now uses CDI (cdi-annotations strategy).
 # nvidia-container-toolkit packages are still needed for CRI-O CDI container edits.
 (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute 'sudo rm -f /usr/share/containers/oci/hooks.d/oci-nvidia-hook.json').Output | Write-Log
+}
 
 
 Wait-ForAPIServer
@@ -498,45 +541,51 @@ if ($TimeSlices -gt 1) {
     (Invoke-Kubectl -Params 'apply', '-f', "$PSScriptRoot\manifests\time-slicing-config-default.yaml").Output | Write-Log
 }
 
-# Label the node BEFORE deploying the device plugin, so the DaemonSet can schedule pods.
-# The device plugin DaemonSet has nodeSelector: gpu=true
-$labelNodeName = if ($WSL) { Get-ConfigControlPlaneNodeHostname } else { $controlPlaneNodeName }
-Write-Log "[gpu-node] Labeling node '$labelNodeName' with gpu=true and accelerator=nvidia" -Console
-(Invoke-Kubectl -Params 'label', 'node', $labelNodeName, 'gpu=true', 'accelerator=nvidia', '--overwrite').Output | Write-Log
+# The native worker DaemonSet remains installed with zero workers so a later
+# GPU-configured Linux worker automatically receives the device plugin.
+(Invoke-Kubectl -Params 'apply', '-f', "$PSScriptRoot\manifests\nvidia-device-plugin-native.yaml").Output | Write-Log
 
-# Apply Nvidia device plugin — ConfigMap content determines time-slicing behavior.
-Write-Log 'Installing Nvidia Device Plugin' -Console
-(Invoke-Kubectl -Params 'apply', '-f', "$PSScriptRoot\manifests\nvidia-device-plugin.yaml").Output | Write-Log
+if ($Mode -eq 'control-plane') {
+    $labelNodeName = if ($WSL) { Get-ConfigControlPlaneNodeHostname } else { $controlPlaneNodeName }
+    Write-Log "[gpu-node] Labeling node '$labelNodeName' for GPU-PV" -Console
+    (Invoke-Kubectl -Params 'label', 'node', $labelNodeName, 'gpu=true', 'accelerator=nvidia', 'k2s.siemens-healthineers.com/gpu-mode=gpu-pv', '--overwrite').Output | Write-Log
+    (Invoke-Kubectl -Params 'apply', '-f', "$PSScriptRoot\manifests\nvidia-device-plugin.yaml").Output | Write-Log
+    $daemonSetName = 'nvidia-device-plugin'
+    $gpuCheckNodes = @($labelNodeName)
+} else {
+    $daemonSetName = 'nvidia-device-plugin-native'
+    $gpuCheckNodes = $externalGpuNodes
+}
 
-$kubectlCmd = (Invoke-Kubectl -Params 'rollout', 'status', 'daemonset', 'nvidia-device-plugin', '-n', 'gpu-node', '--timeout', '180s')
+Write-Log "[gpu-node] Waiting for DaemonSet '$daemonSetName'" -Console
+$kubectlCmd = (Invoke-Kubectl -Params 'rollout', 'status', 'daemonset', $daemonSetName, '-n', 'gpu-node', '--timeout', '180s')
 Write-Log $kubectlCmd.Output
 if (!$kubectlCmd.Success) {
-    $errMsg = 'Nvidia device plugin could not be started!'
+    $errMsg = "NVIDIA device plugin DaemonSet '$daemonSetName' could not be started."
     if ($EncodeStructuredOutput -eq $true) {
         $err = New-Error -Code (Get-ErrCodeAddonEnableFailed) -Message $errMsg
         Send-ToCli -MessageType $MessageType -Message @{Error = $err }
         return
     }
-
     Write-Log $errMsg -Error
     exit 1
 }
 
-# Wait for the device plugin to register nvidia.com/gpu with kubelet (takes a few seconds after pod start).
 Write-Log '[gpu-node] Waiting for nvidia.com/gpu to be registered with kubelet...'
 $gpuRegistered = $false
-$gpuCheckNode = if ($WSL) { Get-ConfigControlPlaneNodeHostname } else { $controlPlaneNodeName }
-for ($i = 0; $i -lt 30; $i++) {
-    $gpuCount = (Invoke-Kubectl -Params 'get', 'node', $gpuCheckNode, '-o', "jsonpath={.status.allocatable['nvidia\.com/gpu']}").Output
-    if (![string]::IsNullOrWhiteSpace($gpuCount) -and $gpuCount -match '^\d+$' -and [int]$gpuCount -gt 0) {
-        $gpuRegistered = $true
-        Write-Log "[gpu-node] nvidia.com/gpu registered: $gpuCount slot(s) allocatable" -Console
-        break
+for ($i = 0; $i -lt 30 -and !$gpuRegistered; $i++) {
+    foreach ($gpuCheckNode in $gpuCheckNodes) {
+        $gpuCount = (Invoke-Kubectl -Params 'get', 'node', $gpuCheckNode, '-o', "jsonpath={.status.allocatable['nvidia\.com/gpu']}").Output
+        if (![string]::IsNullOrWhiteSpace($gpuCount) -and $gpuCount -match '^\d+$' -and [int]$gpuCount -gt 0) {
+            $gpuRegistered = $true
+            Write-Log "[gpu-node] Node '$gpuCheckNode' registered $gpuCount GPU slot(s)" -Console
+            break
+        }
     }
-    Start-Sleep -Seconds 2
+    if (!$gpuRegistered) { Start-Sleep -Seconds 2 }
 }
 if (!$gpuRegistered) {
-    $errMsg = 'Nvidia device plugin started but nvidia.com/gpu was not registered with kubelet within 60s. The GPU may not be accessible from the VM.'
+    $errMsg = 'NVIDIA device plugin started but nvidia.com/gpu was not registered on a selected node within 60s.'
     if ($EncodeStructuredOutput -eq $true) {
         $err = New-Error -Code (Get-ErrCodeAddonEnableFailed) -Message $errMsg
         Send-ToCli -MessageType $MessageType -Message @{Error = $err }
@@ -556,7 +605,11 @@ Write-Log '[GPU] Skipping DCGM-Exporter: NVML is not available via the dxcore/D3
 if ($TimeSlices -gt 1) {
     Write-Log "[gpu-node] GPU time-slicing enabled: $TimeSlices virtual GPU slots available (pods share 1 physical GPU)" -Console
 }
-Write-Log 'KubeMaster configured successfully as GPU node' -Console
+if ($Mode -eq 'control-plane') {
+    Write-Log 'KubeMaster configured successfully as GPU node' -Console
+} else {
+    Write-Log 'External Linux workers configured successfully as GPU nodes' -Console
+}
 
 # Check for any external GPU-labeled worker nodes
 Write-Log '[gpu-node] Checking for external GPU-capable worker nodes...' -Console
@@ -573,7 +626,7 @@ if (![string]::IsNullOrWhiteSpace($allGpuNodes)) {
     }
 }
 
-Add-AddonToSetupJson -Addon ([pscustomobject] @{Name = 'gpu-node' })
+Add-AddonToSetupJson -Addon ([pscustomobject] @{Name = 'gpu-node'; Mode = $Mode })
 
 if ($EncodeStructuredOutput -eq $true) {
     Send-ToCli -MessageType $MessageType -Message @{Error = $null }

@@ -146,8 +146,6 @@ spec:
           name: time-slicing-config
       nodeSelector:
         "kubernetes.io/os": linux
-        # Only schedule on nodes explicitly labeled as GPU-capable.
-        # This label is applied by:
-        # - The gpu-node addon Enable.ps1 (for KubeMaster)
-        # - k2s node add (automatically when NVIDIA GPU is detected on external Linux workers)
+        # GPU-PV is available only on the KubeMaster that Enable.ps1 configured.
         "gpu": "true"
+        "k2s.siemens-healthineers.com/gpu-mode": "gpu-pv"

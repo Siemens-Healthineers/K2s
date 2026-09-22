@@ -1,0 +1,74 @@
+# SPDX-FileCopyrightText: © 2026 Siemens Healthineers AG
+#
+# SPDX-License-Identifier: MIT
+
+# Native NVIDIA device plugin for external Linux workers. These nodes are
+# provisioned with the NVIDIA Container Toolkit and a native CDI specification
+# at /etc/cdi/nvidia.yaml when they are added to K2s.
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  labels:
+    k8s-app: nvidia-device-plugin-native
+  name: nvidia-device-plugin-native
+  namespace: gpu-node
+spec:
+  updateStrategy:
+    type: RollingUpdate
+  selector:
+    matchLabels:
+      k8s-app: nvidia-device-plugin-native
+  template:
+    metadata:
+      labels:
+        k8s-app: nvidia-device-plugin-native
+    spec:
+      tolerations:
+        - key: nvidia.com/gpu
+          operator: Exists
+          effect: NoSchedule
+      priorityClassName: system-node-critical
+      containers:
+        - image: nvcr.io/nvidia/k8s-device-plugin:v0.19.2
+          imagePullPolicy: IfNotPresent
+          name: nvidia-device-plugin-ctr
+          args:
+            - --config-file=/etc/nvidia/config.yaml
+          env:
+            - name: FAIL_ON_INIT_ERROR
+              value: "false"
+            - name: DEVICE_LIST_STRATEGY
+              value: cdi-annotations
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: 200m
+              memory: 128Mi
+          securityContext:
+            privileged: true
+          volumeMounts:
+            - name: device-plugin
+              mountPath: /var/lib/kubelet/device-plugins
+            - name: time-slicing-config
+              mountPath: /etc/nvidia/config.yaml
+              subPath: config.yaml
+      volumes:
+        - name: device-plugin
+          hostPath:
+            path: /var/lib/kubelet/device-plugins
+        - name: time-slicing-config
+          configMap:
+            name: time-slicing-config
+      nodeSelector:
+        kubernetes.io/os: linux
+        gpu: "true"
+        accelerator: nvidia
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+              - matchExpressions:
+                  - key: node-role.kubernetes.io/control-plane
+                    operator: DoesNotExist

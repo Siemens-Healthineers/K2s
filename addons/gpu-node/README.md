@@ -29,6 +29,24 @@ The gpu-node addon can be enabled using the k2s CLI by running the following com
 k2s addons enable gpu-node
 ```
 
+### External Linux GPU workers without a host NVIDIA card
+
+When K2s runs on a Windows host without an NVIDIA card, enable the addon only
+for external Linux workers that were added with NVIDIA GPU support:
+
+```console
+k2s addons enable gpu-node --mode external-workers
+```
+
+This mode requires at least one external Linux worker with `gpu=true` and
+`accelerator=nvidia`. It does not check the Windows host for NVIDIA hardware,
+change the KubeMaster kernel, install NVIDIA packages on KubeMaster, or label
+KubeMaster as a GPU node. The native NVIDIA device plugin is scheduled only on
+the labeled external workers; the Windows host and KubeMaster are excluded.
+
+GPU time-slicing is currently available only with the default
+`control-plane` mode.
+
 ### GPU time-slicing (optional)
 
 By default each pod gets exclusive access to the physical GPU. To share the GPU across multiple pods simultaneously, use the `--time-slices` flag:
@@ -113,6 +131,25 @@ When an NVIDIA GPU is detected, K2s automatically:
 
 If no NVIDIA GPU is detected (or a non-NVIDIA GPU like AMD/Intel is present), GPU configuration is skipped automatically.
 
+### Manually Label an Existing GPU Worker
+
+For a worker that is already configured with NVIDIA drivers, the NVIDIA
+Container Toolkit, and CRI-O CDI support, apply the labels from the K2s host:
+
+```console
+kubectl label node <worker-name> gpu=true accelerator=nvidia --overwrite
+```
+
+Verify that the worker is selected by the native device plugin:
+
+```console
+kubectl get nodes -l gpu=true,accelerator=nvidia
+```
+
+Do not apply these labels to KubeMaster or to a worker without a functional
+NVIDIA GPU setup. The labels cause the native NVIDIA device plugin to schedule
+on that node.
+
 ### Creating an Offline GPU Node Package
 
 To add GPU workers in air-gapped environments:
@@ -132,6 +169,7 @@ k2s node add --ip-addr 192.168.1.50 --username admin --node-package C:\packages\
 - **Order-independent**: GPU workers can be added before or after enabling the gpu-node addon
 - **The addon must be enabled** for GPU workloads to run: `k2s addons enable gpu-node`
 - **Labels coordinate scheduling**: The NVIDIA device plugin DaemonSet targets nodes with `gpu=true`
+- **Worker-only clusters**: Use `k2s addons enable gpu-node --mode external-workers` when the Windows host has no NVIDIA card
 - **Disabling the addon** removes the device plugin but preserves GPU configuration on external workers
 
 ### Check GPU Worker Status

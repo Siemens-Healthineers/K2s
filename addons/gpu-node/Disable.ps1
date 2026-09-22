@@ -29,6 +29,60 @@ Import-Module $clusterModule, $infraModule, $addonsModule, $linuxNodeModule
 
 Initialize-Logging -ShowLogs:$ShowLogs
 
+function Remove-GpuAddonWorkloads {
+    $daemonSets = @(
+        'nvidia-device-plugin'
+        'nvidia-device-plugin-native'
+        'dcgm-exporter'
+    )
+    $podSelectors = @(
+        'k8s-app=nvidia-device-plugin'
+        'k8s-app=nvidia-device-plugin-native'
+        'app.kubernetes.io/name=dcgm-exporter'
+    )
+
+    Write-Log '[gpu-node] Removing GPU addon DaemonSets' -Console
+    foreach ($daemonSet in $daemonSets) {
+        $result = Invoke-Kubectl -Params 'delete', 'daemonset', $daemonSet, '-n', 'gpu-node', '--ignore-not-found', '--wait=false'
+        $result.Output | Write-Log
+        if (!$result.Success) {
+            Write-Log "[gpu-node] Failed to delete DaemonSet '$daemonSet'" -Error
+            return $false
+        }
+    }
+
+    # Remove pods left behind by a deleted or previously failed DaemonSet.
+    foreach ($selector in $podSelectors) {
+        (Invoke-Kubectl -Params 'delete', 'pod', '-n', 'gpu-node', '-l', $selector, '--ignore-not-found', '--grace-period=0', '--force', '--wait=false').Output | Write-Log
+    }
+
+    foreach ($selector in $podSelectors) {
+        $podsRemoved = $false
+        for ($attempt = 0; $attempt -lt 30; $attempt++) {
+            $remainingPods = (Invoke-Kubectl -Params 'get', 'pods', '-n', 'gpu-node', '-l', $selector, '-o', 'name', '--ignore-not-found').Output
+            if ([string]::IsNullOrWhiteSpace($remainingPods)) {
+                $podsRemoved = $true
+                break
+            }
+            Start-Sleep -Seconds 2
+        }
+        if (!$podsRemoved) {
+            Write-Log "[gpu-node] Timed out removing pods selected by '$selector'" -Error
+            return $false
+        }
+    }
+
+    (Invoke-Kubectl -Params 'delete', 'configmap', 'time-slicing-config', '-n', 'gpu-node', '--ignore-not-found').Output | Write-Log
+    $namespaceDeletion = Invoke-Kubectl -Params 'delete', 'namespace', 'gpu-node', '--ignore-not-found', '--wait=true', '--timeout=120s'
+    $namespaceDeletion.Output | Write-Log
+    if (!$namespaceDeletion.Success) {
+        Write-Log '[gpu-node] Failed to remove namespace gpu-node after removing addon workloads' -Error
+        return $false
+    }
+
+    return $true
+}
+
 Write-Log 'Checking cluster status' -Console
 
 $systemError = Test-SystemAvailability -Structured
@@ -57,26 +111,40 @@ if ($null -eq (Invoke-Kubectl -Params 'get', 'namespace', 'gpu-node', '--ignore-
     exit 1
 }
 
-# Remove OCI hook (legacy; cleanup is idempotent)
-Write-Log '[GPU] Removing OCI prestart hook (if present)' -Console
-(Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute 'sudo rm -f /usr/share/containers/oci/hooks.d/oci-nvidia-hook.json').Output | Write-Log
+$controlPlaneNodeName = (Invoke-Kubectl -Params 'get', 'nodes', '-l', 'node-role.kubernetes.io/control-plane', '-o', 'jsonpath={.items[0].metadata.name}').Output
+$controlPlaneLabels = (Invoke-Kubectl -Params 'get', 'node', $controlPlaneNodeName, '-o', 'jsonpath={.metadata.labels}').Output
+$controlPlaneGpuPv = ($controlPlaneLabels -match '"k2s\.siemens-healthineers\.com/gpu-mode":"gpu-pv"') -or `
+    (($controlPlaneLabels -match '"gpu":"true"') -and ($controlPlaneLabels -match '"accelerator":"nvidia"'))
 
-Write-Log '[GPU] Removing CDI spec (if present)' -Console
-(Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute 'sudo rm -f /var/run/cdi/k8s.device-plugin.nvidia.com-gpu.json' -IgnoreErrors).Output | Write-Log
+if ($controlPlaneGpuPv) {
+    Write-Log '[gpu-node] Control-plane GPU-PV configuration detected' -Console
+}
 
-# Remove nvidia-container-toolkit packages
-Write-Log '[GPU] Removing nvidia-container-toolkit packages' -Console
-(Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute 'sudo apt-get remove -y nvidia-container-toolkit libnvidia-container1 libnvidia-container-tools nvidia-container-runtime 2>/dev/null || true' -IgnoreErrors).Output | Write-Log
+if (!(Remove-GpuAddonWorkloads)) {
+    $errMsg = 'GPU addon workloads could not be removed completely. KubeMaster GPU configuration was left unchanged; resolve the Kubernetes cleanup error and retry disable.'
+    if ($EncodeStructuredOutput -eq $true) {
+        $err = New-Error -Code (Get-ErrCodeAddonEnableFailed) -Message $errMsg
+        Send-ToCli -MessageType $MessageType -Message @{Error = $err }
+        return
+    }
+    Write-Log $errMsg -Error
+    exit 1
+}
 
-Write-Log 'Uninstalling GPU node' -Console
-(Invoke-Kubectl -Params 'delete', '-f', "$PSScriptRoot\manifests\dcgm-exporter.yaml", '--ignore-not-found').Output | Write-Log
-(Invoke-Kubectl -Params 'delete', '-f', "$PSScriptRoot\manifests\nvidia-device-plugin.yaml", '--ignore-not-found').Output | Write-Log
+if ($controlPlaneGpuPv) {
+    # Remove KubeMaster GPU-PV state only after all addon workloads are gone.
+    (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute 'sudo rm -f /usr/share/containers/oci/hooks.d/oci-nvidia-hook.json').Output | Write-Log
+    (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute 'sudo rm -f /var/run/cdi/k8s.device-plugin.nvidia.com-gpu.json' -IgnoreErrors).Output | Write-Log
+    (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute 'sudo apt-get remove -y nvidia-container-toolkit libnvidia-container1 libnvidia-container-tools nvidia-container-runtime 2>/dev/null || true' -IgnoreErrors).Output | Write-Log
+}
 
-# Clean up any residual CRI-O nvidia drop-in from prior installations.
-(Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute 'sudo rm -f /etc/crio/crio.conf.d/*nvidia* /etc/crio/conf.d/*nvidia* 2>/dev/null || true' -IgnoreErrors).Output | Write-Log
+if ($controlPlaneGpuPv) {
+    # Clean up any residual CRI-O nvidia drop-in from prior installations.
+    (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute 'sudo rm -f /etc/crio/crio.conf.d/*nvidia* /etc/crio/conf.d/*nvidia* 2>/dev/null || true' -IgnoreErrors).Output | Write-Log
+}
 
 $WSL = Get-ConfigWslFlag
-if (!$WSL) {
+if ($controlPlaneGpuPv -and !$WSL) {
     # change linux kernel
     Write-Log 'Changing linux kernel' -Console
     $prefix = (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute "grep -o \'gnulinux-advanced.*\' /boot/grub/grub.cfg | tr -d `"\'`"").Output
@@ -124,11 +192,9 @@ if (!$WSL) {
     Wait-ForAPIServer
 }
 
-# Remove GPU node labels added during enable.
-$nodeName = (Invoke-Kubectl -Params 'get', 'nodes', '-l', 'node-role.kubernetes.io/control-plane', '-o', 'jsonpath={.items[0].metadata.name}').Output
-if (![string]::IsNullOrWhiteSpace($nodeName)) {
-    Write-Log "[gpu-node] Removing GPU labels from control plane node '$nodeName'" -Console
-    (Invoke-Kubectl -Params 'label', 'node', $nodeName, 'gpu-', 'accelerator-').Output | Write-Log
+if ($controlPlaneGpuPv -and ![string]::IsNullOrWhiteSpace($controlPlaneNodeName)) {
+    Write-Log "[gpu-node] Removing GPU labels from control plane node '$controlPlaneNodeName'" -Console
+    (Invoke-Kubectl -Params 'label', 'node', $controlPlaneNodeName, 'gpu-', 'accelerator-', 'k2s.siemens-healthineers.com/gpu-mode-').Output | Write-Log
 }
 
 # Note: GPU labels on external worker nodes are NOT removed during addon disable.
