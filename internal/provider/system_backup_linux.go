@@ -9,6 +9,7 @@ import (
 	"archive/tar"
 	"archive/zip"
 	"compress/gzip"
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -22,6 +23,13 @@ import (
 
 	"github.com/siemens-healthineers/k2s/internal/version"
 	"gopkg.in/yaml.v3"
+)
+
+const (
+	defaultKubeTimeout        = 30 * time.Second
+	defaultImageExportTimeout = 10 * time.Minute
+	defaultHookTimeout        = 5 * time.Minute
+	clusterReachableTimeout   = 10 * time.Second
 )
 
 type rawBackupConfigJSON struct {
@@ -203,7 +211,10 @@ func runLinuxSystemBackup(installDir string, cfg SystemBackupConfig) error {
 
 func checkClusterReachable() error {
 	slog.Info("[System Backup] Checking cluster status...")
-	cmd := exec.Command("kubectl", "cluster-info", "--request-timeout=5s")
+	ctx, cancel := context.WithTimeout(context.Background(), clusterReachableTimeout)
+	defer cancel()
+
+	cmd := exec.CommandContext(ctx, "kubectl", "cluster-info", "--request-timeout=5s")
 	if out, err := cmd.CombinedOutput(); err != nil {
 		return fmt.Errorf("Kubernetes cluster is not reachable: %w: %s", err, string(out))
 	}
@@ -298,7 +309,9 @@ func exportClusterResources(stagingDir string, bcfg *backupConfig) ([]string, er
 	slog.Info("[System Backup] Exporting cluster resources...")
 
 	// 1. Get all namespaces
-	out, err := exec.Command("kubectl", "get", "namespaces", "-o", "jsonpath={.items[*].metadata.name}").CombinedOutput()
+	ctxNs, cancelNs := context.WithTimeout(context.Background(), defaultKubeTimeout)
+	out, err := exec.CommandContext(ctxNs, "kubectl", "get", "namespaces", "-o", "jsonpath={.items[*].metadata.name}").CombinedOutput()
+	cancelNs()
 	if err != nil {
 		return nil, fmt.Errorf("failed to list namespaces: %w: %s", err, string(out))
 	}
@@ -312,7 +325,9 @@ func exportClusterResources(stagingDir string, bcfg *backupConfig) ([]string, er
 	}
 
 	// 2. Export Namespaced Resources
-	namespacedResOut, err := exec.Command("kubectl", "api-resources", "--namespaced=true", "--verbs=list").CombinedOutput()
+	ctxRes, cancelRes := context.WithTimeout(context.Background(), defaultKubeTimeout)
+	namespacedResOut, err := exec.CommandContext(ctxRes, "kubectl", "api-resources", "--namespaced=true", "--verbs=list").CombinedOutput()
+	cancelRes()
 	if err != nil {
 		slog.Warn("[System Backup] Failed to query namespaced api-resources", "error", err)
 	} else {
@@ -335,7 +350,9 @@ func exportClusterResources(stagingDir string, bcfg *backupConfig) ([]string, er
 			}
 
 			for _, resType := range namespacedTypes {
-				resJSON, err := exec.Command("kubectl", "get", resType, "-n", ns, "-o", "json").Output()
+				ctxGet, cancelGet := context.WithTimeout(context.Background(), defaultKubeTimeout)
+				resJSON, err := exec.CommandContext(ctxGet, "kubectl", "get", resType, "-n", ns, "-o", "json").Output()
+				cancelGet()
 				if err != nil {
 					continue
 				}
@@ -354,7 +371,9 @@ func exportClusterResources(stagingDir string, bcfg *backupConfig) ([]string, er
 	}
 
 	// 3. Export Cluster-scoped Resources
-	clusterResOut, err := exec.Command("kubectl", "api-resources", "--namespaced=false", "--verbs=list").CombinedOutput()
+	ctxClusterRes, cancelClusterRes := context.WithTimeout(context.Background(), defaultKubeTimeout)
+	clusterResOut, err := exec.CommandContext(ctxClusterRes, "kubectl", "api-resources", "--namespaced=false", "--verbs=list").CombinedOutput()
+	cancelClusterRes()
 	if err != nil {
 		slog.Warn("[System Backup] Failed to query cluster-scoped api-resources", "error", err)
 	} else {
@@ -374,7 +393,9 @@ func exportClusterResources(stagingDir string, bcfg *backupConfig) ([]string, er
 		}
 
 		for _, resType := range clusterTypes {
-			resJSON, err := exec.Command("kubectl", "get", resType, "-o", "json").Output()
+			ctxGet, cancelGet := context.WithTimeout(context.Background(), defaultKubeTimeout)
+			resJSON, err := exec.CommandContext(ctxGet, "kubectl", "get", resType, "-o", "json").Output()
+			cancelGet()
 			if err != nil {
 				continue
 			}
@@ -457,7 +478,10 @@ func backupPersistentVolumes(stagingDir string, bcfg *backupConfig) error {
 	slog.Info("[System Backup] Backing up persistent volumes...")
 	pvDir := filepath.Join(stagingDir, "pv")
 
-	out, err := exec.Command("kubectl", "get", "pv", "-o", "json").CombinedOutput()
+	ctx, cancel := context.WithTimeout(context.Background(), defaultKubeTimeout)
+	defer cancel()
+
+	out, err := exec.CommandContext(ctx, "kubectl", "get", "pv", "-o", "json").CombinedOutput()
 	if err != nil {
 		return fmt.Errorf("failed to query persistent volumes: %w: %s", err, string(out))
 	}
@@ -472,6 +496,7 @@ func backupPersistentVolumes(stagingDir string, bcfg *backupConfig) error {
 	}
 
 	backedUpCount := 0
+	var pvErrors []string
 	for _, pv := range pvList.Items {
 		pvName := pv.Metadata.Name
 		if pvName == "" || containsString(bcfg.ExcludedAddonPersistentVolumes, pvName) {
@@ -492,18 +517,23 @@ func backupPersistentVolumes(stagingDir string, bcfg *backupConfig) error {
 		stat, err := os.Stat(volumePath)
 		if err != nil {
 			slog.Warn("[System Backup] PV volume path not accessible", "pv", pvName, "path", volumePath, "error", err)
+			pvErrors = append(pvErrors, fmt.Sprintf("%s (path '%s' not accessible: %v)", pvName, volumePath, err))
 			continue
 		}
 
 		targetTarGz := filepath.Join(pvDir, pvName+"-backup.tar.gz")
 		if stat.IsDir() {
 			if err := tarGzDirectory(volumePath, targetTarGz); err != nil {
+				_ = os.Remove(targetTarGz)
 				slog.Warn("[System Backup] Failed to archive PV directory", "pv", pvName, "error", err)
+				pvErrors = append(pvErrors, fmt.Sprintf("%s: %v", pvName, err))
 				continue
 			}
 		} else {
 			if err := tarGzSingleFile(volumePath, targetTarGz); err != nil {
+				_ = os.Remove(targetTarGz)
 				slog.Warn("[System Backup] Failed to archive PV file", "pv", pvName, "error", err)
+				pvErrors = append(pvErrors, fmt.Sprintf("%s: %v", pvName, err))
 				continue
 			}
 		}
@@ -534,6 +564,10 @@ func backupPersistentVolumes(stagingDir string, bcfg *backupConfig) error {
 		backedUpCount++
 	}
 
+	if len(pvErrors) > 0 {
+		return fmt.Errorf("failed to backup %d persistent volume(s): %s (use --skip-pvs to exclude PVs from backup)", len(pvErrors), strings.Join(pvErrors, "; "))
+	}
+
 	slog.Info("[System Backup] Successfully backed up persistent volumes", "count", backedUpCount)
 	return nil
 }
@@ -546,18 +580,13 @@ func tarGzDirectory(srcDir, destTarGz string) error {
 	gw := gzip.NewWriter(out)
 	tw := tar.NewWriter(gw)
 
-	var closed bool
+	var success bool
 	defer func() {
-		if !closed {
-			if err := tw.Close(); err != nil {
-				slog.Debug("[System Backup] Failed to close tar writer during cleanup", "error", err)
-			}
-			if err := gw.Close(); err != nil {
-				slog.Debug("[System Backup] Failed to close gzip writer during cleanup", "error", err)
-			}
-			if err := out.Close(); err != nil {
-				slog.Debug("[System Backup] Failed to close archive file during cleanup", "error", err, "path", destTarGz)
-			}
+		if !success {
+			_ = tw.Close()
+			_ = gw.Close()
+			_ = out.Close()
+			_ = os.Remove(destTarGz)
 		}
 	}()
 
@@ -593,6 +622,11 @@ func tarGzDirectory(srcDir, destTarGz string) error {
 			return tw.WriteHeader(header)
 		}
 
+		if !info.Mode().IsRegular() {
+			slog.Debug("[System Backup] Skipping non-regular file in PV directory", "path", path, "mode", info.Mode().String())
+			return nil
+		}
+
 		if err := tw.WriteHeader(header); err != nil {
 			return err
 		}
@@ -601,10 +635,10 @@ func tarGzDirectory(srcDir, destTarGz string) error {
 		if err != nil {
 			return err
 		}
-		defer file.Close()
 
-		_, err = io.Copy(tw, file)
-		return err
+		_, copyErr := io.Copy(tw, file)
+		_ = file.Close()
+		return copyErr
 	})
 	if err != nil {
 		return err
@@ -619,7 +653,7 @@ func tarGzDirectory(srcDir, destTarGz string) error {
 	if err := out.Close(); err != nil {
 		return fmt.Errorf("failed to close archive file '%s': %w", destTarGz, err)
 	}
-	closed = true
+	success = true
 
 	return nil
 }
@@ -632,24 +666,23 @@ func tarGzSingleFile(srcFile, destTarGz string) error {
 	gw := gzip.NewWriter(out)
 	tw := tar.NewWriter(gw)
 
-	var closed bool
+	var success bool
 	defer func() {
-		if !closed {
-			if err := tw.Close(); err != nil {
-				slog.Debug("[System Backup] Failed to close tar writer during cleanup", "error", err)
-			}
-			if err := gw.Close(); err != nil {
-				slog.Debug("[System Backup] Failed to close gzip writer during cleanup", "error", err)
-			}
-			if err := out.Close(); err != nil {
-				slog.Debug("[System Backup] Failed to close archive file during cleanup", "error", err, "path", destTarGz)
-			}
+		if !success {
+			_ = tw.Close()
+			_ = gw.Close()
+			_ = out.Close()
+			_ = os.Remove(destTarGz)
 		}
 	}()
 
 	info, err := os.Stat(srcFile)
 	if err != nil {
 		return err
+	}
+
+	if !info.Mode().IsRegular() {
+		return fmt.Errorf("source file '%s' is not a regular file (mode: %s)", srcFile, info.Mode().String())
 	}
 
 	header, err := tar.FileInfoHeader(info, info.Name())
@@ -666,10 +699,11 @@ func tarGzSingleFile(srcFile, destTarGz string) error {
 	if err != nil {
 		return err
 	}
-	defer file.Close()
 
-	if _, err := io.Copy(tw, file); err != nil {
-		return err
+	_, copyErr := io.Copy(tw, file)
+	_ = file.Close()
+	if copyErr != nil {
+		return copyErr
 	}
 
 	if err := tw.Close(); err != nil {
@@ -681,7 +715,7 @@ func tarGzSingleFile(srcFile, destTarGz string) error {
 	if err := out.Close(); err != nil {
 		return fmt.Errorf("failed to close archive file '%s': %w", destTarGz, err)
 	}
-	closed = true
+	success = true
 
 	return nil
 }
@@ -696,8 +730,10 @@ func backupContainerImages(stagingDir string, includedNamespaces []string) error
 	imageSet := make(map[string]struct{})
 	queryFailures := 0
 	for _, ns := range includedNamespaces {
-		out, err := exec.Command("kubectl", "get", "pods", "-n", ns,
+		ctx, cancel := context.WithTimeout(context.Background(), defaultKubeTimeout)
+		out, err := exec.CommandContext(ctx, "kubectl", "get", "pods", "-n", ns,
 			"-o", "jsonpath={.items[*].spec.containers[*].image} {.items[*].spec.initContainers[*].image}").Output()
+		cancel()
 		if err != nil {
 			queryFailures++
 			slog.Warn("[System Backup] Failed to query pods for namespace", "namespace", ns, "error", err)
@@ -716,24 +752,45 @@ func backupContainerImages(stagingDir string, includedNamespaces []string) error
 	}
 
 	backedUpCount := 0
+	var exportErrors []string
 	for img := range imageSet {
 		sanitized := sanitizeImageName(img) + ".tar"
 		targetTar := filepath.Join(imagesDir, sanitized)
 
 		// Try ctr (containerd in k8s.io namespace) first
-		cmd := exec.Command("ctr", "-n", "k8s.io", "images", "export", targetTar, img)
-		if err := cmd.Run(); err != nil {
+		ctxCtr, cancelCtr := context.WithTimeout(context.Background(), defaultImageExportTimeout)
+		cmd := exec.CommandContext(ctxCtr, "ctr", "-n", "k8s.io", "images", "export", targetTar, img)
+		errCtr := cmd.Run()
+		cancelCtr()
+
+		if errCtr != nil {
+			_ = os.Remove(targetTar)
 			// Fall back to nerdctl or docker
-			cmd2 := exec.Command("nerdctl", "-n", "k8s.io", "save", "-o", targetTar, img)
-			if err2 := cmd2.Run(); err2 != nil {
-				cmd3 := exec.Command("docker", "save", "-o", targetTar, img)
-				if err3 := cmd3.Run(); err3 != nil {
-					slog.Warn("[System Backup] Failed to export image", "image", img, "error", err3)
+			ctxNerd, cancelNerd := context.WithTimeout(context.Background(), defaultImageExportTimeout)
+			cmd2 := exec.CommandContext(ctxNerd, "nerdctl", "-n", "k8s.io", "save", "-o", targetTar, img)
+			errNerd := cmd2.Run()
+			cancelNerd()
+
+			if errNerd != nil {
+				_ = os.Remove(targetTar)
+				ctxDoc, cancelDoc := context.WithTimeout(context.Background(), defaultImageExportTimeout)
+				cmd3 := exec.CommandContext(ctxDoc, "docker", "save", "-o", targetTar, img)
+				errDoc := cmd3.Run()
+				cancelDoc()
+
+				if errDoc != nil {
+					_ = os.Remove(targetTar)
+					slog.Warn("[System Backup] Failed to export image", "image", img, "error", errDoc)
+					exportErrors = append(exportErrors, fmt.Sprintf("%s: %v", img, errDoc))
 					continue
 				}
 			}
 		}
 		backedUpCount++
+	}
+
+	if len(exportErrors) > 0 {
+		return fmt.Errorf("failed to export %d image(s): %s (use --skip-images to exclude images from backup)", len(exportErrors), strings.Join(exportErrors, "; "))
 	}
 
 	slog.Info("[System Backup] Successfully backed up user workload container images", "count", backedUpCount)
@@ -763,7 +820,7 @@ func executeBackupHooks(installDir, stagingDir, additionalHooksDir string) {
 			if err == nil {
 				parts := strings.Split(filepath.ToSlash(relPath), "/")
 				if len(parts) > 1 {
-					addonName := parts[0]
+					addonName := parts[len(parts)-2]
 					if !isAddonDeployed(addonName) {
 						slog.Debug("[System Backup] Skipping backup hook for disabled addon", "addon", addonName, "path", path)
 						return nil
@@ -792,7 +849,10 @@ func executeBackupHooks(installDir, stagingDir, additionalHooksDir string) {
 
 func runBackupHook(scriptPath, hooksDir string) {
 	slog.Info("[System Backup] Running hook", "path", scriptPath)
-	cmd := exec.Command("bash", scriptPath, "--backup-dir", hooksDir)
+	ctx, cancel := context.WithTimeout(context.Background(), defaultHookTimeout)
+	defer cancel()
+
+	cmd := exec.CommandContext(ctx, "bash", scriptPath, "--backup-dir", hooksDir)
 	if out, err := cmd.CombinedOutput(); err != nil {
 		slog.Warn("[System Backup] Hook execution failed", "path", scriptPath, "error", err, "output", string(out))
 	} else {
@@ -870,11 +930,12 @@ func createZipFromDirectory(sourceDir, zipPath string) error {
 	}
 	zipWriter := zip.NewWriter(zipFile)
 
-	var closed bool
+	var success bool
 	defer func() {
-		if !closed {
+		if !success {
 			_ = zipWriter.Close()
 			_ = zipFile.Close()
+			_ = os.Remove(zipPath)
 		}
 	}()
 
@@ -900,13 +961,20 @@ func createZipFromDirectory(sourceDir, zipPath string) error {
 		}
 
 		header.Name = zipEntryName
-		header.Method = zip.Deflate
 
 		if info.IsDir() {
 			header.Name += "/"
+			header.Method = zip.Store
 			_, err = zipWriter.CreateHeader(header)
 			return err
 		}
+
+		if !info.Mode().IsRegular() {
+			slog.Debug("[System Backup] Skipping non-regular file during zip archive creation", "path", path, "mode", info.Mode().String())
+			return nil
+		}
+
+		header.Method = zip.Deflate
 
 		writer, err := zipWriter.CreateHeader(header)
 		if err != nil {
@@ -917,11 +985,11 @@ func createZipFromDirectory(sourceDir, zipPath string) error {
 		if err != nil {
 			return fmt.Errorf("failed to open file '%s': %w", path, err)
 		}
-		defer file.Close()
 
-		_, err = io.Copy(writer, file)
-		if err != nil {
-			return fmt.Errorf("failed to write file '%s' into zip: %w", path, err)
+		_, copyErr := io.Copy(writer, file)
+		_ = file.Close()
+		if copyErr != nil {
+			return fmt.Errorf("failed to write file '%s' into zip: %w", path, copyErr)
 		}
 
 		return nil
@@ -936,7 +1004,7 @@ func createZipFromDirectory(sourceDir, zipPath string) error {
 	if err := zipFile.Close(); err != nil {
 		return fmt.Errorf("failed to close zip file '%s': %w", zipPath, err)
 	}
-	closed = true
+	success = true
 
 	return nil
 }

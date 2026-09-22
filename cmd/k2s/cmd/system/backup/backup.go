@@ -38,6 +38,8 @@ func init() {
 
 func runSystemBackup(cmd *cobra.Command, args []string) error {
 	cmdSession := common.StartCmdSession(cmd.CommandPath())
+	defer cmdSession.Finish()
+
 	pterm.Println("📦 Creating K2s system backup ...")
 
 	out, err := cmd.Flags().GetBool(common.OutputFlagName)
@@ -64,18 +66,13 @@ func runSystemBackup(cmd *cobra.Command, args []string) error {
 
 	context := cmd.Context().Value(common.ContextKeyCmdContext).(*common.CmdContext)
 
-	if err := context.Providers().System.Backup(provider.SystemBackupConfig{
+	return context.Providers().System.Backup(provider.SystemBackupConfig{
 		BackupFile:         backupFile,
 		AdditionalHooksDir: additionalHooksDir,
 		SkipImages:         skipImages,
 		SkipPVs:            skipPVs,
 		ShowOutput:         out,
-	}); err != nil {
-		return err
-	}
-
-	cmdSession.Finish()
-	return nil
+	})
 }
 
 func resolveBackupFileName(cmd *cobra.Command) string {
