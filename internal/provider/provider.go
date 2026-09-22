@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText:  © 2025 Siemens Healthineers AG
+// SPDX-FileCopyrightText:  © 2026 Siemens Healthineers AG
 // SPDX-License-Identifier:   MIT
 
 // Package provider defines platform-agnostic interfaces for all K2s operations.
@@ -8,7 +8,7 @@
 package provider
 
 import (
-	k2sos "github.com/siemens-healthineers/k2s/internal/os"
+	"github.com/siemens-healthineers/k2s/internal/output"
 )
 
 // Registry holds all platform-specific providers.
@@ -29,5 +29,5 @@ type ProviderConfig struct {
 	// ConfigDir is the K2s setup config directory (e.g. C:\ProgramData\K2s or /var/lib/k2s).
 	ConfigDir string
 	// StdWriter is used for streaming output to the terminal.
-	StdWriter k2sos.StdWriter
+	StdWriter output.Writer
 }
