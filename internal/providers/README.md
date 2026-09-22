@@ -17,6 +17,7 @@ Each subfolder is one provider and should only contain the technical integration
 ├── kubeconfig  --> reading/writing kubeconfig files
 ├── kubectl     --> kubectl CLI invocation
 ├── osusers     --> OS user management
+├── powershell  --> PowerShell execution bridge and script result handling
 └── ssh         --> SSH connections and file copy/move over SFTP
 ...
 ```

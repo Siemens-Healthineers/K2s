@@ -30,20 +30,19 @@ Packages follow a layered architecture: `core` orchestrates domain logic using `
 
 ## Utility & Support Packages
 
-| Package        | Purpose                                                                                 |
-| -------------- | --------------------------------------------------------------------------------------- |
-| `powershell/`  | Go ↔ PowerShell bridge (`ExecutePsWithStructuredResult`) for calling PS scripts from Go |
-| `cli/`         | Exit codes, structured result types, command execution helpers                          |
-| `host/`        | Host OS detection and platform abstraction                                              |
-| `os/`          | OS-level utilities, file I/O, `StdWriter` interface                                     |
-| `output/`      | Formatted output and display helpers                                                    |
-| `terminal/`    | Terminal/console interaction utilities                                                  |
-| `logging/`     | Centralized logging primitives                                                          |
-| `json/`        | JSON serialization/deserialization helpers                                              |
-| `yaml/`        | YAML parsing and generation utilities                                                   |
-| `primitives/`  | Low-level data structure helpers                                                        |
-| `version/`     | Version management and comparison                                                       |
-| `definitions/` | Shared constant definitions and enums                                                   |
+| Package        | Purpose                                                        |
+| -------------- | -------------------------------------------------------------- |
+| `cli/`         | Exit codes, structured result types, command execution helpers |
+| `host/`        | Host OS detection and platform abstraction                     |
+| `os/`          | OS-level utilities, file I/O, `StdWriter` interface            |
+| `output/`      | Formatted output and display helpers                           |
+| `terminal/`    | Terminal/console interaction utilities                         |
+| `logging/`     | Centralized logging primitives                                 |
+| `json/`        | JSON serialization/deserialization helpers                     |
+| `yaml/`        | YAML parsing and generation utilities                          |
+| `primitives/`  | Low-level data structure helpers                               |
+| `version/`     | Version management and comparison                              |
+| `definitions/` | Shared constant definitions and enums                          |
 
 ## Testing
 
