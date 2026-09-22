@@ -10,13 +10,13 @@ import (
 	"path/filepath"
 
 	"github.com/siemens-healthineers/k2s/cmd/k2s/utils"
-	k2sos "github.com/siemens-healthineers/k2s/internal/os"
+	"github.com/siemens-healthineers/k2s/internal/output"
 	"github.com/siemens-healthineers/k2s/internal/powershell"
 )
 
 type windowsSystemProvider struct {
 	installDir string
-	stdWriter  k2sos.StdWriter
+	stdWriter  output.Writer
 }
 
 func newWindowsSystemProvider(cfg ProviderConfig) *windowsSystemProvider {
@@ -211,4 +211,3 @@ func (p *windowsSystemProvider) CertificateAutoRotation(cfg SystemCertAutoRotati
 	}
 	return p.execPS(psCmd, params...)
 }
-

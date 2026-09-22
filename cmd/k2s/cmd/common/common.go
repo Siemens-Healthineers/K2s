@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText:  © 2024 Siemens Healthineers AG
+// SPDX-FileCopyrightText:  © 2026 Siemens Healthineers AG
 // SPDX-License-Identifier:   MIT
 
 package common
@@ -13,7 +13,7 @@ import (
 	"github.com/siemens-healthineers/k2s/cmd/k2s/utils/logging"
 	"github.com/siemens-healthineers/k2s/internal/contracts/config"
 	bl "github.com/siemens-healthineers/k2s/internal/logging"
-	"github.com/siemens-healthineers/k2s/internal/os"
+	"github.com/siemens-healthineers/k2s/internal/output"
 	"github.com/siemens-healthineers/k2s/internal/provider"
 	"github.com/siemens-healthineers/k2s/internal/providers/k8s"
 
@@ -111,7 +111,7 @@ func NewPtermWriter() *PtermWriter {
 	}
 }
 
-func NewSlogWriter() os.StdWriter { return &SlogWriter{} }
+func NewSlogWriter() output.Writer { return &SlogWriter{} }
 
 func NewCmdContext(config *config.K2sConfig, logger *logging.Slogger, providers *provider.Registry) *CmdContext {
 	return &CmdContext{
