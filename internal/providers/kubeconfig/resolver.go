@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText:  © 2025 Siemens Healthineers AG
+// SPDX-FileCopyrightText:  © 2026 Siemens Healthineers AG
 // SPDX-License-Identifier:   MIT
 
 package kubeconfig
@@ -18,7 +18,6 @@ type KubeconfigResolver struct {
 
 func NewKubeconfigResolver(kubeConfig *config.KubeConfig) *KubeconfigResolver {
 	return &KubeconfigResolver{
-
 		kubeConfig: kubeConfig,
 	}
 }

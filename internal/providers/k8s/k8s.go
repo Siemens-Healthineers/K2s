@@ -1,45 +1,74 @@
-// SPDX-FileCopyrightText:  © 2025 Siemens Healthineers AG
+// SPDX-FileCopyrightText:  © 2026 Siemens Healthineers AG
 // SPDX-License-Identifier:   MIT
 
 package k8s
 
 import (
 	"fmt"
-	"path/filepath"
-
-	"github.com/siemens-healthineers/k2s/internal/providers/kubeconfig"
+	"log/slog"
 )
 
-type K8sContext struct {
-	currentContext string
-	k2sContext     string
+type restClient interface {
+	SetTLSConfig(caCert, userCert, userKey []byte) error
+	Post(url string, payload any, result any) error
 }
 
-const KubeconfigName = "config"
+type UserInfoAPI struct {
+	restClient restClient
+}
 
-func ReadContext(kubeconfigDir string, clusterName string) (*K8sContext, error) {
-	path := filepath.Join(kubeconfigDir, KubeconfigName)
+type SelfSubjectReview struct {
+	Kind       string     `json:"kind"`
+	ApiVersion string     `json:"apiVersion"`
+	Metadata   Metadata   `json:"metadata"`
+	Status     AuthStatus `json:"status"`
+}
 
-	config, err := kubeconfig.ReadFile(path)
-	if err != nil {
-		return nil, fmt.Errorf("failed to read kubeconfig from dir '%s': %w", kubeconfigDir, err)
+type Metadata struct {
+	Timestamp *string `json:"creationTimestamp"`
+}
+
+type AuthStatus struct {
+	UserInfo UserInfo `json:"userInfo"`
+}
+
+type UserInfo struct {
+	Name   string   `json:"username"`
+	Groups []string `json:"groups"`
+}
+
+const whoAmIRequestUrlRoute = "/apis/authentication.k8s.io/v1/selfsubjectreviews"
+
+func NewUserInfoAPI(restClient restClient) *UserInfoAPI {
+	return &UserInfoAPI{
+		restClient: restClient,
+	}
+}
+
+func (v *UserInfoAPI) FetchUserInfo(server string, caCert, userCert, userKey []byte) (*UserInfo, error) {
+	slog.Debug("Fetching user info via Kubernetes API", "server", server)
+
+	if err := v.restClient.SetTLSConfig(caCert, userCert, userKey); err != nil {
+		return nil, fmt.Errorf("failed to set http client TLS config: %w", err)
 	}
 
-	k2sContext, err := kubeconfig.FindContextByCluster(config, clusterName)
-	if err != nil {
-		return nil, fmt.Errorf("could not find K2s cluster config in kubeconfig: %w", err)
+	request := newWhoAmIRequest()
+	url := server + whoAmIRequestUrlRoute
+
+	var response SelfSubjectReview
+	if err := v.restClient.Post(url, request, &response); err != nil {
+		return nil, fmt.Errorf("failed to POST who-am-I request to K8s API '%s': %w", url, err)
 	}
 
-	return &K8sContext{
-		currentContext: config.CurrentContext,
-		k2sContext:     k2sContext.Name,
-	}, nil
+	slog.Debug("User info fetched via Kubernetes API", "user-name", response.Status.UserInfo.Name, "server", server)
+	return &response.Status.UserInfo, nil
 }
 
-func (c *K8sContext) IsK2sContext() bool {
-	return c.currentContext == c.k2sContext
-}
-
-func (c *K8sContext) K2sContextName() string {
-	return c.k2sContext
+func newWhoAmIRequest() *SelfSubjectReview {
+	return &SelfSubjectReview{
+		Kind:       "SelfSubjectReview",
+		ApiVersion: "authentication.k8s.io/v1",
+		Metadata:   Metadata{},
+		Status:     AuthStatus{UserInfo: UserInfo{}},
+	}
 }

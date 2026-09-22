@@ -10,8 +10,7 @@ import (
 	"github.com/go-logr/logr"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/siemens-healthineers/k2s/internal/contracts/users"
-	"github.com/siemens-healthineers/k2s/internal/core/users/naming"
+	"github.com/siemens-healthineers/k2s/internal/core/users/cluster/naming"
 )
 
 func TestPkg(t *testing.T) {
@@ -23,14 +22,12 @@ var _ = BeforeSuite(func() {
 	slog.SetDefault(slog.New(logr.ToSlogHandler(GinkgoLogr)))
 })
 
-var _ = Describe("K2sUserNameProvider", func() {
-	Describe("DetermineK2sUserName", func() {
-		It("creates K2s user name from OS user", func() {
-			user := users.NewOSUser("", "AD123\\test user", "")
+var _ = Describe("DetermineK8sContext", func() {
+	Describe("DetermineK8sContext", func() {
+		It("determines K8s context name for K2s cluster", func() {
+			actual := naming.DetermineK8sContext("test-user", "test-cluster")
 
-			actual := naming.DetermineK2sUserName(user)
-
-			Expect(actual).To(Equal("k2s-AD123-test-user"))
+			Expect(actual).To(Equal("test-user@test-cluster"))
 		})
 	})
 })

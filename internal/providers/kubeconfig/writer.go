@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText:  © 2025 Siemens Healthineers AG
+// SPDX-FileCopyrightText:  © 2026 Siemens Healthineers AG
 // SPDX-License-Identifier:   MIT
 
 package kubeconfig
@@ -9,9 +9,6 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
-
-	"github.com/siemens-healthineers/k2s/internal/contracts/config"
-	"github.com/siemens-healthineers/k2s/internal/contracts/kubeconfig"
 )
 
 type kubectl interface {
@@ -19,38 +16,38 @@ type kubectl interface {
 }
 
 type KubeconfigWriter struct {
-	config  *config.KubeConfig
 	kubectl kubectl
 }
 
-func NewKubeconfigWriter(config *config.KubeConfig, kubectl kubectl) *KubeconfigWriter {
+func NewKubeconfigWriter(kubectl kubectl) *KubeconfigWriter {
 	return &KubeconfigWriter{
-		config:  config,
 		kubectl: kubectl,
 	}
 }
 
-func (k *KubeconfigWriter) SetClusterConfig(config *kubeconfig.ClusterConfig, kubeconfigPath string) error {
-	slog.Debug("Setting cluster config", "cluster-name", config.Name, "kubeconfig-path", kubeconfigPath)
+// SetClusterConfig implicitly creates the kubeconfig file if it does not exist and sets the cluster configuration in the specified kubeconfig file.
+func (k *KubeconfigWriter) SetClusterConfig(kubeconfigPath string, cluster *Cluster) error {
+	slog.Debug("Writing cluster config to kubeconfig", "path", kubeconfigPath, "cluster-name", cluster.Name)
 
 	targetDir := filepath.Dir(kubeconfigPath)
-	certJsonPath := fmt.Sprintf("clusters.%s.certificate-authority-data", config.Name)
 
 	if err := os.MkdirAll(targetDir, fs.ModePerm); err != nil {
-		return fmt.Errorf("failed to prepare target directory '%s': %w", kubeconfigPath, err)
+		return fmt.Errorf("failed to create target directory '%s': %w", kubeconfigPath, err)
 	}
 
 	// implicitly creates kubeconfig when not existing
-	if err := k.kubectl.Exec("config", "set-cluster", config.Name, "--server", config.Server, "--kubeconfig", kubeconfigPath); err != nil {
-		return fmt.Errorf("failed to set cluster '%s' in kubeconfig '%s': %w", config.Name, kubeconfigPath, err)
+	if err := k.kubectl.Exec("config", "set-cluster", cluster.Name, "--server", cluster.Details.Server, "--kubeconfig", kubeconfigPath); err != nil {
+		return fmt.Errorf("failed to set cluster '%s' in kubeconfig '%s': %w", cluster.Name, kubeconfigPath, err)
 	}
 
-	// "kubectl config set-cluster" does not support in-memory cert data, therefor the cert data is set separately
-	if err := k.kubectl.Exec("config", "set", certJsonPath, config.Cert, "--kubeconfig", kubeconfigPath); err != nil {
+	certJsonPath := fmt.Sprintf("clusters.%s.certificate-authority-data", cluster.Name)
+
+	// "kubectl config set-cluster" does not support in-memory cert data, therefore the cert data is set separately
+	if err := k.kubectl.Exec("config", "set", certJsonPath, cluster.Details.Cert, "--kubeconfig", kubeconfigPath); err != nil {
 		return fmt.Errorf("failed to set cluster certificate in kubeconfig '%s': %w", kubeconfigPath, err)
 	}
 
-	slog.Debug("Cluster config set", "cluster-name", config.Name, "kubeconfig-path", kubeconfigPath)
+	slog.Debug("Cluster config written to kubeconfig", "path", kubeconfigPath, "cluster-name", cluster.Name)
 	return nil
 }
 
