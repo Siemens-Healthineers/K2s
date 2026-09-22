@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"runtime"
 	"strings"
 	"testing"
@@ -391,6 +392,15 @@ func controlPlaneNodeName() string {
 	return strings.ToLower(hostname)
 }
 
+func restoreLinuxOnlyCoreSuiteState(ctx context.Context) {
+	GinkgoWriter.Println("Reinstalling native Linux-only cluster after reset..")
+	suite.K2sCli().MustExec(ctx, "install", "--linux-only")
+	suite.SetupInfo().ReloadRuntimeConfig()
+	Expect(suite.SetupInfo().RuntimeConfig.InstallConfig().LinuxOnly()).To(BeTrue())
+	Expect(suite.StatusChecker().IsK2sRunning(ctx)).To(BeTrue())
+	GinkgoWriter.Println("Native Linux-only cluster restored after reset")
+}
+
 var _ = Describe("Cluster Core", func() {
 	systemNamespace := "kube-system"
 
@@ -717,6 +727,32 @@ var _ = Describe("Cluster Core", func() {
 			Expect(svc.Spec.ClusterIP).NotTo(BeEmpty(), "albums-linux1 has no ClusterIP")
 			Expect(strings.HasPrefix(svc.Spec.ClusterIP, "172.21.0.")).To(BeTrue(),
 				"albums-linux1 ClusterIP %s is not in the Linux subnet 172.21.0.0/24", svc.Spec.ClusterIP)
+		})
+	})
+
+	Describe("Linux-only reset commands", Ordered, func() {
+		BeforeAll(func() {
+			if runtime.GOOS != "linux" || !suite.SetupInfo().RuntimeConfig.InstallConfig().LinuxOnly() {
+				Skip("native Linux-only setup required")
+			}
+		})
+
+		It("resets host networking while the native Linux-only cluster is still installed", func(ctx SpecContext) {
+			suite.K2sCli().MustExec(ctx, "system", "reset", "network")
+			Expect(suite.StatusChecker().IsK2sRunning(ctx)).To(BeTrue(), "expected native Linux cluster to remain running after system reset network")
+		})
+
+		It("resets the native Linux-only cluster and removes runtime state", func(ctx SpecContext) {
+			suite.K2sCli().MustExec(ctx, "system", "reset")
+
+			runtimeConfigPath := filepath.Join(suite.SetupInfo().Config.Host().K2sSetupConfigDir(), definitions.K2sRuntimeConfigFileName)
+			_, err := os.Stat(runtimeConfigPath)
+			Expect(os.IsNotExist(err)).To(BeTrue(), "expected runtime config to be removed by system reset")
+			Expect(suite.StatusChecker().IsK2sRunning(ctx)).To(BeFalse(), "expected native Linux cluster to stop after system reset")
+		})
+
+		It("can reinstall the native Linux-only cluster after reset", func(ctx SpecContext) {
+			restoreLinuxOnlyCoreSuiteState(ctx)
 		})
 	})
 })
