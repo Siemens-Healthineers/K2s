@@ -15,7 +15,7 @@ import (
 	nodepackage "github.com/siemens-healthineers/k2s/cmd/k2s/cmd/system/package/node"
 	cconfig "github.com/siemens-healthineers/k2s/internal/contracts/config"
 	"github.com/siemens-healthineers/k2s/internal/core/config"
-	"github.com/siemens-healthineers/k2s/internal/powershell"
+	"github.com/siemens-healthineers/k2s/internal/providers/powershell"
 
 	"github.com/siemens-healthineers/k2s/cmd/k2s/utils"
 

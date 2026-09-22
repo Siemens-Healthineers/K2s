@@ -29,5 +29,5 @@ type ProviderConfig struct {
 	// ConfigDir is the K2s setup config directory (e.g. C:\ProgramData\K2s or /var/lib/k2s).
 	ConfigDir string
 	// StdWriter is used for streaming output to the terminal.
-	StdWriter output.Writer
+	StdWriter output.StreamWriter
 }

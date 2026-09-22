@@ -13,20 +13,18 @@ import (
 
 	"github.com/siemens-healthineers/k2s/internal/os"
 	"github.com/siemens-healthineers/k2s/internal/output"
-	"github.com/siemens-healthineers/k2s/internal/powershell/decode"
+	"github.com/siemens-healthineers/k2s/internal/providers/powershell/decode"
 )
 
 type structuredOutputWriter struct {
 	isEncodedMessage func(message string) bool
-	stdWriter        output.Writer
+	stdWriter        output.StreamWriter
 	rawMessages      []string
 }
 
-// PsCmd is set per-platform: "powershell" on Windows, "pwsh" on Linux.
-
 // ExecutePsWithStructuredResult waits until the command has finished and returns the structured data it received or errors that occurred
 // Calls to OutputWriter happen asynchronous
-func ExecutePsWithStructuredResult[T any](psScriptPath string, targetType string, writer output.Writer, additionalParams ...string) (v T, err error) {
+func ExecutePsWithStructuredResult[T any](psScriptPath string, targetType string, writer output.StreamWriter, additionalParams ...string) (v T, err error) {
 	if err := platformGuard(); err != nil {
 		return v, err
 	}
@@ -59,7 +57,7 @@ func ExecutePsWithStructuredResult[T any](psScriptPath string, targetType string
 	return convertToResult[T](decodedMessage)
 }
 
-func ExecutePs(script string, writer output.Writer) error {
+func ExecutePs(script string, writer output.StreamWriter) error {
 	if err := platformGuard(); err != nil {
 		return err
 	}

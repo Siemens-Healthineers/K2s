@@ -3,7 +3,7 @@
 
 package output
 
-type Writer interface {
+type StreamWriter interface {
 	WriteStdOut(message string)
 	WriteStdErr(message string)
 	Flush()
