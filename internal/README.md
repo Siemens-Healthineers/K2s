@@ -1,5 +1,5 @@
 <!--
-SPDX-FileCopyrightText: © 2025 Siemens Healthineers AG
+SPDX-FileCopyrightText: © 2026 Siemens Healthineers AG
 SPDX-License-Identifier: MIT
 -->
 
@@ -8,21 +8,48 @@ This folder contains all re-usable *Go* packages that cannot be referenced from 
 
 Even though they have interdependencies, the aim is to keep their coupling as low as possible.
 
-As of now, the packages with higher levels of abstraction containing the domain logic are contained in the `core` folder.
+Packages follow a layered architecture: `core` orchestrates domain logic using `contracts` and calls into `providers` through the `provider` interface abstraction. Platform-specific implementations live in build-tagged files (Windows/Linux) and provider adapters, while utility packages provide shared functionality across layers.
 
-## Key Packages
+## Core & Architecture Packages
 
-| Package | Purpose |
-|---------|---------|
-| `core/` | Domain logic: addons, cluster config, user management |
-| `provider/` | **Platform-agnostic provider interfaces** and build-tagged implementations for Windows and Linux. Commands use these interfaces exclusively — see [provider/README.md](provider/README.md). |
-| `powershell/` | Go ↔ PowerShell bridge (`ExecutePsWithStructuredResult`) |
-| `setuporchestration/` | Linux-native cluster provisioning (kubeadm, libvirt/KVM, SSH) |
-| `providers/` | Kubernetes, SSH, kubectl, kubeconfig utility providers |
-| `containernetworking/` | Windows CNI bridge plugin logic |
-| `cli/` | Exit codes, command helpers |
-| `host/` | Host OS detection and operations |
-| `os/` | OS-level utilities, `StdWriter` interface |
+| Package      | Purpose                                                                                                                                                                                    |
+| ------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `core/`      | Domain logic and workflows: cluster lifecycle, addons, config parsing, user management, admission rules — see [core/README.md](core/README.md)                                             |
+| `contracts/` | Shared models (config, users) referenced by both `core` and `providers`, avoiding unwanted dependencies and import cycles — see [contracts/README.md](contracts/README.md)                 |
+| `provider/`  | **Platform-agnostic provider interfaces** and build-tagged implementations for Windows and Linux. Commands use these interfaces exclusively — see [provider/README.md](provider/README.md) |
+| `providers/` | Concrete adapter packages: Kubernetes, SSH, kubectl, kubeconfig utilities — see [providers/README.md](providers/README.md)                                                                 |
+
+## Platform-Specific Packages
+
+| Package                | Purpose                                                       |
+| ---------------------- | ------------------------------------------------------------- |
+| `setuporchestration/`  | Linux-native cluster provisioning (kubeadm, libvirt/KVM, SSH) |
+| `windows/`             | Windows-specific utilities and native Go operations           |
+| `linux/`               | Linux-specific utilities and native Go operations             |
+| `containernetworking/` | Windows CNI bridge plugin logic                               |
+
+## Utility & Support Packages
+
+| Package        | Purpose                                                                                 |
+| -------------- | --------------------------------------------------------------------------------------- |
+| `powershell/`  | Go ↔ PowerShell bridge (`ExecutePsWithStructuredResult`) for calling PS scripts from Go |
+| `cli/`         | Exit codes, structured result types, command execution helpers                          |
+| `host/`        | Host OS detection and platform abstraction                                              |
+| `os/`          | OS-level utilities, file I/O, `StdWriter` interface                                     |
+| `output/`      | Formatted output and display helpers                                                    |
+| `terminal/`    | Terminal/console interaction utilities                                                  |
+| `logging/`     | Centralized logging primitives                                                          |
+| `json/`        | JSON serialization/deserialization helpers                                              |
+| `yaml/`        | YAML parsing and generation utilities                                                   |
+| `primitives/`  | Low-level data structure helpers                                                        |
+| `version/`     | Version management and comparison                                                       |
+| `definitions/` | Shared constant definitions and enums                                                   |
+
+## Testing
+
+| Package | Purpose                               |
+| ------- | ------------------------------------- |
+| `test/` | Shared testing utilities and fixtures |
 
 ## Dependency Analysis
 
