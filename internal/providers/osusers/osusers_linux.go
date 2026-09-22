@@ -23,7 +23,7 @@ func CurrentUser() (*users.OSUser, error) {
 func FindByName(name string) (*users.OSUser, error) {
 	u, err := user.Lookup(name)
 	if err != nil {
-		return nil, fmt.Errorf("user '%s' not found: %w", name, err)
+		return nil, users.ErrUserNotFound(fmt.Errorf("user '%s' not found: %w", name, err).Error())
 	}
 	return users.NewOSUser(u.Uid, u.Username, u.HomeDir), nil
 }
@@ -31,7 +31,7 @@ func FindByName(name string) (*users.OSUser, error) {
 func FindById(id string) (*users.OSUser, error) {
 	u, err := user.LookupId(id)
 	if err != nil {
-		return nil, fmt.Errorf("user with id '%s' not found: %w", id, err)
+		return nil, users.ErrUserNotFound(fmt.Errorf("user with id '%s' not found: %w", id, err).Error())
 	}
 	return users.NewOSUser(u.Uid, u.Username, u.HomeDir), nil
 }
