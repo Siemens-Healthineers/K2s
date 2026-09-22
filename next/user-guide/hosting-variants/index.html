@@ -2812,7 +2812,7 @@ SPDX-License-Identifier: MIT
 <h2 id="linux-host">Linux Host</h2>
 <div class="admonition warning">
 <p class="admonition-title">Experimental</p>
-<p>Linux host support is experimental. Some features (offline packaging, backup/restore) are not yet available. The interface may change without notice.</p>
+<p>Linux host support is experimental. Some features (offline packaging, system restore) are not yet available. The interface may change without notice.</p>
 </div>
 <p>In this variant the <em>Linux</em> machine <strong>is</strong> the host. The <em>Kubernetes</em> control plane runs natively on the host (no <abbr title="Virtual Machine">VM</abbr>), and an optional <em>Windows</em> <abbr title="Virtual Machine">VM</abbr> is provisioned via <em>libvirt/KVM</em> with OVMF UEFI firmware to provide a mixed-<abbr title="Operating System">OS</abbr> worker node.</p>
 <p>The <em>k2s</em> <abbr title="Command-Line Interface">CLI</abbr> is compiled as a native <em>Linux</em> binary and uses <em>Go</em> APIs directly (kubeadm, kubectl, libvirt, <abbr title="Secure Shell">SSH</abbr>) — <strong>no PowerShell</strong> is required.</p>

@@ -3857,7 +3857,7 @@ SPDX-License-Identifier: MIT
 <p>The <em>k2s</em> <abbr title="Command-Line Interface">CLI</abbr> is the primary interface for managing a <em>K2s</em> cluster. It covers the full lifecycle — installation, startup, upgrade, image management, addon management, and system maintenance.</p>
 <div class="admonition warning">
 <p class="admonition-title">Linux Host Support — Experimental</p>
-<p>Running the <em>k2s</em> <abbr title="Command-Line Interface">CLI</abbr> on a <strong>Linux host</strong> is an experimental feature. Core cluster lifecycle commands (<code>install</code>, <code>start</code>, <code>stop</code>, <code>uninstall</code>, <code>status</code>) and image/addon management work, but some system commands (<code>system upgrade</code>, <code>system package</code>, <code>system backup/restore</code>) are not yet implemented on Linux. See <a href="../hosting-variants/#linux-host">Hosting Variants</a> for details.</p>
+<p>Running the <em>k2s</em> <abbr title="Command-Line Interface">CLI</abbr> on a <strong>Linux host</strong> is an experimental feature. Core cluster lifecycle commands (<code>install</code>, <code>start</code>, <code>stop</code>, <code>uninstall</code>, <code>status</code>), image/addon management, and <code>system backup</code> work, but some system commands (<code>system upgrade</code>, <code>system package</code>, <code>system restore</code>) are not yet implemented on Linux. See <a href="../hosting-variants/#linux-host">Hosting Variants</a> for details.</p>
 </div>
 <p>Every command supports <code>--output</code> / <code>-o</code> (show log in terminal) and <code>--verbosity</code> / <code>-v</code> (log level, default <code>info</code>) as global flags.</p>
 <div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="go">k2s -h</span>
@@ -4787,7 +4787,7 @@ SPDX-License-Identifier: MIT
 <div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-34-1" name="__codelineno-34-1" href="#__codelineno-34-1"></a><span class="go">k2s system package --node-package --os debian13 --include-gpu --target-dir "C:\out" --name "debian13-gpu.zip"</span>
 </code></pre></div>
 <h3 id="system-backup">system backup</h3>
-<p>Back up the cluster (resources, persistent volumes, user images).</p>
+<p>Back up the cluster (resources, persistent volumes, user images). Supported on both Windows and Linux hosts.</p>
 <div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-35-1" name="__codelineno-35-1" href="#__codelineno-35-1"></a><span class="go">k2s system backup [flags]</span>
 </code></pre></div>
 <table>
@@ -4802,7 +4802,7 @@ SPDX-License-Identifier: MIT
 <tr>
 <td><code>--file</code></td>
 <td><code>-f</code></td>
-<td>Output zip file path</td>
+<td>Output zip file path (default: temp directory)</td>
 </tr>
 <tr>
 <td><code>--skip-images</code></td>
@@ -4819,11 +4819,26 @@ SPDX-License-Identifier: MIT
 <td></td>
 <td>Directory with additional hook scripts</td>
 </tr>
+<tr>
+<td><code>--output</code></td>
+<td><code>-o</code></td>
+<td>Show command output in terminal</td>
+</tr>
 </tbody>
 </table>
+<p><strong>Examples:</strong></p>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-36-1" name="__codelineno-36-1" href="#__codelineno-36-1"></a><span class="gp"># </span>Full<span class="w"> </span>backup<span class="w"> </span><span class="o">(</span>Windows<span class="o">)</span>
+<a id="__codelineno-36-2" name="__codelineno-36-2" href="#__codelineno-36-2"></a><span class="go">k2s system backup -f C:\backups\k2s-backup.zip</span>
+<a id="__codelineno-36-3" name="__codelineno-36-3" href="#__codelineno-36-3"></a>
+<a id="__codelineno-36-4" name="__codelineno-36-4" href="#__codelineno-36-4"></a><span class="gp"># </span>Full<span class="w"> </span>backup<span class="w"> </span><span class="o">(</span>Linux<span class="o">)</span>
+<a id="__codelineno-36-5" name="__codelineno-36-5" href="#__codelineno-36-5"></a><span class="go">k2s system backup -f /tmp/backups/k2s-backup.zip</span>
+<a id="__codelineno-36-6" name="__codelineno-36-6" href="#__codelineno-36-6"></a>
+<a id="__codelineno-36-7" name="__codelineno-36-7" href="#__codelineno-36-7"></a><span class="gp"># </span>Fast<span class="w"> </span>backup<span class="w"> </span>skipping<span class="w"> </span>images<span class="w"> </span>and<span class="w"> </span>persistent<span class="w"> </span>volumes<span class="w"> </span>with<span class="w"> </span>output<span class="w"> </span>display
+<a id="__codelineno-36-8" name="__codelineno-36-8" href="#__codelineno-36-8"></a><span class="go">k2s system backup -f /tmp/backups/k2s-backup.zip --skip-images --skip-pvs -o</span>
+</code></pre></div>
 <h3 id="system-restore">system restore</h3>
 <p>Restore a <em>K2s</em> cluster from a backup.</p>
-<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-36-1" name="__codelineno-36-1" href="#__codelineno-36-1"></a><span class="go">k2s system restore [flags]</span>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-37-1" name="__codelineno-37-1" href="#__codelineno-37-1"></a><span class="go">k2s system restore [flags]</span>
 </code></pre></div>
 <table>
 <thead>
@@ -4853,7 +4868,7 @@ SPDX-License-Identifier: MIT
 </table>
 <h3 id="system-dump">system dump</h3>
 <p>Dump full system status to a folder for diagnostics.</p>
-<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-37-1" name="__codelineno-37-1" href="#__codelineno-37-1"></a><span class="go">k2s system dump [flags]</span>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-38-1" name="__codelineno-38-1" href="#__codelineno-38-1"></a><span class="go">k2s system dump [flags]</span>
 </code></pre></div>
 <table>
 <thead>
@@ -4873,7 +4888,7 @@ SPDX-License-Identifier: MIT
 </table>
 <h3 id="system-certificate-renew">system certificate renew</h3>
 <p>Renew Kubernetes certificates.</p>
-<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-38-1" name="__codelineno-38-1" href="#__codelineno-38-1"></a><span class="go">k2s system certificate renew [flags]</span>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-39-1" name="__codelineno-39-1" href="#__codelineno-39-1"></a><span class="go">k2s system certificate renew [flags]</span>
 </code></pre></div>
 <table>
 <thead>
@@ -4893,20 +4908,20 @@ SPDX-License-Identifier: MIT
 </table>
 <h3 id="system-proxy">system proxy</h3>
 <p>Manage <abbr title="Hypertext Transfer Protocol">HTTP</abbr> proxy settings for the cluster.</p>
-<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-39-1" name="__codelineno-39-1" href="#__codelineno-39-1"></a><span class="go">k2s system proxy set &lt;proxy-uri&gt;</span>
-<a id="__codelineno-39-2" name="__codelineno-39-2" href="#__codelineno-39-2"></a><span class="go">k2s system proxy get</span>
-<a id="__codelineno-39-3" name="__codelineno-39-3" href="#__codelineno-39-3"></a><span class="go">k2s system proxy show</span>
-<a id="__codelineno-39-4" name="__codelineno-39-4" href="#__codelineno-39-4"></a><span class="go">k2s system proxy reset</span>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-40-1" name="__codelineno-40-1" href="#__codelineno-40-1"></a><span class="go">k2s system proxy set &lt;proxy-uri&gt;</span>
+<a id="__codelineno-40-2" name="__codelineno-40-2" href="#__codelineno-40-2"></a><span class="go">k2s system proxy get</span>
+<a id="__codelineno-40-3" name="__codelineno-40-3" href="#__codelineno-40-3"></a><span class="go">k2s system proxy show</span>
+<a id="__codelineno-40-4" name="__codelineno-40-4" href="#__codelineno-40-4"></a><span class="go">k2s system proxy reset</span>
 </code></pre></div>
 <h4 id="system-proxy-override">system proxy override</h4>
 <p>Manage no-proxy overrides.</p>
-<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-40-1" name="__codelineno-40-1" href="#__codelineno-40-1"></a><span class="go">k2s system proxy override add &lt;hosts...&gt;</span>
-<a id="__codelineno-40-2" name="__codelineno-40-2" href="#__codelineno-40-2"></a><span class="go">k2s system proxy override delete &lt;hosts...&gt;</span>
-<a id="__codelineno-40-3" name="__codelineno-40-3" href="#__codelineno-40-3"></a><span class="go">k2s system proxy override ls</span>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-41-1" name="__codelineno-41-1" href="#__codelineno-41-1"></a><span class="go">k2s system proxy override add &lt;hosts...&gt;</span>
+<a id="__codelineno-41-2" name="__codelineno-41-2" href="#__codelineno-41-2"></a><span class="go">k2s system proxy override delete &lt;hosts...&gt;</span>
+<a id="__codelineno-41-3" name="__codelineno-41-3" href="#__codelineno-41-3"></a><span class="go">k2s system proxy override ls</span>
 </code></pre></div>
 <h3 id="system-users-add">system users add</h3>
 <p>Grant a Windows user access to the <em>K2s</em> cluster.</p>
-<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-41-1" name="__codelineno-41-1" href="#__codelineno-41-1"></a><span class="go">k2s system users add [flags]</span>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-42-1" name="__codelineno-42-1" href="#__codelineno-42-1"></a><span class="go">k2s system users add [flags]</span>
 </code></pre></div>
 <table>
 <thead>
@@ -4931,7 +4946,7 @@ SPDX-License-Identifier: MIT
 </table>
 <h3 id="system-reset-network">system reset network</h3>
 <p>Reset the host network configuration (requires reboot).</p>
-<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-42-1" name="__codelineno-42-1" href="#__codelineno-42-1"></a><span class="go">k2s system reset network [flags]</span>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-43-1" name="__codelineno-43-1" href="#__codelineno-43-1"></a><span class="go">k2s system reset network [flags]</span>
 </code></pre></div>
 <table>
 <thead>
@@ -4955,7 +4970,7 @@ SPDX-License-Identifier: MIT
 <p>Currently, <code>node</code> commands document and support additional Linux worker nodes on physical hosts or existing VMs. Support for Windows worker nodes will follow.</p>
 <h3 id="node-add">node add</h3>
 <p>Add a node to the cluster. Currently, this is documented for Linux worker nodes.</p>
-<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-43-1" name="__codelineno-43-1" href="#__codelineno-43-1"></a><span class="go">k2s node add [flags]</span>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-44-1" name="__codelineno-44-1" href="#__codelineno-44-1"></a><span class="go">k2s node add [flags]</span>
 </code></pre></div>
 <table>
 <thead>
@@ -4996,7 +5011,7 @@ SPDX-License-Identifier: MIT
 <p>Use <code>--node-package</code> together with a node package created through <code>k2s system package --node-package --os ...</code> on an installed <em>K2s</em> cluster when adding a Linux worker node without internet access.</p>
 <h3 id="node-remove">node remove</h3>
 <p>Remove a node from the cluster.</p>
-<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-44-1" name="__codelineno-44-1" href="#__codelineno-44-1"></a><span class="go">k2s node remove [flags]</span>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-45-1" name="__codelineno-45-1" href="#__codelineno-45-1"></a><span class="go">k2s node remove [flags]</span>
 </code></pre></div>
 <table>
 <thead>
@@ -5016,7 +5031,7 @@ SPDX-License-Identifier: MIT
 </table>
 <h3 id="node-copy">node copy</h3>
 <p>Copy files or folders between the host and a node.</p>
-<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-45-1" name="__codelineno-45-1" href="#__codelineno-45-1"></a><span class="go">k2s node copy [flags]</span>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-46-1" name="__codelineno-46-1" href="#__codelineno-46-1"></a><span class="go">k2s node copy [flags]</span>
 </code></pre></div>
 <table>
 <thead>
@@ -5066,7 +5081,7 @@ SPDX-License-Identifier: MIT
 </table>
 <h3 id="node-exec">node exec</h3>
 <p>Execute a command on a remote node.</p>
-<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-46-1" name="__codelineno-46-1" href="#__codelineno-46-1"></a><span class="go">k2s node exec [flags]</span>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-47-1" name="__codelineno-47-1" href="#__codelineno-47-1"></a><span class="go">k2s node exec [flags]</span>
 </code></pre></div>
 <table>
 <thead>
@@ -5111,7 +5126,7 @@ SPDX-License-Identifier: MIT
 </table>
 <h3 id="node-connect">node connect</h3>
 <p>Open an interactive <abbr title="Secure Shell">SSH</abbr> session to a remote node.</p>
-<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-47-1" name="__codelineno-47-1" href="#__codelineno-47-1"></a><span class="go">k2s node connect [flags]</span>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-48-1" name="__codelineno-48-1" href="#__codelineno-48-1"></a><span class="go">k2s node connect [flags]</span>
 </code></pre></div>
 <table>
 <thead>

@@ -1596,10 +1596,10 @@ You're not viewing the latest release version.
 </li>
         
           <li class="md-nav__item">
-  <a href="#verbose-backup-with-detailed-logs" class="md-nav__link">
+  <a href="#verbose-backup-with-terminal-output" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Verbose Backup with Detailed Logs
+        Verbose Backup with Terminal Output
       
     </span>
   </a>
@@ -1790,13 +1790,41 @@ You're not viewing the latest release version.
 </li>
         
           <li class="md-nav__item">
-  <a href="#hook-example" class="md-nav__link">
+  <a href="#hook-examples" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Hook Example
+        Hook Examples
       
     </span>
   </a>
+  
+    <nav class="md-nav" aria-label="Hook Examples">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#windows-powershell-hook-example" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Windows PowerShell Hook Example
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#linux-bash-hook-example" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Linux Bash Hook Example
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
   
 </li>
         
@@ -3436,10 +3464,10 @@ You're not viewing the latest release version.
 </li>
         
           <li class="md-nav__item">
-  <a href="#verbose-backup-with-detailed-logs" class="md-nav__link">
+  <a href="#verbose-backup-with-terminal-output" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Verbose Backup with Detailed Logs
+        Verbose Backup with Terminal Output
       
     </span>
   </a>
@@ -3630,13 +3658,41 @@ You're not viewing the latest release version.
 </li>
         
           <li class="md-nav__item">
-  <a href="#hook-example" class="md-nav__link">
+  <a href="#hook-examples" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Hook Example
+        Hook Examples
       
     </span>
   </a>
+  
+    <nav class="md-nav" aria-label="Hook Examples">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#windows-powershell-hook-example" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Windows PowerShell Hook Example
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#linux-bash-hook-example" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Linux Bash Hook Example
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
   
 </li>
         
@@ -3963,12 +4019,16 @@ SPDX-License-Identifier: MIT
 <h1 id="backing-up-and-restoring-the-k2s-system">Backing Up and Restoring the K2s System</h1>
 <p>This guide explains how to back up and restore your entire K2s cluster state, including Kubernetes resources, persistent volumes, and container images.</p>
 <h2 id="overview">Overview</h2>
-<p>K2s provides comprehensive backup and restore functionality for your cluster:</p>
+<p>K2s provides comprehensive backup and restore functionality for your cluster across supported platforms:</p>
 <ul>
-<li><strong><code>k2s system backup</code></strong>: Creates a complete backup of cluster resources, persistent volumes, and container images</li>
+<li><strong><code>k2s system backup</code></strong>: Creates a complete backup of cluster resources, persistent volumes, and container images (supported on both Windows and Linux hosts)</li>
 <li><strong><code>k2s system restore</code></strong>: Restores cluster state from a backup archive</li>
 <li><strong>Integration with Upgrade</strong>: The <code>k2s system upgrade</code> command automatically creates a backup before upgrading</li>
 </ul>
+<div class="admonition tip">
+<p class="admonition-title">Dual-Platform Support</p>
+<p><code>k2s system backup</code> runs natively on both <strong>Windows</strong> (using PowerShell automation) and <strong>Linux</strong> hosts (using Go native orchestration and <abbr title="Command-Line Interface">CLI</abbr> tools).</p>
+</div>
 <h2 id="configuration-settings">Configuration Settings</h2>
 <p>Global configuration for backup/restore operations is available in <code>cfg/config.json</code>:</p>
 <div class="highlight"><span class="filename">JSON</span><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="p">{</span>
@@ -4051,8 +4111,8 @@ SPDX-License-Identifier: MIT
 <tr>
 <td><code>--file</code></td>
 <td><code>-f</code></td>
-<td>Path to backup archive file (<code>.zip</code>)</td>
-<td>Yes</td>
+<td>Path to backup archive file (<code>.zip</code>). Defaults to temp directory if omitted.</td>
+<td>No</td>
 </tr>
 <tr>
 <td><code>--skip-images</code></td>
@@ -4067,15 +4127,21 @@ SPDX-License-Identifier: MIT
 <td>No</td>
 </tr>
 <tr>
-<td><code>--output-style</code></td>
-<td><code>-o</code></td>
-<td>Output style (standard, verbose, structured)</td>
+<td><code>--additional-hooks-dir</code></td>
+<td></td>
+<td>Directory with additional custom hook scripts</td>
 <td>No</td>
 </tr>
 <tr>
-<td><code>--show-logs</code></td>
+<td><code>--output</code></td>
+<td><code>-o</code></td>
+<td>Show command output in terminal</td>
+<td>No</td>
+</tr>
+<tr>
+<td><code>--verbosity</code></td>
 <td><code>-v</code></td>
-<td>Show detailed logs during backup</td>
+<td>Log level verbosity (<code>debug</code>, <code>info</code>, <code>warn</code>, <code>error</code>)</td>
 <td>No</td>
 </tr>
 <tr>
@@ -4088,67 +4154,74 @@ SPDX-License-Identifier: MIT
 </table>
 <h3 id="examples">Examples</h3>
 <h4 id="full-backup-all-resources-images-and-pvs">Full Backup (All Resources, Images, and PVs)</h4>
-<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="go">k2s system backup -f c:\backups\k2s-full-backup.zip</span>
-</code></pre></div>
+<p>Windows:
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="go">k2s system backup -f C:\backups\k2s-full-backup.zip</span>
+</code></pre></div></p>
+<p>Linux:
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="go">k2s system backup -f /tmp/backups/k2s-full-backup.zip</span>
+</code></pre></div></p>
 <h4 id="quick-backup-skip-images-for-speed">Quick Backup (Skip Images for Speed)</h4>
-<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="go">k2s system backup -f c:\backups\k2s-quick.zip --skip-images</span>
-</code></pre></div>
+<p>Windows:
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="go">k2s system backup -f C:\backups\k2s-quick.zip --skip-images</span>
+</code></pre></div></p>
+<p>Linux:
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="go">k2s system backup -f /tmp/backups/k2s-quick.zip --skip-images</span>
+</code></pre></div></p>
 <h4 id="configuration-only-backup-no-images-or-pvs">Configuration-Only Backup (No Images or PVs)</h4>
-<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="go">k2s system backup -f c:\backups\k2s-config.zip --skip-images --skip-pvs</span>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="go">k2s system backup -f /tmp/backups/k2s-config.zip --skip-images --skip-pvs</span>
 </code></pre></div>
-<h4 id="verbose-backup-with-detailed-logs">Verbose Backup with Detailed Logs</h4>
-<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="go">k2s system backup -f c:\backups\k2s-backup.zip -o -v</span>
+<h4 id="verbose-backup-with-terminal-output">Verbose Backup with Terminal Output</h4>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="go">k2s system backup -f /tmp/backups/k2s-backup.zip -o -v debug</span>
 </code></pre></div>
 <h2 id="backup-contents">Backup Contents</h2>
 <h3 id="archive-structure">Archive Structure</h3>
 <p>A K2s backup archive contains:</p>
-<div class="highlight"><span class="filename">Text Only</span><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a>backup.json               # Backup metadata
-<a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a>config/
-<a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a>  config.json            # Cluster configuration snapshot
-<a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a>Namespaced/
-<a id="__codelineno-7-5" name="__codelineno-7-5" href="#__codelineno-7-5"></a>  &lt;namespace&gt;/
-<a id="__codelineno-7-6" name="__codelineno-7-6" href="#__codelineno-7-6"></a>    &lt;resource-type&gt;.yaml # Namespaced resources per namespace
-<a id="__codelineno-7-7" name="__codelineno-7-7" href="#__codelineno-7-7"></a>NotNamespaced/
-<a id="__codelineno-7-8" name="__codelineno-7-8" href="#__codelineno-7-8"></a>  &lt;resource-type&gt;.yaml   # Cluster-scoped resources
-<a id="__codelineno-7-9" name="__codelineno-7-9" href="#__codelineno-7-9"></a>pv/
-<a id="__codelineno-7-10" name="__codelineno-7-10" href="#__codelineno-7-10"></a>  &lt;pv-name&gt;/
-<a id="__codelineno-7-11" name="__codelineno-7-11" href="#__codelineno-7-11"></a>    data/                # Persistent volume data
-<a id="__codelineno-7-12" name="__codelineno-7-12" href="#__codelineno-7-12"></a>    metadata.json        # PV metadata
-<a id="__codelineno-7-13" name="__codelineno-7-13" href="#__codelineno-7-13"></a>images/
-<a id="__codelineno-7-14" name="__codelineno-7-14" href="#__codelineno-7-14"></a>  &lt;image-name&gt;.tar       # Container images (nerdctl save format)
-<a id="__codelineno-7-15" name="__codelineno-7-15" href="#__codelineno-7-15"></a>hooks/
-<a id="__codelineno-7-16" name="__codelineno-7-16" href="#__codelineno-7-16"></a>  output.txt             # Output from custom backup hooks
+<div class="highlight"><span class="filename">Text Only</span><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a>backup.json               # Backup metadata
+<a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a>config/
+<a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a>  config.json            # Cluster configuration snapshot
+<a id="__codelineno-9-4" name="__codelineno-9-4" href="#__codelineno-9-4"></a>Namespaced/
+<a id="__codelineno-9-5" name="__codelineno-9-5" href="#__codelineno-9-5"></a>  &lt;namespace&gt;/
+<a id="__codelineno-9-6" name="__codelineno-9-6" href="#__codelineno-9-6"></a>    &lt;resource-type&gt;.yaml # Namespaced resources per namespace
+<a id="__codelineno-9-7" name="__codelineno-9-7" href="#__codelineno-9-7"></a>NotNamespaced/
+<a id="__codelineno-9-8" name="__codelineno-9-8" href="#__codelineno-9-8"></a>  &lt;resource-type&gt;.yaml   # Cluster-scoped resources
+<a id="__codelineno-9-9" name="__codelineno-9-9" href="#__codelineno-9-9"></a>pv/
+<a id="__codelineno-9-10" name="__codelineno-9-10" href="#__codelineno-9-10"></a>  &lt;pv-name&gt;-backup.tar.gz       # Compressed persistent volume data
+<a id="__codelineno-9-11" name="__codelineno-9-11" href="#__codelineno-9-11"></a>  &lt;pv-name&gt;-backup-metadata.json # PV metadata (capacity, claim binding, reclaim policy)
+<a id="__codelineno-9-12" name="__codelineno-9-12" href="#__codelineno-9-12"></a>images/
+<a id="__codelineno-9-13" name="__codelineno-9-13" href="#__codelineno-9-13"></a>  &lt;image-name&gt;.tar       # Container images (nerdctl save format)
+<a id="__codelineno-9-14" name="__codelineno-9-14" href="#__codelineno-9-14"></a>hooks/
+<a id="__codelineno-9-15" name="__codelineno-9-15" href="#__codelineno-9-15"></a>  output.txt             # Output from custom backup hooks
 </code></pre></div>
 <h3 id="backup-metadata-backupjson">Backup Metadata (<code>backup.json</code>)</h3>
 <p>The <code>backup.json</code> file contains important information about the backup:</p>
-<div class="highlight"><span class="filename">JSON</span><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="p">{</span>
-<a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a><span class="w">  </span><span class="nt">"apiVersion"</span><span class="p">:</span><span class="w"> </span><span class="s2">"k2s.backup/v1"</span><span class="p">,</span>
-<a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a><span class="w">  </span><span class="nt">"kind"</span><span class="p">:</span><span class="w"> </span><span class="s2">"SystemBackup"</span><span class="p">,</span>
-<a id="__codelineno-8-4" name="__codelineno-8-4" href="#__codelineno-8-4"></a><span class="w">  </span><span class="nt">"metadata"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
-<a id="__codelineno-8-5" name="__codelineno-8-5" href="#__codelineno-8-5"></a><span class="w">    </span><span class="nt">"backupTimestamp"</span><span class="p">:</span><span class="w"> </span><span class="s2">"2026-02-24T14:30:00Z"</span><span class="p">,</span>
-<a id="__codelineno-8-6" name="__codelineno-8-6" href="#__codelineno-8-6"></a><span class="w">    </span><span class="nt">"backupTool"</span><span class="p">:</span><span class="w"> </span><span class="s2">"k2s system backup"</span><span class="p">,</span>
-<a id="__codelineno-8-7" name="__codelineno-8-7" href="#__codelineno-8-7"></a><span class="w">    </span><span class="nt">"backupToolVersion"</span><span class="p">:</span><span class="w"> </span><span class="s2">"1.6.0"</span><span class="p">,</span>
-<a id="__codelineno-8-8" name="__codelineno-8-8" href="#__codelineno-8-8"></a><span class="w">    </span><span class="nt">"backupFormatVersion"</span><span class="p">:</span><span class="w"> </span><span class="s2">"1"</span>
-<a id="__codelineno-8-9" name="__codelineno-8-9" href="#__codelineno-8-9"></a><span class="w">  </span><span class="p">},</span>
-<a id="__codelineno-8-10" name="__codelineno-8-10" href="#__codelineno-8-10"></a><span class="w">  </span><span class="nt">"cluster"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
-<a id="__codelineno-8-11" name="__codelineno-8-11" href="#__codelineno-8-11"></a><span class="w">    </span><span class="nt">"name"</span><span class="p">:</span><span class="w"> </span><span class="s2">"k2s"</span><span class="p">,</span>
-<a id="__codelineno-8-12" name="__codelineno-8-12" href="#__codelineno-8-12"></a><span class="w">    </span><span class="nt">"k2sVersion"</span><span class="p">:</span><span class="w"> </span><span class="s2">"1.6.0"</span>
-<a id="__codelineno-8-13" name="__codelineno-8-13" href="#__codelineno-8-13"></a><span class="w">  </span><span class="p">},</span>
-<a id="__codelineno-8-14" name="__codelineno-8-14" href="#__codelineno-8-14"></a><span class="w">  </span><span class="nt">"content"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
-<a id="__codelineno-8-15" name="__codelineno-8-15" href="#__codelineno-8-15"></a><span class="w">    </span><span class="nt">"included"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
-<a id="__codelineno-8-16" name="__codelineno-8-16" href="#__codelineno-8-16"></a><span class="w">      </span><span class="nt">"clusterResources"</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span>
-<a id="__codelineno-8-17" name="__codelineno-8-17" href="#__codelineno-8-17"></a><span class="w">      </span><span class="nt">"namespaces"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">"default"</span><span class="p">,</span><span class="w"> </span><span class="s2">"k2s"</span><span class="p">,</span><span class="w"> </span><span class="s2">"my-app"</span><span class="p">]</span>
-<a id="__codelineno-8-18" name="__codelineno-8-18" href="#__codelineno-8-18"></a><span class="w">    </span><span class="p">},</span>
-<a id="__codelineno-8-19" name="__codelineno-8-19" href="#__codelineno-8-19"></a><span class="w">    </span><span class="nt">"excluded"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
-<a id="__codelineno-8-20" name="__codelineno-8-20" href="#__codelineno-8-20"></a><span class="w">      </span><span class="nt">"namespaces"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">"kube-system"</span><span class="p">,</span><span class="w"> </span><span class="s2">"kube-public"</span><span class="p">],</span>
-<a id="__codelineno-8-21" name="__codelineno-8-21" href="#__codelineno-8-21"></a><span class="w">      </span><span class="nt">"namespacedResources"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">"events"</span><span class="p">,</span><span class="w"> </span><span class="s2">"endpoints"</span><span class="p">],</span>
-<a id="__codelineno-8-22" name="__codelineno-8-22" href="#__codelineno-8-22"></a><span class="w">      </span><span class="nt">"clusterResources"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">"nodes"</span><span class="p">,</span><span class="w"> </span><span class="s2">"leases"</span><span class="p">]</span>
-<a id="__codelineno-8-23" name="__codelineno-8-23" href="#__codelineno-8-23"></a><span class="w">    </span><span class="p">}</span>
-<a id="__codelineno-8-24" name="__codelineno-8-24" href="#__codelineno-8-24"></a><span class="w">  </span><span class="p">},</span>
-<a id="__codelineno-8-25" name="__codelineno-8-25" href="#__codelineno-8-25"></a><span class="w">  </span><span class="nt">"configSnapshot"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
-<a id="__codelineno-8-26" name="__codelineno-8-26" href="#__codelineno-8-26"></a><span class="w">    </span><span class="nt">"source"</span><span class="p">:</span><span class="w"> </span><span class="s2">"config/config.json"</span>
-<a id="__codelineno-8-27" name="__codelineno-8-27" href="#__codelineno-8-27"></a><span class="w">  </span><span class="p">}</span>
-<a id="__codelineno-8-28" name="__codelineno-8-28" href="#__codelineno-8-28"></a><span class="p">}</span>
+<div class="highlight"><span class="filename">JSON</span><pre><span></span><code><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a><span class="p">{</span>
+<a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a><span class="w">  </span><span class="nt">"apiVersion"</span><span class="p">:</span><span class="w"> </span><span class="s2">"k2s.backup/v1"</span><span class="p">,</span>
+<a id="__codelineno-10-3" name="__codelineno-10-3" href="#__codelineno-10-3"></a><span class="w">  </span><span class="nt">"kind"</span><span class="p">:</span><span class="w"> </span><span class="s2">"SystemBackup"</span><span class="p">,</span>
+<a id="__codelineno-10-4" name="__codelineno-10-4" href="#__codelineno-10-4"></a><span class="w">  </span><span class="nt">"metadata"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-10-5" name="__codelineno-10-5" href="#__codelineno-10-5"></a><span class="w">    </span><span class="nt">"backupTimestamp"</span><span class="p">:</span><span class="w"> </span><span class="s2">"2026-02-24T14:30:00Z"</span><span class="p">,</span>
+<a id="__codelineno-10-6" name="__codelineno-10-6" href="#__codelineno-10-6"></a><span class="w">    </span><span class="nt">"backupTool"</span><span class="p">:</span><span class="w"> </span><span class="s2">"k2s system backup"</span><span class="p">,</span>
+<a id="__codelineno-10-7" name="__codelineno-10-7" href="#__codelineno-10-7"></a><span class="w">    </span><span class="nt">"backupToolVersion"</span><span class="p">:</span><span class="w"> </span><span class="s2">"1.6.0"</span><span class="p">,</span>
+<a id="__codelineno-10-8" name="__codelineno-10-8" href="#__codelineno-10-8"></a><span class="w">    </span><span class="nt">"backupFormatVersion"</span><span class="p">:</span><span class="w"> </span><span class="s2">"1"</span>
+<a id="__codelineno-10-9" name="__codelineno-10-9" href="#__codelineno-10-9"></a><span class="w">  </span><span class="p">},</span>
+<a id="__codelineno-10-10" name="__codelineno-10-10" href="#__codelineno-10-10"></a><span class="w">  </span><span class="nt">"cluster"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-10-11" name="__codelineno-10-11" href="#__codelineno-10-11"></a><span class="w">    </span><span class="nt">"name"</span><span class="p">:</span><span class="w"> </span><span class="s2">"k2s"</span><span class="p">,</span>
+<a id="__codelineno-10-12" name="__codelineno-10-12" href="#__codelineno-10-12"></a><span class="w">    </span><span class="nt">"k2sVersion"</span><span class="p">:</span><span class="w"> </span><span class="s2">"1.6.0"</span>
+<a id="__codelineno-10-13" name="__codelineno-10-13" href="#__codelineno-10-13"></a><span class="w">  </span><span class="p">},</span>
+<a id="__codelineno-10-14" name="__codelineno-10-14" href="#__codelineno-10-14"></a><span class="w">  </span><span class="nt">"content"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-10-15" name="__codelineno-10-15" href="#__codelineno-10-15"></a><span class="w">    </span><span class="nt">"included"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-10-16" name="__codelineno-10-16" href="#__codelineno-10-16"></a><span class="w">      </span><span class="nt">"clusterResources"</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span>
+<a id="__codelineno-10-17" name="__codelineno-10-17" href="#__codelineno-10-17"></a><span class="w">      </span><span class="nt">"namespaces"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">"default"</span><span class="p">,</span><span class="w"> </span><span class="s2">"k2s"</span><span class="p">,</span><span class="w"> </span><span class="s2">"my-app"</span><span class="p">]</span>
+<a id="__codelineno-10-18" name="__codelineno-10-18" href="#__codelineno-10-18"></a><span class="w">    </span><span class="p">},</span>
+<a id="__codelineno-10-19" name="__codelineno-10-19" href="#__codelineno-10-19"></a><span class="w">    </span><span class="nt">"excluded"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-10-20" name="__codelineno-10-20" href="#__codelineno-10-20"></a><span class="w">      </span><span class="nt">"namespaces"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">"kube-system"</span><span class="p">,</span><span class="w"> </span><span class="s2">"kube-public"</span><span class="p">],</span>
+<a id="__codelineno-10-21" name="__codelineno-10-21" href="#__codelineno-10-21"></a><span class="w">      </span><span class="nt">"namespacedResources"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">"events"</span><span class="p">,</span><span class="w"> </span><span class="s2">"endpoints"</span><span class="p">],</span>
+<a id="__codelineno-10-22" name="__codelineno-10-22" href="#__codelineno-10-22"></a><span class="w">      </span><span class="nt">"clusterResources"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">"nodes"</span><span class="p">,</span><span class="w"> </span><span class="s2">"leases"</span><span class="p">]</span>
+<a id="__codelineno-10-23" name="__codelineno-10-23" href="#__codelineno-10-23"></a><span class="w">    </span><span class="p">}</span>
+<a id="__codelineno-10-24" name="__codelineno-10-24" href="#__codelineno-10-24"></a><span class="w">  </span><span class="p">},</span>
+<a id="__codelineno-10-25" name="__codelineno-10-25" href="#__codelineno-10-25"></a><span class="w">  </span><span class="nt">"configSnapshot"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-10-26" name="__codelineno-10-26" href="#__codelineno-10-26"></a><span class="w">    </span><span class="nt">"source"</span><span class="p">:</span><span class="w"> </span><span class="s2">"config/config.json"</span>
+<a id="__codelineno-10-27" name="__codelineno-10-27" href="#__codelineno-10-27"></a><span class="w">  </span><span class="p">}</span>
+<a id="__codelineno-10-28" name="__codelineno-10-28" href="#__codelineno-10-28"></a><span class="p">}</span>
 </code></pre></div>
 <h2 id="persistent-volumes-backup">Persistent Volumes Backup</h2>
 <h3 id="what-gets-backed-up">What Gets Backed Up</h3>
@@ -4201,25 +4274,26 @@ SPDX-License-Identifier: MIT
 <li>Using <code>nerdctl image save</code> to export images</li>
 </ol>
 <h3 id="example-output">Example Output</h3>
-<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="go">k2s system backup -f backup.zip</span>
-<a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a>
-<a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a><span class="go">⏳ [14:30:05] Backing up user workload images...</span>
-<a id="__codelineno-9-4" name="__codelineno-9-4" href="#__codelineno-9-4"></a><span class="go">⏳ [14:30:06] Found 5 user workload images</span>
-<a id="__codelineno-9-5" name="__codelineno-9-5" href="#__codelineno-9-5"></a><span class="go">⏳ [14:30:07] ✅ docker.io/myapp/frontend:v1.0 (ID: abc123def456)</span>
-<a id="__codelineno-9-6" name="__codelineno-9-6" href="#__codelineno-9-6"></a><span class="go">⏳ [14:30:08] ✅ docker.io/myapp/backend:v1.0 (ID: def456ghi789)</span>
-<a id="__codelineno-9-7" name="__codelineno-9-7" href="#__codelineno-9-7"></a><span class="go">⏳ [14:30:09] ✅ quay.io/myorg/worker:latest (ID: ghi789jkl012)</span>
-<a id="__codelineno-9-8" name="__codelineno-9-8" href="#__codelineno-9-8"></a><span class="go">⏳ [14:30:15] Successfully backed up 5 user workload container images</span>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a><span class="go">k2s system backup -f backup.zip</span>
+<a id="__codelineno-11-2" name="__codelineno-11-2" href="#__codelineno-11-2"></a>
+<a id="__codelineno-11-3" name="__codelineno-11-3" href="#__codelineno-11-3"></a><span class="go">⏳ [14:30:05] Backing up user workload images...</span>
+<a id="__codelineno-11-4" name="__codelineno-11-4" href="#__codelineno-11-4"></a><span class="go">⏳ [14:30:06] Found 5 user workload images</span>
+<a id="__codelineno-11-5" name="__codelineno-11-5" href="#__codelineno-11-5"></a><span class="go">⏳ [14:30:07] ✅ docker.io/myapp/frontend:v1.0 (ID: abc123def456)</span>
+<a id="__codelineno-11-6" name="__codelineno-11-6" href="#__codelineno-11-6"></a><span class="go">⏳ [14:30:08] ✅ docker.io/myapp/backend:v1.0 (ID: def456ghi789)</span>
+<a id="__codelineno-11-7" name="__codelineno-11-7" href="#__codelineno-11-7"></a><span class="go">⏳ [14:30:09] ✅ quay.io/myorg/worker:latest (ID: ghi789jkl012)</span>
+<a id="__codelineno-11-8" name="__codelineno-11-8" href="#__codelineno-11-8"></a><span class="go">⏳ [14:30:15] Successfully backed up 5 user workload container images</span>
 </code></pre></div>
 <div class="admonition warning">
 <p class="admonition-title">Backup Size</p>
 <p>Container images can be large (hundreds of MB to several GB each). The <code>--skip-images</code> flag skips image backup, reducing backup time and size significantly.</p>
 </div>
 <h2 id="custom-backup-hooks">Custom Backup Hooks</h2>
-<p>K2s supports custom backup logic via hooks:</p>
+<p>K2s supports custom backup logic via hooks on both Windows and Linux:</p>
 <h3 id="hook-locations">Hook Locations</h3>
 <ul>
-<li><strong>Built-in</strong>: <code>lib/scripts/windows/host/system/backup/hooks/</code></li>
-<li><strong>Custom</strong>: Specify with <code>--additional-hooks-dir</code> flag</li>
+<li><strong>Addon hooks</strong>: <code>addons/**/Backup.ps1</code> (Windows) or <code>addons/**/Backup.sh</code> (Linux)</li>
+<li><strong>Built-in hooks</strong>: <code>lib/scripts/windows/host/system/backup/hooks/</code> (Windows)</li>
+<li><strong>Custom hooks</strong>: Specify with <code>--additional-hooks-dir</code> flag containing <code>*.Backup.ps1</code> (Windows) or <code>*.Backup.sh</code> / <code>*.sh</code> (Linux)</li>
 </ul>
 <h3 id="hook-types">Hook Types</h3>
 <ul>
@@ -4227,24 +4301,50 @@ SPDX-License-Identifier: MIT
 <li><strong>Post-backup</strong>: Execute after backup completes</li>
 <li><strong>Resource-specific</strong>: Execute for specific resource types</li>
 </ul>
-<h3 id="hook-example">Hook Example</h3>
-<div class="highlight"><span class="filename">PowerShell</span><pre><span></span><code><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a><span class="c"># hooks/my-app-backup.ps1</span>
-<a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a><span class="k">param</span><span class="p">(</span>
-<a id="__codelineno-10-3" name="__codelineno-10-3" href="#__codelineno-10-3"></a>    <span class="p">[</span><span class="k">Parameter</span><span class="p">(</span><span class="k">Mandatory</span> <span class="p">=</span> <span class="nv">$true</span><span class="p">)]</span>
-<a id="__codelineno-10-4" name="__codelineno-10-4" href="#__codelineno-10-4"></a>    <span class="no">[string]</span> <span class="nv">$BackupDir</span>
-<a id="__codelineno-10-5" name="__codelineno-10-5" href="#__codelineno-10-5"></a><span class="p">)</span>
-<a id="__codelineno-10-6" name="__codelineno-10-6" href="#__codelineno-10-6"></a>
-<a id="__codelineno-10-7" name="__codelineno-10-7" href="#__codelineno-10-7"></a><span class="nb">Write-Host</span> <span class="s2">"Executing custom backup logic for my-app..."</span>
-<a id="__codelineno-10-8" name="__codelineno-10-8" href="#__codelineno-10-8"></a>
-<a id="__codelineno-10-9" name="__codelineno-10-9" href="#__codelineno-10-9"></a><span class="c"># Example: Dump database to file</span>
-<a id="__codelineno-10-10" name="__codelineno-10-10" href="#__codelineno-10-10"></a><span class="n">kubectl</span> <span class="n">exec</span> <span class="n">-n</span> <span class="n">my-app</span> <span class="n">my-db</span><span class="p">-</span><span class="n">0</span> <span class="p">--</span> <span class="n">pg_dump</span> <span class="n">mydb</span> <span class="p">&gt;</span> <span class="s2">"$BackupDir/my-app-db.sql"</span>
-<a id="__codelineno-10-11" name="__codelineno-10-11" href="#__codelineno-10-11"></a>
-<a id="__codelineno-10-12" name="__codelineno-10-12" href="#__codelineno-10-12"></a><span class="nb">Write-Host</span> <span class="s2">"Custom backup complete"</span>
+<h3 id="hook-examples">Hook Examples</h3>
+<h4 id="windows-powershell-hook-example">Windows PowerShell Hook Example</h4>
+<div class="highlight"><span class="filename">PowerShell</span><pre><span></span><code><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a><span class="c"># hooks/my-app-backup.ps1</span>
+<a id="__codelineno-12-2" name="__codelineno-12-2" href="#__codelineno-12-2"></a><span class="k">param</span><span class="p">(</span>
+<a id="__codelineno-12-3" name="__codelineno-12-3" href="#__codelineno-12-3"></a>    <span class="p">[</span><span class="k">Parameter</span><span class="p">(</span><span class="k">Mandatory</span> <span class="p">=</span> <span class="nv">$true</span><span class="p">)]</span>
+<a id="__codelineno-12-4" name="__codelineno-12-4" href="#__codelineno-12-4"></a>    <span class="no">[string]</span> <span class="nv">$BackupDir</span>
+<a id="__codelineno-12-5" name="__codelineno-12-5" href="#__codelineno-12-5"></a><span class="p">)</span>
+<a id="__codelineno-12-6" name="__codelineno-12-6" href="#__codelineno-12-6"></a>
+<a id="__codelineno-12-7" name="__codelineno-12-7" href="#__codelineno-12-7"></a><span class="nb">Write-Host</span> <span class="s2">"Executing custom backup logic for my-app..."</span>
+<a id="__codelineno-12-8" name="__codelineno-12-8" href="#__codelineno-12-8"></a>
+<a id="__codelineno-12-9" name="__codelineno-12-9" href="#__codelineno-12-9"></a><span class="c"># Example: Dump database to file</span>
+<a id="__codelineno-12-10" name="__codelineno-12-10" href="#__codelineno-12-10"></a><span class="n">kubectl</span> <span class="n">exec</span> <span class="n">-n</span> <span class="n">my-app</span> <span class="n">my-db</span><span class="p">-</span><span class="n">0</span> <span class="p">--</span> <span class="n">pg_dump</span> <span class="n">mydb</span> <span class="p">&gt;</span> <span class="s2">"$BackupDir/my-app-db.sql"</span>
+<a id="__codelineno-12-11" name="__codelineno-12-11" href="#__codelineno-12-11"></a>
+<a id="__codelineno-12-12" name="__codelineno-12-12" href="#__codelineno-12-12"></a><span class="nb">Write-Host</span> <span class="s2">"Custom backup complete"</span>
+</code></pre></div>
+<h4 id="linux-bash-hook-example">Linux Bash Hook Example</h4>
+<div class="highlight"><span class="filename">Bash</span><pre><span></span><code><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a><span class="ch">#!/usr/bin/env bash</span>
+<a id="__codelineno-13-2" name="__codelineno-13-2" href="#__codelineno-13-2"></a><span class="c1"># hooks/my-app-backup.sh</span>
+<a id="__codelineno-13-3" name="__codelineno-13-3" href="#__codelineno-13-3"></a><span class="nb">set</span><span class="w"> </span>-euo<span class="w"> </span>pipefail
+<a id="__codelineno-13-4" name="__codelineno-13-4" href="#__codelineno-13-4"></a>
+<a id="__codelineno-13-5" name="__codelineno-13-5" href="#__codelineno-13-5"></a><span class="nv">BACKUP_DIR</span><span class="o">=</span><span class="s2">""</span>
+<a id="__codelineno-13-6" name="__codelineno-13-6" href="#__codelineno-13-6"></a><span class="k">while</span><span class="w"> </span><span class="o">[[</span><span class="w"> </span><span class="nv">$#</span><span class="w"> </span>-gt<span class="w"> </span><span class="m">0</span><span class="w"> </span><span class="o">]]</span><span class="p">;</span><span class="w"> </span><span class="k">do</span>
+<a id="__codelineno-13-7" name="__codelineno-13-7" href="#__codelineno-13-7"></a><span class="w">  </span><span class="k">case</span><span class="w"> </span><span class="s2">"</span><span class="nv">$1</span><span class="s2">"</span><span class="w"> </span><span class="k">in</span>
+<a id="__codelineno-13-8" name="__codelineno-13-8" href="#__codelineno-13-8"></a><span class="w">    </span>--backup-dir<span class="o">)</span>
+<a id="__codelineno-13-9" name="__codelineno-13-9" href="#__codelineno-13-9"></a><span class="w">      </span><span class="nv">BACKUP_DIR</span><span class="o">=</span><span class="s2">"</span><span class="nv">$2</span><span class="s2">"</span>
+<a id="__codelineno-13-10" name="__codelineno-13-10" href="#__codelineno-13-10"></a><span class="w">      </span><span class="nb">shift</span><span class="w"> </span><span class="m">2</span>
+<a id="__codelineno-13-11" name="__codelineno-13-11" href="#__codelineno-13-11"></a><span class="w">      </span><span class="p">;;</span>
+<a id="__codelineno-13-12" name="__codelineno-13-12" href="#__codelineno-13-12"></a><span class="w">    </span>*<span class="o">)</span>
+<a id="__codelineno-13-13" name="__codelineno-13-13" href="#__codelineno-13-13"></a><span class="w">      </span><span class="nb">shift</span>
+<a id="__codelineno-13-14" name="__codelineno-13-14" href="#__codelineno-13-14"></a><span class="w">      </span><span class="p">;;</span>
+<a id="__codelineno-13-15" name="__codelineno-13-15" href="#__codelineno-13-15"></a><span class="w">  </span><span class="k">esac</span>
+<a id="__codelineno-13-16" name="__codelineno-13-16" href="#__codelineno-13-16"></a><span class="k">done</span>
+<a id="__codelineno-13-17" name="__codelineno-13-17" href="#__codelineno-13-17"></a>
+<a id="__codelineno-13-18" name="__codelineno-13-18" href="#__codelineno-13-18"></a><span class="nb">echo</span><span class="w"> </span><span class="s2">"Executing custom backup logic for my-app..."</span>
+<a id="__codelineno-13-19" name="__codelineno-13-19" href="#__codelineno-13-19"></a>
+<a id="__codelineno-13-20" name="__codelineno-13-20" href="#__codelineno-13-20"></a><span class="c1"># Example: Dump database to file</span>
+<a id="__codelineno-13-21" name="__codelineno-13-21" href="#__codelineno-13-21"></a>kubectl<span class="w"> </span><span class="nb">exec</span><span class="w"> </span>-n<span class="w"> </span>my-app<span class="w"> </span>my-db-0<span class="w"> </span>--<span class="w"> </span>pg_dump<span class="w"> </span>mydb<span class="w"> </span>&gt;<span class="w"> </span><span class="s2">"</span><span class="si">${</span><span class="nv">BACKUP_DIR</span><span class="si">}</span><span class="s2">/my-app-db.sql"</span>
+<a id="__codelineno-13-22" name="__codelineno-13-22" href="#__codelineno-13-22"></a>
+<a id="__codelineno-13-23" name="__codelineno-13-23" href="#__codelineno-13-23"></a><span class="nb">echo</span><span class="w"> </span><span class="s2">"Custom backup complete"</span>
 </code></pre></div>
 <p>For more details on hooks, see <a href="../hook-system/">Hook System Documentation</a>.</p>
 <h2 id="restoring-a-system-backup">Restoring a System Backup</h2>
 <h3 id="basic-usage_1">Basic Usage</h3>
-<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a><span class="go">k2s system restore -f backup-file.zip</span>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a><span class="go">k2s system restore -f backup-file.zip</span>
 </code></pre></div>
 <p>This restores:</p>
 <ul>
@@ -4254,7 +4354,7 @@ SPDX-License-Identifier: MIT
 <li>Cluster configuration</li>
 </ul>
 <h3 id="command-options_1">Command Options</h3>
-<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a><span class="go">k2s system restore [options]</span>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-15-1" name="__codelineno-15-1" href="#__codelineno-15-1"></a><span class="go">k2s system restore [options]</span>
 </code></pre></div>
 <table>
 <thead>
@@ -4300,13 +4400,13 @@ SPDX-License-Identifier: MIT
 </table>
 <h3 id="examples_1">Examples</h3>
 <h4 id="standard-restore">Standard Restore</h4>
-<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a><span class="go">k2s system restore -f c:\backups\k2s-backup.zip</span>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-16-1" name="__codelineno-16-1" href="#__codelineno-16-1"></a><span class="go">k2s system restore -f c:\backups\k2s-backup.zip</span>
 </code></pre></div>
 <h4 id="strict-restore-fail-on-any-conflict">Strict Restore (Fail on Any Conflict)</h4>
-<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a><span class="go">k2s system restore -f c:\backups\k2s-backup.zip -e</span>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-17-1" name="__codelineno-17-1" href="#__codelineno-17-1"></a><span class="go">k2s system restore -f c:\backups\k2s-backup.zip -e</span>
 </code></pre></div>
 <h4 id="verbose-restore-with-detailed-logs">Verbose Restore with Detailed Logs</h4>
-<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-15-1" name="__codelineno-15-1" href="#__codelineno-15-1"></a><span class="go">k2s system restore -f c:\backups\k2s-backup.zip -o -v</span>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-18-1" name="__codelineno-18-1" href="#__codelineno-18-1"></a><span class="go">k2s system restore -f c:\backups\k2s-backup.zip -o -v</span>
 </code></pre></div>
 <h2 id="restore-behavior">Restore Behavior</h2>
 <h3 id="resource-conflicts">Resource Conflicts</h3>
@@ -4358,23 +4458,23 @@ SPDX-License-Identifier: MIT
 </ol>
 <h3 id="custom-restore-hooks">Custom Restore Hooks</h3>
 <p>Similar to backup, restore supports hooks:</p>
-<div class="highlight"><span class="filename">PowerShell</span><pre><span></span><code><a id="__codelineno-16-1" name="__codelineno-16-1" href="#__codelineno-16-1"></a><span class="c"># hooks/my-app-restore.ps1</span>
-<a id="__codelineno-16-2" name="__codelineno-16-2" href="#__codelineno-16-2"></a><span class="k">param</span><span class="p">(</span>
-<a id="__codelineno-16-3" name="__codelineno-16-3" href="#__codelineno-16-3"></a>    <span class="p">[</span><span class="k">Parameter</span><span class="p">(</span><span class="k">Mandatory</span> <span class="p">=</span> <span class="nv">$true</span><span class="p">)]</span>
-<a id="__codelineno-16-4" name="__codelineno-16-4" href="#__codelineno-16-4"></a>    <span class="no">[string]</span> <span class="nv">$BackupDir</span>
-<a id="__codelineno-16-5" name="__codelineno-16-5" href="#__codelineno-16-5"></a><span class="p">)</span>
-<a id="__codelineno-16-6" name="__codelineno-16-6" href="#__codelineno-16-6"></a>
-<a id="__codelineno-16-7" name="__codelineno-16-7" href="#__codelineno-16-7"></a><span class="nb">Write-Host</span> <span class="s2">"Executing custom restore logic for my-app..."</span>
-<a id="__codelineno-16-8" name="__codelineno-16-8" href="#__codelineno-16-8"></a>
-<a id="__codelineno-16-9" name="__codelineno-16-9" href="#__codelineno-16-9"></a><span class="c"># Example: Restore database from backup</span>
-<a id="__codelineno-16-10" name="__codelineno-16-10" href="#__codelineno-16-10"></a><span class="nb">cat </span><span class="s2">"$BackupDir/my-app-db.sql"</span> <span class="p">|</span> <span class="n">kubectl</span> <span class="n">exec</span> <span class="n">-i</span> <span class="n">-n</span> <span class="n">my-app</span> <span class="n">my-db</span><span class="p">-</span><span class="n">0</span> <span class="p">--</span> <span class="n">psql</span> <span class="n">mydb</span>
-<a id="__codelineno-16-11" name="__codelineno-16-11" href="#__codelineno-16-11"></a>
-<a id="__codelineno-16-12" name="__codelineno-16-12" href="#__codelineno-16-12"></a><span class="nb">Write-Host</span> <span class="s2">"Custom restore complete"</span>
+<div class="highlight"><span class="filename">PowerShell</span><pre><span></span><code><a id="__codelineno-19-1" name="__codelineno-19-1" href="#__codelineno-19-1"></a><span class="c"># hooks/my-app-restore.ps1</span>
+<a id="__codelineno-19-2" name="__codelineno-19-2" href="#__codelineno-19-2"></a><span class="k">param</span><span class="p">(</span>
+<a id="__codelineno-19-3" name="__codelineno-19-3" href="#__codelineno-19-3"></a>    <span class="p">[</span><span class="k">Parameter</span><span class="p">(</span><span class="k">Mandatory</span> <span class="p">=</span> <span class="nv">$true</span><span class="p">)]</span>
+<a id="__codelineno-19-4" name="__codelineno-19-4" href="#__codelineno-19-4"></a>    <span class="no">[string]</span> <span class="nv">$BackupDir</span>
+<a id="__codelineno-19-5" name="__codelineno-19-5" href="#__codelineno-19-5"></a><span class="p">)</span>
+<a id="__codelineno-19-6" name="__codelineno-19-6" href="#__codelineno-19-6"></a>
+<a id="__codelineno-19-7" name="__codelineno-19-7" href="#__codelineno-19-7"></a><span class="nb">Write-Host</span> <span class="s2">"Executing custom restore logic for my-app..."</span>
+<a id="__codelineno-19-8" name="__codelineno-19-8" href="#__codelineno-19-8"></a>
+<a id="__codelineno-19-9" name="__codelineno-19-9" href="#__codelineno-19-9"></a><span class="c"># Example: Restore database from backup</span>
+<a id="__codelineno-19-10" name="__codelineno-19-10" href="#__codelineno-19-10"></a><span class="nb">cat </span><span class="s2">"$BackupDir/my-app-db.sql"</span> <span class="p">|</span> <span class="n">kubectl</span> <span class="n">exec</span> <span class="n">-i</span> <span class="n">-n</span> <span class="n">my-app</span> <span class="n">my-db</span><span class="p">-</span><span class="n">0</span> <span class="p">--</span> <span class="n">psql</span> <span class="n">mydb</span>
+<a id="__codelineno-19-11" name="__codelineno-19-11" href="#__codelineno-19-11"></a>
+<a id="__codelineno-19-12" name="__codelineno-19-12" href="#__codelineno-19-12"></a><span class="nb">Write-Host</span> <span class="s2">"Custom restore complete"</span>
 </code></pre></div>
 <h2 id="integration-with-system-upgrade">Integration with System Upgrade</h2>
 <p>The <code>k2s system upgrade</code> command automatically integrates backup/restore:</p>
 <h3 id="upgrade-workflow">Upgrade Workflow</h3>
-<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-17-1" name="__codelineno-17-1" href="#__codelineno-17-1"></a><span class="go">k2s system upgrade -v &lt;new-version&gt;</span>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-20-1" name="__codelineno-20-1" href="#__codelineno-20-1"></a><span class="go">k2s system upgrade -v &lt;new-version&gt;</span>
 </code></pre></div>
 <p><strong>Internal Sequence</strong>:</p>
 <ol>
@@ -4387,7 +4487,7 @@ SPDX-License-Identifier: MIT
 </ol>
 <h3 id="upgrade-with-custom-backup-options">Upgrade with Custom Backup Options</h3>
 <p>The upgrade command supports backup-related flags:</p>
-<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-18-1" name="__codelineno-18-1" href="#__codelineno-18-1"></a><span class="go">k2s system upgrade -v 1.7.0 --skip-images --skip-pvs</span>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-21-1" name="__codelineno-21-1" href="#__codelineno-21-1"></a><span class="go">k2s system upgrade -v 1.7.0 --skip-images --skip-pvs</span>
 </code></pre></div>
 <p>These flags are passed to the internal <code>k2s system backup</code> call.</p>
 <h2 id="error-handling">Error Handling</h2>
