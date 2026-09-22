@@ -135,18 +135,6 @@ func (k2s *K2s) FilterOutK8sImages(images []string) []string {
 	return filtered
 }
 
-func (k2s *K2s) getK8sImages() (images []string) {
-	configFilePath := filepath.Join(k2s.suite.SetupInfo().Config.Host().K2sSetupConfigDir(), k8sImagesConfigFileName)
-
-	config, err := k2s_json.FromFile[[]k8sImageConfig](configFilePath)
-	Expect(err).ToNot(HaveOccurred())
-
-	for _, imageConfig := range *config {
-		images = append(images, fmt.Sprintf("%s:%s", imageConfig.Repository, imageConfig.Tag))
-	}
-	return
-}
-
 func (k2s *K2s) getK8sImageRepositories() (repos []string) {
 	configFilePath := filepath.Join(k2s.suite.SetupInfo().Config.Host().K2sSetupConfigDir(), k8sImagesConfigFileName)
 
