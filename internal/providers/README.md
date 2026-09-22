@@ -11,10 +11,12 @@ Each subfolder is one provider and should only contain the technical integration
 ## Folder structure
 ```
 .
+├── acl         --> File ACL/permission handling
 ├── http        --> HTTP REST client functionality with TLS support
 ├── k8s         --> Kubernetes API access
 ├── kubeconfig  --> reading/writing kubeconfig files
 ├── kubectl     --> kubectl CLI invocation
+├── osusers     --> OS user management
 └── ssh         --> SSH connections and file copy/move over SFTP
 ...
 ```
