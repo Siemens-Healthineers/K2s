@@ -444,6 +444,10 @@ function Start-K8sNetworkingServices {
 $networkStartupAttempted = $false
 try {
     Write-Log "[$logUseCase] started"
+
+    Write-Log "[$logUseCase] Validating and recovering Hyper-V Default Switch network"
+    Test-DefaultSwitch -ResolveConflict
+
     # check if k2s is running
     $k2sRunning = Select-K2sIsRunning
     if ($k2sRunning) {
@@ -452,8 +456,6 @@ try {
         return
     }
 
-    Write-Log "[$logUseCase] Validating Hyper-V Default Switch network"
-    Test-DefaultSwitch
     $networkStartupAttempted = $true
 
     # check if there is an HNS network with l2 bridge
