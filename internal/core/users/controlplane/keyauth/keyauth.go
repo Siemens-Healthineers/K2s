@@ -7,13 +7,11 @@ import (
 	"fmt"
 	"log/slog"
 	"path/filepath"
-
-	"github.com/siemens-healthineers/k2s/internal/contracts/ssh"
 )
 
 type sshProvider interface {
 	Exec(command string) error
-	Copy(copyOptions ssh.CopyOptions) error
+	CopyToNode(source, target string) error
 }
 
 type KeyAuthorizer struct {
@@ -39,13 +37,8 @@ func (k *KeyAuthorizer) AuthorizePubKeyOnRemote(publicKeyPath, publicKeyComment 
 	}
 
 	slog.Debug("Copying public SSH key to remote machine", "path", remotePubKeyPath)
-	copyOptions := ssh.CopyOptions{
-		Source:    publicKeyPath,
-		Target:    remotePubKeyPath,
-		Direction: ssh.CopyToNode,
-	}
 
-	if err := k.sshProvider.Copy(copyOptions); err != nil {
+	if err := k.sshProvider.CopyToNode(publicKeyPath, remotePubKeyPath); err != nil {
 		return fmt.Errorf("failed to copy public SSH key to remote machine: %w", err)
 	}
 
