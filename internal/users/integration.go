@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText:  © 2025 Siemens Healthineers AG
+// SPDX-FileCopyrightText:  © 2026 Siemens Healthineers AG
 // SPDX-License-Identifier:   MIT
 
 package users
@@ -57,7 +57,7 @@ func NewAddUserIntegration(k2sConfig *config.K2sConfig, runtimeConfig *config.K2
 	keyAuthorizer := keyauth.NewKeyAuthorizer(sshProvider)
 	knownHostsCopier := knownhosts.NewKnownHostsCopier(k2sConfig.Host().SshConfig())
 	controlPlaneAdmission := controlplane.NewControlPlaneAdmission(k2sConfig, sshProvider, aclProvider, keyAuthorizer, knownHostsCopier)
-	kubectl := kubectl.NewKubectl(k2sConfig.Host())
+	kubectl := kubectl.NewKubectl(k2sConfig.Host().K2sInstallDir())
 	kubeconfigReaderAdapter := kubeconfig_adapter.NewKubeconfigReader(k2sConfig.Host().KubeConfig())
 	clusterFinder := kubeconfig_adapter.NewClusterFinder(runtimeConfig.ClusterConfig())
 	kubeconfigWriter := kubeconfig.NewKubeconfigWriter(k2sConfig.Host().KubeConfig(), kubectl)

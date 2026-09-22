@@ -65,7 +65,7 @@ var _ = Describe("config pkg", func() {
 
 			BeforeAll(func() {
 				currentDir, err := kos.ExecutableDir()
-				installDir := filepath.Join(currentDir, "..\\..\\..\\..")
+				installDir := filepath.Join(currentDir, "..\\..\\..")
 
 				Expect(err).ToNot(HaveOccurred())
 
