@@ -48,9 +48,11 @@ spec:
           # WSL2/dxcore: needs libs from /usr/lib/wsl/lib and driver store from /usr/lib/wsl/drivers
           - name: LD_LIBRARY_PATH
             value: "/usr/lib/wsl/lib"
-          # CDI: device plugin annotates pods with CDI device IDs
+          # GPU-PV does not expose NVML. CDI strategies are rejected by the
+          # NVIDIA device plugin on this path, so pass the selected device via
+          # the standard NVIDIA_VISIBLE_DEVICES environment variable instead.
           - name: DEVICE_LIST_STRATEGY
-            value: "cdi-annotations"
+            value: "envvar"
         resources:
           requests:
             cpu: 50m
