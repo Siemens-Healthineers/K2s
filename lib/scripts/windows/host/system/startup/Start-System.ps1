@@ -445,6 +445,8 @@ $networkStartupAttempted = $false
 try {
     Write-Log "[$logUseCase] started"
 
+    # This must run before Select-K2sIsRunning because the invoking k2s start process
+    # is otherwise detected as an already-running operation and skips recovery.
     Write-Log "[$logUseCase] Validating and recovering Hyper-V Default Switch network"
     Test-DefaultSwitch -ResolveConflict
 

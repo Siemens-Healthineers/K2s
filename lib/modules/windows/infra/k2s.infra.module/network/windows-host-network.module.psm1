@@ -138,7 +138,33 @@ function Get-ConfiguredK2sSubnets {
     )
 }
 
+function Import-K2sHnsModule {
+    $requiredCommands = @('Get-HnsNetwork', 'Remove-HnsNetwork')
+    $missingCommands = @($requiredCommands | Where-Object {
+        $null -eq (Get-Command -Name $_ -ErrorAction SilentlyContinue)
+    })
+    if ($missingCommands.Count -eq 0) {
+        return
+    }
+
+    $hnsModule = "$PSScriptRoot\..\..\..\node\k2s.node.module\windowsnode\network\hns.module.psm1"
+    if (-not (Test-Path -LiteralPath $hnsModule -PathType Leaf)) {
+        throw "[PREREQ-FAILED] HNS module not found at '$hnsModule'."
+    }
+
+    Import-Module $hnsModule -DisableNameChecking
+
+    $missingCommands = @($requiredCommands | Where-Object {
+        $null -eq (Get-Command -Name $_ -ErrorAction SilentlyContinue)
+    })
+    if ($missingCommands.Count -gt 0) {
+        throw "[PREREQ-FAILED] HNS commands are unavailable after importing '$hnsModule': $($missingCommands -join ', ')."
+    }
+}
+
 function Remove-K2sDefaultSwitch {
+    Import-K2sHnsModule
+
     $defaultHnsNetworks = @(Get-HnsNetwork -ErrorAction Stop | Where-Object { $_.Name -eq 'Default Switch' })
     $switchRemoved = $false
     foreach ($defaultHnsNetwork in $defaultHnsNetworks) {
