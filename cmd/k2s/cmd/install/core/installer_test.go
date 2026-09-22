@@ -59,7 +59,7 @@ func (m *myMock) Load(kind ic.Kind, cmdFlags *pflag.FlagSet) (*ic.InstallConfig,
 	return args.Get(0).(*ic.InstallConfig), args.Error(1)
 }
 
-func (m *myMock) ExecutePs(script string, writer output.Writer) error {
+func (m *myMock) ExecutePs(script string, writer output.StreamWriter) error {
 	args := m.Called(script, writer)
 
 	return args.Error(0)

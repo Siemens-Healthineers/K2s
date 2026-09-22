@@ -32,7 +32,7 @@ type Printer interface {
 type Installer struct {
 	InstallConfigAccess      InstallConfigAccess
 	Printer                  Printer
-	ExecutePsScript          func(script string, writer output.Writer) error
+	ExecutePsScript          func(script string, writer output.StreamWriter) error
 	GetVersionFunc           func() version.Version
 	GetPlatformFunc          func() string
 	GetInstallDirFunc        func() string
