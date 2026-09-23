@@ -41,6 +41,9 @@ spec:
             # non-NVML path. CDI device-list strategies are rejected there.
             - name: DEVICE_LIST_STRATEGY
               value: envvar
+            # Debian installs NVML below the NVIDIA alternatives directory.
+            - name: LD_LIBRARY_PATH
+              value: /usr/lib/x86_64-linux-gnu/nvidia/current
           resources:
             requests:
               cpu: 50m
@@ -53,6 +56,14 @@ spec:
           volumeMounts:
             - name: device-plugin
               mountPath: /var/lib/kubelet/device-plugins
+            # The device plugin discovers the host NVIDIA driver from its
+            # default container driver root, /driver-root.
+            - name: driver-root
+              mountPath: /driver-root
+              readOnly: true
+            - name: nvidia-driver-libs
+              mountPath: /usr/lib/x86_64-linux-gnu/nvidia/current
+              readOnly: true
             - name: time-slicing-config
               mountPath: /etc/nvidia/config.yaml
               subPath: config.yaml
@@ -60,6 +71,13 @@ spec:
         - name: device-plugin
           hostPath:
             path: /var/lib/kubelet/device-plugins
+        - name: driver-root
+          hostPath:
+            path: /
+        - name: nvidia-driver-libs
+          hostPath:
+            path: /usr/lib/x86_64-linux-gnu/nvidia/current
+            type: Directory
         - name: time-slicing-config
           configMap:
             name: time-slicing-config
