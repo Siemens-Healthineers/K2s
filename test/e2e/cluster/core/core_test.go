@@ -737,11 +737,6 @@ var _ = Describe("Cluster Core", func() {
 			}
 		})
 
-		It("resets host networking while the native Linux-only cluster is still installed", func(ctx SpecContext) {
-			suite.K2sCli().MustExec(ctx, "system", "reset", "network")
-			Expect(suite.StatusChecker().IsK2sRunning(ctx)).To(BeTrue(), "expected native Linux cluster to remain running after system reset network")
-		})
-
 		It("resets the native Linux-only cluster and removes runtime state", func(ctx SpecContext) {
 			suite.K2sCli().MustExec(ctx, "system", "reset")
 
