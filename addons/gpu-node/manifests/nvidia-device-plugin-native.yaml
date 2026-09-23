@@ -37,8 +37,10 @@ spec:
           env:
             - name: FAIL_ON_INIT_ERROR
               value: "false"
+            # Some externally added workers expose their GPU through a
+            # non-NVML path. CDI device-list strategies are rejected there.
             - name: DEVICE_LIST_STRATEGY
-              value: cdi-annotations
+              value: envvar
           resources:
             requests:
               cpu: 50m
