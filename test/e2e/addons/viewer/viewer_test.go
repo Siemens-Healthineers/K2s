@@ -258,8 +258,34 @@ var _ = Describe("'viewer' addon", Ordered, func() {
 				url := "https://k2s.cluster.local/viewer/datasources/config.json"
 				responseBytes, err := suite.HttpClient(&tls.Config{InsecureSkipVerify: true}).Get(ctx, url)
 				Expect(err).NotTo(HaveOccurred())
-				response := string(responseBytes)
-				Expect(response).To(ContainSubstring(`"defaultDataSourceName": "DataFromAWS"`))
+
+				var config struct {
+					DefaultDataSourceName string `json:"defaultDataSourceName"`
+					DataSources           []struct {
+						SourceName    string `json:"sourceName"`
+						Configuration struct {
+							QidoRoot string `json:"qidoRoot"`
+						} `json:"configuration"`
+					} `json:"dataSources"`
+				}
+				Expect(json.Unmarshal(responseBytes, &config)).To(Succeed())
+				Expect(config.DefaultDataSourceName).To(Equal("DataFromAWS"))
+
+				var awsQidoRoot string
+				for _, dataSource := range config.DataSources {
+					if dataSource.SourceName == config.DefaultDataSourceName {
+						awsQidoRoot = dataSource.Configuration.QidoRoot
+						break
+					}
+				}
+				Expect(awsQidoRoot).NotTo(BeEmpty())
+
+				studiesResponse, err := suite.HttpClient().GetJson(ctx, awsQidoRoot+"/studies")
+				Expect(err).NotTo(HaveOccurred())
+
+				var studies []json.RawMessage
+				Expect(json.Unmarshal(studiesResponse, &studies)).To(Succeed())
+				Expect(studies).NotTo(BeEmpty())
 			})
 
 			It("viewer retrieves Dicom data after Dicom addon is enabled", func(ctx context.Context) {
