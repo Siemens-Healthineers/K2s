@@ -138,6 +138,11 @@ var _ = AfterSuite(func(ctx context.Context) {
 
 	// for finding out the sporadically failed test runs
 	if suite.ShouldCleanup(testFailed) {
+
+		if suite.SetupInfo().RuntimeConfig.InstallConfig().LinuxOnly() {
+			GinkgoWriter.Println("Skipping workload cleanup for Linux-only setup because reset removes the namespace and workload resources")
+			return
+		}
 		suite.Kubectl().MustExec(ctx, "delete", "-k", manifestDir)
 
 		GinkgoWriter.Println("Workloads deleted")
