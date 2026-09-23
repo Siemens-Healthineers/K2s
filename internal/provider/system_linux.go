@@ -116,6 +116,10 @@ func (p *linuxSystemProvider) resetNetwork() error {
 }
 
 func (p *linuxSystemProvider) removeRuntimeConfig() error {
+	if p.configDir == "" {
+		return nil
+	}
+
 	runtimeConfigPath := filepath.Join(p.configDir, definitions.K2sRuntimeConfigFileName)
 	if err := os.Remove(runtimeConfigPath); err != nil && !errors.Is(err, os.ErrNotExist) {
 		return fmt.Errorf("remove runtime config %s: %w", runtimeConfigPath, err)

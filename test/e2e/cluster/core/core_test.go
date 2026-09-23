@@ -138,15 +138,8 @@ var _ = AfterSuite(func(ctx context.Context) {
 
 	// for finding out the sporadically failed test runs
 	if suite.ShouldCleanup(testFailed) {
-
-		if suite.SetupInfo().RuntimeConfig.InstallConfig().LinuxOnly() {
-			GinkgoWriter.Println("Skipping workload cleanup for Linux-only setup because reset removes the namespace and workload resources")
-			return
-		}
-		suite.Kubectl().MustExec(ctx, "delete", "-k", manifestDir)
-
+		suite.Kubectl().MustExec(ctx, "delete", "-k", manifestDir, "--ignore-not-found=true")
 		GinkgoWriter.Println("Workloads deleted")
-
 		suite.TearDown(ctx, framework.RestartKubeProxy)
 	}
 })
@@ -418,7 +411,10 @@ func expectLinuxOnlyResetCleanup() {
 	for _, device := range []string{"cni0", "flannel.1"} {
 		output, err := exec.Command("ip", "link", "show", device).CombinedOutput()
 		Expect(err).To(HaveOccurred(), "expected network device %s to be removed by system reset, got:\n%s", device, string(output))
-		Expect(string(output)).To(ContainSubstring("does not exist"),
+		Expect(string(output)).To(Or(
+			ContainSubstring("does not exist"),
+			ContainSubstring("Cannot find device"),
+		),
 			"expected network device %s to be removed by system reset", device)
 	}
 
