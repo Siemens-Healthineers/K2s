@@ -9,7 +9,6 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
-	"path/filepath"
 	"runtime"
 	"strings"
 	"testing"
@@ -397,8 +396,54 @@ func restoreLinuxOnlyCoreSuiteState(ctx context.Context) {
 	suite.K2sCli().MustExec(ctx, "install", "--linux-only")
 	suite.SetupInfo().ReloadRuntimeConfig()
 	Expect(suite.SetupInfo().RuntimeConfig.InstallConfig().LinuxOnly()).To(BeTrue())
-	Expect(suite.StatusChecker().IsK2sRunning(ctx)).To(BeTrue())
+	suite.Kubectl().MustExec(ctx, "get", "nodes")
+	expectLinuxOnlyInstallArtifacts()
 	GinkgoWriter.Println("Native Linux-only cluster restored after reset")
+}
+
+// expectLinuxOnlyResetCleanup verifies that 'k2s system reset' removed the
+// Kubernetes admin kubeconfig and the flannel/CNI network devices on the native
+// Linux host.
+func expectLinuxOnlyResetCleanup() {
+	GinkgoWriter.Println("Verifying native Linux-only reset removed Kubernetes components..")
+
+	_, err := os.Stat("/etc/kubernetes/admin.conf")
+	Expect(os.IsNotExist(err)).To(BeTrue(), "expected /etc/kubernetes/admin.conf to be removed by system reset")
+
+	for _, device := range []string{"cni0", "flannel.1"} {
+		output, err := exec.Command("ip", "link", "show", device).CombinedOutput()
+		Expect(err).To(HaveOccurred(), "expected network device %s to be removed by system reset, got:\n%s", device, string(output))
+		Expect(string(output)).To(ContainSubstring("does not exist"),
+			"expected network device %s to be removed by system reset", device)
+	}
+
+	GinkgoWriter.Println("Native Linux-only reset cleanup verified")
+}
+
+// expectLinuxOnlyInstallArtifacts verifies that 'k2s install --linux-only'
+// recreated the Kubernetes admin kubeconfig and the flannel/CNI network devices
+// on the native Linux host. The CNI devices appear once pods are scheduled, so
+// the check is retried within the configured test step timeout.
+func expectLinuxOnlyInstallArtifacts() {
+	GinkgoWriter.Println("Verifying native Linux-only install created Kubernetes components..")
+
+	Eventually(func() error {
+		if _, err := os.Stat("/etc/kubernetes/admin.conf"); err != nil {
+			return fmt.Errorf("/etc/kubernetes/admin.conf not present: %w", err)
+		}
+
+		for _, device := range []string{"cni0", "flannel.1"} {
+			output, err := exec.Command("ip", "link", "show", device).CombinedOutput()
+			if err != nil {
+				return fmt.Errorf("network device %s not present: %w; output: %s", device, err, strings.TrimSpace(string(output)))
+			}
+		}
+
+		return nil
+	}).WithTimeout(suite.TestStepTimeout()).WithPolling(suite.TestStepPollInterval()).Should(Succeed(),
+		"expected native Linux-only install to recreate admin.conf and flannel/CNI devices")
+
+	GinkgoWriter.Println("Native Linux-only install artifacts verified")
 }
 
 var _ = Describe("Cluster Core", func() {
@@ -737,13 +782,9 @@ var _ = Describe("Cluster Core", func() {
 			}
 		})
 
-		It("resets the native Linux-only cluster and removes runtime state", func(ctx SpecContext) {
+		It("resets the native Linux-only cluster and removes Kubernetes components", func(ctx SpecContext) {
 			suite.K2sCli().MustExec(ctx, "system", "reset")
-
-			runtimeConfigPath := filepath.Join(suite.SetupInfo().Config.Host().K2sSetupConfigDir(), definitions.K2sRuntimeConfigFileName)
-			_, err := os.Stat(runtimeConfigPath)
-			Expect(os.IsNotExist(err)).To(BeTrue(), "expected runtime config to be removed by system reset")
-			Expect(suite.StatusChecker().IsK2sRunning(ctx)).To(BeFalse(), "expected native Linux cluster to stop after system reset")
+			expectLinuxOnlyResetCleanup()
 		})
 
 		It("can reinstall the native Linux-only cluster after reset", func(ctx SpecContext) {
