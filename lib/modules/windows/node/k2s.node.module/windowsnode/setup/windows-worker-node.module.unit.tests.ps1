@@ -6,19 +6,26 @@ BeforeAll {
     $parseErrors = $null
     $moduleAst = [System.Management.Automation.Language.Parser]::ParseFile($modulePath, [ref]$null, [ref]$parseErrors)
     if ($parseErrors) { throw ($parseErrors | Out-String) }
-    $routeFunction = $moduleAst.Find({
-        param($node)
-        $node -is [System.Management.Automation.Language.FunctionDefinitionAst] -and $node.Name -eq 'Set-RoutesToKubemaster'
-    }, $false)
-    . ([scriptblock]::Create($routeFunction.Extent.Text))
+    foreach ($functionName in @('Set-RoutesToKubemaster', 'Test-NetworkL2BridgeReady')) {
+        $functionAst = $moduleAst.Find({
+            param($node)
+            $node -is [System.Management.Automation.Language.FunctionDefinitionAst] -and $node.Name -eq $functionName
+        }, $false)
+        . ([scriptblock]::Create($functionAst.Extent.Text))
+    }
 
     function Get-ConfiguredControlPlaneCIDR { '172.19.1.0/24' }
     function Get-ConfiguredKubeSwitchIP { '172.19.1.1' }
+    function Get-L2BridgeSwitchName { 'cbr0' }
+    function Get-ConfiguredClusterCIDRNextHop { param($PodSubnetworkNumber) '172.20.1.2' }
+    function Get-ConfiguredClusterCIDRHost { param($PodSubnetworkNumber) '172.20.1.0/24' }
     function Write-Log { param($Message) }
-    function Get-NetIPAddress { [CmdletBinding()] param($IPAddress, $AddressFamily) }
-    function Get-NetRoute { [CmdletBinding()] param($AddressFamily, $PolicyStore) }
+    function Get-NetAdapter { [CmdletBinding()] param($Name, [switch]$IncludeHidden) }
+    function Get-NetIPAddress { [CmdletBinding()] param($IPAddress, $InterfaceIndex, $AddressFamily) }
+    function Get-NetRoute { [CmdletBinding()] param($AddressFamily, $PolicyStore, $DestinationPrefix, $InterfaceIndex) }
     function New-NetRoute { [CmdletBinding()] param($DestinationPrefix, $InterfaceIndex, $NextHop, $RouteMetric, $PolicyStore) }
     function Remove-NetRoute { [CmdletBinding(SupportsShouldProcess)] param([Parameter(ValueFromPipeline)]$InputObject) }
+    function Enable-NetAdapter { [CmdletBinding(SupportsShouldProcess)] param($Name) }
 }
 
 Describe 'Set-RoutesToKubemaster' -Tag 'unit', 'ci', 'network' {
@@ -61,6 +68,7 @@ Describe 'Set-RoutesToKubemaster' -Tag 'unit', 'ci', 'network' {
             $InputObject.DestinationPrefix -eq '172.19.1.0/24' -and $InputObject.NextHop -eq '172.19.1.1' -and $InputObject.Store -eq 'ActiveStore'
         }
     }
+
 
     It 'accepts an empty persistent store during Windows-hosted Linux-only startup' {
         Mock Get-NetRoute {
@@ -144,5 +152,73 @@ Describe 'Set-RoutesToKubemaster' -Tag 'unit', 'ci', 'network' {
         { Set-RoutesToKubemaster } | Should -Throw '*route creation failed*'
 
         Should -Invoke Remove-NetRoute -Times 0 -Exactly
+    }
+}
+
+Describe 'Test-NetworkL2BridgeReady' -Tag 'unit', 'ci', 'network' {
+    BeforeEach {
+        Mock Write-Log {}
+        Mock Get-NetAdapter { [pscustomobject]@{ Name = 'vEthernet (cbr0_ep)'; ifIndex = 31; Status = 'Up' } }
+        Mock Get-NetIPAddress { [pscustomobject]@{ IPAddress = '172.20.1.2'; InterfaceIndex = 31 } }
+        Mock Get-NetRoute { [pscustomobject]@{ DestinationPrefix = '172.20.1.0/24'; InterfaceIndex = 31; NextHop = '0.0.0.0' } }
+        Mock New-NetRoute {}
+        Mock Enable-NetAdapter {}
+    }
+
+    It 'accepts only the exact healthy cbr0 endpoint and route' {
+        Test-NetworkL2BridgeReady -PodSubnetworkNumber '1' | Should -BeTrue
+
+        Should -Invoke Get-NetAdapter -Times 1 -Exactly -ParameterFilter {
+            $Name -eq 'vEthernet (cbr0_ep)' -and $IncludeHidden
+        }
+        Should -Invoke Get-NetIPAddress -Times 1 -Exactly -ParameterFilter { $InterfaceIndex -eq 31 -and $AddressFamily -eq 'IPv4' }
+        Should -Invoke Get-NetRoute -Times 1 -Exactly -ParameterFilter {
+            $DestinationPrefix -eq '172.20.1.0/24' -and $InterfaceIndex -eq 31 -and $PolicyStore -eq 'ActiveStore'
+        }
+        Should -Invoke New-NetRoute -Times 0 -Exactly
+    }
+
+    It 'rejects a disconnected endpoint' {
+        Mock Get-NetAdapter { [pscustomobject]@{ Name = 'vEthernet (cbr0_ep)'; ifIndex = 31; Status = 'Disconnected' } }
+
+        Test-NetworkL2BridgeReady -PodSubnetworkNumber '1' | Should -BeFalse
+
+        Should -Invoke Get-NetIPAddress -Times 0 -Exactly
+        Should -Invoke New-NetRoute -Times 0 -Exactly
+    }
+
+    It 'rejects an endpoint without the expected bridge address' {
+        Mock Get-NetIPAddress { [pscustomobject]@{ IPAddress = '172.20.1.99'; InterfaceIndex = 31 } }
+
+        Test-NetworkL2BridgeReady -PodSubnetworkNumber '1' | Should -BeFalse
+
+        Should -Invoke New-NetRoute -Times 0 -Exactly
+    }
+
+    It 'repairs a missing active on-link route' {
+        Mock Get-NetRoute {}
+
+        Test-NetworkL2BridgeReady -PodSubnetworkNumber '1' | Should -BeTrue
+
+        Should -Invoke New-NetRoute -Times 1 -Exactly -ParameterFilter {
+            $DestinationPrefix -eq '172.20.1.0/24' -and $InterfaceIndex -eq 31 -and
+            $NextHop -eq '0.0.0.0' -and $PolicyStore -eq 'ActiveStore'
+        }
+    }
+
+    It 'enables a disabled endpoint before validating it' {
+        $script:adapterQuery = 0
+        Mock Get-NetAdapter {
+            $script:adapterQuery++
+            if ($script:adapterQuery -eq 1) {
+                return [pscustomobject]@{ Name = 'vEthernet (cbr0_ep)'; ifIndex = 31; Status = 'Disabled' }
+            }
+            return [pscustomobject]@{ Name = 'vEthernet (cbr0_ep)'; ifIndex = 31; Status = 'Up' }
+        }
+
+        Test-NetworkL2BridgeReady -PodSubnetworkNumber '1' | Should -BeTrue
+
+        Should -Invoke Enable-NetAdapter -Times 1 -Exactly -ParameterFilter { $Name -eq 'vEthernet (cbr0_ep)' }
+        Should -Invoke Get-NetAdapter -Times 2 -Exactly -ParameterFilter { $IncludeHidden }
     }
 }
