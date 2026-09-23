@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"strings"
 	"time"
 
@@ -41,6 +42,35 @@ func NewResilientHttpClient(requestTimeout time.Duration, tlsConfig ...*tls.Conf
 		executor: failsafe.With(retryPolicy),
 		client:   client,
 	}
+}
+
+// UseProxy configures the client to route requests through the specified proxy.
+func (c *ResilientHttpClient) UseProxy(proxyAddress string) error {
+	if strings.TrimSpace(proxyAddress) == "" {
+		return nil
+	}
+
+	proxyURL, err := url.Parse(proxyAddress)
+	if err != nil {
+		return fmt.Errorf("parse proxy URL: %w", err)
+	}
+
+	transport, ok := c.client.Transport.(*http.Transport)
+	if c.client.Transport == nil {
+		transport = http.DefaultTransport.(*http.Transport)
+		ok = true
+	}
+	if !ok {
+		return fmt.Errorf("configure proxy for unsupported HTTP transport %T", c.client.Transport)
+	}
+
+	client := *c.client
+	proxyTransport := transport.Clone()
+	proxyTransport.Proxy = http.ProxyURL(proxyURL)
+	client.Transport = proxyTransport
+	c.client = &client
+
+	return nil
 }
 
 // GetJson performs a GET request to the given URL, checks the payload for valid JSON and returns the payload as a byte array.

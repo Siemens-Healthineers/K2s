@@ -280,7 +280,10 @@ var _ = Describe("'viewer' addon", Ordered, func() {
 				}
 				Expect(awsQidoRoot).NotTo(BeEmpty())
 
-				studiesResponse, err := suite.HttpClient().GetJson(ctx, awsQidoRoot+"/studies")
+				cloudFrontClient := suite.HttpClient()
+				Expect(cloudFrontClient.UseProxy(suite.Proxy())).To(Succeed())
+
+				studiesResponse, err := cloudFrontClient.GetJson(ctx, awsQidoRoot+"/studies")
 				Expect(err).NotTo(HaveOccurred())
 
 				var studies []json.RawMessage
