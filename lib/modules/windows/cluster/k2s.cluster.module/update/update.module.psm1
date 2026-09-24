@@ -552,6 +552,19 @@ function Copy-UnchangedInstallationFiles {
 	return $true
 }
 
+function Confirm-UpdateInstallationHome {
+	param(
+		[Parameter(Mandatory = $true)][string] $SetupConfigPath,
+		[Parameter(Mandatory = $true)][string] $ExpectedInstallPath
+	)
+
+	$setup = Get-Content -LiteralPath $SetupConfigPath -Raw -ErrorAction Stop | ConvertFrom-Json -ErrorAction Stop
+	if ([string]::IsNullOrWhiteSpace($setup.InstallFolder) -or
+		$setup.InstallFolder.TrimEnd('\') -ne $ExpectedInstallPath.TrimEnd('\')) {
+		throw "[Update] Installation folder verification failed in '$SetupConfigPath': expected '$ExpectedInstallPath', found '$($setup.InstallFolder)'."
+	}
+}
+
 <#
 .SYNOPSIS
 	Re-points the K2s installation from one folder to another (delta update re-home).
@@ -585,6 +598,8 @@ function Set-K2sInstallationHome {
 	$consoleSwitch = $ShowLogs
 	$FromPath = $FromPath.TrimEnd('\')
 	$ToPath = $ToPath.TrimEnd('\')
+	# Keep the authoritative path before destination imports can change config command bindings.
+	$setupConfigPath = Get-SetupConfigFilePath
 
 	Write-Log ("[Update] Re-homing installation from '{0}' to '{1}'" -f $FromPath, $ToPath) -Console:$consoleSwitch
 
@@ -743,6 +758,7 @@ function Set-K2sInstallationHome {
 	# 6. Update setup.json InstallFolder
 	try {
 		Set-ConfigInstallFolder -Value $ToPath
+		Confirm-UpdateInstallationHome -SetupConfigPath $setupConfigPath -ExpectedInstallPath $ToPath
 		Write-Log ("[Update] setup.json InstallFolder set to '{0}'" -f $ToPath) -Console:$consoleSwitch
 	} catch {
 		Write-Log ("[Update][Error] Failed to update setup.json InstallFolder: {0}" -f $_.Exception.Message) -Console
@@ -868,6 +884,7 @@ Current directory: $deltaRoot
 	}
 	
 	Write-Log ("[Update] Delta package root detected: {0}" -f $deltaRoot) -Console:$consoleSwitch
+	$setupConfigPath = Get-SetupConfigFilePath
 
 	# Check if k2s is currently running - we'll handle stopping/starting automatically
 	$setupInfo = Get-SetupInfo
@@ -1779,6 +1796,8 @@ Current directory: $deltaRoot
 	} catch {
 		Write-Log ("[Update][Warn] Failed to update setup.json KubernetesVersion: {0}" -f $_.Exception.Message) -Console:$consoleSwitch
 	}
+
+	Confirm-UpdateInstallationHome -SetupConfigPath $setupConfigPath -ExpectedInstallPath $targetInstallPath
 
 	# Clean delta-package-only artifacts so the new installation folder is a clean installation
 	# and is not misdetected as a delta package on a subsequent upgrade.

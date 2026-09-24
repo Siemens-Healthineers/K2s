@@ -64,6 +64,39 @@ Describe 'Get-UpdateVmModulePath' -Tag 'unit', 'ci', 'update' {
 	}
 }
 
+Describe 'Confirm-UpdateInstallationHome' -Tag 'unit', 'ci', 'update' {
+	It 'reads the persisted folder and preserves other setup fields' {
+		InModuleScope $moduleName -Parameters @{ setupPath = (Join-Path $TestDrive 'setup.json') } {
+			@{ InstallFolder = 'C:\k2s-delta'; Version = '2.1.0'; ClusterName = 'k2s' } |
+				ConvertTo-Json | Set-Content -LiteralPath $setupPath
+			$before = Get-Content -LiteralPath $setupPath -Raw
+
+			{ Confirm-UpdateInstallationHome -SetupConfigPath $setupPath -ExpectedInstallPath 'c:\k2s-delta\' } | Should -Not -Throw
+			Get-Content -LiteralPath $setupPath -Raw | Should -Be $before
+		}
+	}
+
+	It 'rejects a stale authoritative file even if the config accessor reports the new folder' {
+		InModuleScope $moduleName -Parameters @{ setupPath = (Join-Path $TestDrive 'setup.json') } {
+			@{ InstallFolder = 'C:\k2s' } | ConvertTo-Json | Set-Content -LiteralPath $setupPath
+			Mock Get-ConfigInstallFolder { 'C:\k2s-delta' }
+
+			{ Confirm-UpdateInstallationHome -SetupConfigPath $setupPath -ExpectedInstallPath 'C:\k2s-delta' } |
+				Should -Throw '*expected*C:\k2s-delta*found*C:\k2s*'
+		}
+	}
+
+	It 'rejects missing or invalid setup files' {
+		InModuleScope $moduleName -Parameters @{ setupPath = (Join-Path $TestDrive 'invalid-setup.json') } {
+			{ Confirm-UpdateInstallationHome -SetupConfigPath $setupPath -ExpectedInstallPath 'C:\k2s-delta' } | Should -Throw
+			Set-Content -LiteralPath $setupPath -Value 'invalid json'
+			{ Confirm-UpdateInstallationHome -SetupConfigPath $setupPath -ExpectedInstallPath 'C:\k2s-delta' } | Should -Throw
+			Set-Content -LiteralPath $setupPath -Value '{}'
+			{ Confirm-UpdateInstallationHome -SetupConfigPath $setupPath -ExpectedInstallPath 'C:\k2s-delta' } | Should -Throw
+		}
+	}
+}
+
 Describe 'Copy-UnchangedInstallationFiles' -Tag 'unit', 'ci', 'update' {
 	BeforeEach {
 		$old = Join-Path $TestDrive 'old'
