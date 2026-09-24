@@ -1239,7 +1239,7 @@ function Set-K2sLinuxKubeletOverride {
     $managedHeaderEncoded = [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($managedHeader))
 
     if ([string]::IsNullOrEmpty($content)) {
-        $removeCommand = "set -e; target='$targetPath'; if sudo test -e `$target || sudo test -L `$target; then if ! sudo test -f `$target || sudo test -L `$target; then echo 'Refusing to remove non-regular kubelet drop-in collision' >&2; exit 42; fi; firstLineEncoded=`$(sudo head -n 1 `$target | tr -d '\r\n' | base64 -w0); if [ x`$firstLineEncoded != x$managedHeaderEncoded ]; then echo 'Refusing to remove unmanaged kubelet drop-in' >&2; exit 42; fi; sudo rm -f -- `$target; if sudo systemctl is-active --quiet kubelet; then sudo systemctl restart kubelet; fi; fi"
+        $removeCommand = "set -e; sudo mkdir -p /etc/kubernetes/kubelet.conf.d; target='$targetPath'; if sudo test -e `$target || sudo test -L `$target; then if ! sudo test -f `$target || sudo test -L `$target; then echo 'Refusing to remove non-regular kubelet drop-in collision' >&2; exit 42; fi; firstLineEncoded=`$(sudo head -n 1 `$target | tr -d '\r\n' | base64 -w0); if [ x`$firstLineEncoded != x$managedHeaderEncoded ]; then echo 'Refusing to remove unmanaged kubelet drop-in' >&2; exit 42; fi; sudo rm -f -- `$target; if sudo systemctl is-active --quiet kubelet; then sudo systemctl restart kubelet; fi; fi"
         $removeResult = Invoke-CmdOnVmViaSSHKey -CmdToExecute $removeCommand -UserName $UserName -IpAddress $IpAddress -NoLog
         if (-not $removeResult.Success) {
             throw "Failed to remove Linux control-plane kubelet override at '$targetPath': $($removeResult.Output)"
@@ -1266,6 +1266,30 @@ function Set-K2sLinuxKubeletOverride {
     }
     finally {
         Remove-Item -LiteralPath $localPath -Force -ErrorAction SilentlyContinue
+    }
+}
+
+function Write-KubeInitFailureDiagnostics {
+    param(
+        [Parameter(Mandatory = $true)]
+        [ScriptBlock] $ExecuteRemoteCommand
+    )
+
+    # Temporary diagnostics for the #2843 CI investigation. Remove after the
+    # installation pipeline has completed successfully and the failure is understood.
+    $diagnostics = @(
+        [pscustomobject]@{ Name = 'service activity'; Command = 'sudo systemctl is-active kubelet crio' }
+        [pscustomobject]@{ Name = 'service status'; Command = 'sudo systemctl status kubelet crio --no-pager -l' }
+        [pscustomobject]@{ Name = 'service journals'; Command = 'sudo journalctl -u kubelet -u crio -b --no-pager -n 300' }
+        [pscustomobject]@{ Name = 'kubelet flags'; Command = 'sudo cat /var/lib/kubelet/kubeadm-flags.env' }
+        [pscustomobject]@{ Name = 'kubelet drop-in directory'; Command = 'sudo ls -ld /etc/kubernetes/kubelet.conf.d' }
+        [pscustomobject]@{ Name = 'container runtime state'; Command = 'sudo crictl ps -a' }
+    )
+
+    Write-Log '[KubeInit][Diagnostics] Collecting control-plane failure diagnostics' -Console
+    foreach ($diagnostic in $diagnostics) {
+        Write-Log "[KubeInit][Diagnostics] $($diagnostic.Name)" -Console
+        &$ExecuteRemoteCommand $diagnostic.Command -IgnoreErrors
     }
 }
 
@@ -1389,8 +1413,9 @@ failCgroupV1: false
     }
     $initResult.Output | Write-Log
     if (-not $initResult.Success) {
+        Write-KubeInitFailureDiagnostics -ExecuteRemoteCommand $executeRemoteCommand
         &$executeRemoteCommand 'rm -rf ~/tmp/kubeadm-init' -IgnoreErrors
-        throw "[KubeInit] kubeadm init failed after retries. Check proxy settings and network connectivity to container registry (registry.k8s.io)."
+        throw '[KubeInit] kubeadm init failed after retries. Review the [KubeInit][Diagnostics] entries above for kubelet, CRI-O, and control-plane details.'
     }
 
     &$executeRemoteCommand 'rm -rf ~/tmp/kubeadm-init'

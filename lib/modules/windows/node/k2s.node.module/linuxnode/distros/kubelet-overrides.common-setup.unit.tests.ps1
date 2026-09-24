@@ -40,7 +40,7 @@ Describe 'Set-K2sLinuxKubeletOverride' -Tag 'unit', 'ci', 'kubelet-overrides' {
         }
     }
 
-    It 'removes only a regular managed file and fails fast on command errors' {
+    It 'creates the drop-in directory and removes only a regular managed file when overrides are absent' {
         InModuleScope $moduleName {
             function Get-K2sKubeletOverrideContent { param([Parameter(ValueFromRemainingArguments)]$Rest) }
             function Invoke-CmdOnVmViaSSHKey { param([string]$CmdToExecute, [string]$UserName, [string]$IpAddress, [switch]$NoLog) }
@@ -51,7 +51,7 @@ Describe 'Set-K2sLinuxKubeletOverride' -Tag 'unit', 'ci', 'kubelet-overrides' {
             Set-K2sLinuxKubeletOverride -EffectiveInstallConfigPath 'C:\config\effective.json' -UserName 'remote' -IpAddress '172.19.1.100'
 
             Should -Invoke Invoke-CmdOnVmViaSSHKey -Exactly 1 -ParameterFilter {
-                $CmdToExecute -match '^set -e;' -and
+                $CmdToExecute -match '^set -e; sudo mkdir -p /etc/kubernetes/kubelet\.conf\.d;' -and
                 $CmdToExecute -match 'test -e \$target \|\| sudo test -L \$target' -and
                 $CmdToExecute -match '! sudo test -f \$target \|\| sudo test -L \$target' -and
                 $CmdToExecute -match "firstLineEncoded=\`$\(sudo head -n 1 \`$target \| tr -d '\\r\\n' \| base64 -w0\)" -and
