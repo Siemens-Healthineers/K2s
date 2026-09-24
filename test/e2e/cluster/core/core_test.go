@@ -128,7 +128,15 @@ var _ = AfterSuite(func(ctx context.Context) {
 		podWatcher.Stop()
 	}
 
-	suite.StatusChecker().IsK2sRunning(ctx)
+	if runtime.GOOS == "linux" && suite.SetupInfo().RuntimeConfig.InstallConfig().LinuxOnly() {
+		if _, err := os.Stat("/etc/kubernetes/admin.conf"); err == nil {
+			suite.StatusChecker().IsK2sRunning(ctx)
+		} else {
+			GinkgoWriter.Println("Skipping native Linux status check because system reset removed runtime state")
+		}
+	} else {
+		suite.StatusChecker().IsK2sRunning(ctx)
+	}
 
 	GinkgoWriter.Println("Deleting workloads..")
 
