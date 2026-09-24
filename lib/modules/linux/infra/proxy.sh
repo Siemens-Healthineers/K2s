@@ -33,7 +33,8 @@ ExecStop=/usr/sbin/ip link delete k2s-proxy0
 WantedBy=multi-user.target
 EOF
   systemctl daemon-reload || return 1
-  systemctl enable --now k2s-proxy-network
+  systemctl enable k2s-proxy-network || return 1
+  systemctl restart k2s-proxy-network || return 1
 }
 
 k2s_proxy_install() {
@@ -68,7 +69,8 @@ WantedBy=multi-user.target
 EOF
   printf '%s\nAcquire::http::Proxy "%s";\nAcquire::https::Proxy "%s";\n' "$K2S_APT_PROXY_HEADER" "http://$gateway:8181" "http://$gateway:8181" > "$K2S_APT_PROXY_CONFIG"
   systemctl daemon-reload || return 1
-  systemctl enable --now k2s-httpproxy
+  systemctl enable k2s-httpproxy || return 1
+  systemctl restart k2s-httpproxy || return 1
 }
 
 k2s_proxy_cleanup() {
