@@ -9,12 +9,10 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
-	"os"
 	"os/exec"
-	"path/filepath"
 	"strings"
 
-	"github.com/siemens-healthineers/k2s/internal/definitions"
+	linuxlifecycle "github.com/siemens-healthineers/k2s/internal/linux/lifecycle"
 )
 
 type linuxSystemProvider struct {
@@ -52,20 +50,15 @@ func (p *linuxSystemProvider) Package(_ SystemPackageConfig) error {
 }
 
 func (p *linuxSystemProvider) Reset(_ SystemResetConfig) error {
-	slog.Info("[System] Resetting cluster via kubeadm reset")
-	output, err := linuxRunCombinedOutput("kubeadm", "reset", "-f")
-	if err != nil {
-		return fmt.Errorf("kubeadm reset -f failed: %w\n%s", err, strings.TrimSpace(string(output)))
+	// Resetting the cluster on Linux is done via the native uninstall process, similar to Windows system reset flow.
+	slog.Info("[System] Resetting cluster via native Linux uninstall")
+	if err := linuxlifecycle.Execute("Uninstall", linuxlifecycle.Operation{
+		InstallDir: p.installDir,
+		ConfigDir:  p.configDir,
+		LinuxOnly:  true,
+	}); err != nil {
+		return fmt.Errorf("native Linux uninstall failed: %w", err)
 	}
-
-	if err := p.resetNetwork(); err != nil {
-		return err
-	}
-
-	if err := p.removeRuntimeConfig(); err != nil {
-		return err
-	}
-
 	return nil
 }
 
@@ -112,18 +105,6 @@ func (p *linuxSystemProvider) resetNetwork() error {
 		return fmt.Errorf("linux network cleanup failed: %s", strings.Join(failures, "; "))
 	}
 
-	return nil
-}
-
-func (p *linuxSystemProvider) removeRuntimeConfig() error {
-	if p.configDir == "" {
-		return nil
-	}
-
-	runtimeConfigPath := filepath.Join(p.configDir, definitions.K2sRuntimeConfigFileName)
-	if err := os.Remove(runtimeConfigPath); err != nil && !errors.Is(err, os.ErrNotExist) {
-		return fmt.Errorf("remove runtime config %s: %w", runtimeConfigPath, err)
-	}
 	return nil
 }
 
