@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: © 2025 Siemens Healthineers AG
+# SPDX-FileCopyrightText: © 2026 Siemens Healthineers AG
 # SPDX-License-Identifier: MIT
 
 # CI Pipeline for K2s Unit Tests
@@ -64,3 +64,11 @@ jobs:
       run: |
         $ErrorActionPreference = "Continue"
         .\test\execute_all_tests.ps1 -Tags unit -V -ThrowOnFailure
+
+    - name: Upload test results
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: unit-test-results
+        path: ${{ runner.temp }}/k2s-test-results
+        if-no-files-found: ignore

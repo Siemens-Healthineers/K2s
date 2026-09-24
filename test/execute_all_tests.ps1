@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: © 2024 Siemens Healthineers AG
+# SPDX-FileCopyrightText: © 2026 Siemens Healthineers AG
 #
 # SPDX-License-Identifier: MIT
 
@@ -145,8 +145,7 @@ try {
         Install-PesterIfNecessary -Proxy $Proxy -PesterVersion $pesterVersion
 
         # Ensure working directory is an absolute, normalized path
-        Start-PesterTests -Tags $Tags -ExcludeTags $ExcludeTags -WorkingDir $rootDir -OutDir $TestResultPath -V:$V
-        $results.PowerShell = $LASTEXITCODE
+        $results.PowerShell = Start-PesterTests -Tags $Tags -ExcludeTags $ExcludeTags -WorkingDir $rootDir -OutDir $TestResultPath -V:$V
     }
     else {
         Write-Output 'Skipping Powershell tests'
