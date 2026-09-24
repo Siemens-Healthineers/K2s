@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: © 2024 Siemens Healthineers AG
+# SPDX-FileCopyrightText: © 2026 Siemens Healthineers AG
 # SPDX-License-Identifier: MIT
 
 #Requires -RunAsAdministrator
@@ -22,7 +22,9 @@ function Add-WindowsWorkerNodeOnWindowsHost {
         [string] $PodSubnetworkNumber = $(throw 'Argument missing: PodSubnetworkNumber'),
         [string] $JoinCommand = $(throw 'Argument missing: JoinCommand'),
         [parameter(Mandatory = $false, HelpMessage = 'The path to local builds of Kubernetes binaries')]
-        [string] $K8sBinsPath = ''
+        [string] $K8sBinsPath = '',
+        [parameter(Mandatory = $true, HelpMessage = 'Internal normalized effective install configuration path')]
+        [string] $EffectiveInstallConfigPath
     )
     Stop-InstallIfNoMandatoryServiceIsRunning
 
@@ -46,6 +48,7 @@ function Add-WindowsWorkerNodeOnWindowsHost {
         -PodSubnetworkNumber $PodSubnetworkNumber `
         -K8sBinsPath $K8sBinsPath
 
+    Set-K2sWindowsKubeletOverride -EffectiveInstallConfigPath $EffectiveInstallConfigPath | Out-Null
 
     # join the cluster
     Write-Log "Preparing Kubernetes $KubernetesVersion by joining nodes" -Console

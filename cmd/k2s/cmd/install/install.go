@@ -4,6 +4,7 @@
 package install
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -15,6 +16,7 @@ import (
 	config_contracts "github.com/siemens-healthineers/k2s/internal/contracts/config"
 	"github.com/siemens-healthineers/k2s/internal/core/config"
 	"github.com/siemens-healthineers/k2s/internal/definitions"
+	"github.com/siemens-healthineers/k2s/internal/effectiveconfig"
 	kos "github.com/siemens-healthineers/k2s/internal/os"
 	"github.com/siemens-healthineers/k2s/internal/provider"
 	"github.com/siemens-healthineers/k2s/internal/providers/powershell"
@@ -100,6 +102,9 @@ func init() {
 		MarkSetupAsCorruptedFunc: config.MarkSetupAsCorrupted,
 		DeleteConfigFunc: func(configDir string) error {
 			return os.Remove(filepath.Join(configDir, definitions.K2sRuntimeConfigFileName))
+		},
+		StageEffectiveInstallConfigFunc: func(configDir string, content []byte) (core.EffectiveInstallConfigSnapshot, error) {
+			return effectiveconfig.Stage(configDir, content)
 		},
 	}
 
@@ -212,7 +217,11 @@ func install(cmd *cobra.Command, args []string) error {
 		}
 	}
 
-	slog.Debug("Installing using config", "config", installConfig)
+	effectiveInstallConfig, err := json.MarshalIndent(installConfig, "", "  ")
+	if err != nil {
+		return fmt.Errorf("failed to serialize effective install configuration: %w", err)
+	}
+	slog.Debug("Installing using normalized effective configuration")
 
 	tzConfigHandle, err := createTzHandleFunc(context.Config().Host().KubeConfig())
 	if err != nil {
@@ -258,6 +267,7 @@ func install(cmd *cobra.Command, args []string) error {
 		Version:                           fmt.Sprintf("%s", ver),
 		ClusterName:                       "k2s-cluster",
 		ControlPlaneHostname:              hostname,
+		EffectiveInstallConfig:            effectiveInstallConfig,
 		StdWriter:                         outputWriter,
 	})
 	if err != nil {

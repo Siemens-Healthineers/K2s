@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText:  © 2024 Siemens Healthineers AG
+// SPDX-FileCopyrightText:  © 2026 Siemens Healthineers AG
 // SPDX-License-Identifier:   MIT
 
 package upgrade
@@ -60,7 +60,7 @@ var _ = Describe("upgrade", func() {
 		When("flags set", func() {
 			It("creates the command", func() {
 				const staticPartOfExpectedCmd = `\lib\scripts\windows\host\system\upgrade\Start-ClusterUpgrade.ps1`
-				const args = ` -ShowLogs -SkipResources  -DeleteFiles  -Config config.yaml -Proxy http://myproxy:81 -SkipImages -AdditionalHooksDir 'hookDir' -BackupDir 'backupDir'`
+				const args = ` -ShowLogs -SkipResources  -DeleteFiles  -Config 'config.yaml' -Proxy http://myproxy:81 -SkipImages -AdditionalHooksDir 'hookDir' -BackupDir 'backupDir'`
 				expected := utils.FormatScriptFilePath(utils.InstallDir()+staticPartOfExpectedCmd) + args
 
 				flags := UpgradeCmd.Flags()
@@ -94,6 +94,131 @@ var _ = Describe("upgrade", func() {
 
 				Expect(actual).To(Equal(expected))
 			})
+		})
+	})
+
+	Describe("prepareUpgradeInstallConfig", func() {
+		It("validates, normalizes, and stages the replacement independently of its source", func() {
+			sourceDir := GinkgoT().TempDir()
+			sourcePath := filepath.Join(sourceDir, "replacement config.yaml")
+			content := []byte(`kind: k2s
+apiVersion: v1
+nodes:
+  - role: control-plane
+    resources:
+      cpu: 6
+      memory: 6GB
+      disk: 50GB
+kubeletOverrides:
+  linuxControlPlane:
+    enabled: true
+    config:
+      maxPods: 42
+`)
+			Expect(os.WriteFile(sourcePath, content, 0o600)).To(Succeed())
+
+			stagedPath, cleanup, err := prepareUpgradeInstallConfig(sourcePath, "")
+
+			Expect(err).ToNot(HaveOccurred())
+			Expect(stagedPath).ToNot(Equal(sourcePath))
+			Expect(filepath.Dir(stagedPath)).ToNot(Equal(sourceDir))
+			Expect(os.Remove(sourcePath)).To(Succeed())
+			stagedContent, err := os.ReadFile(stagedPath)
+			Expect(err).ToNot(HaveOccurred())
+			var normalized map[string]any
+			Expect(json.Unmarshal(stagedContent, &normalized)).To(Succeed())
+			Expect(normalized).To(HaveKey("kubeletOverrides"))
+			Expect(cleanup()).To(Succeed())
+			_, err = os.Stat(stagedPath)
+			Expect(os.IsNotExist(err)).To(BeTrue())
+		})
+
+		It("rejects an invalid replacement before staging", func() {
+			sourcePath := filepath.Join(GinkgoT().TempDir(), "invalid.yaml")
+			content := []byte(`kind: k2s
+apiVersion: v1
+nodes:
+  - role: control-plane
+kubeletOverrides:
+  linuxControlPlane:
+    enabled: true
+    config:
+      unsupported: true
+`)
+			Expect(os.WriteFile(sourcePath, content, 0o600)).To(Succeed())
+
+			stagedPath, cleanup, err := prepareUpgradeInstallConfig(sourcePath, "")
+
+			Expect(err).To(MatchError(ContainSubstring("unsupported")))
+			Expect(stagedPath).To(BeEmpty())
+			Expect(cleanup).To(BeNil())
+		})
+
+		It("rejects a missing explicit replacement", func() {
+			sourcePath := filepath.Join(GinkgoT().TempDir(), "missing.yaml")
+
+			stagedPath, cleanup, err := prepareUpgradeInstallConfig(sourcePath, "")
+
+			Expect(errors.Is(err, os.ErrNotExist)).To(BeTrue())
+			Expect(stagedPath).To(BeEmpty())
+			Expect(cleanup).To(BeNil())
+		})
+
+		It("validates and stages the linked stored configuration", func() {
+			setupDir := GinkgoT().TempDir()
+			storedPath := filepath.Join(setupDir, definitions.EffectiveInstallConfigFileName)
+			storedConfig := []byte(`{"kind":"k2s","apiVersion":"v1","nodes":[{"role":"control-plane","resources":{"cpu":6,"memory":"6GB","disk":"50GB"}}]}`)
+			Expect(os.WriteFile(storedPath, storedConfig, 0o600)).To(Succeed())
+			setup, err := json.Marshal(map[string]any{definitions.EffectiveInstallConfigPathKey: storedPath})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(os.WriteFile(filepath.Join(setupDir, definitions.K2sRuntimeConfigFileName), setup, 0o600)).To(Succeed())
+
+			stagedPath, cleanup, err := prepareUpgradeInstallConfig("", setupDir)
+
+			Expect(err).ToNot(HaveOccurred())
+			Expect(stagedPath).ToNot(Equal(storedPath))
+			Expect(cleanup()).To(Succeed())
+		})
+
+		It("continues without a config when the linked stored configuration is missing", func() {
+			setupDir := GinkgoT().TempDir()
+			storedPath := filepath.Join(setupDir, definitions.EffectiveInstallConfigFileName)
+			setup, err := json.Marshal(map[string]any{definitions.EffectiveInstallConfigPathKey: storedPath})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(os.WriteFile(filepath.Join(setupDir, definitions.K2sRuntimeConfigFileName), setup, 0o600)).To(Succeed())
+
+			stagedPath, cleanup, err := prepareUpgradeInstallConfig("", setupDir)
+
+			Expect(err).ToNot(HaveOccurred())
+			Expect(stagedPath).To(BeEmpty())
+			Expect(cleanup()).To(Succeed())
+		})
+
+		It("rejects an invalid linked stored configuration", func() {
+			setupDir := GinkgoT().TempDir()
+			storedPath := filepath.Join(setupDir, definitions.EffectiveInstallConfigFileName)
+			storedConfig := []byte(`{"kind":"k2s","apiVersion":"v1","nodes":[{"role":"control-plane"}],"kubeletOverrides":{"linuxControlPlane":{"enabled":true,"config":{"unsupported":true}}}}`)
+			Expect(os.WriteFile(storedPath, storedConfig, 0o600)).To(Succeed())
+			setup, err := json.Marshal(map[string]any{definitions.EffectiveInstallConfigPathKey: storedPath})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(os.WriteFile(filepath.Join(setupDir, definitions.K2sRuntimeConfigFileName), setup, 0o600)).To(Succeed())
+
+			stagedPath, cleanup, err := prepareUpgradeInstallConfig("", setupDir)
+
+			Expect(err).To(HaveOccurred())
+			Expect(stagedPath).To(BeEmpty())
+			Expect(cleanup).To(BeNil())
+		})
+
+		It("continues without a config for a legacy setup without a snapshot link", func() {
+			setupDir := GinkgoT().TempDir()
+			Expect(os.WriteFile(filepath.Join(setupDir, definitions.K2sRuntimeConfigFileName), []byte(`{"SetupType":"k2s"}`), 0o600)).To(Succeed())
+
+			stagedPath, cleanup, err := prepareUpgradeInstallConfig("", setupDir)
+
+			Expect(err).ToNot(HaveOccurred())
+			Expect(stagedPath).To(BeEmpty())
+			Expect(cleanup()).To(Succeed())
 		})
 	})
 

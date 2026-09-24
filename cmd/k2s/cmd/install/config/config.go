@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText:  © 2024 Siemens Healthineers AG
+// SPDX-FileCopyrightText:  © 2026 Siemens Healthineers AG
 // SPDX-License-Identifier:   MIT
 
 package config
@@ -56,12 +56,34 @@ type configOverwriter interface {
 }
 
 type InstallConfig struct {
-	Kind       string         `mapstructure:"kind"`
-	ApiVersion string         `mapstructure:"apiVersion"`
-	Nodes      []NodeConfig   `mapstructure:"nodes"`
-	Env        EnvConfig      `mapstructure:"env"`
-	Behavior   BehaviorConfig `mapstructure:"installBehavior"`
-	LinuxOnly  bool           `mapstructure:"linuxOnly"`
+	Kind             string                 `mapstructure:"kind" json:"kind" yaml:"kind"`
+	ApiVersion       string                 `mapstructure:"apiVersion" json:"apiVersion" yaml:"apiVersion"`
+	Nodes            []NodeConfig           `mapstructure:"nodes" json:"nodes" yaml:"nodes"`
+	Env              EnvConfig              `mapstructure:"env" json:"env" yaml:"env"`
+	Behavior         BehaviorConfig         `mapstructure:"installBehavior" json:"installBehavior" yaml:"installBehavior"`
+	LinuxOnly        bool                   `mapstructure:"linuxOnly" json:"linuxOnly" yaml:"linuxOnly"`
+	KubeletOverrides KubeletOverridesConfig `mapstructure:"kubeletOverrides" json:"kubeletOverrides" yaml:"kubeletOverrides"`
+}
+
+type KubeletOverridesConfig struct {
+	LinuxControlPlane *KubeletRoleConfig `mapstructure:"linuxControlPlane" json:"linuxControlPlane,omitempty" yaml:"linuxControlPlane,omitempty"`
+	WindowsWorker     *KubeletRoleConfig `mapstructure:"windowsWorker" json:"windowsWorker,omitempty" yaml:"windowsWorker,omitempty"`
+}
+
+type KubeletRoleConfig struct {
+	Enabled bool                          `mapstructure:"enabled" json:"enabled" yaml:"enabled"`
+	Config  KubeletConfigurationOverrides `mapstructure:"config" json:"config" yaml:"config"`
+}
+
+type KubeletConfigurationOverrides struct {
+	MaxPods        *int64            `mapstructure:"maxPods" json:"maxPods,omitempty" yaml:"maxPods,omitempty"`
+	SystemReserved ResourceOverrides `mapstructure:"systemReserved" json:"systemReserved,omitempty" yaml:"systemReserved,omitempty"`
+	KubeReserved   ResourceOverrides `mapstructure:"kubeReserved" json:"kubeReserved,omitempty" yaml:"kubeReserved,omitempty"`
+}
+
+type ResourceOverrides struct {
+	Cpu    string `mapstructure:"cpu" json:"cpu,omitempty" yaml:"cpu,omitempty"`
+	Memory string `mapstructure:"memory" json:"memory,omitempty" yaml:"memory,omitempty"`
 }
 
 type NodeConfig struct {
@@ -70,20 +92,20 @@ type NodeConfig struct {
 }
 
 type ResourceConfig struct {
-	Cpu          string `mapstructure:"cpu"`
-	Memory       string `mapstructure:"memory"`
-	MemoryMin    string `mapstructure:"memoryMin"`
-	MemoryMax    string `mapstructure:"memoryMax"`
-	DynamicMemory bool  `mapstructure:"dynamicMemory"`
-	Disk         string `mapstructure:"disk"`
+	Cpu           string `mapstructure:"cpu"`
+	Memory        string `mapstructure:"memory"`
+	MemoryMin     string `mapstructure:"memoryMin"`
+	MemoryMax     string `mapstructure:"memoryMax"`
+	DynamicMemory bool   `mapstructure:"dynamicMemory"`
+	Disk          string `mapstructure:"disk"`
 }
 
 type EnvConfig struct {
-	Proxy              string   `mapstructure:"httpProxy"`
-	NoProxy            []string `mapstructure:"noProxy"`
-	AdditionalHooksDir string   `mapstructure:"additionalHooksDir"`
-	RestartPostInstall string   `mapstructure:"restartPostInstallCount"`
-	K8sBins            string   `mapstructure:"k8sBins"`
+	Proxy              string   `mapstructure:"httpProxy" json:"httpProxy" yaml:"httpProxy"`
+	NoProxy            []string `mapstructure:"noProxy" json:"noProxy" yaml:"noProxy"`
+	AdditionalHooksDir string   `mapstructure:"additionalHooksDir" json:"additionalHooksDir" yaml:"additionalHooksDir"`
+	RestartPostInstall string   `mapstructure:"restartPostInstallCount" json:"restartPostInstallCount" yaml:"restartPostInstallCount"`
+	K8sBins            string   `mapstructure:"k8sBins" json:"k8sBins" yaml:"k8sBins"`
 }
 
 type BehaviorConfig struct {
@@ -113,7 +135,6 @@ const (
 
 	ControlPlaneMemoryMaxFlagName  = "master-memory-max"
 	ControlPlaneMemoryMaxFlagUsage = "Maximum amount of RAM for dynamic memory (format: <number>[<unit>], where unit = KB, MB or GB)"
-
 
 	ControlPlaneDiskSizeFlagName  = "master-disk"
 	ControlPlaneDiskSizeFlagUsage = "Disk size allocated to the master VM (minimum 10GB, format: <number>[<unit>], where unit = KB, MB or GB)"
@@ -170,6 +191,18 @@ func NewInstallConfigAccess() *installConfigAccess {
 	}
 }
 
+func LoadFile(path string) (*InstallConfig, error) {
+	access := NewInstallConfigAccess()
+	if err := access.loadBaseConfig(k2sConfigType); err != nil {
+		return nil, err
+	}
+	access.config.Set(ConfigFileFlagName, path)
+	if err := access.loadUserConfig(k2sConfigType); err != nil {
+		return nil, err
+	}
+	return access.normalize(nil)
+}
+
 func (i *installConfigAccess) Load(kind Kind, flags *pflag.FlagSet) (*InstallConfig, error) {
 	i.config.BindPFlags(flags)
 
@@ -185,23 +218,25 @@ func (i *installConfigAccess) Load(kind Kind, flags *pflag.FlagSet) (*InstallCon
 		}
 	}
 
+	return i.normalize(flags)
+}
+
+func (i *installConfigAccess) normalize(flags *pflag.FlagSet) (*InstallConfig, error) {
 	config, err := i.converter.convert(i.config)
 	if err != nil {
 		return nil, err
 	}
 
-	i.overwriter.overwrite(config, i.config, flags)
+	if flags != nil {
+		i.overwriter.overwrite(config, i.config, flags)
+	}
 
 	autoEnableDynamicMemory(config)
 
-	err = validateDynamicMemoryConfiguration(config)
-	if err != nil {
+	if err := validateDynamicMemoryConfiguration(config); err != nil {
 		return nil, err
 	}
-
-	// Validate WSL compatibility
-	err = validateWslCompatibility(config)
-	if err != nil {
+	if err := validateWslCompatibility(config); err != nil {
 		return nil, err
 	}
 
@@ -285,12 +320,104 @@ func (*userConfigValidator) validate(kind Kind, config *viper.Viper) error {
 		return fmt.Errorf("error in user-provided config: API version mismatch. Supported: %s, found: '%s'", SupportedApiVersion, config.GetString("apiVersion"))
 	}
 
+	if err := validateKubeletOverrides(config); err != nil {
+		return err
+	}
+
 	nodes := config.Get("nodes").([]any)
 	for _, node := range nodes {
 		n := node.(map[string]any)
 
 		if n["role"] != ControlPlaneRoleName {
 			return fmt.Errorf("error in user-provided config: Invalid node role name. Supported: (%s), found: '%s'", ControlPlaneRoleName, n["role"])
+		}
+	}
+
+	return nil
+}
+
+func validateKubeletOverrides(config *viper.Viper) error {
+	value := config.Get("kubeletoverrides")
+	if value == nil {
+		return nil
+	}
+
+	overrides, ok := kubeletStringMap(value)
+	if !ok {
+		return fmt.Errorf("error in user-provided config: kubeletOverrides must be an object")
+	}
+
+	for role, rawRole := range overrides {
+		if role != "linuxcontrolplane" && role != "windowsworker" {
+			return fmt.Errorf("error in user-provided config: unsupported kubeletOverrides role '%s'", role)
+		}
+
+		roleConfig, ok := kubeletStringMap(rawRole)
+		if !ok {
+			return fmt.Errorf("error in user-provided config: kubeletOverrides.%s must be an object", role)
+		}
+		if err := validateKubeletRole(role, roleConfig); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func validateKubeletRole(role string, roleConfig map[string]any) error {
+	for field := range roleConfig {
+		if field != "enabled" && field != "config" {
+			return fmt.Errorf("error in user-provided config: unsupported kubeletOverrides.%s field '%s'", role, field)
+		}
+	}
+
+	if enabled, exists := roleConfig["enabled"]; exists {
+		if _, ok := enabled.(bool); !ok {
+			return fmt.Errorf("error in user-provided config: kubeletOverrides.%s.enabled must be a boolean", role)
+		}
+	}
+
+	rawConfig, exists := roleConfig["config"]
+	if !exists || rawConfig == nil {
+		return nil
+	}
+	configValues, ok := kubeletStringMap(rawConfig)
+	if !ok {
+		return fmt.Errorf("error in user-provided config: kubeletOverrides.%s.config must be an object", role)
+	}
+
+	for field, value := range configValues {
+		switch field {
+		case "maxpods":
+			maxPods, ok := kubeletInteger(value)
+			if !ok || maxPods <= 0 {
+				return fmt.Errorf("error in user-provided config: kubeletOverrides.%s.config.maxPods must be a positive integer", role)
+			}
+		case "systemreserved", "kubereserved":
+			if err := validateKubeletResources(role, field, value); err != nil {
+				return err
+			}
+		default:
+			return fmt.Errorf("error in user-provided config: unsupported kubeletOverrides.%s.config field '%s'", role, field)
+		}
+	}
+
+	return nil
+}
+
+func validateKubeletResources(role string, field string, value any) error {
+	resources, ok := kubeletStringMap(value)
+	if !ok {
+		return fmt.Errorf("error in user-provided config: kubeletOverrides.%s.config.%s must be an object", role, field)
+	}
+
+	for resource, rawValue := range resources {
+		if resource != "cpu" && resource != "memory" {
+			return fmt.Errorf("error in user-provided config: unsupported kubeletOverrides.%s.config.%s field '%s'", role, field, resource)
+		}
+		path := fmt.Sprintf("kubeletOverrides.%s.config.%s.%s", role, field, resource)
+		if err := validateKubeletResourceValue(path, rawValue); err != nil {
+			return err
 		}
 	}
 
@@ -401,7 +528,6 @@ func autoEnableDynamicMemory(config *InstallConfig) {
 	}
 }
 
-
 func validateMemoryBounds(memoryBytes int64, parameterName string, parameterValue string) error {
 	if memoryBytes < minMemoryBytes {
 		return fmt.Errorf("memory configuration error: %s (%s) must be at least 2GB (Kubernetes requirement)", parameterName, parameterValue)
@@ -411,7 +537,6 @@ func validateMemoryBounds(memoryBytes int64, parameterName string, parameterValu
 	}
 	return nil
 }
-
 
 func validateDynamicMemoryConfiguration(config *InstallConfig) error {
 	for i := range config.Nodes {
@@ -557,4 +682,3 @@ func parseMemorySize(size string) (int64, error) {
 
 	return num, nil
 }
-
