@@ -31,6 +31,17 @@ $ociModule = "$PSScriptRoot\oci.module.psm1"
 
 Import-Module $infraModule, $clusterModule, $nodeModule, $addonsModule, $exportModule, $ociModule
 
+function New-CompatTemporaryFile {
+    <#
+    .SYNOPSIS
+    Creates a temporary file object compatible with New-TemporaryFile usage
+    #>
+    $tempPath = [System.IO.Path]::GetTempFileName()
+    return [PSCustomObject]@{
+        FullName = $tempPath
+    }
+}
+
 # Read K2s version for export metadata and file naming
 $k2sVersion = Get-Content "$PSScriptRoot\..\VERSION" -Raw | ForEach-Object { $_.Trim() }
 
@@ -290,14 +301,14 @@ try {
                     try {
                         Copy-Item -Path $manifestFile -Destination $configManifestPath -Force
                         
-                        $tempFilterFile = New-K2sTempFile
+                        $tempFilterFile = New-CompatTemporaryFile
                         $filterContent = ".spec.implementations |= [.[] | select(.name == `"$($implementation.name)`")]"
-                        Set-Content -Path $tempFilterFile -Value $filterContent -Encoding ASCII
+                        Set-Content -Path $tempFilterFile.FullName -Value $filterContent -Encoding ASCII
                         
-                        & $yqExe eval --from-file $tempFilterFile --inplace $configManifestPath
+                        & $yqExe eval --from-file $tempFilterFile.FullName --inplace $configManifestPath
                         
                         Write-Log "Filtered manifest for single implementation: $($implementation.name)" -Console
-                        Remove-Item -Path $tempFilterFile -Force -ErrorAction SilentlyContinue
+                        Remove-Item -Path $tempFilterFile.FullName -Force -ErrorAction SilentlyContinue
                     } catch {
                         Write-Log "Failed to filter manifest with yq.exe (Path: $yqExe), falling back to copy: $_" -Console
                         Copy-Item -Path $manifestFile -Destination $configManifestPath -Force
@@ -847,13 +858,13 @@ try {
             } else {
                 # Use OCI empty descriptor as fallback 
                 $emptyJson = '{}'
-                $emptyTempFile = New-K2sTempFile
+                $emptyTempFile = New-CompatTemporaryFile
                 try {
-                    [System.IO.File]::WriteAllText($emptyTempFile, $emptyJson, [System.Text.UTF8Encoding]::new($false))
-                    $emptyBlobResult = Add-ContentToBlobs -BlobsDir $blobsDir -SourcePath $emptyTempFile -Move
+                    [System.IO.File]::WriteAllText($emptyTempFile.FullName, $emptyJson, [System.Text.UTF8Encoding]::new($false))
+                    $emptyBlobResult = Add-ContentToBlobs -BlobsDir $blobsDir -SourcePath $emptyTempFile.FullName -Move
                 } finally {
-                    if (Test-Path $emptyTempFile) {
-                        Remove-Item -Path $emptyTempFile -Force -ErrorAction SilentlyContinue
+                    if (Test-Path $emptyTempFile.FullName) {
+                        Remove-Item -Path $emptyTempFile.FullName -Force -ErrorAction SilentlyContinue
                     }
                 }
                 $ociManifest.layers = @(

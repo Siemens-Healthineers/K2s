@@ -10,11 +10,14 @@ This guide explains how to back up and restore your entire K2s cluster state, in
 
 ## Overview
 
-K2s provides comprehensive backup and restore functionality for your cluster:
+K2s provides comprehensive backup and restore functionality for your cluster across supported platforms:
 
-- **`k2s system backup`**: Creates a complete backup of cluster resources, persistent volumes, and container images
+- **`k2s system backup`**: Creates a complete backup of cluster resources, persistent volumes, and container images (supported on both Windows and Linux hosts)
 - **`k2s system restore`**: Restores cluster state from a backup archive
 - **Integration with Upgrade**: The `k2s system upgrade` command automatically creates a backup before upgrading
+
+!!! tip "Dual-Platform Support"
+    `k2s system backup` runs natively on both **Windows** (using PowerShell automation) and **Linux** hosts (using Go native orchestration and CLI tools).
 
 ## Configuration Settings
 
@@ -73,37 +76,50 @@ k2s system backup [options]
 
 | Option | Short | Description | Required |
 |--------|-------|-------------|----------|
-| `--file` | `-f` | Path to backup archive file (`.zip`) | Yes |
+| `--file` | `-f` | Path to backup archive file (`.zip`). Defaults to temp directory if omitted. | No |
 | `--skip-images` | | Skip container image backup (faster, smaller backup) | No |
 | `--skip-pvs` | | Skip persistent volume backup | No |
-| `--output-style` | `-o` | Output style (standard, verbose, structured) | No |
-| `--show-logs` | `-v` | Show detailed logs during backup | No |
+| `--additional-hooks-dir` | | Directory with additional custom hook scripts | No |
+| `--output` | `-o` | Show command output in terminal | No |
+| `--verbosity` | `-v` | Log level verbosity (`debug`, `info`, `warn`, `error`) | No |
 | `--help` | `-h` | Display help information | No |
 
 ### Examples
 
 #### Full Backup (All Resources, Images, and PVs)
 
+Windows:
 ```console
-k2s system backup -f c:\backups\k2s-full-backup.zip
+k2s system backup -f C:\backups\k2s-full-backup.zip
+```
+
+Linux:
+```console
+k2s system backup -f /tmp/backups/k2s-full-backup.zip
 ```
 
 #### Quick Backup (Skip Images for Speed)
 
+Windows:
 ```console
-k2s system backup -f c:\backups\k2s-quick.zip --skip-images
+k2s system backup -f C:\backups\k2s-quick.zip --skip-images
+```
+
+Linux:
+```console
+k2s system backup -f /tmp/backups/k2s-quick.zip --skip-images
 ```
 
 #### Configuration-Only Backup (No Images or PVs)
 
 ```console
-k2s system backup -f c:\backups\k2s-config.zip --skip-images --skip-pvs
+k2s system backup -f /tmp/backups/k2s-config.zip --skip-images --skip-pvs
 ```
 
-#### Verbose Backup with Detailed Logs
+#### Verbose Backup with Terminal Output
 
 ```console
-k2s system backup -f c:\backups\k2s-backup.zip -o -v
+k2s system backup -f /tmp/backups/k2s-backup.zip -o -v debug
 ```
 
 ## Backup Contents
@@ -122,9 +138,8 @@ Namespaced/
 NotNamespaced/
   <resource-type>.yaml   # Cluster-scoped resources
 pv/
-  <pv-name>/
-    data/                # Persistent volume data
-    metadata.json        # PV metadata
+  <pv-name>-backup.tar.gz       # Compressed persistent volume data
+  <pv-name>-backup-metadata.json # PV metadata (capacity, claim binding, reclaim policy)
 images/
   <image-name>.tar       # Container images (nerdctl save format)
 hooks/
@@ -239,12 +254,13 @@ k2s system backup -f backup.zip
 
 ## Custom Backup Hooks
 
-K2s supports custom backup logic via hooks:
+K2s supports custom backup logic via hooks on both Windows and Linux:
 
 ### Hook Locations
 
-- **Built-in**: `lib/scripts/windows/host/system/backup/hooks/`
-- **Custom**: Specify with `--additional-hooks-dir` flag
+- **Addon hooks**: `addons/**/Backup.ps1` (Windows) or `addons/**/Backup.sh` (Linux)
+- **Built-in hooks**: `lib/scripts/windows/host/system/backup/hooks/` (Windows)
+- **Custom hooks**: Specify with `--additional-hooks-dir` flag containing `*.Backup.ps1` (Windows) or `*.Backup.sh` / `*.sh` (Linux)
 
 ### Hook Types
 
@@ -252,7 +268,9 @@ K2s supports custom backup logic via hooks:
 - **Post-backup**: Execute after backup completes
 - **Resource-specific**: Execute for specific resource types
 
-### Hook Example
+### Hook Examples
+
+#### Windows PowerShell Hook Example
 
 ```powershell
 # hooks/my-app-backup.ps1
@@ -267,6 +285,34 @@ Write-Host "Executing custom backup logic for my-app..."
 kubectl exec -n my-app my-db-0 -- pg_dump mydb > "$BackupDir/my-app-db.sql"
 
 Write-Host "Custom backup complete"
+```
+
+#### Linux Bash Hook Example
+
+```bash
+#!/usr/bin/env bash
+# hooks/my-app-backup.sh
+set -euo pipefail
+
+BACKUP_DIR=""
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --backup-dir)
+      BACKUP_DIR="$2"
+      shift 2
+      ;;
+    *)
+      shift
+      ;;
+  esac
+done
+
+echo "Executing custom backup logic for my-app..."
+
+# Example: Dump database to file
+kubectl exec -n my-app my-db-0 -- pg_dump mydb > "${BACKUP_DIR}/my-app-db.sql"
+
+echo "Custom backup complete"
 ```
 
 For more details on hooks, see [Hook System Documentation](hook-system.md).
