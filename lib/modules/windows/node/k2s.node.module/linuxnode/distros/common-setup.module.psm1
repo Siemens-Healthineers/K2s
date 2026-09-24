@@ -1269,30 +1269,6 @@ function Set-K2sLinuxKubeletOverride {
     }
 }
 
-function Write-KubeInitFailureDiagnostics {
-    param(
-        [Parameter(Mandatory = $true)]
-        [ScriptBlock] $ExecuteRemoteCommand
-    )
-
-    # Temporary diagnostics for the #2843 CI investigation. Remove after the
-    # installation pipeline has completed successfully and the failure is understood.
-    $diagnostics = @(
-        [pscustomobject]@{ Name = 'service activity'; Command = 'sudo systemctl is-active kubelet crio' }
-        [pscustomobject]@{ Name = 'service status'; Command = 'sudo systemctl status kubelet crio --no-pager -l' }
-        [pscustomobject]@{ Name = 'service journals'; Command = 'sudo journalctl -u kubelet -u crio -b --no-pager -n 300' }
-        [pscustomobject]@{ Name = 'kubelet flags'; Command = 'sudo cat /var/lib/kubelet/kubeadm-flags.env' }
-        [pscustomobject]@{ Name = 'kubelet drop-in directory'; Command = 'sudo ls -ld /etc/kubernetes/kubelet.conf.d' }
-        [pscustomobject]@{ Name = 'container runtime state'; Command = 'sudo crictl ps -a' }
-    )
-
-    Write-Log '[KubeInit][Diagnostics] Collecting control-plane failure diagnostics' -Console
-    foreach ($diagnostic in $diagnostics) {
-        Write-Log "[KubeInit][Diagnostics] $($diagnostic.Name)" -Console
-        &$ExecuteRemoteCommand $diagnostic.Command -IgnoreErrors
-    }
-}
-
 Function Set-UpMasterNode {
     param (
         [ValidateScript({ !([string]::IsNullOrWhiteSpace($_)) })]
@@ -1413,9 +1389,8 @@ failCgroupV1: false
     }
     $initResult.Output | Write-Log
     if (-not $initResult.Success) {
-        Write-KubeInitFailureDiagnostics -ExecuteRemoteCommand $executeRemoteCommand
         &$executeRemoteCommand 'rm -rf ~/tmp/kubeadm-init' -IgnoreErrors
-        throw '[KubeInit] kubeadm init failed after retries. Review the [KubeInit][Diagnostics] entries above for kubelet, CRI-O, and control-plane details.'
+        throw "[KubeInit] kubeadm init failed after retries. Check proxy settings and network connectivity to container registry (registry.k8s.io)."
     }
 
     &$executeRemoteCommand 'rm -rf ~/tmp/kubeadm-init'

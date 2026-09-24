@@ -39,35 +39,3 @@ Describe 'Get-GpuContainerImages' -Tag 'unit', 'ci', 'gpu' {
         }
     }
 }
-
-Describe 'Write-KubeInitFailureDiagnostics' -Tag 'unit', 'ci', 'kube-init' {
-    It 'collects all diagnostics and ignores individual command failures' {
-        InModuleScope $moduleName {
-            Mock Write-Log {}
-            $script:diagnosticCalls = @()
-            $executor = {
-                param(
-                    [string] $Command,
-                    [switch] $IgnoreErrors
-                )
-                $script:diagnosticCalls += [pscustomobject]@{
-                    Command      = $Command
-                    IgnoreErrors = $IgnoreErrors.IsPresent
-                }
-            }
-
-            Write-KubeInitFailureDiagnostics -ExecuteRemoteCommand $executor
-
-            $script:diagnosticCalls.Count | Should -Be 6
-            $script:diagnosticCalls.Command | Should -Be @(
-                'sudo systemctl is-active kubelet crio'
-                'sudo systemctl status kubelet crio --no-pager -l'
-                'sudo journalctl -u kubelet -u crio -b --no-pager -n 300'
-                'sudo cat /var/lib/kubelet/kubeadm-flags.env'
-                'sudo ls -ld /etc/kubernetes/kubelet.conf.d'
-                'sudo crictl ps -a'
-            )
-            $script:diagnosticCalls.IgnoreErrors | Should -Not -Contain $false
-        }
-    }
-}
