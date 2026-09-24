@@ -25,8 +25,8 @@ Param(
 	[switch] $ShowLogs = $false
 )
 
-# Detect if running from delta package (delta-manifest.json 5 levels up)
-$possibleDeltaRoot = Split-Path (Split-Path (Split-Path (Split-Path (Split-Path $PSScriptRoot -Parent) -Parent) -Parent) -Parent) -Parent
+# Detect if running from delta package (delta-manifest.json 6 levels up)
+$possibleDeltaRoot = [System.IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..\..\..\..\..\..'))
 $deltaManifestPath = Join-Path $possibleDeltaRoot 'delta-manifest.json'
 $runningFromDelta = Test-Path -LiteralPath $deltaManifestPath
 
@@ -68,7 +68,7 @@ if ($runningFromDelta) {
 	$updateModule = "$PSScriptRoot\..\..\..\..\..\modules\windows\cluster\k2s.cluster.module\update\update.module.psm1"
 }
 
-Import-Module $infraModule, $clusterModule, $addonsModule, $updateModule
+Import-Module $infraModule, $clusterModule, $addonsModule, $updateModule -ErrorAction Stop
 
 Initialize-Logging -ShowLogs:$ShowLogs
 
@@ -122,4 +122,8 @@ function Start-ClusterUpdate {
 #####################################################
 
 Write-Log 'Starting updating cluster' -Console
-Start-ClusterUpdate -ShowProgress:$ShowProgress -ShowLogs:$ShowLogs
+$updateSucceeded = Start-ClusterUpdate -ShowProgress:$ShowProgress -ShowLogs:$ShowLogs
+if (-not $updateSucceeded) {
+	exit 1
+}
+exit 0
