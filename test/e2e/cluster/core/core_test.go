@@ -399,7 +399,11 @@ func controlPlaneNodeName() string {
 
 func restoreLinuxOnlyCoreSuiteState(ctx context.Context) {
 	GinkgoWriter.Println("Reinstalling native Linux-only cluster after reset..")
-	suite.K2sCli().MustExec(ctx, "install", "--linux-only")
+	installArgs := []string{"install", "--linux-only"}
+	if suite.Proxy() != "" {
+		installArgs = append(installArgs, "--proxy", suite.Proxy())
+	}
+	suite.K2sCli().UseProxy().MustExec(ctx, installArgs...)
 	suite.SetupInfo().ReloadRuntimeConfig()
 	Expect(suite.SetupInfo().RuntimeConfig.InstallConfig().LinuxOnly()).To(BeTrue())
 	suite.Kubectl().MustExec(ctx, "get", "nodes")
