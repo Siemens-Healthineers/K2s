@@ -137,6 +137,8 @@ The `delta-manifest.json` file describes the changes between versions. A typical
 
 When a delta package is applied, the **extracted delta folder becomes the new active installation folder**. After the update, `setup.json` (`InstallFolder`) points to this folder and the cluster services run from it.
 
+The upgrade checks the original installation's persisted `setup.json` after relocation and before reporting success. A missing file or mismatched `InstallFolder` fails the upgrade rather than reporting a successful relocation.
+
 Because of this, extract the delta package to the location where you want the upgraded installation to live — typically a versioned folder such as `C:\k2s\<new-version>`:
 
 - The previous installation folder is **left untouched and retained for rollback**. You may delete it after you have verified the upgrade.
