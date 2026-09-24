@@ -51,6 +51,15 @@ function Get-ClusterInstalledFolder {
 	return $installFolder
 }
 
+function Get-UpdateVmModulePath {
+	if ($script:runningFromDelta) {
+		$installFolder = Get-ClusterInstalledFolder
+		return Join-Path $installFolder 'lib\modules\windows\node\k2s.node.module\linuxnode\vm\vm.module.psm1'
+	}
+
+	return "$PSScriptRoot\..\..\..\node\k2s.node.module\linuxnode\vm\vm.module.psm1"
+}
+
 function Get-ProductVersionGivenKubePath {
 	param (
 		[Parameter(Mandatory = $false)]
@@ -131,14 +140,14 @@ function Restore-CoreDnsEtcdConfiguration {
 		
 		# Verify SSH helper is available
 		if (-not (Get-Command -Name Invoke-CmdOnControlPlaneViaSSHKey -ErrorAction SilentlyContinue)) {
-			$vmModule = "$PSScriptRoot\..\..\..\node\k2s.node.module\linuxnode\vm\vm.module.psm1"
+			$vmModule = Get-UpdateVmModulePath
 			if (Test-Path -LiteralPath $vmModule) { 
-				Import-Module $vmModule -ErrorAction SilentlyContinue 
+				Import-Module $vmModule -Force -ErrorAction SilentlyContinue
 			} else {
 				$installFolder = Get-ClusterInstalledFolder
 				$vmModule = Join-Path $installFolder 'lib/modules/windows/node/k2s.node.module/linuxnode/vm/vm.module.psm1'
 				if (Test-Path -LiteralPath $vmModule) {
-					Import-Module $vmModule -ErrorAction SilentlyContinue
+					Import-Module $vmModule -Force -ErrorAction SilentlyContinue
 				}
 			}
 		}
@@ -313,13 +322,13 @@ function Restore-ClusterIPWebhook {
 
 		# Verify SSH helpers are available
 		if (-not (Get-Command -Name Invoke-CmdOnControlPlaneViaSSHKey -ErrorAction SilentlyContinue)) {
-			$vmModule = "$PSScriptRoot\..\..\..\node\k2s.node.module\linuxnode\vm\vm.module.psm1"
+			$vmModule = Get-UpdateVmModulePath
 			if (Test-Path -LiteralPath $vmModule) {
-				Import-Module $vmModule -ErrorAction SilentlyContinue
+				Import-Module $vmModule -Force -ErrorAction SilentlyContinue
 			} else {
 				$vmModule = Join-Path $TargetInstallPath 'lib/modules/windows/node/k2s.node.module/linuxnode/vm/vm.module.psm1'
 				if (Test-Path -LiteralPath $vmModule) {
-					Import-Module $vmModule -ErrorAction SilentlyContinue
+					Import-Module $vmModule -Force -ErrorAction SilentlyContinue
 				}
 			}
 		}
@@ -1910,8 +1919,8 @@ function Invoke-GuestConfigDeltaApply {
 	}
 
 	# Import vm module + verify control plane reachability (mirror Invoke-CommandInMasterVM).
-	$vmModule = "$PSScriptRoot\..\..\..\node\k2s.node.module\linuxnode\vm\vm.module.psm1"
-	if (Test-Path -LiteralPath $vmModule) { Import-Module $vmModule -ErrorAction SilentlyContinue }
+	$vmModule = Get-UpdateVmModulePath
+	if (Test-Path -LiteralPath $vmModule) { Import-Module $vmModule -Force -ErrorAction SilentlyContinue }
 	if (-not (Get-Command -Name Invoke-CmdOnControlPlaneViaSSHKey -ErrorAction SilentlyContinue) -or
 		-not (Get-Command -Name Copy-ToControlPlaneViaSSHKey -ErrorAction SilentlyContinue)) {
 		Write-Log '[GuestConfigApply][Warn] SSH helpers not available; skipping guest-config apply.' -Console:$consoleSwitch
@@ -2029,8 +2038,11 @@ function Invoke-CommandInMasterVM {
 	if (-not (Test-Path -LiteralPath $ScriptPath)) { throw "ScriptPath not found: $ScriptPath" }
 
 	# Import vm module to access SSH helpers (idempotent import)
-	$vmModule = "$PSScriptRoot\..\..\..\node\k2s.node.module\linuxnode\vm\vm.module.psm1"
-	if (Test-Path -LiteralPath $vmModule) { Import-Module $vmModule -ErrorAction SilentlyContinue }
+	$vmModule = Get-UpdateVmModulePath
+	if (-not (Test-Path -LiteralPath $vmModule)) {
+		throw "VM module not found: $vmModule"
+	}
+	Import-Module $vmModule -Force -ErrorAction Stop
 	if (-not (Get-Command -Name Invoke-CmdOnControlPlaneViaSSHKey -ErrorAction SilentlyContinue)) {
 		throw 'Invoke-CmdOnControlPlaneViaSSHKey not available (vm module not imported)'
 	}
@@ -2044,8 +2056,8 @@ function Invoke-CommandInMasterVM {
 	}
 	if (-not $wslEnabled) {
 		# Import vm module for Get-IsControlPlaneRunning / Wait-ForSSHConnectionToLinuxVMViaSshKey
-		$vmModule = "$PSScriptRoot\..\..\..\node\k2s.node.module\linuxnode\vm\vm.module.psm1"
-		if (Test-Path -LiteralPath $vmModule) { Import-Module $vmModule -ErrorAction SilentlyContinue }
+		$vmModule = Get-UpdateVmModulePath
+		if (Test-Path -LiteralPath $vmModule) { Import-Module $vmModule -Force -ErrorAction SilentlyContinue }
 		$cpRunning = $false
 		if (Get-Command -Name Get-IsControlPlaneRunning -ErrorAction SilentlyContinue) {
 			try { $cpRunning = Get-IsControlPlaneRunning } catch { $cpRunning = $false }
@@ -2072,12 +2084,27 @@ function Invoke-CommandInMasterVM {
 	$remoteScriptName = Split-Path -Leaf $ScriptPath
 	$remoteScriptPath = "$remoteBase/$remoteScriptName"
 
+	function Invoke-RequiredControlPlaneCommand {
+		param(
+			[Parameter(Mandatory = $true)][string] $Command,
+			[Parameter(Mandatory = $true)][string] $Operation
+		)
+
+		$result = Invoke-CmdOnControlPlaneViaSSHKey $Command -Retries $RetryCount -Timeout 2
+		if ($null -eq $result -or -not $result.Success) {
+			throw "$Operation failed on the control plane"
+		}
+		return $result.Output
+	}
+
 	Write-Log "[DebPkg][VM] Staging Debian delta script '$remoteScriptName'" -Console:$consoleSwitch
 	try {
 		# Ensure remote directory and make it writable by the user
 		# Note: Do NOT use -Nested:$true as it removes -n flag from SSH which causes hangs
 		# in CI environments where outer SSH uses stdin from /dev/null
-		(Invoke-CmdOnControlPlaneViaSSHKey "sudo mkdir -p $remoteBase && sudo chown `$(whoami) $remoteBase" -Retries $RetryCount -Timeout 2).Output | Out-Null
+		Invoke-RequiredControlPlaneCommand `
+			-Command "sudo mkdir -p $remoteBase && sudo chown `$(whoami) $remoteBase" `
+			-Operation 'Creating the Debian delta staging directory' | Out-Null
 
 		# Copy only the script (avoid large recursive transfers unless needed)
 		Copy-ToControlPlaneViaSSHKey -Source $ScriptPath -Target $remoteBase -IgnoreErrors:$false
@@ -2107,7 +2134,9 @@ function Invoke-CommandInMasterVM {
 				$tarFiles = Get-ChildItem -LiteralPath $imagesDir -Filter '*.tar' -File -ErrorAction SilentlyContinue
 				if ($tarFiles.Count -gt 0) {
 					Write-Log "[DebPkg][VM] Copying $($tarFiles.Count) container images for offline kubeadm upgrade" -Console:$consoleSwitch
-					(Invoke-CmdOnControlPlaneViaSSHKey "mkdir -p $remoteBase/images" -Retries $RetryCount -Timeout 2).Output | Out-Null
+					Invoke-RequiredControlPlaneCommand `
+						-Command "mkdir -p $remoteBase/images" `
+						-Operation 'Creating the Debian delta image directory' | Out-Null
 					Copy-ToControlPlaneViaSSHKey -Source $imagesDir -Target $remoteBase -IgnoreErrors:$false
 					$imagesCopied = $true
 					Write-Log '[DebPkg][VM] Container images copied successfully' -Console:$consoleSwitch
@@ -2116,7 +2145,9 @@ function Invoke-CommandInMasterVM {
 		}
 		
 		# Make executable
-		(Invoke-CmdOnControlPlaneViaSSHKey "sudo chmod +x $remoteScriptPath" -Retries $RetryCount -Timeout 2 -IgnoreErrors:$false).Output | Out-Null
+		Invoke-RequiredControlPlaneCommand `
+			-Command "sudo chmod +x $remoteScriptPath" `
+			-Operation 'Making the Debian delta script executable' | Out-Null
 	} catch {
 		throw "Failed to stage script in master VM: $($_.Exception.Message)"
 	}
@@ -2139,7 +2170,9 @@ function Invoke-CommandInMasterVM {
 	$launchCmd = "sh -c '$bgCmd' </dev/null >/dev/null 2>&1"
 	
 	Write-Log '[DebPkg][VM] Launching script in background...' -Console:$consoleSwitch
-	(Invoke-CmdOnControlPlaneViaSSHKey -CmdToExecute $launchCmd -IgnoreErrors:$true).Output | Out-Null
+	Invoke-RequiredControlPlaneCommand `
+		-Command $launchCmd `
+		-Operation 'Launching the Debian delta script' | Out-Null
 	
 	# Brief wait to let the script start
 	Start-Sleep -Seconds 2

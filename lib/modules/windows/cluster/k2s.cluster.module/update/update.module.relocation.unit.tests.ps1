@@ -41,6 +41,29 @@ Describe 'Test-DeltaUpgradeVersionIsValid' -Tag 'unit', 'ci', 'update' {
 	}
 }
 
+Describe 'Get-UpdateVmModulePath' -Tag 'unit', 'ci', 'update' {
+	It 'uses the active installation module while running from a delta package' {
+		InModuleScope $moduleName -Parameters @{ installFolder = $TestDrive } {
+			$script:runningFromDelta = $true
+			Mock Get-ClusterInstalledFolder { $installFolder }
+
+			$result = Get-UpdateVmModulePath
+
+			$result | Should -Be (Join-Path $installFolder 'lib\modules\windows\node\k2s.node.module\linuxnode\vm\vm.module.psm1')
+		}
+	}
+
+	It 'uses the module adjacent to the update module outside a delta package' {
+		InModuleScope $moduleName {
+			$script:runningFromDelta = $false
+
+			$result = Get-UpdateVmModulePath
+
+			$result | Should -Be "$PSScriptRoot\..\..\..\node\k2s.node.module\linuxnode\vm\vm.module.psm1"
+		}
+	}
+}
+
 Describe 'Copy-UnchangedInstallationFiles' -Tag 'unit', 'ci', 'update' {
 	BeforeEach {
 		$old = Join-Path $TestDrive 'old'
@@ -237,4 +260,3 @@ Describe 'Invoke-GuestConfigDeltaApply' -Tag 'unit', 'ci', 'update' {
 		$result.Skipped | Should -Contain 'etc/kubernetes/admin.conf'
 	}
 }
-
