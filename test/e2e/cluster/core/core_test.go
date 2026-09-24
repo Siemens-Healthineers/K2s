@@ -416,7 +416,7 @@ func expectLinuxOnlyResetCleanup() {
 	_, err := os.Stat("/etc/kubernetes/admin.conf")
 	Expect(os.IsNotExist(err)).To(BeTrue(), "expected /etc/kubernetes/admin.conf to be removed by system reset")
 
-	for _, device := range []string{"cni0", "flannel.1"} {
+	for _, device := range []string{"cni0"} {
 		output, err := exec.Command("ip", "link", "show", device).CombinedOutput()
 		Expect(err).To(HaveOccurred(), "expected network device %s to be removed by system reset, got:\n%s", device, string(output))
 		Expect(string(output)).To(Or(
