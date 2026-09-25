@@ -583,13 +583,28 @@ function Set-UpdateSetupConfigValue {
 
 function Confirm-DeltaKubernetesVersion {
 	param(
-		[Parameter(Mandatory = $true)][string] $ExpectedVersion
+		[Parameter(Mandatory = $true)][string] $ExpectedVersion,
+		[Parameter(Mandatory = $true)][string] $InstallPath
 	)
 
-	$versionInfo = Get-K8sVersionInfo
-	if ($versionInfo.K8sServerVersion -ne $ExpectedVersion -or
-		$versionInfo.K8sClientVersion -ne $ExpectedVersion) {
-		throw "[Update] Kubernetes version verification failed: expected client and server '$ExpectedVersion', got client '$($versionInfo.K8sClientVersion)' and server '$($versionInfo.K8sServerVersion)'."
+	# The imported k8s-api module still resolves kubectl relative to the old installation.
+	$kubectlPath = Join-Path $InstallPath 'bin\kube\kubectl.exe'
+	$kubeconfigPath = Join-Path $InstallPath 'config'
+	foreach ($path in @($kubectlPath, $kubeconfigPath)) {
+		if (-not (Test-Path -LiteralPath $path -PathType Leaf)) {
+			throw "[Update] Kubernetes version verification requires '$path'."
+		}
+	}
+	Write-Log "[Update] Verifying Kubernetes version using '$kubectlPath' with kubeconfig '$kubeconfigPath'."
+	$output = & $kubectlPath --kubeconfig $kubeconfigPath --request-timeout=30s version -o json 2>&1
+	if ($LASTEXITCODE -ne 0) {
+		throw "[Update] Kubernetes version query failed using '$kubectlPath' (exit code $LASTEXITCODE): $output"
+	}
+	$versionInfo = $output | Out-String | ConvertFrom-Json -ErrorAction Stop
+	$clientVersion = $versionInfo.clientVersion.gitVersion
+	$serverVersion = $versionInfo.serverVersion.gitVersion
+	if ($serverVersion -ne $ExpectedVersion -or $clientVersion -ne $ExpectedVersion) {
+		throw "[Update] Kubernetes version verification failed: expected client and server '$ExpectedVersion', got client '$clientVersion' and server '$serverVersion'."
 	}
 }
 
@@ -1837,7 +1852,7 @@ Current directory: $deltaRoot
 	try {
 		$newK8sVersion = Get-DeltaTargetKubernetesVersion -Manifest $manifest -DeltaRoot $deltaRoot
 		if ($newK8sVersion) {
-			Confirm-DeltaKubernetesVersion -ExpectedVersion $newK8sVersion
+			Confirm-DeltaKubernetesVersion -ExpectedVersion $newK8sVersion -InstallPath $targetInstallPath
 			$currentK8sVersion = Get-ConfigValue -Path $setupConfigPath -Key 'KubernetesVersion'
 			Write-Log ("[Update] Updating setup.json KubernetesVersion from {0} to {1}" -f $currentK8sVersion, $newK8sVersion) -Console:$consoleSwitch
 			Set-UpdateSetupConfigValue -SetupConfigPath $setupConfigPath -Key 'KubernetesVersion' -Value $newK8sVersion

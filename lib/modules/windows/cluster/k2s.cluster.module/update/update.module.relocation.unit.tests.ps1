@@ -127,26 +127,49 @@ Describe 'Set-UpdateSetupConfigValue' -Tag 'unit', 'ci', 'update' {
 }
 
 Describe 'Confirm-DeltaKubernetesVersion' -Tag 'unit', 'ci', 'update' {
-	It 'accepts matching client and server versions' {
-		InModuleScope $moduleName {
-			function Get-K8sVersionInfo {}
-			Mock Get-K8sVersionInfo {
-				@{ K8sClientVersion = 'v1.36.5'; K8sServerVersion = 'v1.36.5' }
+	It '<name>' -TestCases @(
+		@{ name = 'uses destination kubectl despite the old imported client'; client = 'v1.36.5'; server = 'v1.36.5'; code = 0; invalidJson = $false; errorPattern = $null }
+		@{ name = 'rejects a server rollback'; client = 'v1.36.5'; server = 'v1.36.4'; code = 0; invalidJson = $false; errorPattern = '*server*v1.36.4*' }
+		@{ name = 'rejects a stale destination client'; client = 'v1.36.4'; server = 'v1.36.5'; code = 0; invalidJson = $false; errorPattern = '*client*v1.36.4*' }
+		@{ name = 'rejects a failed kubectl query'; client = 'v1.36.5'; server = 'v1.36.5'; code = 1; invalidJson = $false; errorPattern = '*query failed*exit code 1*' }
+		@{ name = 'rejects malformed version JSON'; client = ''; server = ''; code = 0; invalidJson = $true; errorPattern = '*' }
+	) {
+		param($client, $server, $code, $invalidJson, $errorPattern)
+		InModuleScope $moduleName -Parameters @{
+			installPath = (Join-Path $TestDrive 'new installation')
+			client = $client; server = $server; code = $code; invalidJson = $invalidJson; errorPattern = $errorPattern
+		} {
+			$kubectlPath = Join-Path $installPath 'bin\kube\kubectl.exe'
+			$configPath = Join-Path $installPath 'config'
+			Mock Test-Path { $true }
+			function Get-K8sVersionInfo { throw 'Must not query the old installation client' }
+			$script:versionQueryArguments = $null
+			Set-Item -Path "Function:$kubectlPath" -Value {
+				$script:versionQueryArguments = $args
+				$global:LASTEXITCODE = $code
+				if ($invalidJson) { return 'not json' }
+				@{ clientVersion = @{ gitVersion = $client }; serverVersion = @{ gitVersion = $server } } | ConvertTo-Json
 			}
-
-			{ Confirm-DeltaKubernetesVersion -ExpectedVersion 'v1.36.5' } | Should -Not -Throw
+			try {
+				if ($errorPattern) {
+					{ Confirm-DeltaKubernetesVersion -ExpectedVersion 'v1.36.5' -InstallPath $installPath } |
+						Should -Throw $errorPattern
+				} else {
+					Confirm-DeltaKubernetesVersion -ExpectedVersion 'v1.36.5' -InstallPath $installPath
+				}
+				($script:versionQueryArguments -join '|') |
+					Should -Be "--kubeconfig|$configPath|--request-timeout=30s|version|-o|json"
+			} finally {
+				Remove-Item -LiteralPath "Function:$kubectlPath"
+			}
 		}
 	}
 
-	It 'rejects a server rollback to the previous Kubernetes version' {
-		InModuleScope $moduleName {
-			function Get-K8sVersionInfo {}
-			Mock Get-K8sVersionInfo {
-				@{ K8sClientVersion = 'v1.36.5'; K8sServerVersion = 'v1.36.4' }
-			}
-
-			{ Confirm-DeltaKubernetesVersion -ExpectedVersion 'v1.36.5' } |
-				Should -Throw '*expected client and server*v1.36.5*server*v1.36.4*'
+	It 'rejects missing destination artifacts rather than falling back to PATH' {
+		InModuleScope $moduleName -Parameters @{ installPath = $TestDrive } {
+			Mock Test-Path { $false }
+			{ Confirm-DeltaKubernetesVersion -ExpectedVersion 'v1.36.5' -InstallPath $installPath } |
+				Should -Throw '*verification requires*'
 		}
 	}
 }

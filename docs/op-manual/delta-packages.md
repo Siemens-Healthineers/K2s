@@ -120,7 +120,7 @@ The `delta-manifest.json` file describes the changes between versions. A typical
 }
 ```
 
-The Kubernetes versions are read from the source and target packages during delta creation. During application, *K2s* requires the live client and server versions to match `TargetKubernetesVersion` before persisting that value to `setup.json`. The persisted value is read back from disk before the upgrade can report success. Delta packages created before these manifest fields existed continue to use `debian-delta/expected-k8s-version` when available.
+The Kubernetes versions are read from the source and target packages during delta creation. During application, *K2s* requires the live client and server versions to match `TargetKubernetesVersion` before persisting that value to `setup.json`. This check explicitly uses `bin\kube\kubectl.exe` and the `config` kubeconfig from the destination installation, not the old installation's client retained by already-loaded modules. The persisted value is read back from disk before the upgrade can report success. Delta packages created before these manifest fields existed continue to use `debian-delta/expected-k8s-version` when available.
 
 ## Applying a Delta Package
 
