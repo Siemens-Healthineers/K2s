@@ -3636,6 +3636,7 @@ SPDX-License-Identifier: MIT
 <li><strong>Wholesale directories</strong>: Complete directories that must be replaced entirely (e.g., <code>bin/kube</code>, <code>bin/docker</code>)</li>
 <li><strong>Delta manifest</strong>: A <abbr title="JavaScript Object Notation">JSON</abbr> file describing the changes and metadata</li>
 <li><strong>Debian package changes</strong> (optional): Linux package differences for the KubeMaster <abbr title="Virtual Machine">VM</abbr></li>
+<li><strong>Changed Kubernetes images</strong>: Required control-plane images are exported into the package; creation fails if any changed image cannot be exported</li>
 <li><strong>Apply script</strong>: A PowerShell script to apply the delta to an existing installation</li>
 </ul>
 <div class="admonition note">
@@ -3777,28 +3778,24 @@ SPDX-License-Identifier: MIT
 <h3 id="delta-manifest-structure">Delta Manifest Structure</h3>
 <p>The <code>delta-manifest.json</code> file describes the changes between versions. A typical manifest includes:</p>
 <div class="highlight"><span class="filename">JSON</span><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="p">{</span>
-<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="w">  </span><span class="nt">"sourceVersion"</span><span class="p">:</span><span class="w"> </span><span class="s2">"1.4.0"</span><span class="p">,</span>
-<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="w">  </span><span class="nt">"targetVersion"</span><span class="p">:</span><span class="w"> </span><span class="s2">"1.5.0"</span><span class="p">,</span>
-<a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="w">  </span><span class="nt">"createdAt"</span><span class="p">:</span><span class="w"> </span><span class="s2">"2025-02-03T10:30:00Z"</span><span class="p">,</span>
-<a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a><span class="w">  </span><span class="nt">"filesAdded"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">"lib/new-module.psm1"</span><span class="p">],</span>
-<a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a><span class="w">  </span><span class="nt">"filesModified"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">"lib/existing-module.psm1"</span><span class="p">],</span>
-<a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a><span class="w">  </span><span class="nt">"filesRemoved"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">"lib/deprecated-module.psm1"</span><span class="p">],</span>
-<a id="__codelineno-3-8" name="__codelineno-3-8" href="#__codelineno-3-8"></a><span class="w">  </span><span class="nt">"wholesaleDirectories"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">"bin/kube"</span><span class="p">,</span><span class="w"> </span><span class="s2">"bin/docker"</span><span class="p">,</span><span class="w"> </span><span class="s2">"bin/cni"</span><span class="p">,</span><span class="w"> </span><span class="s2">"bin/containerd"</span><span class="p">],</span>
-<a id="__codelineno-3-9" name="__codelineno-3-9" href="#__codelineno-3-9"></a><span class="w">  </span><span class="nt">"debianDelta"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
-<a id="__codelineno-3-10" name="__codelineno-3-10" href="#__codelineno-3-10"></a><span class="w">    </span><span class="nt">"added"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">"new-package"</span><span class="p">],</span>
-<a id="__codelineno-3-11" name="__codelineno-3-11" href="#__codelineno-3-11"></a><span class="w">    </span><span class="nt">"removed"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">"old-package"</span><span class="p">],</span>
-<a id="__codelineno-3-12" name="__codelineno-3-12" href="#__codelineno-3-12"></a><span class="w">    </span><span class="nt">"changed"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">"updated-package"</span><span class="p">]</span>
-<a id="__codelineno-3-13" name="__codelineno-3-13" href="#__codelineno-3-13"></a><span class="w">  </span><span class="p">},</span>
-<a id="__codelineno-3-14" name="__codelineno-3-14" href="#__codelineno-3-14"></a><span class="w">  </span><span class="nt">"imageDiff"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
-<a id="__codelineno-3-15" name="__codelineno-3-15" href="#__codelineno-3-15"></a><span class="w">    </span><span class="nt">"added"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">"new-image:tag"</span><span class="p">],</span>
-<a id="__codelineno-3-16" name="__codelineno-3-16" href="#__codelineno-3-16"></a><span class="w">    </span><span class="nt">"removed"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">"old-image:tag"</span><span class="p">]</span>
-<a id="__codelineno-3-17" name="__codelineno-3-17" href="#__codelineno-3-17"></a><span class="w">  </span><span class="p">}</span>
-<a id="__codelineno-3-18" name="__codelineno-3-18" href="#__codelineno-3-18"></a><span class="p">}</span>
+<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="w">  </span><span class="nt">"ManifestVersion"</span><span class="p">:</span><span class="w"> </span><span class="s2">"2.0"</span><span class="p">,</span>
+<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="w">  </span><span class="nt">"BaseVersion"</span><span class="p">:</span><span class="w"> </span><span class="s2">"2.0.0"</span><span class="p">,</span>
+<a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="w">  </span><span class="nt">"TargetVersion"</span><span class="p">:</span><span class="w"> </span><span class="s2">"2.1.0"</span><span class="p">,</span>
+<a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a><span class="w">  </span><span class="nt">"BaseKubernetesVersion"</span><span class="p">:</span><span class="w"> </span><span class="s2">"v1.36.4"</span><span class="p">,</span>
+<a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a><span class="w">  </span><span class="nt">"TargetKubernetesVersion"</span><span class="p">:</span><span class="w"> </span><span class="s2">"v1.36.5"</span><span class="p">,</span>
+<a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a><span class="w">  </span><span class="nt">"Added"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">"lib/new-module.psm1"</span><span class="p">],</span>
+<a id="__codelineno-3-8" name="__codelineno-3-8" href="#__codelineno-3-8"></a><span class="w">  </span><span class="nt">"Changed"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">"lib/existing-module.psm1"</span><span class="p">],</span>
+<a id="__codelineno-3-9" name="__codelineno-3-9" href="#__codelineno-3-9"></a><span class="w">  </span><span class="nt">"Removed"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">"lib/deprecated-module.psm1"</span><span class="p">],</span>
+<a id="__codelineno-3-10" name="__codelineno-3-10" href="#__codelineno-3-10"></a><span class="w">  </span><span class="nt">"WholeDirectories"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">"bin/kube"</span><span class="p">,</span><span class="w"> </span><span class="s2">"bin/docker"</span><span class="p">,</span><span class="w"> </span><span class="s2">"bin/cni"</span><span class="p">,</span><span class="w"> </span><span class="s2">"bin/containerd"</span><span class="p">],</span>
+<a id="__codelineno-3-11" name="__codelineno-3-11" href="#__codelineno-3-11"></a><span class="w">  </span><span class="nt">"DebianDeltaRelativePath"</span><span class="p">:</span><span class="w"> </span><span class="s2">"debian-delta"</span>
+<a id="__codelineno-3-12" name="__codelineno-3-12" href="#__codelineno-3-12"></a><span class="p">}</span>
 </code></pre></div>
+<p>The Kubernetes versions are read from the source and target packages during delta creation. During application, <em>K2s</em> requires the live client and server versions to match <code>TargetKubernetesVersion</code> before persisting that value to <code>setup.json</code>. This check explicitly uses <code>bin\kube\kubectl.exe</code> and the <code>config</code> kubeconfig from the destination installation, not the old installation's client retained by already-loaded modules. The persisted value is read back from disk before the upgrade can report success. Delta packages created before these manifest fields existed continue to use <code>debian-delta/expected-k8s-version</code> when available.</p>
 <h2 id="applying-a-delta-package">Applying a Delta Package</h2>
 <h3 id="prerequisites_1">Prerequisites</h3>
 <ul>
 <li>An existing <em>K2s</em> installation matching the delta's source version</li>
+<li>A running cluster; run <code>k2s start</code> from the current installation first. Delta upgrades reject stopped clusters before applying files, Debian packages, or relocation changes.</li>
 <li>Administrator privileges</li>
 <li>The delta package ZIP file</li>
 </ul>
@@ -3809,6 +3806,7 @@ SPDX-License-Identifier: MIT
 <ul>
 <li>The previous installation folder is <strong>left untouched and retained for rollback</strong>. You may delete it after you have verified the upgrade.</li>
 <li>If you instead extract the delta on top of the current installation folder (so the extraction folder equals the existing <code>InstallFolder</code>), <em>K2s</em> falls back to the legacy in-place update and the installation folder does not change.</li>
+<li>Applying a Kubernetes version delta does not rely on registry access. If a required bundled image is missing or <code>kubeadm</code> cannot complete the control-plane upgrade, the update fails and does not record the new Kubernetes version.</li>
 </ul>
 <h3 id="application-steps">Application Steps</h3>
 <ol>
