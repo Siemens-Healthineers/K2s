@@ -39,48 +39,63 @@ func logZipEntries(zipPath string) {
 	}
 }
 
+func logPersistentVolumeDiagnostics(ctx context.Context, namespace, podName, pvcName, pvName string) {
+	commands := [][]string{
+		{"get", "pod", podName, "-n", namespace, "-o", "wide"},
+		{"describe", "pod", podName, "-n", namespace},
+		{"get", "events", "-n", namespace, "--field-selector", "involvedObject.name=" + podName, "--sort-by=.lastTimestamp"},
+		{"get", "pvc", pvcName, "-n", namespace, "-o", "wide"},
+		{"describe", "pv", pvName},
+	}
+
+	for _, args := range commands {
+		output, exitCode := suite.Kubectl().Exec(ctx, args...)
+		GinkgoWriter.Printf("[DIAG] kubectl %s (exit code %d):\n%s\n", strings.Join(args, " "), exitCode, output)
+	}
+}
+
 var (
-	suite           *framework.K2sTestSuite
-	randomSeed      string
-	testBackupDir   string
-	sharedBackup    string // Shared backup for read-only tests
+	suite         *framework.K2sTestSuite
+	randomSeed    string
+	testBackupDir string
+	sharedBackup  string // Shared backup for read-only tests
 )
 
 func TestBackupSystemRunning(t *testing.T) {
- RegisterFailHandler(Fail)
- RunSpecs(t, "System Backup Acceptance Tests", Label("e2e", "system", "backup-restore", "system-running"))
+	RegisterFailHandler(Fail)
+	RunSpecs(t, "System Backup Acceptance Tests", Label("e2e", "system", "backup-restore", "system-running"))
 }
 
 var _ = BeforeSuite(func(ctx context.Context) {
- suite = framework.Setup(ctx,
-  framework.SystemMustBeRunning,
-  framework.ClusterTestStepPollInterval(time.Millisecond*500),
-  framework.ClusterTestStepTimeout(4*time.Minute)) // Set aggressive timeout per test step
- randomSeed = strconv.FormatInt(GinkgoRandomSeed(), 10)
- testBackupDir = GinkgoT().TempDir()
+	suite = framework.Setup(ctx,
+		framework.SystemMustBeRunning,
+		framework.ClusterTestStepPollInterval(time.Millisecond*500),
+		framework.ClusterTestStepTimeout(4*time.Minute)) // Set aggressive timeout per test step
+	randomSeed = strconv.FormatInt(GinkgoRandomSeed(), 10)
+	testBackupDir = GinkgoT().TempDir()
 
- // Cleanup orphaned PVs from previous test runs to avoid backing them up (async)
- GinkgoWriter.Println("Cleaning up orphaned test PVs from previous runs...")
- output, _ := suite.Kubectl().Exec(ctx, "get", "pv", "-o", "jsonpath={.items[*].metadata.name}")
- if output != "" {
-  pvNames := strings.Fields(output)
-  for _, pvName := range pvNames {
-   if strings.Contains(pvName, "test-restore-pv-") || strings.Contains(pvName, "test-backup-pv-") {
-    suite.Kubectl().Exec(ctx, "delete", "pv", pvName, "--ignore-not-found=true", "--wait=false")
-   }
-  }
- }
- time.Sleep(500 * time.Millisecond) // Reduced from 2s
+	// Cleanup orphaned PVs from previous test runs to avoid backing them up (async)
+	GinkgoWriter.Println("Cleaning up orphaned test PVs from previous runs...")
+	output, _ := suite.Kubectl().Exec(ctx, "get", "pv", "-o", "jsonpath={.items[*].metadata.name}")
+	if output != "" {
+		pvNames := strings.Fields(output)
+		for _, pvName := range pvNames {
+			if strings.Contains(pvName, "test-restore-pv-") || strings.Contains(pvName, "test-backup-pv-") {
+				suite.Kubectl().Exec(ctx, "delete", "pv", pvName, "--ignore-not-found=true", "--wait=false")
+			}
+		}
+	}
+	time.Sleep(500 * time.Millisecond) // Reduced from 2s
 
- // Create ONE shared backup for all read-only tests (skip images/PVs for speed)
- sharedBackup = filepath.Join(testBackupDir, "shared-backup.zip")
- GinkgoWriter.Println("Creating shared backup for test suite (skip images/PVs)...")
- suite.K2sCli().MustExec(ctx, "system", "backup", "-f", sharedBackup, "--skip-images", "--skip-pvs")
- GinkgoWriter.Println("Shared backup created at:", sharedBackup)
+	// Create ONE shared backup for all read-only tests (skip images/PVs for speed)
+	sharedBackup = filepath.Join(testBackupDir, "shared-backup.zip")
+	GinkgoWriter.Println("Creating shared backup for test suite (skip images/PVs)...")
+	suite.K2sCli().MustExec(ctx, "system", "backup", "-f", sharedBackup, "--skip-images", "--skip-pvs")
+	GinkgoWriter.Println("Shared backup created at:", sharedBackup)
 })
 
 var _ = AfterSuite(func(ctx context.Context) {
- suite.TearDown(ctx)
+	suite.TearDown(ctx)
 })
 
 var _ = Describe("k2s system backup - basic functionality", Ordered, func() {
@@ -129,6 +144,10 @@ var _ = Describe("k2s system backup - persistent volumes", Ordered, Label("pv"),
 		suite.Kubectl().MustExec(ctx, "create", "namespace", testNamespace)
 
 		DeferCleanup(func(ctx context.Context) {
+			if CurrentSpecReport().Failed() && podName != "" {
+				logPersistentVolumeDiagnostics(ctx, testNamespace, podName, pvcName, pvName)
+			}
+
 			// Cleanup in correct order: pod -> pvc -> namespace -> pv
 			suite.Kubectl().Exec(ctx, "delete", "pod", podName, "-n", testNamespace, "--ignore-not-found=true", "--wait=false")
 			suite.Kubectl().Exec(ctx, "delete", "pvc", pvcName, "-n", testNamespace, "--ignore-not-found=true", "--wait=false")
@@ -155,6 +174,14 @@ spec:
     - ReadWriteOnce
   hostPath:
     path: /tmp/test-pv-data-%s
+  nodeAffinity:
+    required:
+      nodeSelectorTerms:
+      - matchExpressions:
+        - key: kubernetes.io/os
+          operator: In
+          values:
+          - linux
   claimRef:
     namespace: %s
     name: %s
@@ -185,7 +212,7 @@ spec:
 		Eventually(func(ctx context.Context) string {
 			output, _ := suite.Kubectl().Exec(ctx, "get", "pvc", pvcName, "-n", testNamespace, "-o", "jsonpath={.status.phase}")
 			return output
-		}).WithContext(ctx).WithTimeout(15 * time.Second).WithPolling(500 * time.Millisecond).Should(Equal("Bound"), "PVC should bind to PV")
+		}).WithContext(ctx).WithTimeout(15*time.Second).WithPolling(500*time.Millisecond).Should(Equal("Bound"), "PVC should bind to PV")
 
 		// Create pod that writes data
 		podYaml := fmt.Sprintf(`
@@ -195,6 +222,8 @@ metadata:
   name: %s
   namespace: %s
 spec:
+  nodeSelector:
+    kubernetes.io/os: linux
   containers:
   - name: writer
     image: busybox:1.36
@@ -211,11 +240,14 @@ spec:
 
 		applyYaml(ctx, suite, podYaml)
 
-		// Wait for pod to complete with reduced timeout
+		// Allow time for transient scheduling and image startup delays.
 		Eventually(func(ctx context.Context) string {
 			output, _ := suite.Kubectl().Exec(ctx, "get", "pod", podName, "-n", testNamespace, "-o", "jsonpath={.status.phase}")
 			return output
-		}).WithContext(ctx).WithTimeout(15 * time.Second).WithPolling(500 * time.Millisecond).Should(Or(Equal("Running"), Equal("Succeeded")))
+		}).WithContext(ctx).WithTimeout(60*time.Second).WithPolling(time.Second).Should(
+			Or(Equal("Running"), Equal("Succeeded")),
+			"Linux PV writer pod should start",
+		)
 
 		// Wait for data to be written
 		time.Sleep(2 * time.Second)
@@ -290,6 +322,8 @@ spec:
       labels:
         app: test-img
     spec:
+      nodeSelector:
+        kubernetes.io/os: linux
       containers:
       - name: test
         image: busybox:1.36
@@ -452,4 +486,3 @@ func applyYaml(ctx context.Context, suite *framework.K2sTestSuite, yaml string) 
 
 	suite.Kubectl().MustExec(ctx, "apply", "-f", tmpFile.Name())
 }
-
