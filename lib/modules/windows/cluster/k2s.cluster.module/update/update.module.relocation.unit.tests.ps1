@@ -133,11 +133,13 @@ Describe 'Confirm-DeltaKubernetesVersion' -Tag 'unit', 'ci', 'update' {
 		@{ name = 'rejects a stale destination client'; client = 'v1.36.4'; server = 'v1.36.5'; code = 0; invalidJson = $false; errorPattern = '*client*v1.36.4*' }
 		@{ name = 'rejects a failed kubectl query'; client = 'v1.36.5'; server = 'v1.36.5'; code = 1; invalidJson = $false; errorPattern = '*query failed*exit code 1*' }
 		@{ name = 'rejects malformed version JSON'; client = ''; server = ''; code = 0; invalidJson = $true; errorPattern = '*' }
+		@{ name = 'accepts valid JSON with a stderr warning'; client = 'v1.36.5'; server = 'v1.36.5'; code = 0; invalidJson = $false; errorPattern = $null; stderrMessage = 'transport warning' }
+		@{ name = 'includes stderr in a failed query error'; client = ''; server = ''; code = 1; invalidJson = $false; errorPattern = '*connection refused*'; stderrMessage = 'connection refused' }
 	) {
-		param($client, $server, $code, $invalidJson, $errorPattern)
+		param($client, $server, $code, $invalidJson, $errorPattern, $stderrMessage)
 		InModuleScope $moduleName -Parameters @{
 			installPath = (Join-Path $TestDrive 'new installation')
-			client = $client; server = $server; code = $code; invalidJson = $invalidJson; errorPattern = $errorPattern
+			client = $client; server = $server; code = $code; invalidJson = $invalidJson; errorPattern = $errorPattern; stderrMessage = $stderrMessage
 		} {
 			$kubectlPath = Join-Path $installPath 'bin\kube\kubectl.exe'
 			$configPath = Join-Path $installPath 'config'
@@ -146,6 +148,7 @@ Describe 'Confirm-DeltaKubernetesVersion' -Tag 'unit', 'ci', 'update' {
 			$script:versionQueryArguments = $null
 			Set-Item -Path "Function:$kubectlPath" -Value {
 				$script:versionQueryArguments = $args
+				if ($stderrMessage) { Write-Error $stderrMessage -ErrorAction Continue }
 				$global:LASTEXITCODE = $code
 				if ($invalidJson) { return 'not json' }
 				@{ clientVersion = @{ gitVersion = $client }; serverVersion = @{ gitVersion = $server } } | ConvertTo-Json
@@ -170,6 +173,33 @@ Describe 'Confirm-DeltaKubernetesVersion' -Tag 'unit', 'ci', 'update' {
 			Mock Test-Path { $false }
 			{ Confirm-DeltaKubernetesVersion -ExpectedVersion 'v1.36.5' -InstallPath $installPath } |
 				Should -Throw '*verification requires*'
+		}
+	}
+}
+
+Describe 'PerformClusterUpdate stopped-cluster preflight' -Tag 'unit', 'ci', 'update' {
+	It 'rejects <label> before reading the manifest or changing the installation' -TestCases @(
+		@{ label = 'a stopped cluster'; setupName = 'k2s' }
+		@{ label = 'an absent setup'; setupName = $null }
+	) {
+		param($setupName)
+		InModuleScope $moduleName -Parameters @{ setupName = $setupName; root = $TestDrive } {
+			function Get-SetupInfo {}
+			function Get-RunningState {}
+			Mock Test-Path { $true }
+			Mock Get-SetupConfigFilePath { Join-Path $root 'setup.json' }
+			Mock Get-SetupInfo { @{ Name = $setupName } }
+			Mock Get-RunningState { @{ IsRunning = $false } }
+			Mock Get-Content { throw 'Must not read the manifest' }
+			Mock Set-K2sInstallationHome { throw 'Must not relocate' }
+			Mock Set-UpdateSetupConfigValue { throw 'Must not update metadata' }
+
+			PerformClusterUpdate | Should -BeFalse
+
+			Should -Invoke Get-Content -Times 0 -Exactly
+			Should -Invoke Set-K2sInstallationHome -Times 0 -Exactly
+			Should -Invoke Set-UpdateSetupConfigValue -Times 0 -Exactly
+			Should -Invoke Write-Log -Times 1 -ParameterFilter { $Messages -like '*requires a running cluster*' }
 		}
 	}
 }

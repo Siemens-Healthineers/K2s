@@ -127,6 +127,7 @@ The Kubernetes versions are read from the source and target packages during delt
 ### Prerequisites
 
 - An existing *K2s* installation matching the delta's source version
+- A running cluster; run `k2s start` from the current installation first. Delta upgrades reject stopped clusters before applying files, Debian packages, or relocation changes.
 - Administrator privileges
 - The delta package ZIP file
 

@@ -596,9 +596,19 @@ function Confirm-DeltaKubernetesVersion {
 		}
 	}
 	Write-Log "[Update] Verifying Kubernetes version using '$kubectlPath' with kubeconfig '$kubeconfigPath'."
-	$output = & $kubectlPath --kubeconfig $kubeconfigPath --request-timeout=30s version -o json 2>&1
-	if ($LASTEXITCODE -ne 0) {
-		throw "[Update] Kubernetes version query failed using '$kubectlPath' (exit code $LASTEXITCODE): $output"
+	$stderrPath = [System.IO.Path]::GetTempFileName()
+	try {
+		$output = & $kubectlPath --kubeconfig $kubeconfigPath --request-timeout=30s version -o json 2> $stderrPath
+		$queryExitCode = $LASTEXITCODE
+		$stderr = Get-Content -LiteralPath $stderrPath -Raw -ErrorAction Stop
+		if (-not [string]::IsNullOrWhiteSpace($stderr)) {
+			Write-Log "[Update] kubectl version stderr: $stderr"
+		}
+		if ($queryExitCode -ne 0) {
+			throw "[Update] Kubernetes version query failed using '$kubectlPath' (exit code $queryExitCode): $output $stderr"
+		}
+	} finally {
+		Remove-Item -LiteralPath $stderrPath -Force -ErrorAction Stop
 	}
 	$versionInfo = $output | Out-String | ConvertFrom-Json -ErrorAction Stop
 	$clientVersion = $versionInfo.clientVersion.gitVersion
@@ -970,6 +980,11 @@ Current directory: $deltaRoot
 		} else {
 			Write-Log '[Update] K2s is not running' -Console:$consoleSwitch
 		}
+	}
+
+	if (-not $wasRunning) {
+		Write-Log '[Update][Error] Delta upgrade requires a running cluster. Run k2s start from the current installation and retry. No update changes have been applied.' -Console
+		return $false
 	}
 
 	$script:phaseId = 0
