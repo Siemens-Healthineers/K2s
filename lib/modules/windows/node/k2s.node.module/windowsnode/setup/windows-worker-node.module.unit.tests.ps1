@@ -178,12 +178,12 @@ Describe 'Test-NetworkL2BridgeReady' -Tag 'unit', 'ci', 'network' {
         Should -Invoke New-NetRoute -Times 0 -Exactly
     }
 
-    It 'rejects a disconnected endpoint' {
+    It 'accepts a disconnected HNS endpoint with the expected address and route' {
         Mock Get-NetAdapter { [pscustomobject]@{ Name = 'vEthernet (cbr0_ep)'; ifIndex = 31; Status = 'Disconnected' } }
 
-        Test-NetworkL2BridgeReady -PodSubnetworkNumber '1' | Should -BeFalse
+        Test-NetworkL2BridgeReady -PodSubnetworkNumber '1' | Should -BeTrue
 
-        Should -Invoke Get-NetIPAddress -Times 0 -Exactly
+        Should -Invoke Get-NetIPAddress -Times 1 -Exactly
         Should -Invoke New-NetRoute -Times 0 -Exactly
     }
 
