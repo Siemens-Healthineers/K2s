@@ -565,6 +565,18 @@ function Confirm-UpdateInstallationHome {
 	}
 }
 
+function Confirm-DeltaKubernetesVersion {
+	param(
+		[Parameter(Mandatory = $true)][string] $ExpectedVersion
+	)
+
+	$versionInfo = Get-K8sVersionInfo
+	if ($versionInfo.K8sServerVersion -ne $ExpectedVersion -or
+		$versionInfo.K8sClientVersion -ne $ExpectedVersion) {
+		throw "[Update] Kubernetes version verification failed: expected client and server '$ExpectedVersion', got client '$($versionInfo.K8sClientVersion)' and server '$($versionInfo.K8sServerVersion)'."
+	}
+}
+
 <#
 .SYNOPSIS
 	Re-points the K2s installation from one folder to another (delta update re-home).
@@ -1785,6 +1797,7 @@ Current directory: $deltaRoot
 				$newK8sVersion = (Get-Content -LiteralPath $expectedK8sVersionFile -Raw).Trim()
 				if (-not [string]::IsNullOrWhiteSpace($newK8sVersion)) {
 					if ($newK8sVersion -notmatch '^v') { $newK8sVersion = "v$newK8sVersion" }
+					Confirm-DeltaKubernetesVersion -ExpectedVersion $newK8sVersion
 					$currentK8sVersion = Get-ConfigInstalledKubernetesVersion
 					Write-Log ("[Update] Updating setup.json KubernetesVersion from {0} to {1}" -f $currentK8sVersion, $newK8sVersion) -Console:$consoleSwitch
 					Set-ConfigInstalledKubernetesVersion -Value $newK8sVersion
@@ -1794,7 +1807,8 @@ Current directory: $deltaRoot
 			}
 		}
 	} catch {
-		Write-Log ("[Update][Warn] Failed to update setup.json KubernetesVersion: {0}" -f $_.Exception.Message) -Console:$consoleSwitch
+		Write-Log ("[Update][Error] Failed to verify or update setup.json KubernetesVersion: {0}" -f $_.Exception.Message) -Console
+		throw
 	}
 
 	Confirm-UpdateInstallationHome -SetupConfigPath $setupConfigPath -ExpectedInstallPath $targetInstallPath

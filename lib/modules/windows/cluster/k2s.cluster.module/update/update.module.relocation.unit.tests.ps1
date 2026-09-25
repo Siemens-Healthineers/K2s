@@ -97,6 +97,31 @@ Describe 'Confirm-UpdateInstallationHome' -Tag 'unit', 'ci', 'update' {
 	}
 }
 
+Describe 'Confirm-DeltaKubernetesVersion' -Tag 'unit', 'ci', 'update' {
+	It 'accepts matching client and server versions' {
+		InModuleScope $moduleName {
+			function Get-K8sVersionInfo {}
+			Mock Get-K8sVersionInfo {
+				@{ K8sClientVersion = 'v1.36.5'; K8sServerVersion = 'v1.36.5' }
+			}
+
+			{ Confirm-DeltaKubernetesVersion -ExpectedVersion 'v1.36.5' } | Should -Not -Throw
+		}
+	}
+
+	It 'rejects a server rollback to the previous Kubernetes version' {
+		InModuleScope $moduleName {
+			function Get-K8sVersionInfo {}
+			Mock Get-K8sVersionInfo {
+				@{ K8sClientVersion = 'v1.36.5'; K8sServerVersion = 'v1.36.4' }
+			}
+
+			{ Confirm-DeltaKubernetesVersion -ExpectedVersion 'v1.36.5' } |
+				Should -Throw '*expected client and server*v1.36.5*server*v1.36.4*'
+		}
+	}
+}
+
 Describe 'Copy-UnchangedInstallationFiles' -Tag 'unit', 'ci', 'update' {
 	BeforeEach {
 		$old = Join-Path $TestDrive 'old'

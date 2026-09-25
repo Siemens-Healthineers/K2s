@@ -15,6 +15,7 @@ A delta package contains:
 - **Wholesale directories**: Complete directories that must be replaced entirely (e.g., `bin/kube`, `bin/docker`)
 - **Delta manifest**: A JSON file describing the changes and metadata
 - **Debian package changes** (optional): Linux package differences for the KubeMaster VM
+- **Changed Kubernetes images**: Required control-plane images are exported into the package; creation fails if any changed image cannot be exported
 - **Apply script**: A PowerShell script to apply the delta to an existing installation
 
 !!! note "Addons are excluded"
@@ -143,6 +144,7 @@ Because of this, extract the delta package to the location where you want the up
 
 - The previous installation folder is **left untouched and retained for rollback**. You may delete it after you have verified the upgrade.
 - If you instead extract the delta on top of the current installation folder (so the extraction folder equals the existing `InstallFolder`), *K2s* falls back to the legacy in-place update and the installation folder does not change.
+- Applying a Kubernetes version delta does not rely on registry access. If a required bundled image is missing or `kubeadm` cannot complete the control-plane upgrade, the update fails and does not record the new Kubernetes version.
 
 ### Application Steps
 
