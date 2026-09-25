@@ -326,6 +326,7 @@ Describe "PerformClusterUpgrade" -Tag 'unit', 'ci', 'upgrade' {
 		Mock -ModuleName $moduleName Get-ProductVersion -MockWith { return "1.0.0" }
 		Mock -ModuleName $moduleName Get-KubePath -MockWith { return "C:\KubePath" }
 		Mock -ModuleName $moduleName Write-RefreshEnvVariables
+		Mock -ModuleName $moduleName Enable-ClusterIsRunning
 		Mock -ModuleName $moduleName Wait-ForAPIServerInGivenKubePath
 		Mock -ModuleName $moduleName Get-KubeBinPathGivenKubePath -MockWith { return "C:\KubeBinPath" }
 		Mock -ModuleName $moduleName Enable-AddonFromConfig
