@@ -13,7 +13,7 @@ $hasGpuLabel = $nodeLabelsRaw -match '"gpu":"true"'
 $hasAcceleratorLabel = $nodeLabelsRaw -match '"accelerator":"nvidia"'
 $isControlPlaneGpuPv = $nodeLabelsRaw -match '"k2s\.siemens-healthineers\.com/gpu-mode":"gpu-pv"'
 $labelsOkay = $hasGpuLabel -and $hasAcceleratorLabel -and $isControlPlaneGpuPv
-$allGpuNodesRaw = (Invoke-Kubectl -Params 'get', 'nodes', '-l', 'gpu=true,accelerator=nvidia', '-o', 'jsonpath={.items[*].metadata.name}').Output
+$allGpuNodesRaw = (Invoke-Kubectl -Params 'get', 'nodes', '-l', 'gpu=true', '-o', 'jsonpath={.items[*].metadata.name}').Output
 $allGpuNodes = if ([string]::IsNullOrWhiteSpace($allGpuNodesRaw)) { @() } else { $allGpuNodesRaw -split '\s+' }
 $externalGpuNodes = @($allGpuNodes | Where-Object { $_ -ne $controlPlaneNodeName })
 $mode = if ($isControlPlaneGpuPv) { 'control-plane' } else { 'external-workers' }

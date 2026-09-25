@@ -73,7 +73,7 @@ if ($null -ne $Config -and $null -ne $Config.Mode) {
 }
 
 $controlPlaneNodeName = (Invoke-Kubectl -Params 'get', 'nodes', '-l', 'node-role.kubernetes.io/control-plane', '-o', 'jsonpath={.items[0].metadata.name}').Output
-$allGpuNodesRaw = (Invoke-Kubectl -Params 'get', 'nodes', '-l', 'gpu=true,accelerator=nvidia', '-o', 'jsonpath={.items[*].metadata.name}').Output
+$allGpuNodesRaw = (Invoke-Kubectl -Params 'get', 'nodes', '-l', 'gpu=true', '-o', 'jsonpath={.items[*].metadata.name}').Output
 $allGpuNodes = if ([string]::IsNullOrWhiteSpace($allGpuNodesRaw)) { @() } else { $allGpuNodesRaw -split '\s+' }
 $externalGpuNodes = @($allGpuNodes | Where-Object { $_ -ne $controlPlaneNodeName })
 
@@ -89,7 +89,7 @@ if ($Mode -eq 'external-workers') {
         exit 1
     }
     if ($externalGpuNodes.Count -eq 0) {
-        $errMsg = 'No external Linux worker with gpu=true and accelerator=nvidia is available. Add an NVIDIA-enabled Linux worker before enabling gpu-node in external-workers mode.'
+        $errMsg = 'No external Linux worker with gpu=true is available. Add and configure an NVIDIA-enabled Linux worker before enabling gpu-node in external-workers mode.'
         if ($EncodeStructuredOutput -eq $true) {
             $err = New-Error -Severity Warning -Code (Get-ErrCodeAddonEnableFailed) -Message $errMsg
             Send-ToCli -MessageType $MessageType -Message @{Error = $err }
@@ -541,18 +541,19 @@ if ($TimeSlices -gt 1) {
     (Invoke-Kubectl -Params 'apply', '-f', "$PSScriptRoot\manifests\time-slicing-config-default.yaml").Output | Write-Log
 }
 
-# The native worker DaemonSet remains installed with zero workers so a later
-# GPU-configured Linux worker automatically receives the device plugin.
-(Invoke-Kubectl -Params 'apply', '-f', "$PSScriptRoot\manifests\nvidia-device-plugin-native.yaml").Output | Write-Log
-
 if ($Mode -eq 'control-plane') {
     $labelNodeName = if ($WSL) { Get-ConfigControlPlaneNodeHostname } else { $controlPlaneNodeName }
+    (Invoke-Kubectl -Params 'delete', 'daemonset', 'nvidia-device-plugin-native', '-n', 'gpu-node', '--ignore-not-found', '--wait=false').Output | Write-Log
     Write-Log "[gpu-node] Labeling node '$labelNodeName' for GPU-PV" -Console
     (Invoke-Kubectl -Params 'label', 'node', $labelNodeName, 'gpu=true', 'accelerator=nvidia', 'k2s.siemens-healthineers.com/gpu-mode=gpu-pv', '--overwrite').Output | Write-Log
     (Invoke-Kubectl -Params 'apply', '-f', "$PSScriptRoot\manifests\nvidia-device-plugin.yaml").Output | Write-Log
     $daemonSetName = 'nvidia-device-plugin'
     $gpuCheckNodes = @($labelNodeName)
 } else {
+    # Native worker configuration is applied only when explicitly requested.
+    # It includes the Debian node-package NVIDIA driver library path.
+    (Invoke-Kubectl -Params 'delete', 'daemonset', 'nvidia-device-plugin', '-n', 'gpu-node', '--ignore-not-found', '--wait=false').Output | Write-Log
+    (Invoke-Kubectl -Params 'apply', '-f', "$PSScriptRoot\manifests\nvidia-device-plugin-native.yaml").Output | Write-Log
     $daemonSetName = 'nvidia-device-plugin-native'
     $gpuCheckNodes = $externalGpuNodes
 }

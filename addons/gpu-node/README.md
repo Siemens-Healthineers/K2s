@@ -38,11 +38,12 @@ for external Linux workers that were added with NVIDIA GPU support:
 k2s addons enable gpu-node --mode external-workers
 ```
 
-This mode requires at least one external Linux worker with `gpu=true` and
-`accelerator=nvidia`. It does not check the Windows host for NVIDIA hardware,
-change the KubeMaster kernel, install NVIDIA packages on KubeMaster, or label
-KubeMaster as a GPU node. The native NVIDIA device plugin is scheduled only on
-the labeled external workers; the Windows host and KubeMaster are excluded.
+This mode requires at least one external Linux worker with `gpu=true`. It does
+not check the Windows host for NVIDIA hardware, change the KubeMaster kernel,
+install NVIDIA packages on KubeMaster, or label KubeMaster as a GPU node. The
+native NVIDIA device plugin is scheduled only on the labeled external workers;
+the Windows host and KubeMaster are excluded. Without
+`--mode external-workers`, the addon configures only KubeMaster GPU-PV.
 
 GPU time-slicing is currently available only with the default
 `control-plane` mode.
@@ -127,7 +128,7 @@ When an NVIDIA GPU is detected, K2s automatically:
 1. Verifies NVIDIA drivers are installed and functional (nvidia-smi)
 2. Installs the NVIDIA Container Toolkit packages (online) or copies from node package (offline)
 3. Configures CRI-O with CDI support
-4. Labels the node with `gpu=true` and `accelerator=nvidia`
+4. Labels the node with `gpu=true` (and `accelerator=nvidia` for metadata)
 
 If no NVIDIA GPU is detected (or a non-NVIDIA GPU like AMD/Intel is present), GPU configuration is skipped automatically.
 
@@ -137,18 +138,23 @@ For a worker that is already configured with NVIDIA drivers, the NVIDIA
 Container Toolkit, and CRI-O CDI support, apply the labels from the K2s host:
 
 ```console
-kubectl label node <worker-name> gpu=true accelerator=nvidia --overwrite
+kubectl label node <worker-name> gpu=true --overwrite
 ```
 
 Verify that the worker is selected by the native device plugin:
 
 ```console
-kubectl get nodes -l gpu=true,accelerator=nvidia
+kubectl get nodes -l gpu=true
 ```
 
 Do not apply these labels to KubeMaster or to a worker without a functional
 NVIDIA GPU setup. The labels cause the native NVIDIA device plugin to schedule
 on that node.
+
+For Debian GPU workers provisioned from a `k2s system package --node-package`
+package, NVIDIA libraries are expected under
+`/usr/lib/x86_64-linux-gnu/nvidia/current`. The native device-plugin manifest
+mounts this directory and adds it to its library path for NVML discovery.
 
 ### Creating an Offline GPU Node Package
 

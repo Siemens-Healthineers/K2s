@@ -84,7 +84,6 @@ spec:
       nodeSelector:
         kubernetes.io/os: linux
         gpu: "true"
-        accelerator: nvidia
       affinity:
         nodeAffinity:
           requiredDuringSchedulingIgnoredDuringExecution:
