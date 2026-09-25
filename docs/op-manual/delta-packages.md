@@ -107,24 +107,20 @@ The `delta-manifest.json` file describes the changes between versions. A typical
 
 ```json
 {
-  "sourceVersion": "1.4.0",
-  "targetVersion": "1.5.0",
-  "createdAt": "2025-02-03T10:30:00Z",
-  "filesAdded": ["lib/new-module.psm1"],
-  "filesModified": ["lib/existing-module.psm1"],
-  "filesRemoved": ["lib/deprecated-module.psm1"],
-  "wholesaleDirectories": ["bin/kube", "bin/docker", "bin/cni", "bin/containerd"],
-  "debianDelta": {
-    "added": ["new-package"],
-    "removed": ["old-package"],
-    "changed": ["updated-package"]
-  },
-  "imageDiff": {
-    "added": ["new-image:tag"],
-    "removed": ["old-image:tag"]
-  }
+  "ManifestVersion": "2.0",
+  "BaseVersion": "2.0.0",
+  "TargetVersion": "2.1.0",
+  "BaseKubernetesVersion": "v1.36.4",
+  "TargetKubernetesVersion": "v1.36.5",
+  "Added": ["lib/new-module.psm1"],
+  "Changed": ["lib/existing-module.psm1"],
+  "Removed": ["lib/deprecated-module.psm1"],
+  "WholeDirectories": ["bin/kube", "bin/docker", "bin/cni", "bin/containerd"],
+  "DebianDeltaRelativePath": "debian-delta"
 }
 ```
+
+The Kubernetes versions are read from the source and target packages during delta creation. During application, *K2s* requires the live client and server versions to match `TargetKubernetesVersion` before persisting that value to `setup.json`. The persisted value is read back from disk before the upgrade can report success. Delta packages created before these manifest fields existed continue to use `debian-delta/expected-k8s-version` when available.
 
 ## Applying a Delta Package
 

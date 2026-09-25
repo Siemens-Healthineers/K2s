@@ -593,6 +593,36 @@ function Confirm-DeltaKubernetesVersion {
 	}
 }
 
+function Get-DeltaTargetKubernetesVersion {
+	param(
+		[Parameter(Mandatory = $true)] $Manifest,
+		[Parameter(Mandatory = $true)][string] $DeltaRoot
+	)
+
+	$targetVersion = [string]$Manifest.TargetKubernetesVersion
+	if (-not [string]::IsNullOrWhiteSpace($targetVersion)) {
+		if ($targetVersion -notmatch '^v') {
+			$targetVersion = "v$targetVersion"
+		}
+		return $targetVersion
+	}
+
+	if ($Manifest.DebianDeltaRelativePath) {
+		$expectedVersionFile = Join-Path (Join-Path $DeltaRoot $Manifest.DebianDeltaRelativePath) 'expected-k8s-version'
+		if (Test-Path -LiteralPath $expectedVersionFile) {
+			$targetVersion = (Get-Content -LiteralPath $expectedVersionFile -Raw).Trim()
+			if (-not [string]::IsNullOrWhiteSpace($targetVersion)) {
+				if ($targetVersion -notmatch '^v') {
+					$targetVersion = "v$targetVersion"
+				}
+				return $targetVersion
+			}
+		}
+	}
+
+	return $null
+}
+
 <#
 .SYNOPSIS
 	Re-points the K2s installation from one folder to another (delta update re-home).
@@ -1801,26 +1831,18 @@ Current directory: $deltaRoot
 		Write-Log '[Update][Info] Target version not determined; version information not updated' -Console:$consoleSwitch
 	}
 
-	# 13b. Update setup.json KubernetesVersion when the delta bumped Kubernetes.
-	# The delta package only carries the 'debian-delta/expected-k8s-version' marker (kubelet X.Y.Z)
-	# when the kubelet package actually changed; otherwise the Kubernetes version is unchanged and
-	# setup.json must keep its current value. install records the version with a leading 'v', so
-	# normalize the marker (which has no 'v') to match.
+	# 13b. Verify and persist the target Kubernetes version declared by the target package.
+	# Older delta packages do not have TargetKubernetesVersion in their manifest; retain the
+	# expected-k8s-version marker as a compatibility fallback.
 	try {
-		if ($manifest.DebianDeltaRelativePath) {
-			$expectedK8sVersionFile = Join-Path (Join-Path $deltaRoot $manifest.DebianDeltaRelativePath) 'expected-k8s-version'
-			if (Test-Path -LiteralPath $expectedK8sVersionFile) {
-				$newK8sVersion = (Get-Content -LiteralPath $expectedK8sVersionFile -Raw).Trim()
-				if (-not [string]::IsNullOrWhiteSpace($newK8sVersion)) {
-					if ($newK8sVersion -notmatch '^v') { $newK8sVersion = "v$newK8sVersion" }
-					Confirm-DeltaKubernetesVersion -ExpectedVersion $newK8sVersion
-					$currentK8sVersion = Get-ConfigValue -Path $setupConfigPath -Key 'KubernetesVersion'
-					Write-Log ("[Update] Updating setup.json KubernetesVersion from {0} to {1}" -f $currentK8sVersion, $newK8sVersion) -Console:$consoleSwitch
-					Set-UpdateSetupConfigValue -SetupConfigPath $setupConfigPath -Key 'KubernetesVersion' -Value $newK8sVersion
-				}
-			} else {
-				Write-Log '[Update][Info] No expected-k8s-version marker in delta; Kubernetes version unchanged' -Console:$consoleSwitch
-			}
+		$newK8sVersion = Get-DeltaTargetKubernetesVersion -Manifest $manifest -DeltaRoot $deltaRoot
+		if ($newK8sVersion) {
+			Confirm-DeltaKubernetesVersion -ExpectedVersion $newK8sVersion
+			$currentK8sVersion = Get-ConfigValue -Path $setupConfigPath -Key 'KubernetesVersion'
+			Write-Log ("[Update] Updating setup.json KubernetesVersion from {0} to {1}" -f $currentK8sVersion, $newK8sVersion) -Console:$consoleSwitch
+			Set-UpdateSetupConfigValue -SetupConfigPath $setupConfigPath -Key 'KubernetesVersion' -Value $newK8sVersion
+		} else {
+			Write-Log '[Update][Info] Target Kubernetes version not declared by delta; setup.json KubernetesVersion unchanged' -Console:$consoleSwitch
 		}
 	} catch {
 		Write-Log ("[Update][Error] Failed to verify or update setup.json KubernetesVersion: {0}" -f $_.Exception.Message) -Console

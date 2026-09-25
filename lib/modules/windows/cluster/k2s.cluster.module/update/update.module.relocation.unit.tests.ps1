@@ -151,6 +151,34 @@ Describe 'Confirm-DeltaKubernetesVersion' -Tag 'unit', 'ci', 'update' {
 	}
 }
 
+Describe 'Get-DeltaTargetKubernetesVersion' -Tag 'unit', 'ci', 'update' {
+	It 'uses the target Kubernetes version declared by the manifest' {
+		InModuleScope $moduleName {
+			$manifest = [pscustomobject]@{
+				TargetKubernetesVersion = 'v1.36.5'
+				DebianDeltaRelativePath = $null
+			}
+
+			Get-DeltaTargetKubernetesVersion -Manifest $manifest -DeltaRoot $TestDrive |
+				Should -Be 'v1.36.5'
+		}
+	}
+
+	It 'uses the expected version marker for an older manifest' {
+		InModuleScope $moduleName -Parameters @{ deltaRoot = $TestDrive } {
+			$debianDelta = Join-Path $deltaRoot 'debian-delta'
+			New-Item -ItemType Directory -Path $debianDelta -Force | Out-Null
+			Set-Content -LiteralPath (Join-Path $debianDelta 'expected-k8s-version') -Value '1.36.5'
+			$manifest = [pscustomobject]@{
+				DebianDeltaRelativePath = 'debian-delta'
+			}
+
+			Get-DeltaTargetKubernetesVersion -Manifest $manifest -DeltaRoot $deltaRoot |
+				Should -Be 'v1.36.5'
+		}
+	}
+}
+
 Describe 'Copy-UnchangedInstallationFiles' -Tag 'unit', 'ci', 'update' {
 	BeforeEach {
 		$old = Join-Path $TestDrive 'old'

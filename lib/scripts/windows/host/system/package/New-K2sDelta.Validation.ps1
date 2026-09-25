@@ -111,3 +111,26 @@ function Get-PackageVersion {
     }
     return $null
 }
+
+function Get-PackageKubernetesVersion {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string] $ExtractPath
+    )
+
+    $configModulePath = Join-Path $ExtractPath 'lib\modules\windows\infra\k2s.infra.module\config\config.module.psm1'
+    if (-not (Test-Path -LiteralPath $configModulePath)) {
+        return $null
+    }
+
+    $content = Get-Content -LiteralPath $configModulePath -Raw -ErrorAction SilentlyContinue
+    if ($content -match "(?ms)function\s+Get-DefaultK8sVersion\s*\{.*?return\s+['`"](?<version>v?\d+\.\d+\.\d+)['`"]") {
+        $version = $matches['version']
+        if ($version -notmatch '^v') {
+            $version = "v$version"
+        }
+        return $version
+    }
+
+    return $null
+}
