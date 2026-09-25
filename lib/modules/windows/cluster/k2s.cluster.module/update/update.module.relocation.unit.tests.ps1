@@ -97,6 +97,35 @@ Describe 'Confirm-UpdateInstallationHome' -Tag 'unit', 'ci', 'update' {
 	}
 }
 
+Describe 'Set-UpdateSetupConfigValue' -Tag 'unit', 'ci', 'update' {
+	It 'updates the authoritative setup file and preserves unrelated fields' {
+		InModuleScope $moduleName -Parameters @{ setupPath = (Join-Path $TestDrive 'setup.json') } {
+			@{
+				InstallFolder     = 'C:\k2s-delta'
+				KubernetesVersion = 'v1.36.4'
+				Version           = '2.0.0'
+			} | ConvertTo-Json | Set-Content -LiteralPath $setupPath
+
+			Set-UpdateSetupConfigValue -SetupConfigPath $setupPath -Key 'KubernetesVersion' -Value 'v1.36.5'
+
+			$setup = Get-Content -LiteralPath $setupPath -Raw | ConvertFrom-Json
+			$setup.KubernetesVersion | Should -Be 'v1.36.5'
+			$setup.InstallFolder | Should -Be 'C:\k2s-delta'
+			$setup.Version | Should -Be '2.0.0'
+		}
+	}
+
+	It 'fails when the requested value was not persisted' {
+		InModuleScope $moduleName -Parameters @{ setupPath = (Join-Path $TestDrive 'setup.json') } {
+			@{ KubernetesVersion = 'v1.36.4' } | ConvertTo-Json | Set-Content -LiteralPath $setupPath
+			Mock Set-ConfigValue {}
+
+			{ Set-UpdateSetupConfigValue -SetupConfigPath $setupPath -Key 'KubernetesVersion' -Value 'v1.36.5' } |
+				Should -Throw "*expected 'v1.36.5'*found 'v1.36.4'*"
+		}
+	}
+}
+
 Describe 'Confirm-DeltaKubernetesVersion' -Tag 'unit', 'ci', 'update' {
 	It 'accepts matching client and server versions' {
 		InModuleScope $moduleName {

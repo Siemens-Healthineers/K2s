@@ -565,6 +565,22 @@ function Confirm-UpdateInstallationHome {
 	}
 }
 
+function Set-UpdateSetupConfigValue {
+	param(
+		[Parameter(Mandatory = $true)][string] $SetupConfigPath,
+		[Parameter(Mandatory = $true)][string] $Key,
+		[Parameter(Mandatory = $true)][object] $Value
+	)
+
+	Set-ConfigValue -Path $SetupConfigPath -Key $Key -Value $Value
+
+	$setup = Get-Content -LiteralPath $SetupConfigPath -Raw -ErrorAction Stop | ConvertFrom-Json -ErrorAction Stop
+	$persistedValue = $setup.psobject.Properties[$Key].Value
+	if ([string]$persistedValue -ne [string]$Value) {
+		throw "[Update] setup.json verification failed for '$Key': expected '$Value', found '$persistedValue'."
+	}
+}
+
 function Confirm-DeltaKubernetesVersion {
 	param(
 		[Parameter(Mandatory = $true)][string] $ExpectedVersion
@@ -1776,7 +1792,7 @@ Current directory: $deltaRoot
 			
 			# Update setup.json configuration to reflect the new version
 			Write-Log ("[Update] Updating setup.json product version from {0} to {1}" -f $currentVersion, $deltaTargetVersion) -Console:$consoleSwitch
-			Set-ConfigProductVersion -Value $deltaTargetVersion
+			Set-UpdateSetupConfigValue -SetupConfigPath $setupConfigPath -Key 'Version' -Value $deltaTargetVersion
 			Write-Log '[Update] Setup configuration updated successfully' -Console:$consoleSwitch
 		} catch {
 			Write-Log ("[Update][Warn] Failed to update version information: {0}" -f $_.Exception.Message) -Console:$consoleSwitch
@@ -1798,9 +1814,9 @@ Current directory: $deltaRoot
 				if (-not [string]::IsNullOrWhiteSpace($newK8sVersion)) {
 					if ($newK8sVersion -notmatch '^v') { $newK8sVersion = "v$newK8sVersion" }
 					Confirm-DeltaKubernetesVersion -ExpectedVersion $newK8sVersion
-					$currentK8sVersion = Get-ConfigInstalledKubernetesVersion
+					$currentK8sVersion = Get-ConfigValue -Path $setupConfigPath -Key 'KubernetesVersion'
 					Write-Log ("[Update] Updating setup.json KubernetesVersion from {0} to {1}" -f $currentK8sVersion, $newK8sVersion) -Console:$consoleSwitch
-					Set-ConfigInstalledKubernetesVersion -Value $newK8sVersion
+					Set-UpdateSetupConfigValue -SetupConfigPath $setupConfigPath -Key 'KubernetesVersion' -Value $newK8sVersion
 				}
 			} else {
 				Write-Log '[Update][Info] No expected-k8s-version marker in delta; Kubernetes version unchanged' -Console:$consoleSwitch
