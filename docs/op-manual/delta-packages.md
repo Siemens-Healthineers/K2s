@@ -15,6 +15,7 @@ A delta package contains:
 - **Wholesale directories**: Complete directories that must be replaced entirely (e.g., `bin/kube`, `bin/docker`)
 - **Delta manifest**: A JSON file describing the changes and metadata
 - **Debian package changes** (optional): Linux package differences for the KubeMaster VM
+- **Changed Kubernetes images**: Required control-plane images are exported into the package; creation fails if any changed image cannot be exported
 - **Apply script**: A PowerShell script to apply the delta to an existing installation
 
 !!! note "Addons are excluded"
@@ -106,30 +107,27 @@ The `delta-manifest.json` file describes the changes between versions. A typical
 
 ```json
 {
-  "sourceVersion": "1.4.0",
-  "targetVersion": "1.5.0",
-  "createdAt": "2025-02-03T10:30:00Z",
-  "filesAdded": ["lib/new-module.psm1"],
-  "filesModified": ["lib/existing-module.psm1"],
-  "filesRemoved": ["lib/deprecated-module.psm1"],
-  "wholesaleDirectories": ["bin/kube", "bin/docker", "bin/cni", "bin/containerd"],
-  "debianDelta": {
-    "added": ["new-package"],
-    "removed": ["old-package"],
-    "changed": ["updated-package"]
-  },
-  "imageDiff": {
-    "added": ["new-image:tag"],
-    "removed": ["old-image:tag"]
-  }
+  "ManifestVersion": "2.0",
+  "BaseVersion": "2.0.0",
+  "TargetVersion": "2.1.0",
+  "BaseKubernetesVersion": "v1.36.4",
+  "TargetKubernetesVersion": "v1.36.5",
+  "Added": ["lib/new-module.psm1"],
+  "Changed": ["lib/existing-module.psm1"],
+  "Removed": ["lib/deprecated-module.psm1"],
+  "WholeDirectories": ["bin/kube", "bin/docker", "bin/cni", "bin/containerd"],
+  "DebianDeltaRelativePath": "debian-delta"
 }
 ```
+
+The Kubernetes versions are read from the source and target packages during delta creation. During application, *K2s* requires the live client and server versions to match `TargetKubernetesVersion` before persisting that value to `setup.json`. This check explicitly uses `bin\kube\kubectl.exe` and the `config` kubeconfig from the destination installation, not the old installation's client retained by already-loaded modules. The persisted value is read back from disk before the upgrade can report success. Delta packages created before these manifest fields existed continue to use `debian-delta/expected-k8s-version` when available.
 
 ## Applying a Delta Package
 
 ### Prerequisites
 
 - An existing *K2s* installation matching the delta's source version
+- A running cluster; run `k2s start` from the current installation first. Delta upgrades reject stopped clusters before applying files, Debian packages, or relocation changes.
 - Administrator privileges
 - The delta package ZIP file
 
@@ -143,6 +141,7 @@ Because of this, extract the delta package to the location where you want the up
 
 - The previous installation folder is **left untouched and retained for rollback**. You may delete it after you have verified the upgrade.
 - If you instead extract the delta on top of the current installation folder (so the extraction folder equals the existing `InstallFolder`), *K2s* falls back to the legacy in-place update and the installation folder does not change.
+- Applying a Kubernetes version delta does not rely on registry access. If a required bundled image is missing or `kubeadm` cannot complete the control-plane upgrade, the update fails and does not record the new Kubernetes version.
 
 ### Application Steps
 

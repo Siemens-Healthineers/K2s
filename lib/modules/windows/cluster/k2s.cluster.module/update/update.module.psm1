@@ -565,6 +565,89 @@ function Confirm-UpdateInstallationHome {
 	}
 }
 
+function Set-UpdateSetupConfigValue {
+	param(
+		[Parameter(Mandatory = $true)][string] $SetupConfigPath,
+		[Parameter(Mandatory = $true)][string] $Key,
+		[Parameter(Mandatory = $true)][object] $Value
+	)
+
+	Set-ConfigValue -Path $SetupConfigPath -Key $Key -Value $Value
+
+	$setup = Get-Content -LiteralPath $SetupConfigPath -Raw -ErrorAction Stop | ConvertFrom-Json -ErrorAction Stop
+	$persistedValue = $setup.psobject.Properties[$Key].Value
+	if ([string]$persistedValue -ne [string]$Value) {
+		throw "[Update] setup.json verification failed for '$Key': expected '$Value', found '$persistedValue'."
+	}
+}
+
+function Confirm-DeltaKubernetesVersion {
+	param(
+		[Parameter(Mandatory = $true)][string] $ExpectedVersion,
+		[Parameter(Mandatory = $true)][string] $InstallPath
+	)
+
+	# The imported k8s-api module still resolves kubectl relative to the old installation.
+	$kubectlPath = Join-Path $InstallPath 'bin\kube\kubectl.exe'
+	$kubeconfigPath = Join-Path $InstallPath 'config'
+	foreach ($path in @($kubectlPath, $kubeconfigPath)) {
+		if (-not (Test-Path -LiteralPath $path -PathType Leaf)) {
+			throw "[Update] Kubernetes version verification requires '$path'."
+		}
+	}
+	Write-Log "[Update] Verifying Kubernetes version using '$kubectlPath' with kubeconfig '$kubeconfigPath'."
+	$stderrPath = [System.IO.Path]::GetTempFileName()
+	try {
+		$output = & $kubectlPath --kubeconfig $kubeconfigPath --request-timeout=30s version -o json 2> $stderrPath
+		$queryExitCode = $LASTEXITCODE
+		$stderr = Get-Content -LiteralPath $stderrPath -Raw -ErrorAction Stop
+		if (-not [string]::IsNullOrWhiteSpace($stderr)) {
+			Write-Log "[Update] kubectl version stderr: $stderr"
+		}
+		if ($queryExitCode -ne 0) {
+			throw "[Update] Kubernetes version query failed using '$kubectlPath' (exit code $queryExitCode): $output $stderr"
+		}
+	} finally {
+		Remove-Item -LiteralPath $stderrPath -Force -ErrorAction Stop
+	}
+	$versionInfo = $output | Out-String | ConvertFrom-Json -ErrorAction Stop
+	$clientVersion = $versionInfo.clientVersion.gitVersion
+	$serverVersion = $versionInfo.serverVersion.gitVersion
+	if ($serverVersion -ne $ExpectedVersion -or $clientVersion -ne $ExpectedVersion) {
+		throw "[Update] Kubernetes version verification failed: expected client and server '$ExpectedVersion', got client '$clientVersion' and server '$serverVersion'."
+	}
+}
+
+function Get-DeltaTargetKubernetesVersion {
+	param(
+		[Parameter(Mandatory = $true)] $Manifest,
+		[Parameter(Mandatory = $true)][string] $DeltaRoot
+	)
+
+	$targetVersion = [string]$Manifest.TargetKubernetesVersion
+	if (-not [string]::IsNullOrWhiteSpace($targetVersion)) {
+		if ($targetVersion -notmatch '^v') {
+			$targetVersion = "v$targetVersion"
+		}
+		return $targetVersion
+	}
+
+	if ($Manifest.DebianDeltaRelativePath) {
+		$expectedVersionFile = Join-Path (Join-Path $DeltaRoot $Manifest.DebianDeltaRelativePath) 'expected-k8s-version'
+		if (Test-Path -LiteralPath $expectedVersionFile) {
+			$targetVersion = (Get-Content -LiteralPath $expectedVersionFile -Raw).Trim()
+			if (-not [string]::IsNullOrWhiteSpace($targetVersion)) {
+				if ($targetVersion -notmatch '^v') {
+					$targetVersion = "v$targetVersion"
+				}
+				return $targetVersion
+			}
+		}
+	}
+
+	return $null
+}
+
 <#
 .SYNOPSIS
 	Re-points the K2s installation from one folder to another (delta update re-home).
@@ -897,6 +980,11 @@ Current directory: $deltaRoot
 		} else {
 			Write-Log '[Update] K2s is not running' -Console:$consoleSwitch
 		}
+	}
+
+	if (-not $wasRunning) {
+		Write-Log '[Update][Error] Delta upgrade requires a running cluster. Run k2s start from the current installation and retry. No update changes have been applied.' -Console
+		return $false
 	}
 
 	$script:phaseId = 0
@@ -1764,7 +1852,7 @@ Current directory: $deltaRoot
 			
 			# Update setup.json configuration to reflect the new version
 			Write-Log ("[Update] Updating setup.json product version from {0} to {1}" -f $currentVersion, $deltaTargetVersion) -Console:$consoleSwitch
-			Set-ConfigProductVersion -Value $deltaTargetVersion
+			Set-UpdateSetupConfigValue -SetupConfigPath $setupConfigPath -Key 'Version' -Value $deltaTargetVersion
 			Write-Log '[Update] Setup configuration updated successfully' -Console:$consoleSwitch
 		} catch {
 			Write-Log ("[Update][Warn] Failed to update version information: {0}" -f $_.Exception.Message) -Console:$consoleSwitch
@@ -1773,28 +1861,22 @@ Current directory: $deltaRoot
 		Write-Log '[Update][Info] Target version not determined; version information not updated' -Console:$consoleSwitch
 	}
 
-	# 13b. Update setup.json KubernetesVersion when the delta bumped Kubernetes.
-	# The delta package only carries the 'debian-delta/expected-k8s-version' marker (kubelet X.Y.Z)
-	# when the kubelet package actually changed; otherwise the Kubernetes version is unchanged and
-	# setup.json must keep its current value. install records the version with a leading 'v', so
-	# normalize the marker (which has no 'v') to match.
+	# 13b. Verify and persist the target Kubernetes version declared by the target package.
+	# Older delta packages do not have TargetKubernetesVersion in their manifest; retain the
+	# expected-k8s-version marker as a compatibility fallback.
 	try {
-		if ($manifest.DebianDeltaRelativePath) {
-			$expectedK8sVersionFile = Join-Path (Join-Path $deltaRoot $manifest.DebianDeltaRelativePath) 'expected-k8s-version'
-			if (Test-Path -LiteralPath $expectedK8sVersionFile) {
-				$newK8sVersion = (Get-Content -LiteralPath $expectedK8sVersionFile -Raw).Trim()
-				if (-not [string]::IsNullOrWhiteSpace($newK8sVersion)) {
-					if ($newK8sVersion -notmatch '^v') { $newK8sVersion = "v$newK8sVersion" }
-					$currentK8sVersion = Get-ConfigInstalledKubernetesVersion
-					Write-Log ("[Update] Updating setup.json KubernetesVersion from {0} to {1}" -f $currentK8sVersion, $newK8sVersion) -Console:$consoleSwitch
-					Set-ConfigInstalledKubernetesVersion -Value $newK8sVersion
-				}
-			} else {
-				Write-Log '[Update][Info] No expected-k8s-version marker in delta; Kubernetes version unchanged' -Console:$consoleSwitch
-			}
+		$newK8sVersion = Get-DeltaTargetKubernetesVersion -Manifest $manifest -DeltaRoot $deltaRoot
+		if ($newK8sVersion) {
+			Confirm-DeltaKubernetesVersion -ExpectedVersion $newK8sVersion -InstallPath $targetInstallPath
+			$currentK8sVersion = Get-ConfigValue -Path $setupConfigPath -Key 'KubernetesVersion'
+			Write-Log ("[Update] Updating setup.json KubernetesVersion from {0} to {1}" -f $currentK8sVersion, $newK8sVersion) -Console:$consoleSwitch
+			Set-UpdateSetupConfigValue -SetupConfigPath $setupConfigPath -Key 'KubernetesVersion' -Value $newK8sVersion
+		} else {
+			Write-Log '[Update][Info] Target Kubernetes version not declared by delta; setup.json KubernetesVersion unchanged' -Console:$consoleSwitch
 		}
 	} catch {
-		Write-Log ("[Update][Warn] Failed to update setup.json KubernetesVersion: {0}" -f $_.Exception.Message) -Console:$consoleSwitch
+		Write-Log ("[Update][Error] Failed to verify or update setup.json KubernetesVersion: {0}" -f $_.Exception.Message) -Console
+		throw
 	}
 
 	Confirm-UpdateInstallationHome -SetupConfigPath $setupConfigPath -ExpectedInstallPath $targetInstallPath
