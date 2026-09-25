@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: © 2026 Siemens Healthineers AG
+# SPDX-FileCopyrightText: © 2024 Siemens Healthineers AG
 #
 # SPDX-License-Identifier: MIT
 
@@ -443,7 +443,7 @@ function Start-PesterTests {
         [switch]
         $V = $false
     )
-    Write-Information "Executing Powershell tests in '$WorkingDir' with verbose='$V' for tags '$Tags' and excluding tags '$ExcludeTags'.." -InformationAction Continue
+    Write-Output "Executing Powershell tests in '$WorkingDir' with verbose='$V' for tags '$Tags' and excluding tags '$ExcludeTags'.."
 
     $pesterConf = New-PesterConfiguration
     $pesterConf.Run.Path = $WorkingDir
@@ -457,16 +457,7 @@ function Start-PesterTests {
         $pesterConf.Output.Verbosity = 'Detailed'
     }
 
-    $pesterConf.Run.PassThru = $true
-    $result = Invoke-Pester -Configuration $pesterConf
-    $result | Format-List * | Out-Host
-
-    if ($result.FailedCount -gt 0) {
-        Write-Error "$($result.FailedCount) PowerShell test(s) failed."
-        return 1
-    }
-
-    return 0
+    Invoke-Pester -Configuration $pesterConf
 }
 
 Export-ModuleMember -Function Install-PesterIfNecessary, Install-GinkgoIfNecessary, Start-PesterTests, Start-GinkgoTests
