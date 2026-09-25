@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: © 2024 Siemens Healthineers AG
+# SPDX-FileCopyrightText: © 2026 Siemens Healthineers AG
 #
 # SPDX-License-Identifier: MIT
 
@@ -18,7 +18,9 @@ Param(
     [parameter(HelpMessage = 'DNS Addresses')]
     [string]$DnsAddresses = $(throw 'Argument missing: DnsAddresses'),
     [parameter(Mandatory = $false, HelpMessage = 'The path to local builds of Kubernetes binaries')]
-    [string] $K8sBinsPath = ''
+    [string] $K8sBinsPath = '',
+    [parameter(Mandatory = $true, HelpMessage = 'Internal normalized effective install configuration path')]
+    [string] $EffectiveInstallConfigPath
 )
 
 $installStopwatch = [system.diagnostics.stopwatch]::StartNew()
@@ -51,6 +53,7 @@ $workerNodeParams = @{
     PodSubnetworkNumber               = '1'
     JoinCommand                       = $JoinCommand
     K8sBinsPath                       = $K8sBinsPath
+    EffectiveInstallConfigPath        = $EffectiveInstallConfigPath
 }
 Add-WindowsWorkerNodeOnWindowsHost @workerNodeParams
 

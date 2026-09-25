@@ -4,6 +4,7 @@
 package upgrade
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io/fs"
@@ -17,9 +18,11 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/common"
+	installconfig "github.com/siemens-healthineers/k2s/cmd/k2s/cmd/install/config"
 	"github.com/siemens-healthineers/k2s/cmd/k2s/utils/logging"
 	"github.com/siemens-healthineers/k2s/internal/core/config"
 	"github.com/siemens-healthineers/k2s/internal/definitions"
+	"github.com/siemens-healthineers/k2s/internal/effectiveconfig"
 	bl "github.com/siemens-healthineers/k2s/internal/logging"
 	kos "github.com/siemens-healthineers/k2s/internal/os"
 
@@ -189,6 +192,19 @@ func upgradeCluster(cmd *cobra.Command, args []string) error {
 		return errors.New("--node and --path must be specified together")
 	}
 
+	cleanupUpgradeConfig := func() error { return nil }
+	if nodeNameVal == "" {
+		configFile, cleanupUpgradeConfig, err = prepareUpgradeInstallConfig(configFile, resolvedConfigDir)
+		if err != nil {
+			return fmt.Errorf("failed to prepare install configuration: %w", err)
+		}
+		defer func() {
+			if cleanupErr := cleanupUpgradeConfig(); cleanupErr != nil {
+				slog.Warn("Failed to clean staged install configuration", "error", cleanupErr)
+			}
+		}()
+	}
+
 	switchToUpgradeLogFile(showLog, context.Logger())
 
 	if err := applySetupConfigDirOverride(resolvedConfigDir, context.Config().Host().K2sSetupConfigDir()); err != nil {
@@ -219,6 +235,54 @@ func upgradeCluster(cmd *cobra.Command, args []string) error {
 	cmdSession.Finish()
 
 	return nil
+}
+
+func prepareUpgradeInstallConfig(requestedPath string, setupConfigDir string) (string, func() error, error) {
+	configPath := requestedPath
+	linkedConfig := configPath == ""
+	if linkedConfig {
+		setupPath := filepath.Join(setupConfigDir, definitions.K2sRuntimeConfigFileName)
+		content, err := os.ReadFile(setupPath)
+		if err != nil {
+			return "", nil, fmt.Errorf("failed to read installed setup configuration: %w", err)
+		}
+		var setup map[string]any
+		if err := json.Unmarshal(content, &setup); err != nil {
+			return "", nil, fmt.Errorf("failed to parse installed setup configuration: %w", err)
+		}
+		linkedPath, _ := setup[definitions.EffectiveInstallConfigPathKey].(string)
+		if linkedPath == "" {
+			return "", func() error { return nil }, nil
+		}
+		configPath = linkedPath
+	}
+
+	config, err := installconfig.LoadFile(configPath)
+	if err != nil {
+		if linkedConfig && errors.Is(err, os.ErrNotExist) {
+			return "", func() error { return nil }, nil
+		}
+		return "", nil, err
+	}
+	content, err := json.MarshalIndent(config, "", "  ")
+	if err != nil {
+		return "", nil, fmt.Errorf("failed to serialize replacement install configuration: %w", err)
+	}
+
+	stagingDir, err := os.MkdirTemp("", "k2s-upgrade-config-")
+	if err != nil {
+		return "", nil, fmt.Errorf("failed to create replacement install configuration staging directory: %w", err)
+	}
+	snapshot, err := effectiveconfig.Stage(stagingDir, content)
+	if err != nil {
+		_ = os.RemoveAll(stagingDir)
+		return "", nil, err
+	}
+
+	cleanup := func() error {
+		return errors.Join(snapshot.Abort(), os.RemoveAll(stagingDir))
+	}
+	return snapshot.Path(), cleanup, nil
 }
 
 func readConfigLegacyAware(k2sConfig *cconfig.K2sConfig) (*cconfig.K2sRuntimeConfig, string, error) {
@@ -346,7 +410,7 @@ func createUpgradeCommand(cmd *cobra.Command) string {
 	}
 	config := cmd.Flags().Lookup(configFileFlagName).Value.String()
 	if len(config) > 0 {
-		psCmd += " -Config " + config
+		psCmd += " -Config " + utils.EscapeWithSingleQuotes(config)
 	}
 	proxy := cmd.Flags().Lookup(proxy).Value.String()
 	if len(proxy) > 0 {

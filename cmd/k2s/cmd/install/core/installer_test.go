@@ -33,6 +33,26 @@ type myMock struct {
 	mock.Mock
 }
 
+type snapshotMock struct {
+	path        string
+	abortCalls  int
+	commitCalls int
+}
+
+func (s *snapshotMock) Path() string {
+	return s.path
+}
+
+func (s *snapshotMock) Abort() error {
+	s.abortCalls++
+	return nil
+}
+
+func (s *snapshotMock) Commit() error {
+	s.commitCalls++
+	return nil
+}
+
 func (m *myMock) Printfln(format string, a ...any) {
 	m.Called(format, a)
 }
@@ -195,6 +215,72 @@ var _ = Describe("core", func() {
 				err := sut.Install(kind, cmd, buildCmdFunc, common.CmdSession{})
 
 				Expect(err).To(MatchError(expectedError))
+			})
+		})
+
+		When("effective install configuration staging is enabled", func() {
+			It("passes the staged path to PowerShell and commits after success", func() {
+				kind := ic.Kind("buildonly")
+				cmd := &cobra.Command{}
+				cfg := config.NewK2sConfig(config.NewHostConfig(nil, nil, "some-dir", "", ""), nil)
+				cmd.SetContext(context.WithValue(context.TODO(), common.ContextKeyCmdContext, common.NewCmdContext(cfg, nil, nil)))
+				installConfig := &ic.InstallConfig{Kind: "buildonly", ApiVersion: "v1"}
+				var nilConfig *config.K2sRuntimeConfig
+				snapshot := &snapshotMock{path: `C:\config dir\candidate.json`}
+
+				configMock := &myMock{}
+				configMock.On(reflection.GetFunctionName(configMock.loadConfig), "some-dir").Return(nilConfig, config.ErrSystemNotInstalled)
+				installConfigMock := &myMock{}
+				installConfigMock.On(reflection.GetFunctionName(installConfigMock.Load), kind, cmd.Flags()).Return(installConfig, nil)
+				printerMock := &myMock{}
+				printerMock.On(reflection.GetFunctionName(printerMock.Printfln), mock.Anything, mock.Anything)
+				executorMock := &myMock{}
+				executorMock.On(reflection.GetFunctionName(executorMock.ExecutePs), `test-cmd -EffectiveInstallConfigPath 'C:\config dir\candidate.json'`, mock.AnythingOfType("*common.PtermWriter")).Return(nil)
+
+				sut := &core.Installer{
+					Printer: printerMock, InstallConfigAccess: installConfigMock, ExecutePsScript: executorMock.ExecutePs,
+					GetVersionFunc: func() version.Version { return version.Version{} }, GetPlatformFunc: func() string { return "test-os" }, GetInstallDirFunc: func() string { return "test-dir" },
+					LoadConfigFunc: configMock.loadConfig,
+					StageEffectiveInstallConfigFunc: func(configDir string, content []byte) (core.EffectiveInstallConfigSnapshot, error) {
+						Expect(configDir).To(Equal("some-dir"))
+						Expect(string(content)).To(ContainSubstring(`"kind": "buildonly"`))
+						return snapshot, nil
+					},
+				}
+
+				Expect(sut.Install(kind, cmd, func(*ic.InstallConfig) (string, error) { return "test-cmd", nil }, common.CmdSession{})).To(Succeed())
+				Expect(snapshot.commitCalls).To(Equal(1))
+				Expect(snapshot.abortCalls).To(Equal(0))
+			})
+
+			It("aborts the staged snapshot when PowerShell fails", func() {
+				kind := ic.Kind("buildonly")
+				cmd := &cobra.Command{}
+				cfg := config.NewK2sConfig(config.NewHostConfig(nil, nil, "some-dir", "", ""), nil)
+				cmd.SetContext(context.WithValue(context.TODO(), common.ContextKeyCmdContext, common.NewCmdContext(cfg, nil, nil)))
+				installConfig := &ic.InstallConfig{Kind: "buildonly", ApiVersion: "v1"}
+				var nilConfig *config.K2sRuntimeConfig
+				snapshot := &snapshotMock{path: `C:\config\candidate.json`}
+				expectedError := errors.New("PowerShell failed")
+
+				configMock := &myMock{}
+				configMock.On(reflection.GetFunctionName(configMock.loadConfig), "some-dir").Return(nilConfig, config.ErrSystemNotInstalled)
+				installConfigMock := &myMock{}
+				installConfigMock.On(reflection.GetFunctionName(installConfigMock.Load), kind, cmd.Flags()).Return(installConfig, nil)
+				printerMock := &myMock{}
+				printerMock.On(reflection.GetFunctionName(printerMock.Printfln), mock.Anything, mock.Anything)
+
+				sut := &core.Installer{
+					Printer: printerMock, InstallConfigAccess: installConfigMock,
+					ExecutePsScript: func(string, output.StreamWriter) error { return expectedError },
+					GetVersionFunc:  func() version.Version { return version.Version{} }, GetPlatformFunc: func() string { return "test-os" }, GetInstallDirFunc: func() string { return "test-dir" },
+					LoadConfigFunc:                  configMock.loadConfig,
+					StageEffectiveInstallConfigFunc: func(string, []byte) (core.EffectiveInstallConfigSnapshot, error) { return snapshot, nil },
+				}
+
+				Expect(sut.Install(kind, cmd, func(*ic.InstallConfig) (string, error) { return "test-cmd", nil }, common.CmdSession{})).To(MatchError(expectedError))
+				Expect(snapshot.abortCalls).To(Equal(1))
+				Expect(snapshot.commitCalls).To(Equal(0))
 			})
 		})
 
