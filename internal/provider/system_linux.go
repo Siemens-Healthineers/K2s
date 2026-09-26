@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText:  © 2025 Siemens Healthineers AG
+// SPDX-FileCopyrightText:  © 2026 Siemens Healthineers AG
 // SPDX-License-Identifier:   MIT
 
 //go:build linux
@@ -10,14 +10,22 @@ import (
 	"fmt"
 	"log/slog"
 	"os/exec"
+	"strings"
+
+	linuxlifecycle "github.com/siemens-healthineers/k2s/internal/linux/lifecycle"
 )
 
 type linuxSystemProvider struct {
 	installDir string
+	configDir  string
+}
+
+var linuxRunCombinedOutput = func(name string, args ...string) ([]byte, error) {
+	return exec.Command(name, args...).CombinedOutput()
 }
 
 func newLinuxSystemProvider(cfg ProviderConfig) *linuxSystemProvider {
-	return &linuxSystemProvider{installDir: cfg.InstallDir}
+	return &linuxSystemProvider{installDir: cfg.InstallDir, configDir: cfg.ConfigDir}
 }
 
 func (p *linuxSystemProvider) Dump(cfg SystemDumpConfig) error {
@@ -43,18 +51,66 @@ func (p *linuxSystemProvider) Package(_ SystemPackageConfig) error {
 }
 
 func (p *linuxSystemProvider) Reset(_ SystemResetConfig) error {
-	slog.Info("[System] Resetting cluster via kubeadm reset")
-	return exec.Command("kubeadm", "reset", "-f").Run()
+	// Resetting the cluster on Linux is done via the native uninstall process, similar to Windows system reset flow.
+	slog.Info("[System] Resetting cluster via native Linux uninstall")
+	if err := linuxlifecycle.Execute("Uninstall", linuxlifecycle.Operation{
+		InstallDir: p.installDir,
+		ConfigDir:  p.configDir,
+		LinuxOnly:  true,
+	}); err != nil {
+		return fmt.Errorf("native Linux uninstall failed: %w", err)
+	}
+	return nil
 }
 
 func (p *linuxSystemProvider) ResetNetwork(_ SystemResetNetworkConfig) error {
+	return p.resetNetwork()
+}
+
+func (p *linuxSystemProvider) resetNetwork() error {
 	slog.Info("[System] Resetting network interfaces")
-	_ = exec.Command("ip", "link", "delete", "cni0").Run()
-	_ = exec.Command("ip", "link", "delete", "flannel.1").Run()
-	_ = exec.Command("iptables", "-F").Run()
-	_ = exec.Command("iptables", "-t", "nat", "-F").Run()
-	_ = exec.Command("iptables", "-X").Run()
+	var failures []string
+
+	cleanup := []struct {
+		command        string
+		args           []string
+		ignoreNotFound bool
+		display        string
+	}{
+		{command: "ip", args: []string{"link", "delete", "cni0"}, ignoreNotFound: true, display: "ip link delete cni0"},
+		{command: "ip", args: []string{"link", "delete", "flannel.1"}, ignoreNotFound: true, display: "ip link delete flannel.1"},
+		{command: "iptables", args: []string{"-F"}, display: "iptables -F"},
+		{command: "iptables", args: []string{"-t", "nat", "-F"}, display: "iptables -t nat -F"},
+		{command: "iptables", args: []string{"-X"}, display: "iptables -X"},
+	}
+
+	for _, step := range cleanup {
+		output, err := linuxRunCombinedOutput(step.command, step.args...)
+		if err == nil {
+			continue
+		}
+
+		trimmedOutput := strings.TrimSpace(string(output))
+		if step.ignoreNotFound && isLinuxLinkNotFound(trimmedOutput) {
+			continue
+		}
+
+		if trimmedOutput == "" {
+			failures = append(failures, fmt.Sprintf("%s: %v", step.display, err))
+			continue
+		}
+		failures = append(failures, fmt.Sprintf("%s: %v (%s)", step.display, err, trimmedOutput))
+	}
+
+	if len(failures) > 0 {
+		return fmt.Errorf("linux network cleanup failed: %s", strings.Join(failures, "; "))
+	}
+
 	return nil
+}
+
+func isLinuxLinkNotFound(output string) bool {
+	return strings.Contains(output, "Cannot find device") || strings.Contains(output, "does not exist")
 }
 
 func (p *linuxSystemProvider) Compact(_ SystemCompactConfig) error {

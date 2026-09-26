@@ -101,6 +101,8 @@ Alternatively, use the CLI for a network reset (requires a reboot):
 k2s system reset network
 ```
 
+On Linux hosts, `k2s system reset network` performs the host-network cleanup path. It leaves the K2s runtime configuration in place; use `k2s system reset` when you also need to remove the installed Linux-only cluster state and persisted K2s install state.
+
 ## Listing ALL PVCs
 Get the list of all mounted volumes, their size and their namespace:
 ```console

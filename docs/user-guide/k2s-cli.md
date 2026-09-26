@@ -614,6 +614,18 @@ k2s system users add [flags]
 | `--username` | `-u` | Windows user name (mutually exclusive with `--id`) |
 | `--id` | `-i` | Windows user ID (mutually exclusive with `--username`) |
 
+### system reset
+
+Reset the local K2s system state.
+
+```console
+k2s system reset
+```
+
+On Windows this runs the standard host reset flow.
+
+On Linux hosts this runs the native uninstall-style cleanup for the installed Linux-only setup, removing the cluster state, common CNI interfaces, and persisted K2s runtime configuration so a fresh install can be started afterwards. Host-network-only cleanup remains the responsibility of `k2s system reset network`.
+
 ### system reset network
 
 Reset the host network configuration (requires reboot).
@@ -625,6 +637,8 @@ k2s system reset network [flags]
 | Flag | Short | Description |
 |------|-------|-------------|
 | `--force` | `-f` | Force network reset |
+
+When a setup is still installed, uninstall it first or run `k2s system reset` before using the standalone network reset. On Linux hosts, `k2s system reset network` is the host-network cleanup path; `k2s system reset` removes only the installed Linux-only cluster state and persisted K2s runtime state.
 
 ---
 
