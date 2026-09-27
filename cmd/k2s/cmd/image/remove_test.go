@@ -47,6 +47,19 @@ var _ = Describe("remove", Ordered, func() {
 		})
 	})
 
+	When("running on Linux-only with --from-registry", func() {
+		It("rejects from-registry with actionable message", func() {
+			tempDir = setupTestCmdContext(removeCmd, mockImg, true, "control-plane")
+			removeCmd.Flags().Set(removeImgNameFlagName, "myimage:v1")
+			removeCmd.Flags().Set(fromRegistryFlagName, "true")
+
+			err := removeImage(removeCmd, []string{})
+
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("removing images from registry is not supported on a Linux-only installation"))
+		})
+	})
+
 	When("running on Linux-only with valid options", func() {
 		It("routes to provider Image.Remove", func() {
 			tempDir = setupTestCmdContext(removeCmd, mockImg, true, "control-plane")
