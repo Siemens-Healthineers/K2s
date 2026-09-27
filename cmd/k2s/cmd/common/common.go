@@ -7,7 +7,9 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"time"
 
@@ -283,7 +285,18 @@ func (c *CmdContext) Providers() *provider.Registry { return c.providers }
 func (c *CmdContext) EnsureK2sK8sContext(clusterName string) error {
 	slog.Debug("Ensuring correct K8s context", "cluster-name", clusterName)
 
-	kubeConfig, err := kubeconfig.FromFile(filepath.Join(c.config.Host().KubeConfig().CurrentDir(), kubeconfig.DefaultFileName))
+	kubeConfigPath := filepath.Join(c.config.Host().KubeConfig().CurrentDir(), kubeconfig.DefaultFileName)
+	if runtime.GOOS == "linux" {
+		if _, err := os.Stat(kubeConfigPath); errors.Is(err, os.ErrNotExist) {
+			const adminConfig = "/etc/kubernetes/admin.conf"
+			if _, adminErr := os.Stat(adminConfig); adminErr == nil {
+				slog.Debug("Falling back to admin kubeconfig", "path", adminConfig)
+				kubeConfigPath = adminConfig
+			}
+		}
+	}
+
+	kubeConfig, err := kubeconfig.FromFile(kubeConfigPath)
 	if err != nil {
 		return fmt.Errorf("could not read kubeconfig: %w", err)
 	}

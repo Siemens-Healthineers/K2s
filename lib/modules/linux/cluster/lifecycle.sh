@@ -76,6 +76,10 @@ EOF
   rm -f "$cfg"
   systemctl enable kubelet || true
   local user="${SUDO_USER:-root}" home; home=$(getent passwd "$user" | cut -d: -f6); mkdir -p "$home/.kube"; cp /etc/kubernetes/admin.conf "$home/.kube/config"; chown -R "$user":"$(id -gn "$user")" "$home/.kube"
+  if [[ "$user" != "root" ]]; then
+    mkdir -p /root/.kube
+    cp /etc/kubernetes/admin.conf /root/.kube/config
+  fi
 }
 
 k2s_install_control_plane_tools() {
