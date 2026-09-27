@@ -6,15 +6,12 @@ package image
 import (
 	"errors"
 	"fmt"
-	"path/filepath"
 	"strconv"
 
 	"github.com/pterm/pterm"
 	"github.com/spf13/cobra"
 
 	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/common"
-
-	"github.com/siemens-healthineers/k2s/cmd/k2s/utils"
 
 	cconfig "github.com/siemens-healthineers/k2s/internal/contracts/config"
 	"github.com/siemens-healthineers/k2s/internal/core/config"
@@ -97,15 +94,16 @@ func removeImage(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	if runtimeConfig.InstallConfig().LinuxOnly() {
-		return common.CreateFuncUnavailableForLinuxOnlyCmdFailure()
-	}
-	if err := context.EnsureK2sK8sContext(runtimeConfig.ClusterConfig().Name()); err != nil {
+	options, err := extractRemoveOptions(cmd)
+	if err != nil {
 		return err
 	}
 
-	options, err := extractRemoveOptions(cmd)
-	if err != nil {
+	if err := validateNodeSelector(options.nodes, runtimeConfig); err != nil {
+		return err
+	}
+
+	if err := context.EnsureK2sK8sContext(runtimeConfig.ClusterConfig().Name()); err != nil {
 		return err
 	}
 
@@ -166,25 +164,3 @@ func extractRemoveOptions(cmd *cobra.Command) (*removeOptions, error) {
 	}, nil
 }
 
-func buildRemovePsCmd(removeOptions *removeOptions) (psCmd string, params []string) {
-	psCmd = utils.FormatScriptFilePath(filepath.Join(utils.InstallDir(), "lib", "scripts", "windows", "host", "image", "Remove-Image.ps1"))
-
-	if removeOptions.imageId != "" {
-		params = append(params, " -ImageId "+removeOptions.imageId)
-	}
-	if removeOptions.imageName != "" {
-		params = append(params, " -ImageName "+removeOptions.imageName)
-	}
-	params = appendNodesParam(params, removeOptions.nodes)
-	if removeOptions.fromRegistry {
-		params = append(params, " -FromRegistry")
-	}
-	if removeOptions.force {
-		params = append(params, " -Force")
-	}
-	if removeOptions.showOutput {
-		params = append(params, " -ShowLogs")
-	}
-
-	return
-}

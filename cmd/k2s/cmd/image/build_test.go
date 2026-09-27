@@ -5,17 +5,23 @@ package image
 
 import (
 	"fmt"
-	"path/filepath"
+	"os"
 
 	"github.com/google/uuid"
 	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/common"
+	"github.com/siemens-healthineers/k2s/internal/provider"
 	"github.com/spf13/cobra"
+	"github.com/stretchr/testify/mock"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )
 
-var _ = Describe("build", func() {
+var _ = Describe("build", Ordered, func() {
+	BeforeAll(func() {
+		buildCmd.Flags().BoolP(common.OutputFlagName, common.OutputFlagShorthand, false, common.OutputFlagUsage)
+	})
+
 	Describe("extractBuildOptions", func() {
 		When("no flags set", func() {
 			It("build options are created with default values", func() {
@@ -151,131 +157,59 @@ var _ = Describe("build", func() {
 		})
 	})
 
-	Describe("buildPsCmd", func() {
-		When("only defaults are set", func() {
-			It("returns correct command", func() {
-				options := newDefaultBuildOptions()
+	Describe("buildImage", func() {
+		var mockImg *mockImageProvider
+		var tempDir string
 
-				cmd, params := buildPsCmd(options)
+		BeforeEach(func() {
+			mockImg = &mockImageProvider{}
+		})
 
-				Expect(cmd).To(ContainSubstring(filepath.Join("lib", "scripts", "windows", "host", "image", "Build-Image.ps1")))
-				Expect(params).To(ConsistOf(" -InputFolder ."))
+		AfterEach(func() {
+			if tempDir != "" {
+				_ = os.RemoveAll(tempDir)
+			}
+		})
+
+		When("running on Linux-only installation and --windows flag is set", func() {
+			It("returns an actionable error rejecting Windows images", func() {
+				tempDir = setupTestCmdContext(buildCmd, mockImg, true, "control-plane")
+				buildCmd.Flags().Set(windowsFlagName, "true")
+				DeferCleanup(func() {
+					buildCmd.Flags().Set(windowsFlagName, "false")
+				})
+
+				err := buildImage(buildCmd, []string{})
+
+				Expect(err).To(HaveOccurred())
+				Expect(err.Error()).To(Equal("building Windows container images is not supported on a Linux-only installation"))
 			})
 		})
 
-		When("Windows option is set", func() {
-			It("returns correct command", func() {
-				options := newDefaultBuildOptions()
-				options.Windows = true
+		When("running on Linux-only installation with valid options", func() {
+			It("routes to provider Image.Build successfully", func() {
+				tempDir = setupTestCmdContext(buildCmd, mockImg, true, "control-plane")
+				buildCmd.Flags().Set(windowsFlagName, "false")
+				buildCmd.Flags().Set(inputFolderFlagName, "/tmp/test-build")
+				buildCmd.Flags().Set(imageNameFlagName, "myimage")
+				buildCmd.Flags().Set(imageTagFlagName, "v1")
+				DeferCleanup(func() {
+					buildCmd.Flags().Set(inputFolderFlagName, defaultInputFolder)
+					buildCmd.Flags().Set(imageNameFlagName, defaultImageNameToBeBuilt)
+					buildCmd.Flags().Set(imageTagFlagName, defaultImageTagToBeBuilt)
+				})
 
-				cmd, params := buildPsCmd(options)
+				mockImg.On("Build", mock.MatchedBy(func(cfg provider.ImageBuildConfig) bool {
+					return cfg.InputFolder == "/tmp/test-build" &&
+						cfg.ImageName == "myimage" &&
+						cfg.ImageTag == "v1" &&
+						!cfg.Windows
+				})).Return(nil)
 
-				Expect(cmd).To(ContainSubstring(filepath.Join("lib", "scripts", "windows", "host", "image", "Build-Image.ps1")))
-				Expect(params).To(ConsistOf(" -InputFolder .", " -Windows"))
-			})
-		})
+				err := buildImage(buildCmd, []string{})
 
-		When("push option is set", func() {
-			It("returns correct command", func() {
-				options := newDefaultBuildOptions()
-				options.Push = true
-
-				cmd, params := buildPsCmd(options)
-
-				Expect(cmd).To(ContainSubstring(filepath.Join("lib", "scripts", "windows", "host", "image", "Build-Image.ps1")))
-				Expect(params).To(ConsistOf(" -InputFolder .", " -Push"))
-			})
-		})
-
-		When("push Windows option is set", func() {
-			It("returns correct command", func() {
-				options := newDefaultBuildOptions()
-				options.Push = true
-				options.Windows = true
-
-				cmd, params := buildPsCmd(options)
-
-				Expect(cmd).To(ContainSubstring(filepath.Join("lib", "scripts", "windows", "host", "image", "Build-Image.ps1")))
-				Expect(params).To(ConsistOf(" -InputFolder .", " -Windows", " -Push"))
-			})
-		})
-
-		When("Dockerfile option is set", func() {
-			It("returns correct command", func() {
-				dockerfilePath := "MyDockerfile"
-				options := newDefaultBuildOptions()
-				options.Dockerfile = dockerfilePath
-
-				cmd, params := buildPsCmd(options)
-
-				Expect(cmd).To(ContainSubstring(filepath.Join("lib", "scripts", "windows", "host", "image", "Build-Image.ps1")))
-				Expect(params).To(ConsistOf(" -InputFolder .", " -Dockerfile MyDockerfile"))
-			})
-		})
-
-		When("input folder option is set", func() {
-			It("returns correct command", func() {
-				inputFolder := "MyInputFolder"
-				options := newDefaultBuildOptions()
-				options.InputFolder = inputFolder
-
-				cmd, params := buildPsCmd(options)
-
-				Expect(cmd).To(ContainSubstring(filepath.Join("lib", "scripts", "windows", "host", "image", "Build-Image.ps1")))
-				Expect(params).To(ConsistOf(" -InputFolder MyInputFolder"))
-			})
-		})
-
-		When("image option is set", func() {
-			It("returns correct command", func() {
-				imageName := "my-image"
-				imageTag := "my-tag"
-				options := newDefaultBuildOptions()
-				options.ImageName = imageName
-				options.ImageTag = imageTag
-
-				cmd, params := buildPsCmd(options)
-
-				Expect(cmd).To(ContainSubstring(filepath.Join("lib", "scripts", "windows", "host", "image", "Build-Image.ps1")))
-				Expect(params).To(ConsistOf(" -InputFolder .", " -ImageName my-image", " -ImageTag my-tag"))
-			})
-		})
-
-		When("build args are set", func() {
-			It("returns correct command", func() {
-				baseImageKey := "BaseImage"
-				baseImageValue := "alpine"
-				commitIdKey := "CommitId"
-				commitIdValue := "e5d634c6-306a-42fe-a170-9da27951543b"
-				buildArgs := make(map[string]string)
-				buildArgs[baseImageKey] = baseImageValue
-				buildArgs[commitIdKey] = commitIdValue
-				options := newDefaultBuildOptions()
-				options.BuildArgs = buildArgs
-
-				cmd, params := buildPsCmd(options)
-
-				Expect(cmd).To(ContainSubstring(filepath.Join("lib", "scripts", "windows", "host", "image", "Build-Image.ps1")))
-				Expect(params).To(ConsistOf(
-					" -InputFolder .",
-					SatisfyAny(
-						Equal(" -BuildArgs BaseImage=alpine,CommitId=e5d634c6-306a-42fe-a170-9da27951543b"),
-						Equal(" -BuildArgs CommitId=e5d634c6-306a-42fe-a170-9da27951543b,BaseImage=alpine"),
-					),
-				))
-			})
-		})
-
-		When("log option is set", func() {
-			It("returns correct command", func() {
-				enabledDetailedLogs := true
-				options := newDefaultBuildOptions()
-				options.Output = enabledDetailedLogs
-
-				cmd, params := buildPsCmd(options)
-
-				Expect(cmd).To(ContainSubstring(filepath.Join("lib", "scripts", "windows", "host", "image", "Build-Image.ps1")))
-				Expect(params).To(ConsistOf(" -InputFolder .", " -ShowLogs"))
+				Expect(err).ToNot(HaveOccurred())
+				mockImg.AssertExpectations(GinkgoT())
 			})
 		})
 	})
