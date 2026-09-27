@@ -7,10 +7,16 @@ package provider
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log/slog"
+	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
+
+	"github.com/siemens-healthineers/k2s/internal/definitions"
+	kjson "github.com/siemens-healthineers/k2s/internal/json"
 )
 
 const (
@@ -20,10 +26,18 @@ const (
 
 type linuxImageProvider struct {
 	installDir string
+	configDir  string
 }
 
 func newLinuxImageProvider(cfg ProviderConfig) *linuxImageProvider {
-	return &linuxImageProvider{installDir: cfg.InstallDir}
+	return &linuxImageProvider{
+		installDir: cfg.InstallDir,
+		configDir:  cfg.ConfigDir,
+	}
+}
+
+func (p *linuxImageProvider) scriptPath(script string) string {
+	return filepath.Join(p.installDir, "lib", "scripts", "linux", "debian", "host", "image", script)
 }
 
 // sshCmd executes a command on the Windows VM via SSH.
@@ -81,7 +95,23 @@ func (p *linuxImageProvider) Pull(cfg ImagePullConfig) error {
 		return err
 	}
 	slog.Info("[Image] Pulling image on Linux node", "image", cfg.ImageName)
-	return exec.Command("crictl", "pull", cfg.ImageName).Run()
+
+	script := p.scriptPath("Pull-Image.sh")
+	if _, err := os.Stat(script); err == nil {
+		cmd := exec.Command(script, "-n", cfg.ImageName)
+		if cfg.ShowOutput {
+			cmd.Stdout = os.Stdout
+			cmd.Stderr = os.Stderr
+		}
+		return cmd.Run()
+	}
+
+	cmd := exec.Command("crictl", "pull", cfg.ImageName)
+	if cfg.ShowOutput {
+		cmd.Stdout = os.Stdout
+		cmd.Stderr = os.Stderr
+	}
+	return cmd.Run()
 }
 
 func (p *linuxImageProvider) Remove(cfg ImageRemoveConfig) error {
@@ -90,16 +120,71 @@ func (p *linuxImageProvider) Remove(cfg ImageRemoveConfig) error {
 		ref = cfg.ImageName
 	}
 	slog.Info("[Image] Removing image", "ref", ref)
+
+	script := p.scriptPath("Remove-Image.sh")
+	if _, err := os.Stat(script); err == nil {
+		var args []string
+		if cfg.ImageId != "" {
+			args = append(args, "-i", cfg.ImageId)
+		}
+		if cfg.ImageName != "" {
+			args = append(args, "-n", cfg.ImageName)
+		}
+		if cfg.Force {
+			args = append(args, "--force")
+		}
+		cmd := exec.Command(script, args...)
+		if cfg.ShowOutput {
+			cmd.Stdout = os.Stdout
+			cmd.Stderr = os.Stderr
+		}
+		return cmd.Run()
+	}
+
 	args := []string{"rmi"}
 	if cfg.Force {
 		args = append(args, "--force")
 	}
 	args = append(args, ref)
-	return exec.Command("crictl", args...).Run()
+	cmd := exec.Command("crictl", args...)
+	if cfg.ShowOutput {
+		cmd.Stdout = os.Stdout
+		cmd.Stderr = os.Stderr
+	}
+	return cmd.Run()
 }
 
 func (p *linuxImageProvider) Build(cfg ImageBuildConfig) error {
+	if cfg.Windows {
+		return fmt.Errorf("building Windows container images is not supported on Linux hosts (Windows container images can only be built on Windows worker nodes)")
+	}
 	slog.Info("[Image] Building image", "name", cfg.ImageName, "input", cfg.InputFolder)
+
+	script := p.scriptPath("Build-Image.sh")
+	if _, err := os.Stat(script); err == nil {
+		args := []string{"-d", cfg.InputFolder}
+		if cfg.Dockerfile != "" {
+			args = append(args, "-f", cfg.Dockerfile)
+		}
+		if cfg.ImageName != "" {
+			args = append(args, "-n", cfg.ImageName)
+		}
+		if cfg.ImageTag != "" {
+			args = append(args, "-t", cfg.ImageTag)
+		}
+		if cfg.Push {
+			args = append(args, "--push")
+		}
+		for k, v := range cfg.BuildArgs {
+			args = append(args, "--build-arg", k+"="+v)
+		}
+		cmd := exec.Command(script, args...)
+		if cfg.ShowOutput {
+			cmd.Stdout = os.Stdout
+			cmd.Stderr = os.Stderr
+		}
+		return cmd.Run()
+	}
 
 	args := []string{"build"}
 	if cfg.Dockerfile != "" {
@@ -118,14 +203,21 @@ func (p *linuxImageProvider) Build(cfg ImageBuildConfig) error {
 	args = append(args, cfg.InputFolder)
 
 	cmd := exec.Command("nerdctl", args...)
-	cmd.Stdout = nil
-	cmd.Stderr = nil
+	if cfg.ShowOutput {
+		cmd.Stdout = os.Stdout
+		cmd.Stderr = os.Stderr
+	}
 	if err := cmd.Run(); err != nil {
 		return fmt.Errorf("nerdctl build failed: %w", err)
 	}
 
 	if cfg.Push && name != "" {
-		return exec.Command("nerdctl", "push", name).Run()
+		pushCmd := exec.Command("nerdctl", "push", name)
+		if cfg.ShowOutput {
+			pushCmd.Stdout = os.Stdout
+			pushCmd.Stderr = os.Stderr
+		}
+		return pushCmd.Run()
 	}
 
 	return nil
@@ -143,7 +235,30 @@ func (p *linuxImageProvider) Import(cfg ImageImportConfig) error {
 		_, err := sshCmd(fmt.Sprintf(`ctr -n k8s.io images import "%s"`, path))
 		return err
 	}
-	return exec.Command("ctr", "-n", "k8s.io", "images", "import", path).Run()
+
+	script := p.scriptPath("Import-Image.sh")
+	if _, err := os.Stat(script); err == nil {
+		var args []string
+		if cfg.TarPath != "" {
+			args = append(args, "-t", cfg.TarPath)
+		}
+		if cfg.DirPath != "" {
+			args = append(args, "-d", cfg.DirPath)
+		}
+		cmd := exec.Command(script, args...)
+		if cfg.ShowOutput {
+			cmd.Stdout = os.Stdout
+			cmd.Stderr = os.Stderr
+		}
+		return cmd.Run()
+	}
+
+	cmd := exec.Command("ctr", "-n", "k8s.io", "images", "import", path)
+	if cfg.ShowOutput {
+		cmd.Stdout = os.Stdout
+		cmd.Stderr = os.Stderr
+	}
+	return cmd.Run()
 }
 
 func (p *linuxImageProvider) Export(cfg ImageExportConfig) error {
@@ -152,7 +267,45 @@ func (p *linuxImageProvider) Export(cfg ImageExportConfig) error {
 		ref = cfg.ImageName
 	}
 	slog.Info("[Image] Exporting image", "ref", ref, "output", cfg.OutputPath)
-	return exec.Command("ctr", "-n", "k8s.io", "images", "export", cfg.OutputPath, ref).Run()
+
+	script := p.scriptPath("Export-Image.sh")
+	if _, err := os.Stat(script); err == nil {
+		var args []string
+		if cfg.ImageId != "" {
+			args = append(args, "-i", cfg.ImageId)
+		}
+		if cfg.ImageName != "" {
+			args = append(args, "-n", cfg.ImageName)
+		}
+		if cfg.OutputPath != "" {
+			args = append(args, "-t", cfg.OutputPath)
+		}
+		if cfg.DockerArchive {
+			args = append(args, "--docker-archive")
+		}
+		cmd := exec.Command(script, args...)
+		if cfg.ShowOutput {
+			cmd.Stdout = os.Stdout
+			cmd.Stderr = os.Stderr
+		}
+		return cmd.Run()
+	}
+
+	if cfg.DockerArchive {
+		cmd := exec.Command("nerdctl", "-n", "k8s.io", "save", "-o", cfg.OutputPath, ref)
+		if cfg.ShowOutput {
+			cmd.Stdout = os.Stdout
+			cmd.Stderr = os.Stderr
+		}
+		return cmd.Run()
+	}
+
+	cmd := exec.Command("ctr", "-n", "k8s.io", "images", "export", cfg.OutputPath, ref)
+	if cfg.ShowOutput {
+		cmd.Stdout = os.Stdout
+		cmd.Stderr = os.Stderr
+	}
+	return cmd.Run()
 }
 
 func (p *linuxImageProvider) Tag(cfg ImageTagConfig) error {
@@ -165,16 +318,79 @@ func (p *linuxImageProvider) Tag(cfg ImageTagConfig) error {
 		target = cfg.ImageName
 	}
 	slog.Info("[Image] Tagging image", "ref", ref, "target", target)
-	return exec.Command("ctr", "-n", "k8s.io", "images", "tag", ref, target).Run()
+
+	script := p.scriptPath("Tag-Image.sh")
+	if _, err := os.Stat(script); err == nil {
+		var args []string
+		if cfg.ImageId != "" {
+			args = append(args, "-i", cfg.ImageId)
+		}
+		if cfg.ImageName != "" {
+			args = append(args, "-n", cfg.ImageName)
+		}
+		if target != "" {
+			args = append(args, "-t", target)
+		}
+		cmd := exec.Command(script, args...)
+		if cfg.ShowOutput {
+			cmd.Stdout = os.Stdout
+			cmd.Stderr = os.Stderr
+		}
+		return cmd.Run()
+	}
+
+	cmd := exec.Command("ctr", "-n", "k8s.io", "images", "tag", ref, target)
+	if cfg.ShowOutput {
+		cmd.Stdout = os.Stdout
+		cmd.Stderr = os.Stderr
+	}
+	return cmd.Run()
 }
 
 func (p *linuxImageProvider) Push(cfg ImagePushConfig) error {
-	slog.Info("[Image] Pushing image", "name", cfg.ImageName)
-	return exec.Command("nerdctl", "push", cfg.ImageName).Run()
+	ref := cfg.ImageId
+	if ref == "" {
+		ref = cfg.ImageName
+	}
+	slog.Info("[Image] Pushing image", "name", ref)
+
+	script := p.scriptPath("Push-Image.sh")
+	if _, err := os.Stat(script); err == nil {
+		var args []string
+		if cfg.ImageId != "" {
+			args = append(args, "-i", cfg.ImageId)
+		}
+		if cfg.ImageName != "" {
+			args = append(args, "-n", cfg.ImageName)
+		}
+		cmd := exec.Command(script, args...)
+		if cfg.ShowOutput {
+			cmd.Stdout = os.Stdout
+			cmd.Stderr = os.Stderr
+		}
+		return cmd.Run()
+	}
+
+	cmd := exec.Command("nerdctl", "push", ref)
+	if cfg.ShowOutput {
+		cmd.Stdout = os.Stdout
+		cmd.Stderr = os.Stderr
+	}
+	return cmd.Run()
 }
 
 func (p *linuxImageProvider) Clean(cfg ImageCleanConfig) error {
 	slog.Info("[Image] Cleaning non-K8s images")
+
+	script := p.scriptPath("Clean-Images.sh")
+	if _, err := os.Stat(script); err == nil {
+		cmd := exec.Command(script)
+		if cfg.ShowOutput {
+			cmd.Stdout = os.Stdout
+			cmd.Stderr = os.Stderr
+		}
+		return cmd.Run()
+	}
 
 	images, err := listCrictlImages()
 	if err != nil {
@@ -191,6 +407,114 @@ func (p *linuxImageProvider) Clean(cfg ImageCleanConfig) error {
 	}
 
 	return nil
+}
+
+func (p *linuxImageProvider) RegistryAdd(cfg ImageRegistryAddConfig) error {
+	script := p.scriptPath(filepath.Join("registry", "Add-Registry.sh"))
+	args := []string{"--registry", cfg.RegistryName}
+	if cfg.Username != "" {
+		args = append(args, "--username", cfg.Username)
+	}
+	if cfg.Password != "" {
+		args = append(args, "--password", cfg.Password)
+	}
+	if cfg.SkipVerify {
+		args = append(args, "--skip-verify")
+	}
+	if cfg.PlainHttp {
+		args = append(args, "--plain-http")
+	}
+
+	cmd := exec.Command(script, args...)
+	if cfg.ShowOutput {
+		cmd.Stdout = os.Stdout
+		cmd.Stderr = os.Stderr
+	}
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf("failed to add registry '%s': %w", cfg.RegistryName, err)
+	}
+
+	// Persist registry in setup.json
+	return p.addRegistryToConfig(cfg.RegistryName)
+}
+
+func (p *linuxImageProvider) RegistryRemove(cfg ImageRegistryRemoveConfig) error {
+	script := p.scriptPath(filepath.Join("registry", "Remove-Registry.sh"))
+	cmd := exec.Command(script, "--registry", cfg.RegistryName)
+	if cfg.ShowOutput {
+		cmd.Stdout = os.Stdout
+		cmd.Stderr = os.Stderr
+	}
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf("failed to remove registry '%s': %w", cfg.RegistryName, err)
+	}
+
+	// Remove registry from setup.json
+	return p.removeRegistryFromConfig(cfg.RegistryName)
+}
+
+func (p *linuxImageProvider) addRegistryToConfig(registry string) error {
+	if p.configDir == "" {
+		return nil
+	}
+	configPath := filepath.Join(p.configDir, definitions.K2sRuntimeConfigFileName)
+	cfgMap, err := kjson.FromFile[map[string]any](configPath)
+	if err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			return nil
+		}
+		return fmt.Errorf("loading setup config: %w", err)
+	}
+
+	var registries []any
+	if rawRegs, ok := (*cfgMap)["Registries"]; ok && rawRegs != nil {
+		if list, ok := rawRegs.([]any); ok {
+			registries = append(registries, list...)
+		}
+	}
+
+	exists := false
+	for _, r := range registries {
+		if s, ok := r.(string); ok && s == registry {
+			exists = true
+			break
+		}
+	}
+	if !exists {
+		registries = append(registries, registry)
+	}
+
+	(*cfgMap)["Registries"] = registries
+	return kjson.ToFile(configPath, cfgMap)
+}
+
+func (p *linuxImageProvider) removeRegistryFromConfig(registry string) error {
+	if p.configDir == "" {
+		return nil
+	}
+	configPath := filepath.Join(p.configDir, definitions.K2sRuntimeConfigFileName)
+	cfgMap, err := kjson.FromFile[map[string]any](configPath)
+	if err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			return nil
+		}
+		return fmt.Errorf("loading setup config: %w", err)
+	}
+
+	var registries []any
+	if rawRegs, ok := (*cfgMap)["Registries"]; ok && rawRegs != nil {
+		if list, ok := rawRegs.([]any); ok {
+			for _, r := range list {
+				if s, ok := r.(string); ok && s == registry {
+					continue
+				}
+				registries = append(registries, r)
+			}
+		}
+	}
+
+	(*cfgMap)["Registries"] = registries
+	return kjson.ToFile(configPath, cfgMap)
 }
 
 // ---------- helpers ----------
