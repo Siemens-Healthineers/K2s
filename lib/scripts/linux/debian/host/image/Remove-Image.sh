@@ -57,6 +57,22 @@ if [[ "$force" == true ]]; then
   force_args+=("--force")
 fi
 
+# Try buildah rmi first (untags specific tag without deleting the underlying image or other tags)
+if command -v buildah >/dev/null 2>&1; then
+  buildah_args=()
+  if [[ "$force" == true ]]; then
+    buildah_args+=("--force")
+  fi
+  if buildah rmi "${buildah_args[@]}" "$ref" >/dev/null 2>&1; then
+    exit 0
+  fi
+  if [[ "$ref" != localhost/* ]]; then
+    if buildah rmi "${buildah_args[@]}" "localhost/$ref" >/dev/null 2>&1; then
+      exit 0
+    fi
+  fi
+fi
+
 # Try crictl rmi with exact ref
 if crictl rmi "${force_args[@]}" "$ref" >/dev/null 2>&1; then
   exit 0
@@ -69,16 +85,9 @@ if [[ "$ref" != localhost/* ]]; then
   fi
 fi
 
-# Fallback to buildah rmi if available
+# If all failed, run buildah rmi or crictl rmi directly to surface output and exit code
 if command -v buildah >/dev/null 2>&1; then
-  buildah_args=()
-  if [[ "$force" == true ]]; then
-    buildah_args+=("--force")
-  fi
-  if buildah rmi "${buildah_args[@]}" "$ref" >/dev/null 2>&1; then
-    exit 0
-  fi
+  k2s_run buildah rmi "${buildah_args[@]}" "$ref"
+else
+  k2s_run crictl rmi "${force_args[@]}" "$ref"
 fi
-
-# If all failed, run crictl rmi directly to surface output and exit code
-k2s_run crictl rmi "${force_args[@]}" "$ref"
