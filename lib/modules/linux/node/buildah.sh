@@ -58,3 +58,19 @@ k2s_buildah_logout() {
   k2s_log INFO "Logging out of registry '$registry' via buildah"
   buildah logout --authfile "$K2S_CONTAINER_AUTH_FILE" "$registry" >/dev/null 2>&1 || true
 }
+
+k2s_buildah_ensure_installed() {
+  if command -v buildah >/dev/null 2>&1; then
+    return 0
+  fi
+  k2s_log INFO "buildah is not installed; installing buildah package..."
+  if command -v apt-get >/dev/null 2>&1; then
+    env DEBIAN_FRONTEND=noninteractive apt-get install -y \
+      -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold" \
+      buildah || return 1
+  else
+    k2s_log ERROR "Package manager apt-get not found; cannot install buildah"
+    return 1
+  fi
+}
+

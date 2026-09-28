@@ -60,11 +60,7 @@ if command -v buildah >/dev/null 2>&1; then
   k2s_run buildah tag "$source_ref" "$target_name"
 elif command -v ctr >/dev/null 2>&1; then
   k2s_run ctr -n k8s.io images tag "$source_ref" "$target_name"
-elif command -v podman >/dev/null 2>&1; then
-  k2s_run podman tag "$source_ref" "$target_name"
-elif command -v docker >/dev/null 2>&1; then
-  k2s_run docker tag "$source_ref" "$target_name"
 else
-  k2s_log ERROR "No container tool found to tag image. Please install buildah (apt-get install -y buildah) or containerd (ctr)."
+  k2s_log ERROR "No container tool found to tag image. Please install buildah (apt-get install -y buildah)."
   exit 127
 fi

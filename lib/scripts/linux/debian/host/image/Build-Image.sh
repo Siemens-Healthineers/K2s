@@ -71,17 +71,22 @@ elif [[ -n "$tag" ]]; then
   full_image="${tag}"
 fi
 
+if ! command -v buildah >/dev/null 2>&1 && ! command -v nerdctl >/dev/null 2>&1; then
+  k2s_log INFO "buildah is not installed; installing buildah..."
+  if command -v apt-get >/dev/null 2>&1; then
+    k2s_run env DEBIAN_FRONTEND=noninteractive apt-get install -y \
+      -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold" \
+      buildah || true
+  fi
+fi
+
 builder=""
 if command -v buildah >/dev/null 2>&1; then
   builder="buildah"
 elif command -v nerdctl >/dev/null 2>&1; then
   builder="nerdctl"
-elif command -v podman >/dev/null 2>&1; then
-  builder="podman"
-elif command -v docker >/dev/null 2>&1; then
-  builder="docker"
 else
-  k2s_log ERROR "No container image builder found. Please install buildah (apt-get install -y buildah) or nerdctl."
+  k2s_log ERROR "No container image builder found. Please install buildah (apt-get install -y buildah)."
   exit 127
 fi
 
