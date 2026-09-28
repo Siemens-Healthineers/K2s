@@ -543,10 +543,12 @@ func listCrictlImages() ([]ContainerImage, error) {
 		repo := "<none>"
 		tag := "<none>"
 		if len(img.RepoTags) > 0 && img.RepoTags[0] != "" {
-			parts := strings.SplitN(img.RepoTags[0], ":", 2)
-			repo = parts[0]
-			if len(parts) > 1 {
-				tag = parts[1]
+			lastColon := strings.LastIndex(img.RepoTags[0], ":")
+			if lastColon != -1 {
+				repo = img.RepoTags[0][:lastColon]
+				tag = img.RepoTags[0][lastColon+1:]
+			} else {
+				repo = img.RepoTags[0]
 			}
 		}
 		shortId := img.Id
@@ -588,10 +590,12 @@ func listWindowsVMImages() ([]ContainerImage, error) {
 		repo := "<none>"
 		tag := "<none>"
 		if len(img.RepoTags) > 0 && img.RepoTags[0] != "" {
-			parts := strings.SplitN(img.RepoTags[0], ":", 2)
-			repo = parts[0]
-			if len(parts) > 1 {
-				tag = parts[1]
+			lastColon := strings.LastIndex(img.RepoTags[0], ":")
+			if lastColon != -1 {
+				repo = img.RepoTags[0][:lastColon]
+				tag = img.RepoTags[0][lastColon+1:]
+			} else {
+				repo = img.RepoTags[0]
 			}
 		}
 		shortId := img.Id

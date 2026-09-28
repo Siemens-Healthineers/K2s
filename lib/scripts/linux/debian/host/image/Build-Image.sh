@@ -71,7 +71,27 @@ elif [[ -n "$tag" ]]; then
   full_image="${tag}"
 fi
 
-build_cmd=("nerdctl" "build")
+builder=""
+if command -v buildah >/dev/null 2>&1; then
+  builder="buildah"
+elif command -v nerdctl >/dev/null 2>&1; then
+  builder="nerdctl"
+elif command -v podman >/dev/null 2>&1; then
+  builder="podman"
+elif command -v docker >/dev/null 2>&1; then
+  builder="docker"
+else
+  k2s_log ERROR "No container image builder found. Please install buildah (apt-get install -y buildah) or nerdctl."
+  exit 127
+fi
+
+build_cmd=("$builder")
+if [[ "$builder" == "buildah" ]]; then
+  build_cmd+=("bud")
+else
+  build_cmd+=("build")
+fi
+
 if [[ -n "$dockerfile" ]]; then
   build_cmd+=("-f" "$dockerfile")
 fi
@@ -83,7 +103,7 @@ if [[ ${#build_args[@]} -gt 0 ]]; then
 fi
 build_cmd+=("$dir")
 
-k2s_log INFO "Building container image with nerdctl"
+k2s_log INFO "Building container image with $builder"
 k2s_run "${build_cmd[@]}"
 
 if [[ "$push" == true ]]; then
@@ -91,6 +111,6 @@ if [[ "$push" == true ]]; then
     k2s_log ERROR "Cannot push image: image name not specified"
     exit 1
   fi
-  k2s_log INFO "Pushing container image $full_image"
-  k2s_run nerdctl push "$full_image"
+  k2s_log INFO "Pushing container image $full_image with $builder"
+  k2s_run "$builder" push "$full_image"
 fi

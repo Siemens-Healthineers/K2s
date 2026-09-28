@@ -47,7 +47,8 @@ var _ = Describe("Linux-only Image Lifecycle", Label("core", "acceptance", "setu
 
 	hasImage := func(images linuxListedImages, imageName string) bool {
 		for _, img := range images.ContainerImages {
-			if fmt.Sprintf("%s:%s", img.Repository, img.Tag) == imageName {
+			full := fmt.Sprintf("%s:%s", img.Repository, img.Tag)
+			if full == imageName || strings.TrimPrefix(full, "localhost/") == imageName {
 				return true
 			}
 		}

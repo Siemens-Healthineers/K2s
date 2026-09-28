@@ -69,11 +69,11 @@ func init() {
 }
 
 func addInitFlagsForRemoveCommand(cmd *cobra.Command) {
-	cmd.Flags().String(imageIdFlagName, "", "Image ID of the container image")
-	cmd.Flags().String(removeImgNameFlagName, "", "Name of the container image")
+	cmd.Flags().StringP(imageIdFlagName, "i", "", "Image ID of the container image")
+	cmd.Flags().StringP(removeImgNameFlagName, "n", "", "Name of the container image")
 	addNodeSelectionFlags(cmd)
 	cmd.Flags().Bool(fromRegistryFlagName, false, "Remove image from local registry (when registry addon is enabled)")
-	cmd.Flags().Bool(forceFlagName, false, "Force removal by first removing any containers using the image")
+	cmd.Flags().BoolP(forceFlagName, "f", false, "Force removal by first removing any containers using the image")
 	cmd.Flags().SortFlags = false
 	cmd.Flags().PrintDefaults()
 }

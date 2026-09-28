@@ -45,4 +45,15 @@ if [[ -z "$image_name" ]]; then
 fi
 
 k2s_log INFO "Pushing container image $image_name"
-k2s_run nerdctl push "$image_name"
+if command -v buildah >/dev/null 2>&1; then
+  k2s_run buildah push "$image_name"
+elif command -v nerdctl >/dev/null 2>&1; then
+  k2s_run nerdctl push "$image_name"
+elif command -v podman >/dev/null 2>&1; then
+  k2s_run podman push "$image_name"
+elif command -v docker >/dev/null 2>&1; then
+  k2s_run docker push "$image_name"
+else
+  k2s_log ERROR "No container tool found to push image. Please install buildah (apt-get install -y buildah) or nerdctl."
+  exit 127
+fi
