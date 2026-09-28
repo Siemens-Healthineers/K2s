@@ -540,28 +540,36 @@ func listCrictlImages() ([]ContainerImage, error) {
 
 	var images []ContainerImage
 	for _, img := range result.Images {
-		repo := "<none>"
-		tag := "<none>"
-		if len(img.RepoTags) > 0 && img.RepoTags[0] != "" {
-			lastColon := strings.LastIndex(img.RepoTags[0], ":")
-			if lastColon != -1 {
-				repo = img.RepoTags[0][:lastColon]
-				tag = img.RepoTags[0][lastColon+1:]
-			} else {
-				repo = img.RepoTags[0]
-			}
-		}
 		shortId := img.Id
 		if len(shortId) > 12 {
 			shortId = shortId[:12]
 		}
-		images = append(images, ContainerImage{
-			ImageId:    shortId,
-			Repository: repo,
-			Tag:        tag,
-			Node:       "linux",
-			Size:       img.Size,
-		})
+
+		tags := img.RepoTags
+		if len(tags) == 0 {
+			tags = []string{"<none>:<none>"}
+		}
+
+		for _, repoTag := range tags {
+			repo := "<none>"
+			tag := "<none>"
+			if repoTag != "" && repoTag != "<none>:<none>" {
+				lastColon := strings.LastIndex(repoTag, ":")
+				if lastColon != -1 {
+					repo = repoTag[:lastColon]
+					tag = repoTag[lastColon+1:]
+				} else {
+					repo = repoTag
+				}
+			}
+			images = append(images, ContainerImage{
+				ImageId:    shortId,
+				Repository: repo,
+				Tag:        tag,
+				Node:       "linux",
+				Size:       img.Size,
+			})
+		}
 	}
 
 	return images, nil
@@ -587,28 +595,36 @@ func listWindowsVMImages() ([]ContainerImage, error) {
 
 	var images []ContainerImage
 	for _, img := range result.Images {
-		repo := "<none>"
-		tag := "<none>"
-		if len(img.RepoTags) > 0 && img.RepoTags[0] != "" {
-			lastColon := strings.LastIndex(img.RepoTags[0], ":")
-			if lastColon != -1 {
-				repo = img.RepoTags[0][:lastColon]
-				tag = img.RepoTags[0][lastColon+1:]
-			} else {
-				repo = img.RepoTags[0]
-			}
-		}
 		shortId := img.Id
 		if len(shortId) > 12 {
 			shortId = shortId[:12]
 		}
-		images = append(images, ContainerImage{
-			ImageId:    shortId,
-			Repository: repo,
-			Tag:        tag,
-			Node:       "windows",
-			Size:       img.Size,
-		})
+
+		tags := img.RepoTags
+		if len(tags) == 0 {
+			tags = []string{"<none>:<none>"}
+		}
+
+		for _, repoTag := range tags {
+			repo := "<none>"
+			tag := "<none>"
+			if repoTag != "" && repoTag != "<none>:<none>" {
+				lastColon := strings.LastIndex(repoTag, ":")
+				if lastColon != -1 {
+					repo = repoTag[:lastColon]
+					tag = repoTag[lastColon+1:]
+				} else {
+					repo = repoTag
+				}
+			}
+			images = append(images, ContainerImage{
+				ImageId:    shortId,
+				Repository: repo,
+				Tag:        tag,
+				Node:       "windows",
+				Size:       img.Size,
+			})
+		}
 	}
 
 	return images, nil

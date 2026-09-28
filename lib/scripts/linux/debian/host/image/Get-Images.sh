@@ -65,14 +65,15 @@ processed_json=$(echo "$raw_json" | jq --argjson incK8s "$include_k8s" '
     end;
 
   [ (.images // [])[] |
-    (.repoTags[0] // "") as $firstTag |
-    parse_tag($firstTag) as $parsed |
+    . as $img |
+    (($img.repoTags // []) | if length == 0 then ["<none>:<none>"] else . end)[] |
+    parse_tag(.) as $parsed |
     {
-      imageId: (.id | sub("^sha256:"; "") | .[:12]),
+      imageId: ($img.id | sub("^sha256:"; "") | .[:12]),
       repository: $parsed.repo,
       tag: $parsed.tag,
       node: "linux",
-      size: (.size // "0")
+      size: ($img.size // "0")
     } | select($incK8s or (is_k8s(.repository) | not))
   ]
 ')
