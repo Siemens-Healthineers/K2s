@@ -127,6 +127,9 @@ function Start-NodePackageVmProvisioning {
 		[Parameter(Mandatory = $false)]
 		[string] $Proxy = '',
 		[Parameter(Mandatory = $false)]
+		[ValidateSet('amd64', 'arm64')]
+		[string] $Architecture = 'amd64',
+		[Parameter(Mandatory = $false)]
 		[switch] $ShowLogs
 	)
 
@@ -211,13 +214,14 @@ function Start-NodePackageVmProvisioning {
 	}
 
 	# Phase 1
-	Write-Log "[NodePkg] === Phase 1: Creating Hyper-V VM for '$DistributionKey' ===" -Console
+	Write-Log "[NodePkg] === Phase 1: Creating Hyper-V VM for '$DistributionKey' (architecture: $Architecture) ===" -Console
 	New-LinuxCloudBasedVirtualMachine `
 		-VirtualMachineParams $vmParams `
 		-NetworkParams $netParams `
 		-IsoFileParams $isoParams `
 		-WorkingDirectoriesParams $dirParams `
-		-TargetDistribution $DistributionKey
+		-TargetDistribution $DistributionKey `
+		-Architecture $Architecture
 
 	# Phase 2
 	Write-Log "[NodePkg] === Phase 2: Starting VM '$VmName' ===" -Console

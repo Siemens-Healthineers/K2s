@@ -99,6 +99,25 @@ var _ = Describe("nodepackage", func() {
 			Expect(err).To(HaveOccurred())
 			Expect(err.Error()).To(ContainSubstring(PackageVersionToFlagName))
 		})
+
+		It("returns nil when --architecture is arm64", func() {
+			cmd := newTestCmd()
+			cmd.Flags().Set(OSFlagName, "debian12")
+			cmd.Flags().Set(ArchitectureFlagName, "arm64")
+
+			Expect(Validate(cmd.Flags(), supportedOS)).To(Succeed())
+		})
+
+		It("returns error when --architecture is not supported", func() {
+			cmd := newTestCmd()
+			cmd.Flags().Set(OSFlagName, "debian12")
+			cmd.Flags().Set(ArchitectureFlagName, "ppc64")
+
+			err := Validate(cmd.Flags(), supportedOS)
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("architecture"))
+			Expect(err.Error()).To(ContainSubstring("ppc64"))
+		})
 	})
 
 	Describe("BuildCmd", func() {
@@ -146,6 +165,29 @@ var _ = Describe("nodepackage", func() {
 				_, params, err := BuildCmd(cmd.Flags(), false, "C:\\output", "debian13-node.zip", "")
 				Expect(err).ToNot(HaveOccurred())
 				Expect(params).To(ContainElement(" -OS 'debian13'"))
+			})
+		})
+
+		When("architecture is not specified", func() {
+			It("defaults to -Architecture 'amd64'", func() {
+				cmd := newTestCmd()
+				cmd.Flags().Set(OSFlagName, "ubuntu26")
+
+				_, params, err := BuildCmd(cmd.Flags(), false, "C:\\output", "ubuntu26-node.zip", "")
+				Expect(err).ToNot(HaveOccurred())
+				Expect(params).To(ContainElement(" -Architecture 'amd64'"))
+			})
+		})
+
+		When("architecture is arm64", func() {
+			It("includes -Architecture 'arm64'", func() {
+				cmd := newTestCmd()
+				cmd.Flags().Set(OSFlagName, "ubuntu26")
+				cmd.Flags().Set(ArchitectureFlagName, "arm64")
+
+				_, params, err := BuildCmd(cmd.Flags(), false, "C:\\output", "ubuntu26-node.zip", "")
+				Expect(err).ToNot(HaveOccurred())
+				Expect(params).To(ContainElement(" -Architecture 'arm64'"))
 			})
 		})
 

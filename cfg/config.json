@@ -98,6 +98,16 @@
                 "urlRoot": "https://cloud.debian.org/images/cloud/trixie/latest",
                 "urlFile": "debian-13-genericcloud-amd64.qcow2"
             }
+        },
+        {
+            "os": "ubuntu26",
+            "cloudImage": {
+                "urlRoot": "https://cloud-images.ubuntu.com/resolute/current",
+                "urlFile": "resolute-server-cloudimg-amd64.img",
+                "urlFile_arm64": "resolute-server-cloudimg-arm64.img",
+                "checksumFile": "SHA256SUMS",
+                "checksumAlgorithm": "SHA256"
+            }
         }
     ]
 }

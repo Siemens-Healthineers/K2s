@@ -2292,6 +2292,7 @@ function Get-LinuxScriptPath {
     $osScriptMap = @{
         'debian12'   = "$installationPath\cfg\nodeextension\debian12\scripts"
         'debian13'   = "$installationPath\cfg\nodeextension\debian13\scripts"
+        'ubuntu26'   = "$installationPath\cfg\nodeextension\ubuntu26\scripts"
     }
     # Get base script name from OS
     $scriptPath = $osScriptMap[$InstalledDistribution]

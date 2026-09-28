@@ -58,6 +58,10 @@ param (
     [Parameter(Mandatory = $false, HelpMessage = 'HTTP proxy for package downloads inside the VM')]
     [string] $Proxy = '',
 
+    [Parameter(Mandatory = $false, HelpMessage = 'Target CPU architecture for the cloud image (amd64 or arm64)')]
+    [ValidateSet('amd64', 'arm64')]
+    [string] $Architecture = 'amd64',
+
     [Parameter(Mandatory = $false, HelpMessage = 'Include NVIDIA Container Toolkit packages for GPU support')]
     [switch] $IncludeGpu = $false,
 
@@ -91,8 +95,40 @@ $distributionKey = $OS.ToLower()
 
 Write-Log "[NodePkg] Starting node package creation for OS='$OS'" -Console
 Write-Log "[NodePkg] Distribution key: $distributionKey" -Console
+Write-Log "[NodePkg] Architecture: $Architecture" -Console
 Write-Log "[NodePkg] Target directory: $TargetDirectory" -Console
 Write-Log "[NodePkg] Output zip: $ZipPackageFileName" -Console
+
+
+# ---------------------------------------------------------------------------
+# Pre-check: the ephemeral provisioning VM runs on the local Hyper-V host, which
+# has no cross-architecture emulation. An x64 host can only boot x64 (amd64)
+# guests; an ARM64 host can only boot arm64 guests. Building a node package for
+# a foreign architecture would download a cloud image whose EFI loader the host
+# firmware cannot execute (e.g. arm64 image only has \EFI\BOOT\BOOTAA64.EFI, so
+# an x64 VM falls back to "Start PXE over IPv4" and never boots), wasting a full
+# ~15-minute VM cycle before timing out. Fail fast with a clear message instead.
+# ---------------------------------------------------------------------------
+$hostArch = $env:PROCESSOR_ARCHITEW6432
+if ([string]::IsNullOrWhiteSpace($hostArch)) {
+    $hostArch = $env:PROCESSOR_ARCHITECTURE
+}
+$hostArchNormalized = switch -Wildcard ($hostArch) {
+    'AMD64' { 'amd64' }
+    'ARM64' { 'arm64' }
+    default { $hostArch.ToLower() }
+}
+if ($Architecture -ne $hostArchNormalized) {
+    $archErrorMessage = "[NodePkg] Cannot build a '$Architecture' node package on a '$hostArchNormalized' Hyper-V host. " +
+        "The provisioning VM runs on the local host, which cannot boot a foreign-architecture guest (no cross-architecture emulation). " +
+        "Run this on a '$Architecture' host, or use --architecture $hostArchNormalized on this machine."
+    if ($EncodeStructuredOutput -eq $true) {
+        Send-ToCli -MessageType $MessageType -Message @{Error = @{ Severity = 'error'; Code = 'architecture-host-mismatch'; Message = $archErrorMessage } }
+        return
+    }
+    Write-Log $archErrorMessage -Error
+    exit 1
+}
 
 # ---------------------------------------------------------------------------
 # Pre-check: node package creation requires a running K2s cluster. The cluster
@@ -222,6 +258,7 @@ try {
         -DistributionKey $distributionKey `
         -VmName $vmName `
         -Proxy $Proxy `
+        -Architecture $Architecture `
         -ShowLogs:$ShowLogs
 
     $switchName = $vmContext.SwitchName

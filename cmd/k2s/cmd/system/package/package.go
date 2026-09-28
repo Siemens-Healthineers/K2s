@@ -47,6 +47,9 @@ var (
 	# Requires an existing K2s cluster and the local cluster proxy
 	k2s system package --node-package --os debian12 --target-dir "C:\out" --name "debian12-node.zip" --proxy http://172.19.1.1:8181
 
+	# Creates a node package for Ubuntu 26 (optionally targeting a specific architecture)
+	k2s system package --node-package --os ubuntu26 --architecture arm64 --target-dir "C:\out" --name "ubuntu26-node.zip" --proxy http://172.19.1.1:8181
+
 	# Creates a node package with GPU support (includes NVIDIA Container Toolkit packages)
 	k2s system package --node-package --os debian12 --include-gpu --target-dir "C:\output" --name "debian12-node-gpu.zip" --proxy http://172.19.1.1:8181
 

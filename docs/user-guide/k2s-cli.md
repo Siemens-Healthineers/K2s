@@ -498,13 +498,20 @@ k2s system package [flags]
 | `--proxy` | `-p` | HTTP proxy. Optional for `--node-package`; when omitted the local cluster proxy `http://172.19.1.1:8181` is used by default |
 | `--k8s-bins` | | Path to locally built Kubernetes binaries |
 | `--node-package` | | Create a Linux worker node package. Requires an installed and running *K2s* cluster. The local cluster proxy is used by default; override with `-p` if needed |
-| `--os` | | Target Linux distribution for `--node-package`, for example `debian12` or `debian13` |
+| `--os` | | Target Linux distribution for `--node-package`, for example `debian12`, `debian13` or `ubuntu26` |
+| `--architecture` | | Target CPU architecture for the Ubuntu 26 `--node-package` cloud image: `amd64` (default) or `arm64`. Architecture selection is currently supported only for Ubuntu node packages; other Linux distributions continue to use the default architecture behavior. |
 | `--include-gpu` | | Include NVIDIA Container Toolkit packages for GPU support. When `k2s node add` uses a package built with this flag, GPU support is auto-configured if an NVIDIA GPU is detected |
 
 Example for node package creation:
 
 ```console
 k2s system package --node-package --os debian12 --target-dir "C:\out" --name "debian12-node.zip"
+```
+
+Example for an Ubuntu 26 node package (currently the only OS supporting architecture selection):
+
+```console
+k2s system package --node-package --os ubuntu26 --architecture arm64 --target-dir "C:\out" --name "ubuntu26-node.zip"
 ```
 
 Example for node package with GPU support:

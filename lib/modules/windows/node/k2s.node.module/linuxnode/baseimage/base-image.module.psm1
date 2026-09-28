@@ -44,14 +44,26 @@ function Invoke-DownloadLinuxImage {
     param(
         [string]$OutputPath,
         [string]$Proxy = '',
-        [string]$TargetDistribution = 'debian13'
+        [string]$TargetDistribution = 'debian13',
+        [ValidateSet('amd64', 'arm64')]
+        [string]$Architecture = 'amd64'
     )
 
-    Write-Log "[LinuxImage] Resolving cloud image for distribution '$TargetDistribution'" -Console
+    Write-Log "[LinuxImage] Resolving cloud image for distribution '$TargetDistribution' (architecture: $Architecture)" -Console
 
     $cloudImage = Get-DistributionCloudImage -OS $TargetDistribution
     $urlRoot = $cloudImage.urlRoot
-    $urlFile = $cloudImage.urlFile
+    $urlFile = Get-CloudImageFileName -CloudImage $cloudImage -Architecture $Architecture
+
+    # Checksum verification is configurable per distribution. Debian publishes
+    # SHA512SUMS, Ubuntu publishes SHA256SUMS. Default to Debian's scheme.
+    $checksumFile = if ($cloudImage.checksumFile) { $cloudImage.checksumFile } else { 'SHA512SUMS' }
+    $checksumAlgorithm = if ($cloudImage.checksumAlgorithm) { $cloudImage.checksumAlgorithm } else { 'SHA512' }
+    $checksumHexLength = switch ($checksumAlgorithm.ToUpper()) {
+        'SHA256' { 64 }
+        'SHA512' { 128 }
+        default  { 128 }
+    }
 
     $url = "$urlRoot/$urlFile"
     Write-Log "[LinuxImage] Image URL: $url"
@@ -70,22 +82,24 @@ function Invoke-DownloadLinuxImage {
         Invoke-Download $imgFile $url $false $Proxy
         Write-Log "[LinuxImage] Download completed"
 
-        Write-Log "[LinuxImage] Verifying file integrity (SHA512)..." -Console
+        Write-Log "[LinuxImage] Verifying file integrity ($checksumAlgorithm)..." -Console
         $allHashes = ''
 
         if ( $Proxy -ne '') {
-            Write-Log "Using Proxy $Proxy to download SHA sum from $urlRoot"
+            Write-Log "Using Proxy $Proxy to download checksum sums ($checksumFile) from $urlRoot"
             # NOTE: --ssl-no-revoke is still required for VMI proxy due to proxy/cert issues. Remove when fixed.
-            $allHashes = curl.exe --retry 3 --connect-timeout 60 --retry-connrefused --silent --disable --fail "$urlRoot/SHA512SUMS" --proxy $Proxy --ssl-no-revoke
+            $allHashes = curl.exe --retry 3 --connect-timeout 60 --retry-connrefused --silent --disable --fail "$urlRoot/$checksumFile" --proxy $Proxy --ssl-no-revoke
         }
         else {
-            Write-Log "[LinuxImage] Fetching SHA512SUMS from $urlRoot (no proxy)"
-            $allHashes = curl.exe --retry 3 --connect-timeout 60 --retry-connrefused --silent --disable --fail "$urlRoot/SHA512SUMS" --noproxy '*'
+            Write-Log "[LinuxImage] Fetching $checksumFile from $urlRoot (no proxy)"
+            $allHashes = curl.exe --retry 3 --connect-timeout 60 --retry-connrefused --silent --disable --fail "$urlRoot/$checksumFile" --noproxy '*'
         }
 
-        $computedHash = Get-FileHash $imgFile -Algorithm SHA512
-        $m = [regex]::Matches($allHashes, "(?<Hash>\w{128})\s\s$urlFile")
-        if (-not $m[0]) { throw "[LinuxImage] Cannot find hash for '$urlFile' in SHA512SUMS" }
+        $computedHash = Get-FileHash $imgFile -Algorithm $checksumAlgorithm
+        # Checksum lines use "<hash>  <file>" (Debian) or "<hash> *<file>" (Ubuntu).
+        $escapedFile = [regex]::Escape($urlFile)
+        $m = [regex]::Matches($allHashes, "(?<Hash>[0-9a-fA-F]{$checksumHexLength})[\s*]+$escapedFile")
+        if (-not $m[0]) { throw "[LinuxImage] Cannot find hash for '$urlFile' in $checksumFile" }
         $expectedHash = $m[0].Groups['Hash'].Value
         
         Write-Log "[LinuxImage] Expected hash: $expectedHash"
@@ -100,6 +114,32 @@ function Invoke-DownloadLinuxImage {
     return $imgFile
 }
 
+function Get-CloudImageFileName {
+    <#
+    .SYNOPSIS
+        Resolves the cloud image file name for the requested architecture.
+    .DESCRIPTION
+        Returns the architecture-specific image file from the cloudImage config.
+        For 'arm64' it prefers 'urlFile_arm64' when present; otherwise it falls
+        back to the default 'urlFile' (amd64).
+    #>
+    param(
+        [Parameter(Mandatory = $true)]
+        [object]$CloudImage,
+        [ValidateSet('amd64', 'arm64')]
+        [string]$Architecture = 'amd64'
+    )
+
+    if ($Architecture -eq 'arm64') {
+        if ($CloudImage.PSObject.Properties.Name -contains 'urlFile_arm64' -and -not [string]::IsNullOrWhiteSpace($CloudImage.urlFile_arm64)) {
+            return $CloudImage.urlFile_arm64.Trim()
+        }
+        throw "[LinuxImage] No arm64 cloud image ('urlFile_arm64') configured for this distribution."
+    }
+
+    return $CloudImage.urlFile.Trim()
+}
+
 
 Function New-VhdxFromCloudImage {
     param (
@@ -112,7 +152,10 @@ Function New-VhdxFromCloudImage {
         [parameter(Mandatory = $false)]
         [string]$Proxy = '',
         [parameter(Mandatory = $false, HelpMessage = 'The Linux distribution identifier (e.g. debian12, debian13).')]
-        [string]$TargetDistribution = 'debian13'
+        [string]$TargetDistribution = 'debian13',
+        [parameter(Mandatory = $false, HelpMessage = 'The target CPU architecture (amd64 or arm64).')]
+        [ValidateSet('amd64', 'arm64')]
+        [string]$Architecture = 'amd64'
     )
 
     Assert-Path -Path $TargetFilePath -PathType "Leaf" -ShallExist $false | Out-Null
@@ -121,7 +164,7 @@ Function New-VhdxFromCloudImage {
 
     Assert-Path -Path $DownloadsDirectory -PathType "Container" -ShallExist $true | Out-Null
 
-    $linuxImage = Get-LinuxImage -Proxy $Proxy -DownloadsDirectory $DownloadsDirectory -TargetDistribution $TargetDistribution | Assert-Path -PathType "Leaf" -ShallExist $true
+    $linuxImage = Get-LinuxImage -Proxy $Proxy -DownloadsDirectory $DownloadsDirectory -TargetDistribution $TargetDistribution -Architecture $Architecture | Assert-Path -PathType "Leaf" -ShallExist $true
     $qemuTool = Get-QemuTool -Proxy $Proxy -DownloadsDirectory $DownloadsDirectory | Assert-Path -PathType "Leaf" -ShallExist $true
     $vhdxFile = New-VhdxFile -SourcePath $linuxImage -VhdxPath $TargetFilePath -QemuExePath $qemuTool | Assert-Path -PathType "Leaf" -ShallExist $true
 }
@@ -135,12 +178,15 @@ Function Get-LinuxImage {
         [parameter(Mandatory = $false, HelpMessage = 'The HTTP proxy if available.')]
         [string]$Proxy = '',
         [parameter(Mandatory = $false, HelpMessage = 'The Linux distribution identifier (e.g. debian12, debian13).')]
-        [string]$TargetDistribution = 'debian13'
+        [string]$TargetDistribution = 'debian13',
+        [parameter(Mandatory = $false, HelpMessage = 'The target CPU architecture (amd64 or arm64).')]
+        [ValidateSet('amd64', 'arm64')]
+        [string]$Architecture = 'amd64'
     )
     Assert-Path -Path $DownloadsDirectory -PathType 'Container' -ShallExist $true | Out-Null
 
     $cloudImage = Get-DistributionCloudImage -OS $TargetDistribution
-    $qcow2FileName = $cloudImage.urlFile
+    $qcow2FileName = Get-CloudImageFileName -CloudImage $cloudImage -Architecture $Architecture
 
     # check if image file already exists under bin directory
     $kubeBinPath = Get-KubeBinPath
@@ -151,7 +197,7 @@ Function Get-LinuxImage {
     }
 
     # download directly to bin folder
-    $imgFile = Invoke-DownloadLinuxImage -OutputPath $kubeBinPath -Proxy $Proxy -TargetDistribution $TargetDistribution
+    $imgFile = Invoke-DownloadLinuxImage -OutputPath $kubeBinPath -Proxy $Proxy -TargetDistribution $TargetDistribution -Architecture $Architecture
 
     Write-Output $imgFile
 }
@@ -315,7 +361,10 @@ function New-VirtualMachineForBaseImageProvisioning {
         [long]$VMProcessorCount,
 
         [ValidateScript( { $_ -gt 0 })]
-        [uint64]$VMDiskSize
+        [uint64]$VMDiskSize,
+
+        [parameter(Mandatory = $false, HelpMessage = 'The Linux distribution identifier (e.g. debian12, debian13, ubuntu26).')]
+        [string] $TargetDistribution = 'debian13'
         )
 
         $useIsoFilePath = (!([string]::IsNullOrWhiteSpace($IsoFilePath)))
@@ -333,15 +382,47 @@ function New-VirtualMachineForBaseImageProvisioning {
 
         Assert-Path -Path $VhdxFilePath -PathType "Leaf" -ShallExist $true | Out-Null
 
-	    Write-Log "Create new VM named $VmName"
-	    New-VM -Name $VmName -vhdPath $VhdxFilePath -ErrorAction Stop | Write-Log
+        # Ubuntu cloud images ship as UEFI-only GPT images and cannot boot on a
+        # Generation 1 (BIOS) VM. Debian genericcloud images remain BIOS-bootable,
+        # so they keep the historical Generation 1 behavior to avoid any regression.
+        $generation = 1
+        if ($TargetDistribution -like 'ubuntu*') {
+            $generation = 2
+        }
+
+	    Write-Log "Create new VM named $VmName (generation $generation for distribution '$TargetDistribution')"
+	    New-VM -Name $VmName -Generation $generation -VHDPath $VhdxFilePath -ErrorAction Stop | Write-Log
 	    Write-Log "  - set its memory to $VMMemoryStartupBytes"
 	    Set-VMMemory -VMName $VmName -DynamicMemoryEnabled $false -StartupBytes $VMMemoryStartupBytes -ErrorAction Stop
 	    Write-Log "  - set its cpu count to $VMProcessorCount"
 	    Set-VMProcessor -VMName $VmName -Count $VMProcessorCount -ErrorAction Stop
 	    if ($useIsoFilePath) {
-	    	Write-Log "  - set its DVD drive with $IsoFilePath"
-	    	Set-VMDvdDrive -VMName $VmName -Path $IsoFilePath -ErrorAction Stop
+	    	# Generation 1 VMs ship with a default IDE DVD drive that Set-VMDvdDrive
+	    	# configures. Generation 2 VMs have NO DVD drive by default, so the cloud-init
+	    	# 'cidata' seed ISO must be attached with Add-VMDvdDrive; otherwise the guest
+	    	# never sees the NoCloud datasource (no hostname/user/network get applied).
+	    	$existingDvd = Get-VMDvdDrive -VMName $VmName -ErrorAction SilentlyContinue
+	    	if ($null -eq $existingDvd) {
+	    		Write-Log "  - add a DVD drive with $IsoFilePath"
+	    		Add-VMDvdDrive -VMName $VmName -Path $IsoFilePath -ErrorAction Stop
+	    	}
+	    	else {
+	    		Write-Log "  - set its DVD drive with $IsoFilePath"
+	    		Set-VMDvdDrive -VMName $VmName -Path $IsoFilePath -ErrorAction Stop
+	    	}
+	    }
+	    if ($generation -eq 2) {
+	    	# Disable Secure Boot: this is an ephemeral provisioning VM and Ubuntu's
+	    	# signed shim otherwise requires the Microsoft UEFI CA template, which has
+	    	# proven unreliable on Hyper-V. Boot the OS disk first so the non-bootable
+	    	# cloud-init data ISO does not stall the firmware.
+	    	Write-Log "  - disable Secure Boot for UEFI (generation 2) VM"
+	    	Set-VMFirmware -VMName $VmName -EnableSecureBoot Off -ErrorAction Stop
+	    	$osDisk = Get-VMHardDiskDrive -VMName $VmName | Select-Object -First 1
+	    	if ($null -ne $osDisk) {
+	    		Write-Log "  - set OS disk as first boot device"
+	    		Set-VMFirmware -VMName $VmName -FirstBootDevice $osDisk -ErrorAction Stop
+	    	}
 	    }
 	    Write-Log "  - resize it to $VMDiskSize"
 	    Resize-VHD -Path $VhdxFilePath -SizeBytes $VMDiskSize -ErrorAction Stop
@@ -541,7 +622,10 @@ Function New-LinuxCloudBasedVirtualMachine {
         [Hashtable]$IsoFileParams,
         [Hashtable]$WorkingDirectoriesParams,
         [parameter(Mandatory = $false, HelpMessage = 'The Linux distribution identifier (e.g. debian12, debian13).')]
-        [string]$TargetDistribution = 'debian13'
+        [string]$TargetDistribution = 'debian13',
+        [parameter(Mandatory = $false, HelpMessage = 'The target CPU architecture (amd64 or arm64).')]
+        [ValidateSet('amd64', 'arm64')]
+        [string]$Architecture = 'amd64'
     )
     $vmName = $VirtualMachineParams.VmName
     $inProvisioningVhdxName = $VirtualMachineParams.VhdxName
@@ -587,7 +671,7 @@ Function New-LinuxCloudBasedVirtualMachine {
     New-Folder $provisioningFolder | Out-Null
 
     Write-Log "Create the base vhdx"
-    New-VhdxFromCloudImage -Proxy $Proxy -TargetFilePath $inProvisioningVhdxPath -DownloadsDirectory $downloadsFolder -TargetDistribution $TargetDistribution
+    New-VhdxFromCloudImage -Proxy $Proxy -TargetFilePath $inProvisioningVhdxPath -DownloadsDirectory $downloadsFolder -TargetDistribution $TargetDistribution -Architecture $Architecture
 
     Write-Log "Create the iso file"
     $isoContentParameterValues = [hashtable]@{
@@ -610,6 +694,7 @@ Function New-LinuxCloudBasedVirtualMachine {
         "VMMemoryStartupBytes"=$VMMemoryStartupBytes
         "VMProcessorCount"=$VMProcessorCount
         "VMDiskSize"=$VMDiskSize
+        "TargetDistribution"=$TargetDistribution
     }
     New-VirtualMachineForBaseImageProvisioning @vmParams
 

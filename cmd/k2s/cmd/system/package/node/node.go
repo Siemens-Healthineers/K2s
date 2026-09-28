@@ -21,7 +21,11 @@ const (
 	NodePackageFlagUsage = "Creates a zip package containing Linux node packages (kubelet, kubeadm, kubectl, CRI-O, buildah) for the specified OS and version; requires an existing K2s cluster and --proxy http://172.19.1.1:8181"
 
 	OSFlagName  = "os"
-	OSFlagUsage = "Target Linux distribution and version combined (e.g. debian12, debian13)"
+	OSFlagUsage = "Target Linux distribution and version combined (e.g. debian12, debian13, ubuntu26)"
+
+	ArchitectureFlagName  = "architecture"
+	ArchitectureFlagUsage = "Target CPU architecture for the node package cloud image for Ubuntu 26 only (amd64 or arm64). Defaults to amd64. Other OS variants currently do not support architecture selection."
+	ArchitectureDefault   = "amd64"
 
 	IncludeGpuFlagName  = "include-gpu"
 	IncludeGpuFlagUsage = "Include NVIDIA Container Toolkit packages for GPU support. When 'k2s node add' uses a package built with this flag, it automatically detects if the target node has an NVIDIA GPU and configures GPU support (installs container toolkit, configures CRI-O, labels the node)."
@@ -31,10 +35,14 @@ const (
 	PackageVersionToFlagName   = "package-version-to"
 )
 
+// SupportedArchitectures lists the CPU architectures accepted by --architecture.
+var SupportedArchitectures = []string{"amd64", "arm64"}
+
 // RegisterFlags registers the node-package specific flags on the given command.
 func RegisterFlags(cmd *cobra.Command) {
 	cmd.Flags().Bool(NodePackageFlagName, false, NodePackageFlagUsage)
 	cmd.Flags().String(OSFlagName, "", OSFlagUsage)
+	cmd.Flags().String(ArchitectureFlagName, ArchitectureDefault, ArchitectureFlagUsage)
 	cmd.Flags().Bool(IncludeGpuFlagName, false, IncludeGpuFlagUsage)
 }
 
@@ -44,43 +52,68 @@ func IsSet(flags *pflag.FlagSet) bool {
 	return v
 }
 
+// isSupportedArchitecture returns true when arch is an accepted --architecture value.
+func isSupportedArchitecture(arch string) bool {
+	for _, a := range SupportedArchitectures {
+		if a == arch {
+			return true
+		}
+	}
+	return false
+}
+
 // Validate checks that --os is provided and is in the supported list when --node-package is set.
 // supportedOS is the list read from cfg/config.json (supportedWorkerOS[].os).
 func Validate(flags *pflag.FlagSet, supportedOS []string) error {
 	deltaRequested, _ := flags.GetBool(DeltaPackageFlagName)
 
 	if deltaRequested {
-		from, _ := flags.GetString(PackageVersionFromFlagName)
-		to, _ := flags.GetString(PackageVersionToFlagName)
-		if from == "" {
-			return fmt.Errorf("--%s is required when --%s and --%s are set", PackageVersionFromFlagName, NodePackageFlagName, DeltaPackageFlagName)
-		}
-		if to == "" {
-			return fmt.Errorf("--%s is required when --%s and --%s are set", PackageVersionToFlagName, NodePackageFlagName, DeltaPackageFlagName)
-		}
+		return validateDelta(flags, supportedOS)
+	}
 
-		os, _ := flags.GetString(OSFlagName)
-		if os == "" {
-			return nil
-		}
-		for _, s := range supportedOS {
-			if s == os {
-				return nil
-			}
-		}
-		return fmt.Errorf("--%s value '%s' is not supported. Supported: %s", OSFlagName, os, strings.Join(supportedOS, ", "))
+	if arch, _ := flags.GetString(ArchitectureFlagName); arch != "" && !isSupportedArchitecture(arch) {
+		return fmt.Errorf("--%s value '%s' is not supported. Supported: %s", ArchitectureFlagName, arch, strings.Join(SupportedArchitectures, ", "))
 	}
 
 	os, _ := flags.GetString(OSFlagName)
 	if os == "" {
 		return fmt.Errorf("--%s is required when --%s is set", OSFlagName, NodePackageFlagName)
 	}
+	if !isSupportedOS(os, supportedOS) {
+		return fmt.Errorf("--%s value '%s' is not supported. Supported: %s", OSFlagName, os, strings.Join(supportedOS, ", "))
+	}
+	return nil
+}
+
+// validateDelta validates the flags for node-delta package creation.
+func validateDelta(flags *pflag.FlagSet, supportedOS []string) error {
+	from, _ := flags.GetString(PackageVersionFromFlagName)
+	to, _ := flags.GetString(PackageVersionToFlagName)
+	if from == "" {
+		return fmt.Errorf("--%s is required when --%s and --%s are set", PackageVersionFromFlagName, NodePackageFlagName, DeltaPackageFlagName)
+	}
+	if to == "" {
+		return fmt.Errorf("--%s is required when --%s and --%s are set", PackageVersionToFlagName, NodePackageFlagName, DeltaPackageFlagName)
+	}
+
+	os, _ := flags.GetString(OSFlagName)
+	if os == "" {
+		return nil
+	}
+	if !isSupportedOS(os, supportedOS) {
+		return fmt.Errorf("--%s value '%s' is not supported. Supported: %s", OSFlagName, os, strings.Join(supportedOS, ", "))
+	}
+	return nil
+}
+
+// isSupportedOS reports whether os is present in the supportedOS list.
+func isSupportedOS(os string, supportedOS []string) bool {
 	for _, s := range supportedOS {
 		if s == os {
-			return nil
+			return true
 		}
 	}
-	return fmt.Errorf("--%s value '%s' is not supported. Supported: %s", OSFlagName, os, strings.Join(supportedOS, ", "))
+	return false
 }
 
 // BuildCmd constructs the PowerShell script path and parameters for node package creation.
@@ -128,6 +161,12 @@ func BuildCmd(flags *pflag.FlagSet, out bool, targetDir, zipName, proxy string) 
 	if proxy != "" {
 		params = append(params, " -Proxy "+proxy)
 	}
+
+	arch := flags.Lookup(ArchitectureFlagName).Value.String()
+	if arch == "" {
+		arch = ArchitectureDefault
+	}
+	params = append(params, " -Architecture "+utils.EscapeWithSingleQuotes(arch))
 
 	includeGpu, _ := flags.GetBool(IncludeGpuFlagName)
 	if includeGpu {
