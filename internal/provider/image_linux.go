@@ -59,8 +59,8 @@ func (p *linuxImageProvider) List(cfg ImageListConfig) (*ImageListResult, error)
 	slog.Debug("[Image] Listing images (Linux)")
 	result := &ImageListResult{}
 
-	// List images on the local Linux node via crictl
-	linuxImages, err := listCrictlImages()
+	// List images on the local Linux node via buildah or crictl
+	linuxImages, err := listLinuxImages()
 	if err != nil {
 		slog.Warn("[Image] Could not list Linux node images", "error", err)
 	} else {
@@ -72,16 +72,18 @@ func (p *linuxImageProvider) List(cfg ImageListConfig) (*ImageListResult, error)
 		}
 	}
 
-	// List images on the Windows VM via SSH + crictl
-	winImages, err := listWindowsVMImages()
-	if err != nil {
-		slog.Debug("[Image] Could not list Windows VM images (VM may be offline)", "error", err)
-	} else {
-		for _, img := range winImages {
-			if !cfg.IncludeK8sImages && isK8sImage(img.Repository) {
-				continue
+	// List images on the Windows VM via SSH + crictl if not LinuxOnly
+	if !p.isLinuxOnly() {
+		winImages, err := listWindowsVMImages()
+		if err != nil {
+			slog.Debug("[Image] Could not list Windows VM images (VM may be offline)", "error", err)
+		} else {
+			for _, img := range winImages {
+				if !cfg.IncludeK8sImages && isK8sImage(img.Repository) {
+					continue
+				}
+				result.ContainerImages = append(result.ContainerImages, img)
 			}
-			result.ContainerImages = append(result.ContainerImages, img)
 		}
 	}
 
@@ -90,6 +92,9 @@ func (p *linuxImageProvider) List(cfg ImageListConfig) (*ImageListResult, error)
 
 func (p *linuxImageProvider) Pull(cfg ImagePullConfig) error {
 	if cfg.Windows {
+		if p.isLinuxOnly() {
+			return fmt.Errorf("pulling Windows container images is not supported on Linux hosts (Windows container images can only be used on Windows worker nodes)")
+		}
 		slog.Info("[Image] Pulling image on Windows VM", "image", cfg.ImageName)
 		_, err := sshCmd(fmt.Sprintf("crictl pull %s", cfg.ImageName))
 		return err
@@ -139,6 +144,22 @@ func (p *linuxImageProvider) Remove(cfg ImageRemoveConfig) error {
 			cmd.Stderr = os.Stderr
 		}
 		return cmd.Run()
+	}
+
+	if _, err := exec.LookPath("buildah"); err == nil {
+		args := []string{"rmi"}
+		if cfg.Force {
+			args = append(args, "--force")
+		}
+		args = append(args, ref)
+		cmd := exec.Command("buildah", args...)
+		if cfg.ShowOutput {
+			cmd.Stdout = os.Stdout
+			cmd.Stderr = os.Stderr
+		}
+		if err := cmd.Run(); err == nil {
+			return nil
+		}
 	}
 
 	args := []string{"rmi"}
@@ -231,6 +252,9 @@ func (p *linuxImageProvider) Import(cfg ImageImportConfig) error {
 	slog.Info("[Image] Importing image", "path", path, "windows", cfg.Windows)
 
 	if cfg.Windows {
+		if p.isLinuxOnly() {
+			return fmt.Errorf("importing Windows container images is not supported on Linux hosts (Windows container images can only be used on Windows worker nodes)")
+		}
 		// Import on Windows VM via SSH
 		_, err := sshCmd(fmt.Sprintf(`ctr -n k8s.io images import "%s"`, path))
 		return err
@@ -517,7 +541,88 @@ func (p *linuxImageProvider) removeRegistryFromConfig(registry string) error {
 	return kjson.ToFile(configPath, cfgMap)
 }
 
+func (p *linuxImageProvider) isLinuxOnly() bool {
+	if p.configDir == "" {
+		return false
+	}
+	configPath := filepath.Join(p.configDir, definitions.K2sRuntimeConfigFileName)
+	cfgMap, err := kjson.FromFile[map[string]any](configPath)
+	if err != nil {
+		return false
+	}
+	if val, ok := (*cfgMap)["LinuxOnly"]; ok {
+		if b, ok := val.(bool); ok {
+			return b
+		}
+	}
+	return false
+}
+
 // ---------- helpers ----------
+
+func listLinuxImages() ([]ContainerImage, error) {
+	if _, err := exec.LookPath("buildah"); err == nil {
+		images, err := listBuildahImages()
+		if err == nil {
+			return images, nil
+		}
+		slog.Debug("[Image] buildah images failed, falling back to crictl", "error", err)
+	}
+	return listCrictlImages()
+}
+
+func listBuildahImages() ([]ContainerImage, error) {
+	output, err := exec.Command("buildah", "images", "--json").Output()
+	if err != nil {
+		return nil, fmt.Errorf("buildah images: %w", err)
+	}
+
+	var rawImages []struct {
+		Id    string   `json:"id"`
+		Names []string `json:"names"`
+		Size  string   `json:"size"`
+	}
+
+	if err := json.Unmarshal(output, &rawImages); err != nil {
+		return nil, fmt.Errorf("parsing buildah output: %w", err)
+	}
+
+	var images []ContainerImage
+	for _, img := range rawImages {
+		shortId := img.Id
+		if len(shortId) > 12 {
+			shortId = shortId[:12]
+		}
+
+		names := img.Names
+		if len(names) == 0 {
+			names = []string{"<none>:<none>"}
+		}
+
+		for _, repoTag := range names {
+			repo := "<none>"
+			tag := "<none>"
+			if repoTag != "" && repoTag != "<none>:<none>" {
+				lastColon := strings.LastIndex(repoTag, ":")
+				if lastColon != -1 {
+					repo = repoTag[:lastColon]
+					tag = repoTag[lastColon+1:]
+				} else {
+					repo = repoTag
+				}
+			}
+			images = append(images, ContainerImage{
+				ImageId:    shortId,
+				Repository: repo,
+				Tag:        tag,
+				Node:       "linux",
+				Size:       img.Size,
+			})
+		}
+	}
+
+	return images, nil
+}
 
 func listCrictlImages() ([]ContainerImage, error) {
 	output, err := exec.Command("crictl", "images", "-o", "json").Output()
