@@ -87,7 +87,19 @@ fi
 
 # If all failed, run buildah rmi or crictl rmi directly to surface output and exit code
 if command -v buildah >/dev/null 2>&1; then
-  k2s_run buildah rmi "${buildah_args[@]}" "$ref"
+  if [[ "$ref" != localhost/* ]] && buildah inspect "localhost/$ref" >/dev/null 2>&1; then
+    k2s_run buildah rmi "${buildah_args[@]}" "localhost/$ref"
+  elif ! k2s_run buildah rmi "${buildah_args[@]}" "$ref"; then
+    if [[ "$ref" != localhost/* ]]; then
+      k2s_run buildah rmi "${buildah_args[@]}" "localhost/$ref"
+    else
+      exit 1
+    fi
+  fi
 else
-  k2s_run crictl rmi "${force_args[@]}" "$ref"
+  if [[ "$ref" != localhost/* ]] && crictl inspecti "localhost/$ref" >/dev/null 2>&1; then
+    k2s_run crictl rmi "${force_args[@]}" "localhost/$ref"
+  else
+    k2s_run crictl rmi "${force_args[@]}" "$ref"
+  fi
 fi

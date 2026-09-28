@@ -69,7 +69,16 @@ if [[ "$docker_archive" == true ]]; then
     if [[ -n "$image_name" ]]; then
       archive_spec="docker-archive:$tar_path:$image_name"
     fi
-    k2s_run buildah push "$ref" "$archive_spec"
+    if [[ "$ref" != localhost/* ]] && ! buildah inspect "$ref" >/dev/null 2>&1 && buildah inspect "localhost/$ref" >/dev/null 2>&1; then
+      ref="localhost/$ref"
+    fi
+    if ! k2s_run buildah push "$ref" "$archive_spec"; then
+      if [[ "$ref" != localhost/* ]]; then
+        k2s_run buildah push "localhost/$ref" "$archive_spec"
+      else
+        exit 1
+      fi
+    fi
   elif command -v nerdctl >/dev/null 2>&1; then
     k2s_run nerdctl -n k8s.io save -o "$tar_path" "$ref"
   else
@@ -83,7 +92,16 @@ else
     if [[ -n "$image_name" ]]; then
       archive_spec="oci-archive:$tar_path:$image_name"
     fi
-    k2s_run buildah push "$ref" "$archive_spec"
+    if [[ "$ref" != localhost/* ]] && ! buildah inspect "$ref" >/dev/null 2>&1 && buildah inspect "localhost/$ref" >/dev/null 2>&1; then
+      ref="localhost/$ref"
+    fi
+    if ! k2s_run buildah push "$ref" "$archive_spec"; then
+      if [[ "$ref" != localhost/* ]]; then
+        k2s_run buildah push "localhost/$ref" "$archive_spec"
+      else
+        exit 1
+      fi
+    fi
   elif command -v ctr >/dev/null 2>&1; then
     k2s_run ctr -n k8s.io images export "$tar_path" "$ref"
   elif command -v nerdctl >/dev/null 2>&1; then

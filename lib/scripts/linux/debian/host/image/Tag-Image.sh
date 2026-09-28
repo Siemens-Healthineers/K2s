@@ -57,7 +57,16 @@ fi
 
 k2s_log INFO "Tagging container image $source_ref as $target_name"
 if command -v buildah >/dev/null 2>&1; then
-  k2s_run buildah tag "$source_ref" "$target_name"
+  if [[ "$source_ref" != localhost/* ]] && ! buildah inspect "$source_ref" >/dev/null 2>&1 && buildah inspect "localhost/$source_ref" >/dev/null 2>&1; then
+    source_ref="localhost/$source_ref"
+  fi
+  if ! k2s_run buildah tag "$source_ref" "$target_name"; then
+    if [[ "$source_ref" != localhost/* ]]; then
+      k2s_run buildah tag "localhost/$source_ref" "$target_name"
+    else
+      exit 1
+    fi
+  fi
 elif command -v ctr >/dev/null 2>&1; then
   k2s_run ctr -n k8s.io images tag "$source_ref" "$target_name"
 else

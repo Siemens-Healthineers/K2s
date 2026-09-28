@@ -130,6 +130,10 @@ func importImage(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
+	if err := validateNodeSelector(nodeSelector, runtimeConfig); err != nil {
+		return err
+	}
+
 	if err := context.Providers().Image.Import(provider.ImageImportConfig{
 		TarPath:       imagePath,
 		DirPath:       dir,
