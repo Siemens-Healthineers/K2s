@@ -72,12 +72,8 @@ if [[ "$docker_archive" == true ]]; then
     k2s_run buildah push "$ref" "$archive_spec"
   elif command -v nerdctl >/dev/null 2>&1; then
     k2s_run nerdctl -n k8s.io save -o "$tar_path" "$ref"
-  elif command -v podman >/dev/null 2>&1; then
-    k2s_run podman save -o "$tar_path" "$ref"
-  elif command -v docker >/dev/null 2>&1; then
-    k2s_run docker save -o "$tar_path" "$ref"
   else
-    k2s_log ERROR "No container tool found to export image as Docker archive. Please install buildah, nerdctl, podman, or docker."
+    k2s_log ERROR "No container tool found to export image as Docker archive. Please install buildah or nerdctl."
     exit 127
   fi
 else
@@ -90,12 +86,6 @@ else
     k2s_run buildah push "$ref" "$archive_spec"
   elif command -v ctr >/dev/null 2>&1; then
     k2s_run ctr -n k8s.io images export "$tar_path" "$ref"
-  elif command -v podman >/dev/null 2>&1; then
-    archive_spec="oci-archive:$tar_path"
-    if [[ -n "$image_name" ]]; then
-      archive_spec="oci-archive:$tar_path:$image_name"
-    fi
-    k2s_run podman push "$ref" "$archive_spec"
   elif command -v nerdctl >/dev/null 2>&1; then
     k2s_run nerdctl -n k8s.io save -o "$tar_path" "$ref"
   else

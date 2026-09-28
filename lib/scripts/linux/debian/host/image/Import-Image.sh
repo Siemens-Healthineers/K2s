@@ -52,10 +52,6 @@ import_single_tar() {
     k2s_run ctr -n k8s.io images import "$file"
   elif command -v nerdctl >/dev/null 2>&1; then
     k2s_run nerdctl -n k8s.io load -i "$file"
-  elif command -v podman >/dev/null 2>&1; then
-    k2s_run podman load -i "$file"
-  elif command -v docker >/dev/null 2>&1; then
-    k2s_run docker load -i "$file"
   else
     k2s_log ERROR "No container tool found to import image. Please install buildah or containerd (ctr)."
     exit 127
