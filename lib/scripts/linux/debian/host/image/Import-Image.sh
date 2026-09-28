@@ -41,10 +41,30 @@ if [[ -z "$tar_path" && -z "$dir_path" ]]; then
   exit 1
 fi
 
+import_single_tar() {
+  local file="$1"
+  k2s_log INFO "Importing container image from $file"
+  if command -v buildah >/dev/null 2>&1; then
+    if ! buildah pull "oci-archive:$file" 2>/dev/null; then
+      k2s_run buildah pull "docker-archive:$file"
+    fi
+  elif command -v ctr >/dev/null 2>&1; then
+    k2s_run ctr -n k8s.io images import "$file"
+  elif command -v nerdctl >/dev/null 2>&1; then
+    k2s_run nerdctl -n k8s.io load -i "$file"
+  elif command -v podman >/dev/null 2>&1; then
+    k2s_run podman load -i "$file"
+  elif command -v docker >/dev/null 2>&1; then
+    k2s_run docker load -i "$file"
+  else
+    k2s_log ERROR "No container tool found to import image. Please install buildah or containerd (ctr)."
+    exit 127
+  fi
+}
+
 if [[ -n "$tar_path" ]]; then
   k2s_require_file "$tar_path" || exit 1
-  k2s_log INFO "Importing container image from $tar_path"
-  k2s_run ctr -n k8s.io images import "$tar_path"
+  import_single_tar "$tar_path"
 fi
 
 if [[ -n "$dir_path" ]]; then
@@ -57,8 +77,7 @@ if [[ -n "$dir_path" ]]; then
     k2s_log WARN "No .tar files found in $dir_path"
   else
     for file in "${tar_files[@]}"; do
-      k2s_log INFO "Importing container image from $file"
-      k2s_run ctr -n k8s.io images import "$file"
+      import_single_tar "$file"
     done
   fi
 fi
