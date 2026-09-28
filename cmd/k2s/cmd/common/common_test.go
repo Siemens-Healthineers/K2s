@@ -14,6 +14,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/siemens-healthineers/k2s/internal/contracts/config"
+	"github.com/siemens-healthineers/k2s/internal/definitions"
 	"github.com/siemens-healthineers/k2s/internal/providers/kubeconfig"
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v2"
@@ -160,6 +161,18 @@ var _ = Describe("common", func() {
 					err := sut.EnsureK2sK8sContext("my-cluster")
 
 					Expect(err).To(MatchError(ContainSubstring("could not find context for cluster 'my-cluster'")))
+				})
+			})
+
+			When("cluster matches legacy cluster name (kubernetes)", func() {
+				It("falls back to legacy cluster context and succeeds", func() {
+					writeKubeConfig("kubernetes-admin@kubernetes", "kubernetes-admin@kubernetes", definitions.LegacyClusterName)
+
+					sut := newSut()
+
+					err := sut.EnsureK2sK8sContext("k2s-cluster")
+
+					Expect(err).ToNot(HaveOccurred())
 				})
 			})
 
