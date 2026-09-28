@@ -54,7 +54,9 @@ processed_json=$(echo "$raw_json" | jq --argjson incK8s "$include_k8s" '
     ($repo | startswith("k8s.gcr.io/")) or
     ($repo | startswith("docker.io/flannel")) or
     ($repo | startswith("docker.io/calico")) or
-    ($repo | startswith("quay.io/coreos"));
+    ($repo | startswith("quay.io/coreos")) or
+    ($repo | startswith("shsk2s.azurecr.io")) or
+    ($repo | contains(".azurecr.io"));
 
   def parse_tag($t):
     if ($t == null or $t == "" or $t == "<none>:<none>") then

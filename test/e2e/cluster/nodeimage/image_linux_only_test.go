@@ -88,7 +88,10 @@ var _ = Describe("Linux-only Image Lifecycle", Label("core", "acceptance", "setu
 		// Clean up any lingering test images
 		suite.K2sCli().Exec(ctx, "image", "rm", "-n", testImageNameV1, "--force")
 		suite.K2sCli().Exec(ctx, "image", "rm", "-n", testImageNameV2, "--force")
+		suite.K2sCli().Exec(ctx, "image", "rm", "-n", "localhost:5000/"+testImageRepo+":"+testImageTag1, "--force")
 		suite.K2sCli().Exec(ctx, "image", "registry", "rm", testRegistry)
+		suite.K2sCli().Exec(ctx, "image", "registry", "rm", "localhost:5000")
+		suite.Kubectl().Exec(ctx, "delete", "pod", "test-registry", "--now", "--ignore-not-found=true")
 	})
 
 	It("1) builds a Linux image from minimal Dockerfile context", func(ctx context.Context) {
@@ -162,7 +165,63 @@ var _ = Describe("Linux-only Image Lifecycle", Label("core", "acceptance", "setu
 		}, suite.TestStepTimeout(), suite.TestStepPollInterval()).Should(Succeed())
 	})
 
-	It("8) cleans non-K8s images", func(ctx context.Context) {
+	It("8) performs round-trip registry test (tag, push, rm, pull)", func(ctx context.Context) {
+		const (
+			localRegistryHost = "localhost:5000"
+			registryImageName = localRegistryHost + "/" + testImageRepo + ":" + testImageTag1
+		)
+
+		GinkgoWriter.Println("Deploying local test registry pod...")
+		suite.Kubectl().MustExec(ctx, "run", "test-registry", "--image=registry:2", "--restart=Never", "--overrides={\"spec\":{\"hostNetwork\":true}}")
+
+		DeferCleanup(func(ctx context.Context) {
+			suite.K2sCli().Exec(ctx, "image", "rm", "-n", registryImageName, "--force")
+			suite.K2sCli().Exec(ctx, "image", "registry", "rm", localRegistryHost)
+			suite.Kubectl().Exec(ctx, "delete", "pod", "test-registry", "--now", "--ignore-not-found=true")
+		})
+
+		Eventually(func(g Gomega) {
+			status, _ := suite.Kubectl().Exec(ctx, "get", "pod", "test-registry", "-o", "jsonpath={.status.phase}")
+			g.Expect(strings.TrimSpace(status)).To(Equal("Running"))
+		}, suite.TestStepTimeout(), suite.TestStepPollInterval()).Should(Succeed())
+
+		GinkgoWriter.Println("Adding local registry with --plain-http...")
+		suite.K2sCli().MustExec(ctx, "image", "registry", "add", localRegistryHost, "--plain-http")
+
+		GinkgoWriter.Printf("Tagging %s to %s...\n", testImageNameV1, registryImageName)
+		suite.K2sCli().MustExec(ctx, "image", "tag", "-n", testImageNameV1, "-t", registryImageName)
+
+		Eventually(func(g Gomega) {
+			images := listImagesJSON(ctx)
+			g.Expect(hasImage(images, registryImageName)).To(BeTrue(), "expected tagged registry image %s to be present", registryImageName)
+		}, suite.TestStepTimeout(), suite.TestStepPollInterval()).Should(Succeed())
+
+		GinkgoWriter.Printf("Pushing %s to local registry...\n", registryImageName)
+		suite.K2sCli().MustExec(ctx, "image", "push", "-n", registryImageName)
+
+		GinkgoWriter.Printf("Removing local copy of %s...\n", registryImageName)
+		suite.K2sCli().MustExec(ctx, "image", "rm", "-n", registryImageName)
+
+		Eventually(func(g Gomega) {
+			images := listImagesJSON(ctx)
+			g.Expect(hasImage(images, registryImageName)).To(BeFalse(), "expected %s to be removed before pull", registryImageName)
+		}, suite.TestStepTimeout(), suite.TestStepPollInterval()).Should(Succeed())
+
+		GinkgoWriter.Printf("Pulling %s from local registry...\n", registryImageName)
+		suite.K2sCli().MustExec(ctx, "image", "pull", registryImageName)
+
+		Eventually(func(g Gomega) {
+			images := listImagesJSON(ctx)
+			g.Expect(hasImage(images, registryImageName)).To(BeTrue(), "expected pulled image %s to be present", registryImageName)
+		}, suite.TestStepTimeout(), suite.TestStepPollInterval()).Should(Succeed())
+
+		GinkgoWriter.Printf("Cleaning up registry image %s...\n", registryImageName)
+		suite.K2sCli().MustExec(ctx, "image", "rm", "-n", registryImageName)
+		suite.K2sCli().MustExec(ctx, "image", "registry", "rm", localRegistryHost)
+		suite.Kubectl().MustExec(ctx, "delete", "pod", "test-registry", "--now", "--ignore-not-found=true")
+	})
+
+	It("9) cleans non-K8s images", func(ctx context.Context) {
 		GinkgoWriter.Println("Cleaning non-K8s images...")
 		suite.K2sCli().MustExec(ctx, "image", "clean")
 
@@ -173,7 +232,7 @@ var _ = Describe("Linux-only Image Lifecycle", Label("core", "acceptance", "setu
 		}, suite.TestStepTimeout(), suite.TestStepPollInterval()).Should(Succeed())
 	})
 
-	It("9) negative tests: rejects --windows and invalid multi-node selectors", func(ctx context.Context) {
+	It("10) negative tests: rejects --windows and invalid multi-node selectors", func(ctx context.Context) {
 		GinkgoWriter.Println("Verifying k2s image build --windows fails with actionable error...")
 		buildOut, _ := suite.K2sCli().ExpectedExitCode(cli.ExitCodeFailure).Exec(ctx, "image", "build", "--windows")
 		Expect(buildOut).To(ContainSubstring("building Windows container images is not supported on a Linux-only installation"))
@@ -181,5 +240,9 @@ var _ = Describe("Linux-only Image Lifecycle", Label("core", "acceptance", "setu
 		GinkgoWriter.Println("Verifying k2s image clean --nodes n1,n2 fails with actionable error...")
 		cleanOut, _ := suite.K2sCli().ExpectedExitCode(cli.ExitCodeFailure).Exec(ctx, "image", "clean", "--nodes", "worker-1,worker-2")
 		Expect(cleanOut).To(ContainSubstring("multi-node selection 'worker-1,worker-2' is not supported on a Linux-only installation"))
+
+		GinkgoWriter.Println("Verifying k2s image import --nodes n1,n2 fails with actionable error...")
+		importOut, _ := suite.K2sCli().ExpectedExitCode(cli.ExitCodeFailure).Exec(ctx, "image", "import", "-t", exportTarPath, "--nodes", "worker-1,worker-2")
+		Expect(importOut).To(ContainSubstring("multi-node selection 'worker-1,worker-2' is not supported on a Linux-only installation"))
 	})
 })

@@ -16,6 +16,7 @@ import (
 	"strings"
 
 	"github.com/siemens-healthineers/k2s/internal/definitions"
+	"github.com/siemens-healthineers/k2s/internal/host"
 	kjson "github.com/siemens-healthineers/k2s/internal/json"
 )
 
@@ -159,6 +160,21 @@ func (p *linuxImageProvider) Remove(cfg ImageRemoveConfig) error {
 		}
 		if err := cmd.Run(); err == nil {
 			return nil
+		}
+		if !strings.HasPrefix(ref, "localhost/") {
+			retryArgs := []string{"rmi"}
+			if cfg.Force {
+				retryArgs = append(retryArgs, "--force")
+			}
+			retryArgs = append(retryArgs, "localhost/"+ref)
+			retryCmd := exec.Command("buildah", retryArgs...)
+			if cfg.ShowOutput {
+				retryCmd.Stdout = os.Stdout
+				retryCmd.Stderr = os.Stderr
+			}
+			if err := retryCmd.Run(); err == nil {
+				return nil
+			}
 		}
 	}
 
@@ -416,6 +432,27 @@ func (p *linuxImageProvider) Clean(cfg ImageCleanConfig) error {
 		return cmd.Run()
 	}
 
+	if _, err := exec.LookPath("buildah"); err == nil {
+		buildahImages, err := listBuildahImages()
+		if err == nil {
+			cleaned := make(map[string]bool)
+			for _, img := range buildahImages {
+				if isK8sImage(img.Repository) || cleaned[img.ImageId] {
+					continue
+				}
+				cleaned[img.ImageId] = true
+				cmd := exec.Command("buildah", "rmi", "-f", img.ImageId)
+				if cfg.ShowOutput {
+					cmd.Stdout = os.Stdout
+					cmd.Stderr = os.Stderr
+				}
+				if err := cmd.Run(); err != nil {
+					slog.Warn("[Image] Could not remove buildah image", "id", img.ImageId, "error", err)
+				}
+			}
+		}
+	}
+
 	images, err := listCrictlImages()
 	if err != nil {
 		return err
@@ -425,7 +462,12 @@ func (p *linuxImageProvider) Clean(cfg ImageCleanConfig) error {
 		if isK8sImage(img.Repository) {
 			continue
 		}
-		if err := exec.Command("crictl", "rmi", img.ImageId).Run(); err != nil {
+		cmd := exec.Command("crictl", "rmi", img.ImageId)
+		if cfg.ShowOutput {
+			cmd.Stdout = os.Stdout
+			cmd.Stderr = os.Stderr
+		}
+		if err := cmd.Run(); err != nil {
 			slog.Warn("[Image] Could not remove image", "id", img.ImageId, "error", err)
 		}
 	}
@@ -542,20 +584,22 @@ func (p *linuxImageProvider) removeRegistryFromConfig(registry string) error {
 }
 
 func (p *linuxImageProvider) isLinuxOnly() bool {
-	if p.configDir == "" {
-		return false
+	configDir := p.configDir
+	if configDir == "" {
+		configDir = host.K2sConfigDir()
 	}
-	configPath := filepath.Join(p.configDir, definitions.K2sRuntimeConfigFileName)
-	cfgMap, err := kjson.FromFile[map[string]any](configPath)
-	if err != nil {
-		return false
-	}
-	if val, ok := (*cfgMap)["LinuxOnly"]; ok {
-		if b, ok := val.(bool); ok {
-			return b
+	if configDir != "" {
+		configPath := filepath.Join(configDir, definitions.K2sRuntimeConfigFileName)
+		cfgMap, err := kjson.FromFile[map[string]any](configPath)
+		if err == nil {
+			if val, ok := (*cfgMap)["LinuxOnly"]; ok {
+				if b, ok := val.(bool); ok {
+					return b
+				}
+			}
 		}
 	}
-	return false
+	return true
 }
 
 // ---------- helpers ----------
@@ -742,11 +786,15 @@ func isK8sImage(repo string) bool {
 		"docker.io/flannel",
 		"docker.io/calico",
 		"quay.io/coreos",
+		"shsk2s.azurecr.io",
 	}
 	for _, prefix := range k8sPrefixes {
 		if strings.HasPrefix(repo, prefix) {
 			return true
 		}
+	}
+	if strings.Contains(repo, ".azurecr.io") {
+		return true
 	}
 	return false
 }
