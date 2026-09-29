@@ -249,6 +249,12 @@ and creates a disposable QCOW2 overlay from that cache for the worker. For
 repeatable offline use, preserve the cached image under
 `/var/lib/libvirt/images/k2s/` for later installations.
 
+The worker uses standard OVMF UEFI firmware with Secure Boot disabled so it can
+boot prepared QCOW2 images from supported Windows build environments. Its VNC
+console listens only on `127.0.0.1`; use `sudo virsh vncdisplay k2s-win-worker`
+to obtain the display number when diagnosing a failed boot. On an SSH timeout,
+K2s saves a console screenshot at `/var/lib/k2s/k2s-win-worker-console.png`.
+
 The following options are intentionally unavailable on a native Linux host:
 
 - `--master-cpus`, `--master-memory`, `--master-disk`, dynamic-memory options,

@@ -66,6 +66,24 @@ k2s_windows_worker_disk_gb() {
   printf '%s\n' "${BASH_REMATCH[1]}"
 }
 
+k2s_windows_worker_ovmf_code() {
+  local firmware
+  for firmware in /usr/share/OVMF/OVMF_CODE_4M.fd /usr/share/OVMF/OVMF_CODE.fd; do
+    [[ -r "$firmware" ]] && { printf '%s\n' "$firmware"; return 0; }
+  done
+  k2s_log ERROR 'Standard OVMF firmware is unavailable. Install the ovmf package.'
+  return 1
+}
+
+k2s_windows_worker_ovmf_vars() {
+  local variables
+  for variables in /usr/share/OVMF/OVMF_VARS_4M.fd /usr/share/OVMF/OVMF_VARS.fd; do
+    [[ -r "$variables" ]] && { printf '%s\n' "$variables"; return 0; }
+  done
+  k2s_log ERROR 'Standard OVMF variable-store template is unavailable. Install the ovmf package.'
+  return 1
+}
+
 k2s_windows_worker_preflight() {
   local command memory_mb available_mb total_mb disk_gb available_gb
   [[ -r /dev/kvm && -c /dev/kvm ]] || { k2s_log ERROR 'KVM is unavailable. Enable nested virtualization and expose /dev/kvm to the Debian host.'; return 3; }
@@ -244,6 +262,10 @@ k2s_windows_worker_log_ssh_diagnostics() {
   virsh domifaddr "$K2S_WINDOWS_WORKER_NAME" 2>&1 | tee -a "$K2S_LOG_FILE" || true
   virsh net-dhcp-leases "$K2S_WINDOWS_WORKER_NETWORK" 2>&1 | tee -a "$K2S_LOG_FILE" || true
   ip -4 neigh show "$worker_ip" 2>&1 | tee -a "$K2S_LOG_FILE" || true
+  virsh vncdisplay "$K2S_WINDOWS_WORKER_NAME" 2>&1 | tee -a "$K2S_LOG_FILE" || true
+  if virsh screenshot "$K2S_WINDOWS_WORKER_NAME" "$K2S_CONFIG_DIR/${K2S_WINDOWS_WORKER_NAME}-console.png" >/dev/null 2>&1; then
+    k2s_log ERROR "Windows worker console screenshot: $K2S_CONFIG_DIR/${K2S_WINDOWS_WORKER_NAME}-console.png"
+  fi
   tail -n 100 "/var/log/libvirt/qemu/${K2S_WINDOWS_WORKER_NAME}.log" 2>&1 | tee -a "$K2S_LOG_FILE" || true
 }
 
@@ -279,9 +301,11 @@ k2s_windows_worker_wait_for_node() {
 }
 
 k2s_windows_worker_define() {
-  local disk="$1" install_iso="${2:-}" bootstrap_iso="${3:-}" memory_mb nvram domain_xml boot_order media_disks
+  local disk="$1" install_iso="${2:-}" bootstrap_iso="${3:-}" memory_mb nvram domain_xml boot_order media_disks firmware variables
   memory_mb=$(k2s_windows_worker_memory_mb) || return $?
-  nvram="$(dirname "$disk")/${K2S_WINDOWS_WORKER_NAME}_VARS.fd"
+  firmware=$(k2s_windows_worker_ovmf_code) || return 1
+  variables=$(k2s_windows_worker_ovmf_vars) || return 1
+  nvram="/var/lib/libvirt/qemu/nvram/${K2S_WINDOWS_WORKER_NAME}_VARS.fd"
   domain_xml=$(mktemp)
   boot_order="<boot dev='hd'/>"; media_disks=''
   if [[ -n "$install_iso" && -n "$bootstrap_iso" ]]; then
@@ -289,7 +313,7 @@ k2s_windows_worker_define() {
     media_disks="<disk type='file' device='cdrom'><driver name='qemu' type='raw'/><source file='$install_iso'/><target dev='sdb' bus='sata'/><readonly/></disk><disk type='file' device='cdrom'><driver name='qemu' type='raw'/><source file='$bootstrap_iso'/><target dev='sdc' bus='sata'/><readonly/></disk>"
   fi
   cat > "$domain_xml" <<EOF
-<domain type='kvm'><name>$K2S_WINDOWS_WORKER_NAME</name><memory unit='MiB'>$memory_mb</memory><currentMemory unit='MiB'>$memory_mb</currentMemory><vcpu placement='static'>$K2S_WORKER_CPU_COUNT</vcpu><os firmware='efi'><type arch='x86_64' machine='q35'>hvm</type>$boot_order</os><features><acpi/><apic/><hyperv mode='custom'><relaxed state='on'/><vapic state='on'/><spinlocks state='on' retries='8191'/><vpindex state='on'/><runtime state='on'/><synic state='on'/><stimer state='on'/></hyperv></features><cpu mode='host-passthrough' check='none'/><clock offset='localtime'><timer name='hypervclock' present='yes'/><timer name='hpet' present='no'/></clock><devices><disk type='file' device='disk'><driver name='qemu' type='qcow2' discard='unmap'/><source file='$disk'/><target dev='sda' bus='sata'/></disk>$media_disks<interface type='network'><mac address='$K2S_WINDOWS_WORKER_MAC'/><source network='$K2S_WINDOWS_WORKER_NETWORK'/><model type='e1000'/></interface><serial type='pty'/><console type='pty'/><rng model='virtio'><backend model='random'>/dev/urandom</backend></rng><memballoon model='virtio'/></devices></domain>
+<domain type='kvm'><name>$K2S_WINDOWS_WORKER_NAME</name><memory unit='MiB'>$memory_mb</memory><currentMemory unit='MiB'>$memory_mb</currentMemory><vcpu placement='static'>$K2S_WORKER_CPU_COUNT</vcpu><os><type arch='x86_64' machine='q35'>hvm</type><loader readonly='yes' secure='no' type='pflash'>$firmware</loader><nvram template='$variables'>$nvram</nvram>$boot_order</os><features><acpi/><apic/><hyperv mode='custom'><relaxed state='on'/><vapic state='on'/><spinlocks state='on' retries='8191'/><vpindex state='on'/><runtime state='on'/><synic state='on'/><stimer state='on'/></hyperv></features><cpu mode='host-passthrough' check='none'/><clock offset='localtime'><timer name='hypervclock' present='yes'/><timer name='hpet' present='no'/></clock><devices><disk type='file' device='disk'><driver name='qemu' type='qcow2' discard='unmap'/><source file='$disk'/><target dev='sda' bus='sata'/></disk>$media_disks<interface type='network'><mac address='$K2S_WINDOWS_WORKER_MAC'/><source network='$K2S_WINDOWS_WORKER_NETWORK'/><model type='e1000'/></interface><serial type='pty'/><console type='pty'/><graphics type='vnc' autoport='yes' listen='127.0.0.1'><listen type='address' address='127.0.0.1'/></graphics><video><model type='vga' vram='16384' heads='1' primary='yes'/></video><rng model='virtio'><backend model='random'>/dev/urandom</backend></rng><memballoon model='virtio'/></devices></domain>
 EOF
   virsh define "$domain_xml"; local result=$?; rm -f "$domain_xml"; return "$result"
 }
