@@ -334,9 +334,10 @@ Function Get-InstalledDistribution {
     if ([string]::IsNullOrWhiteSpace($distributionReleaseNumber)) {
         throw "Cannot get the distribution release number from the computer with IP '$IpAddress'"
     }
-    
-    $installedDistribution = "$distributionName$distributionReleaseNumber".ToLower()
-    
+
+    $distributionMajorVersion = ($distributionReleaseNumber -split '\.')[0]
+    $installedDistribution = "$distributionName$distributionMajorVersion".ToLower()
+
     return $installedDistribution
 }
 
