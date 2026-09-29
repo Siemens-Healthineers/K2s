@@ -21,15 +21,15 @@ import (
 )
 
 const (
-	successMessage     = "System restore completed"
-	testDataContent    = "test-data-for-integrity-check-12345"
+	successMessage  = "System restore completed"
+	testDataContent = "test-data-for-integrity-check-12345"
 )
 
 var (
-	suite          *framework.K2sTestSuite
-	randomSeed     string
+	suite           *framework.K2sTestSuite
+	randomSeed      string
 	validBackupFile string
-	testTempDir    string
+	testTempDir     string
 )
 
 func TestRestoreSystemRunning(t *testing.T) {
@@ -66,7 +66,7 @@ var _ = BeforeSuite(func(ctx context.Context) {
 		namespaces := strings.Fields(nsOutput)
 		for _, ns := range namespaces {
 			if strings.Contains(ns, "test-pv-restore-") || strings.Contains(ns, "test-img-restore-") ||
-			   strings.Contains(ns, "test-restore-multi-") || strings.Contains(ns, "test-orphan-") {
+				strings.Contains(ns, "test-restore-multi-") || strings.Contains(ns, "test-orphan-") {
 				suite.Kubectl().Exec(ctx, "delete", "namespace", ns, "--ignore-not-found=true", "--timeout=30s", "--wait=false")
 			}
 		}
@@ -208,7 +208,6 @@ func cleanupBackupFile(ctx context.Context, backupFile string) {
 	GinkgoWriter.Printf("Warning: Could not clean up backup file (still locked): %s\n", backupFile)
 }
 
-
 var _ = Describe("'k2s system restore' - persistent volumes", Ordered, Label("pv"), func() {
 	var (
 		testNamespace   string
@@ -252,13 +251,20 @@ spec:
   hostPath:
     path: /tmp/k2s-test-pv-%s
     type: DirectoryOrCreate
+  nodeAffinity:
+    required:
+      nodeSelectorTerms:
+      - matchExpressions:
+        - key: kubernetes.io/os
+          operator: In
+          values:
+          - linux
   claimRef:
     name: %s
     namespace: %s
 `, pvName, randomSeed, pvcName, testNamespace)
 
 		applyYaml(ctx, suite, pvYaml)
-
 
 		pvcYaml := fmt.Sprintf(`
 apiVersion: v1
@@ -290,6 +296,8 @@ metadata:
   name: %s
   namespace: %s
 spec:
+  nodeSelector:
+    kubernetes.io/os: linux
   containers:
   - name: writer
     image: busybox:1.36
@@ -309,7 +317,7 @@ spec:
 		Eventually(func(ctx context.Context) string {
 			output, _ := suite.Kubectl().Exec(ctx, "get", "pod", podName, "-n", testNamespace, "-o", "jsonpath={.status.phase}")
 			return output
-		}).WithContext(ctx).WithTimeout(20 * time.Second).WithPolling(500 * time.Millisecond).Should(Or(Equal("Running"), Equal("Succeeded")))
+		}).WithContext(ctx).WithTimeout(60 * time.Second).WithPolling(time.Second).Should(Or(Equal("Running"), Equal("Succeeded")))
 
 		time.Sleep(1 * time.Second) // Reduced from 2s
 
@@ -358,6 +366,8 @@ metadata:
   name: %s
   namespace: %s
 spec:
+  nodeSelector:
+    kubernetes.io/os: linux
   containers:
   - name: reader
     image: busybox:1.36
@@ -377,7 +387,7 @@ spec:
 		Eventually(func(ctx context.Context) string {
 			output, _ := suite.Kubectl().Exec(ctx, "get", "pod", readerPod, "-n", testNamespace, "-o", "jsonpath={.status.phase}")
 			return output
-		}).WithContext(ctx).WithTimeout(20 * time.Second).WithPolling(500 * time.Millisecond).Should(Or(Equal("Running"), Equal("Succeeded")))
+		}).WithContext(ctx).WithTimeout(60 * time.Second).WithPolling(time.Second).Should(Or(Equal("Running"), Equal("Succeeded")))
 
 		time.Sleep(500 * time.Millisecond) // Minimal wait for logs
 		logs, exitCode := suite.Kubectl().Exec(ctx, "logs", readerPod, "-n", testNamespace)
@@ -424,6 +434,8 @@ spec:
       labels:
         app: test-img-restore
     spec:
+      nodeSelector:
+        kubernetes.io/os: linux
       containers:
       - name: test
         image: busybox:1.36
@@ -557,5 +569,3 @@ func applyYaml(ctx context.Context, suite *framework.K2sTestSuite, yaml string) 
 
 	suite.Kubectl().MustExec(ctx, "apply", "-f", tmpFile.Name())
 }
-
-

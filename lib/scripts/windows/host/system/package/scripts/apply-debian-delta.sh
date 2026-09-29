@@ -185,7 +185,7 @@ if [[ -n "$KUBE_VERSION" ]]; then
             rm -rf "$IMAGES_DIR"
         fi
     else
-        echo "[debian-delta][warn] kubeadm upgrade encountered issues, attempting fallback cleanup"
+        echo "[debian-delta][error] kubeadm upgrade failed; the control plane was not upgraded" >&2
 
         # Cleanup imported image archives even on failure
         if [[ -d "$IMAGES_DIR" ]]; then
@@ -204,6 +204,7 @@ if [[ -n "$KUBE_VERSION" ]]; then
             sed -i 's/" /"/g' "$KUBEADM_FLAGS_FILE"
             echo "[debian-delta] Kubelet flags after cleanup: $(cat $KUBEADM_FLAGS_FILE)"
         fi
+        exit 1
     fi
 else
     echo "[debian-delta][warn] Could not detect Kubernetes version, skipping kubeadm upgrade"
