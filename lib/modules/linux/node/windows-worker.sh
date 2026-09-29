@@ -216,15 +216,33 @@ k2s_windows_worker_wait_for_ssh() {
   k2s_windows_worker_create_ssh_key || return 1
   known_hosts=$(k2s_windows_worker_known_hosts)
   worker_ip=$(k2s_windows_worker_ip) || return 1
+  install -d -m 0700 "$(k2s_windows_worker_ssh_dir)" || return 1
   : > "$known_hosts"; chmod 600 "$known_hosts"
   while ! ssh-keyscan -T 10 -H "$worker_ip" >> "$known_hosts" 2>/dev/null; do
-    (( SECONDS < deadline )) || { k2s_log ERROR 'Timed out waiting for Windows worker SSH host key.'; return 1; }
+    if (( SECONDS >= deadline )); then
+      k2s_windows_worker_log_ssh_diagnostics "$worker_ip"
+      k2s_log ERROR 'Timed out waiting for Windows worker SSH host key.'
+      return 1
+    fi
     sleep 10
   done
   while ! k2s_windows_worker_ssh 'exit 0'; do
-    (( SECONDS < deadline )) || { k2s_log ERROR 'Timed out waiting for Windows worker SSH key authentication.'; return 1; }
+    if (( SECONDS >= deadline )); then
+      k2s_windows_worker_log_ssh_diagnostics "$worker_ip"
+      k2s_log ERROR 'Timed out waiting for Windows worker SSH key authentication.'
+      return 1
+    fi
     sleep 10
   done
+}
+
+k2s_windows_worker_log_ssh_diagnostics() {
+  local worker_ip="$1"
+  k2s_log ERROR "Windows worker SSH diagnostics for $worker_ip"
+  virsh domstate "$K2S_WINDOWS_WORKER_NAME" 2>&1 | tee -a "$K2S_LOG_FILE" || true
+  virsh domifaddr "$K2S_WINDOWS_WORKER_NAME" 2>&1 | tee -a "$K2S_LOG_FILE" || true
+  virsh net-dhcp-leases "$K2S_WINDOWS_WORKER_NETWORK" 2>&1 | tee -a "$K2S_LOG_FILE" || true
+  ip -4 neigh show "$worker_ip" 2>&1 | tee -a "$K2S_LOG_FILE" || true
 }
 
 k2s_windows_worker_join_cluster() {
