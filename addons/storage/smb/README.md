@@ -169,8 +169,8 @@ First, configure a POSIX-enabled entry in `SmbStorage.json` (this creates the `s
     {
         "winMountPath": "C:\\k8s-smb-posix",
         "linuxMountPath": "/mnt/k8s-smb-posix",
-        "linuxShareName": "linux-smb-share",
-        "winShareName": "win-smb-share",
+        "linuxShareName": "linux-smb-posix-share",
+        "winShareName": "win-smb-posix-share",
         "storageClassName": "smb-posix",
         "smbDialect": "3.1.1",
         "enablePosixExtensions": true,
