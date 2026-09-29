@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText:  © 2024 Siemens Healthineers AG
+// SPDX-FileCopyrightText:  © 2026 Siemens Healthineers AG
 // SPDX-License-Identifier:   MIT
 
 package os
@@ -15,19 +15,15 @@ import (
 	"os/exec"
 	"path/filepath"
 	"time"
+
+	"github.com/siemens-healthineers/k2s/internal/output"
 )
 
 type Files []fs.FileInfo
 type Paths []string
 
-type StdWriter interface {
-	WriteStdOut(message string)
-	WriteStdErr(message string)
-	Flush()
-}
-
 type CmdExecutor struct {
-	stdWriter StdWriter
+	stdWriter output.StreamWriter
 	ctx       context.Context
 }
 
@@ -117,7 +113,7 @@ func FilesInDir(dir string) (files Files, err error) {
 	return files, nil
 }
 
-func NewCmdExecutor(stdWriter StdWriter) *CmdExecutor { // TODO: use optional out and err writer std. interfaces + flush callback instead?
+func NewCmdExecutor(stdWriter output.StreamWriter) *CmdExecutor { // TODO: use optional out and err writer std. interfaces + flush callback instead?
 	return &CmdExecutor{stdWriter: stdWriter}
 }
 

@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText:  © 2024 Siemens Healthineers AG
+// SPDX-FileCopyrightText:  © 2026 Siemens Healthineers AG
 // SPDX-License-Identifier:   MIT
 
 package install
@@ -16,8 +16,8 @@ import (
 	"github.com/siemens-healthineers/k2s/internal/core/config"
 	"github.com/siemens-healthineers/k2s/internal/definitions"
 	kos "github.com/siemens-healthineers/k2s/internal/os"
-	"github.com/siemens-healthineers/k2s/internal/powershell"
 	"github.com/siemens-healthineers/k2s/internal/provider"
+	"github.com/siemens-healthineers/k2s/internal/providers/powershell"
 	"github.com/siemens-healthineers/k2s/internal/version"
 
 	"github.com/spf13/cobra"

@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText:  © 2024 Siemens Healthineers AG
+// SPDX-FileCopyrightText:  © 2026 Siemens Healthineers AG
 // SPDX-License-Identifier:   MIT
 
 package addons
@@ -28,7 +28,7 @@ type ConstraintsType string
 type Addon struct {
 	ApiVersion string        `yaml:"apiVersion"`
 	Kind       string        `yaml:"kind"`
-	Directory  string        // infered from manifest location
+	Directory  string        // inferred from manifest location
 	Metadata   AddonMetadata `yaml:"metadata"`
 	Spec       AddonSpec     `yaml:"spec"`
 }

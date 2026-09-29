@@ -119,44 +119,14 @@ function Get-HostIpAddressForRemoteIp {
     return Get-HostPhysicalIp -ExcludeNetworkInterfaceName $ExcludeNetworkInterfaceName
 }
 
-<#
-.SYNOPSIS
-Checks if Hyper-V Default Switch subnet collides with K2s network configuration.
-
-.DESCRIPTION
-Validates that the Hyper-V "Default Switch" (if it exists) does not use
-subnet ranges that overlap with the configured K2s network subnets from config.json.
-This prevents network routing issues and IP address conflicts.
-
-.EXAMPLE
-Test-DefaultSwitch
-
-.NOTES
-Throws an error if a collision is detected.
-#>
-function Test-DefaultSwitch {
-    Write-Log "Checking Hyper-V Default Switch for subnet collisions..."
-    
-    # Get Default Switch IP configuration
-    $defaultSwitchIp = Get-NetIPAddress -InterfaceAlias "vEthernet (Default Switch)" -AddressFamily IPv4 -ErrorAction SilentlyContinue
-    
-    if ($null -eq $defaultSwitchIp) {
-        Write-Log "No Hyper-V Default Switch found, skipping collision check."
-        return
-    }
-    
-    $defaultSwitchSubnet = "$($defaultSwitchIp.IPAddress)/$($defaultSwitchIp.PrefixLength)"
-    Write-Log "Found Hyper-V Default Switch with subnet: $defaultSwitchSubnet"
-    
-    # Get K2s network configuration
+function Get-ConfiguredK2sSubnets {
     $configModule = "$PSScriptRoot\..\config\config.module.psm1"
     Import-Module $configModule -DisableNameChecking
-    
+
     $configPath = Get-k2sConfigFilePath
     $config = Get-Content $configPath -Raw | ConvertFrom-Json
-    
-    # List of all K2s subnets to check
-    $k2sSubnets = @(
+
+    return @(
         @{ Name = 'masterNetworkCIDR'; Value = $config.smallsetup.masterNetworkCIDR },
         @{ Name = 'podNetworkCIDR'; Value = $config.smallsetup.podNetworkCIDR },
         @{ Name = 'podNetworkMasterCIDR'; Value = $config.smallsetup.podNetworkMasterCIDR },
@@ -166,20 +136,161 @@ function Test-DefaultSwitch {
         @{ Name = 'servicesCIDRWindows'; Value = $config.smallsetup.servicesCIDRWindows },
         @{ Name = 'loopbackAdapterCIDR'; Value = $config.smallsetup.loopbackAdapterCIDR }
     )
-    
-    # Check for overlaps
-    foreach ($k2sSubnet in $k2sSubnets) {
-        if (Test-SubnetOverlap -Subnet1 $defaultSwitchSubnet -Subnet2 $k2sSubnet.Value) {
-            $errorMsg = "Hyper-V Default Switch subnet ($defaultSwitchSubnet) collides with K2s network configuration $($k2sSubnet.Name) ($($k2sSubnet.Value))!`n" +
-                        "The Default Switch is automatically created by Hyper-V and conflicts with K2s networking.`n" +
-                        "Please remove the Default Switch before installing K2s:`n" +
-                        "  Get-HnsNetwork | Where-Object Name -EQ 'Default Switch' | Remove-HnsNetwork"
+}
+
+function Import-K2sHnsModule {
+    $requiredCommands = @('Get-HnsNetwork', 'Remove-HnsNetwork')
+    $missingCommands = @($requiredCommands | Where-Object {
+        $null -eq (Get-Command -Name $_ -ErrorAction SilentlyContinue)
+    })
+    if ($missingCommands.Count -eq 0) {
+        return
+    }
+
+    $hnsModule = "$PSScriptRoot\..\..\..\node\k2s.node.module\windowsnode\network\hns.module.psm1"
+    if (-not (Test-Path -LiteralPath $hnsModule -PathType Leaf)) {
+        throw "[PREREQ-FAILED] HNS module not found at '$hnsModule'."
+    }
+
+    Import-Module $hnsModule -DisableNameChecking
+
+    $missingCommands = @($requiredCommands | Where-Object {
+        $null -eq (Get-Command -Name $_ -ErrorAction SilentlyContinue)
+    })
+    if ($missingCommands.Count -gt 0) {
+        throw "[PREREQ-FAILED] HNS commands are unavailable after importing '$hnsModule': $($missingCommands -join ', ')."
+    }
+}
+
+function Remove-K2sDefaultSwitch {
+    Import-K2sHnsModule
+
+    $defaultHnsNetworks = @(Get-HnsNetwork -ErrorAction Stop | Where-Object { $_.Name -eq 'Default Switch' })
+    $switchRemoved = $false
+    foreach ($defaultHnsNetwork in $defaultHnsNetworks) {
+        Write-Log "Removing HNS Default Switch network '$($defaultHnsNetwork.Id)'."
+        Remove-HnsNetwork -InputObjects $defaultHnsNetwork -ErrorAction Stop
+        $switchRemoved = $true
+    }
+
+    $defaultVmSwitch = Get-VMSwitch -Name 'Default Switch' -ErrorAction SilentlyContinue
+    if ($null -ne $defaultVmSwitch) {
+        Write-Log 'Removing remaining Hyper-V Default Switch.'
+        try {
+            Remove-VMSwitch -Name 'Default Switch' -Force -ErrorAction Stop
+            $switchRemoved = $true
+        }
+        catch {
+            if (-not $switchRemoved) {
+                throw
+            }
+            Write-Log "Hyper-V still reports the Default Switch after HNS removal: $_. Continuing with revalidation."
+        }
+    }
+
+    if (-not $switchRemoved) {
+        throw '[PREREQ-FAILED] The conflicting Default Switch could not be found through HNS or Hyper-V for removal.'
+    }
+}
+
+<#
+.SYNOPSIS
+Checks if Hyper-V Default Switch subnet collides with K2s network configuration.
+
+.DESCRIPTION
+Validates that the Hyper-V "Default Switch" (if it exists) does not use
+subnet ranges that overlap with the configured K2s network subnets from config.json.
+This prevents network routing issues and IP address conflicts. When ResolveConflict
+is specified, a conflicting Default Switch is removed and the network is revalidated.
+
+.PARAMETER ResolveConflict
+Removes a conflicting Default Switch and revalidates the network.
+
+.PARAMETER MaxAttempts
+Maximum number of validation and recovery attempts.
+
+.PARAMETER RetryDelaySeconds
+Number of seconds to wait for the network state to settle after removal.
+
+.EXAMPLE
+Test-DefaultSwitch
+
+.EXAMPLE
+Test-DefaultSwitch -ResolveConflict
+
+.NOTES
+Throws an error if a collision is detected and recovery is disabled or unsuccessful.
+#>
+function Test-DefaultSwitch {
+    [CmdletBinding()]
+    param(
+        [switch]$ResolveConflict,
+        [ValidateRange(1, 10)]
+        [int]$MaxAttempts = 5,
+        [ValidateRange(0, 60)]
+        [int]$RetryDelaySeconds = 5
+    )
+
+    $k2sSubnets = @(Get-ConfiguredK2sSubnets)
+
+    for ($attempt = 1; $attempt -le $MaxAttempts; $attempt++) {
+        Write-Log "Checking Hyper-V Default Switch for subnet collisions (attempt $attempt/$MaxAttempts)..."
+
+        $defaultSwitchIps = @(Get-NetIPAddress -InterfaceAlias 'vEthernet (Default Switch)' -AddressFamily IPv4 -ErrorAction SilentlyContinue)
+        if ($defaultSwitchIps.Count -eq 0) {
+            Write-Log 'No Hyper-V Default Switch found, skipping collision check.'
+            return
+        }
+
+        $conflict = $null
+        foreach ($defaultSwitchIp in $defaultSwitchIps) {
+            $defaultSwitchSubnet = "$($defaultSwitchIp.IPAddress)/$($defaultSwitchIp.PrefixLength)"
+            Write-Log "Found Hyper-V Default Switch with subnet: $defaultSwitchSubnet"
+
+            foreach ($k2sSubnet in $k2sSubnets) {
+                if (Test-SubnetOverlap -Subnet1 $defaultSwitchSubnet -Subnet2 $k2sSubnet.Value) {
+                    $conflict = [pscustomobject]@{
+                        DefaultSwitchSubnet = $defaultSwitchSubnet
+                        K2sSubnetName        = $k2sSubnet.Name
+                        K2sSubnet            = $k2sSubnet.Value
+                    }
+                    break
+                }
+            }
+
+            if ($null -ne $conflict) {
+                break
+            }
+        }
+
+        if ($null -eq $conflict) {
+            Write-Log 'No subnet collision detected with Default Switch.'
+            return
+        }
+
+        $errorMsg = "Hyper-V Default Switch subnet ($($conflict.DefaultSwitchSubnet)) collides with K2s network configuration $($conflict.K2sSubnetName) ($($conflict.K2sSubnet))."
+        if (-not $ResolveConflict) {
+            $errorMsg += "`nThe Default Switch is automatically created by Hyper-V and conflicts with K2s networking.`n" +
+                         "Please remove the Default Switch before installing or starting K2s:`n" +
+                         "  Get-HnsNetwork | Where-Object Name -EQ 'Default Switch' | Remove-HnsNetwork"
             Write-Log $errorMsg -Error
             throw "[PREREQ-FAILED] $errorMsg"
         }
+
+        if ($attempt -eq $MaxAttempts) {
+            $errorMsg += " Automatic recovery failed after $MaxAttempts attempts."
+            Write-Log $errorMsg -Error
+            throw "[PREREQ-FAILED] $errorMsg"
+        }
+
+        Write-Log "$errorMsg Removing the conflicting Default Switch before K2s networking starts."
+        Remove-K2sDefaultSwitch
+
+        if ($RetryDelaySeconds -gt 0) {
+            Write-Log "Waiting $RetryDelaySeconds seconds for Default Switch network state to settle."
+            Start-Sleep -Seconds $RetryDelaySeconds
+        }
     }
-    
-    Write-Log "No subnet collision detected with Default Switch."
 }
 
 <#

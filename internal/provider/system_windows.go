@@ -10,13 +10,13 @@ import (
 	"path/filepath"
 
 	"github.com/siemens-healthineers/k2s/cmd/k2s/utils"
-	k2sos "github.com/siemens-healthineers/k2s/internal/os"
-	"github.com/siemens-healthineers/k2s/internal/powershell"
+	"github.com/siemens-healthineers/k2s/internal/output"
+	"github.com/siemens-healthineers/k2s/internal/providers/powershell"
 )
 
 type windowsSystemProvider struct {
 	installDir string
-	stdWriter  k2sos.StdWriter
+	stdWriter  output.StreamWriter
 }
 
 func newWindowsSystemProvider(cfg ProviderConfig) *windowsSystemProvider {
@@ -149,10 +149,10 @@ func (p *windowsSystemProvider) Backup(cfg SystemBackupConfig) error {
 	psCmd := p.scriptPath("backup/Start-SystemBackup.ps1")
 	var params string
 	if cfg.BackupFile != "" {
-		params += fmt.Sprintf(" -BackupFile '%s'", cfg.BackupFile)
+		params += " -BackupFile " + utils.EscapeWithSingleQuotes(cfg.BackupFile)
 	}
 	if cfg.AdditionalHooksDir != "" {
-		params += fmt.Sprintf(" -AdditionalHooksDir '%s'", cfg.AdditionalHooksDir)
+		params += " -AdditionalHooksDir " + utils.EscapeWithSingleQuotes(cfg.AdditionalHooksDir)
 	}
 	if cfg.SkipImages {
 		params += " -SkipImages"
@@ -211,4 +211,3 @@ func (p *windowsSystemProvider) CertificateAutoRotation(cfg SystemCertAutoRotati
 	}
 	return p.execPS(psCmd, params...)
 }
-

@@ -122,6 +122,8 @@ function New-DeltaManifest {
     # Read VERSION files
     $baseVersion = Get-PackageVersion -ExtractPath $Context.OldExtract
     $targetVersion = Get-PackageVersion -ExtractPath $Context.NewExtract
+    $baseKubernetesVersion = Get-PackageKubernetesVersion -ExtractPath $Context.OldExtract
+    $targetKubernetesVersion = Get-PackageKubernetesVersion -ExtractPath $Context.NewExtract
 
     if ($baseVersion) {
         Write-Log "Base package version: $baseVersion" -Console
@@ -145,6 +147,8 @@ function New-DeltaManifest {
         TargetPackage            = (Split-Path -Leaf $Context.InputPackageTwo)
         BaseVersion              = $baseVersion
         TargetVersion            = $targetVersion
+        BaseKubernetesVersion    = $baseKubernetesVersion
+        TargetKubernetesVersion  = $targetKubernetesVersion
         WholeDirectories         = $Context.WholeDirsNormalized
         WholeDirectoriesCount    = $Context.WholeDirsNormalized.Count
         SpecialSkippedFiles      = $Context.SpecialSkippedFiles

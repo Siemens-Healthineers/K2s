@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText:  © 2025 Siemens Healthineers AG
+// SPDX-FileCopyrightText:  © 2026 Siemens Healthineers AG
 // SPDX-License-Identifier:   MIT
 
 package decoding
@@ -8,30 +8,23 @@ import (
 	"fmt"
 	"log/slog"
 
-	"github.com/siemens-healthineers/k2s/internal/contracts/kubeconfig"
+	"github.com/siemens-healthineers/k2s/internal/providers/kubeconfig"
 )
 
-type CredentialsDecoder struct {
-}
-
-func NewCredentialsDecoder() *CredentialsDecoder {
-	return &CredentialsDecoder{}
-}
-
-func (c *CredentialsDecoder) DecodeK8sApiCredentials(clusterConfig *kubeconfig.ClusterConfig, userConfig *kubeconfig.UserConfig) (caCert, userCert, userKey []byte, err error) {
+func DecodeK8sApiCredentials(clusterConfig *kubeconfig.Cluster, userConfig *kubeconfig.User) (caCert, userCert, userKey []byte, err error) {
 	slog.Debug("Decoding Kubernetes API credentials")
 
-	caCert, err = base64.StdEncoding.DecodeString(clusterConfig.Cert)
+	caCert, err = base64.StdEncoding.DecodeString(clusterConfig.Details.Cert)
 	if err != nil {
 		return nil, nil, nil, fmt.Errorf("failed to decode cluster certificate: %w", err)
 	}
 
-	userCert, err = base64.StdEncoding.DecodeString(userConfig.Cert)
+	userCert, err = base64.StdEncoding.DecodeString(userConfig.Details.Cert)
 	if err != nil {
 		return nil, nil, nil, fmt.Errorf("failed to decode user certificate: %w", err)
 	}
 
-	userKey, err = base64.StdEncoding.DecodeString(userConfig.Key)
+	userKey, err = base64.StdEncoding.DecodeString(userConfig.Details.Key)
 	if err != nil {
 		return nil, nil, nil, fmt.Errorf("failed to decode user key: %w", err)
 	}

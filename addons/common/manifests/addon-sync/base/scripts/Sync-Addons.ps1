@@ -83,29 +83,33 @@ function Write-SyncLog {
     Write-Host "$ts $prefix $Message"
 }
 
-function New-SyncTempFile {
-    return [System.IO.Path]::GetTempFileName()
-}
-
-function Get-SyncFileSha256 {
+function Get-Sha256HexLower {
     param(
-        [Parameter(Mandatory)] [string]$Path
+        [Parameter(Mandatory)]
+        [string]$Path
     )
 
-    $stream = [System.IO.File]::Open(
-        $Path,
-        [System.IO.FileMode]::Open,
-        [System.IO.FileAccess]::Read,
-        [System.IO.FileShare]::Read
-    )
-    $sha256 = [System.Security.Cryptography.SHA256]::Create()
+    $stream = [System.IO.File]::OpenRead($Path)
     try {
-        $hashBytes = $sha256.ComputeHash($stream)
-        return [System.BitConverter]::ToString($hashBytes).Replace('-', '').ToLowerInvariant()
+        $sha256 = [System.Security.Cryptography.SHA256]::Create()
+        try {
+            $hashBytes = $sha256.ComputeHash($stream)
+        }
+        finally {
+            $sha256.Dispose()
+        }
     }
     finally {
-        $sha256.Dispose()
         $stream.Dispose()
+    }
+
+    return ([System.BitConverter]::ToString($hashBytes).Replace('-', '').ToLowerInvariant())
+}
+
+function New-CompatTemporaryFile {
+    $tempPath = [System.IO.Path]::GetTempFileName()
+    return [PSCustomObject]@{
+        FullName = $tempPath
     }
 }
 
@@ -128,7 +132,7 @@ function Get-BlobPathByDigest {
         throw "Blob not found for digest: $Digest"
     }
     # Integrity check
-    $computed = Get-SyncFileSha256 -Path $blobPath
+    $computed = Get-Sha256HexLower -Path $blobPath
     if ($computed -ne $hash) {
         throw "Blob integrity check failed for $Digest (computed sha256:$computed)"
     }
@@ -398,14 +402,14 @@ function Sync-AddonFromOciLayout {
                             foreach ($line in ($originalContent -split "`r?`n")) {
                                 if ($line.StartsWith('#') -or $line.Trim() -eq '') { $headerLines += $line } else { break }
                             }
-                            $tempJson = New-SyncTempFile
+                            $tempJson = New-CompatTemporaryFile
                             try {
-                                $existingManifest | ConvertTo-Json -Depth 100 | Set-Content -Path $tempJson -Encoding UTF8
-                                $yamlOutput = & $yqExe eval -P '.' $tempJson
+                                $existingManifest | ConvertTo-Json -Depth 100 | Set-Content -Path $tempJson.FullName -Encoding UTF8
+                                $yamlOutput = & $yqExe eval -P '.' $tempJson.FullName
                                 $yamlContent = if ($yamlOutput -is [array]) { $yamlOutput -join "`n" } else { $yamlOutput.ToString() }
                                 [System.IO.File]::WriteAllText($destManifestPath, (($headerLines -join "`n") + "`n" + $yamlContent), [System.Text.UTF8Encoding]::new($false))
                                 Write-SyncLog "    Merged manifest saved"
-                            } finally { Remove-Item -Path $tempJson -Force -ErrorAction SilentlyContinue }
+                            } finally { Remove-Item -Path $tempJson.FullName -Force -ErrorAction SilentlyContinue }
                         } else {
                             Write-SyncLog "    yq.exe not found, copying manifest as-is" -Warning
                             Copy-Item -Path $configManifestSrc -Destination $destManifestPath -Force
