@@ -70,7 +70,7 @@ spec:
               - cliFlagName: keep
                 scriptParameterName: Keep
     - name: ceph
-      description: Experimental - Ceph CSI operator for CephFS (file) storage provisioning
+      description: EXPERIMENTAL - Ceph CSI operator for CephFS (file) storage provisioning
       offline_usage:
         linux:
           repos: []
@@ -119,7 +119,7 @@ spec:
                 description: Configure Ceph SMB access (mgr/smb + SMB CSI) so Windows pods can consume CephFS
             examples:
               - cmd: k2s addons enable storage ceph
-                comment: Enables experimental Ceph CSI CephFS storage provisioning using config in 'addons/storage/ceph/config'
+                comment: Enables EXPERIMENTAL Ceph CSI CephFS storage provisioning using config in 'addons/storage/ceph/config'
               - cmd: k2s addons enable storage ceph -w
                 comment: Enables Ceph CSI and additionally exports CephFS over SMB (Ceph mgr/smb) with the SMB CSI driver so Windows pods can consume CephFS
           script:

@@ -6,6 +6,8 @@ SPDX-License-Identifier: MIT
 
 # Ceph CSI Storage (CephFS)
 
+> **EXPERIMENTAL** — This addon is experimental and not recommended for production use.
+
 The `storage ceph` addon provisions a Ceph cluster and exposes CephFS-backed dynamic storage for K2s.
 
 ## What this addon provides

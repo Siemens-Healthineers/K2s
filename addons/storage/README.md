@@ -11,7 +11,7 @@ SPDX-License-Identifier: MIT
 The `storage` addon provides persistent storage solutions for the K2s cluster. It offers two **mutually exclusive** implementations:
 
 - **[smb](./smb/README.md)** — StorageClass provisioning based on SMB share between K8s nodes (Windows/Linux)
-- **[ceph](./ceph/README.md)** — Ceph CSI operator for CephFS (file) storage provisioning
+- **[ceph](./ceph/README.md)** — **EXPERIMENTAL** - Ceph CSI operator for CephFS (file) storage provisioning
 
 **Important:** Only ONE storage implementation can be enabled at a time. Enabling one automatically disables any active alternative.
 
