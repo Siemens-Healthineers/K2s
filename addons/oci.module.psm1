@@ -42,28 +42,41 @@ $script:MediaTypes = @{
 # OCI Image Layout version
 $script:OciLayoutVersion = '1.0.0'
 
-function Get-OciFileSha256 {
+function Get-Sha256HexLower {
+    <#
+    .SYNOPSIS
+    Computes SHA256 for a file and returns a lowercase hexadecimal hash
+    #>
     param(
         [Parameter(Mandatory = $true)]
         [string]$Path
     )
 
-    # Permit concurrent readers while preventing writes during hashing so the digest
-    # always represents a stable file.
-    $stream = [System.IO.File]::Open(
-        $Path,
-        [System.IO.FileMode]::Open,
-        [System.IO.FileAccess]::Read,
-        [System.IO.FileShare]::Read
-    )
-    $sha256 = [System.Security.Cryptography.SHA256]::Create()
+    $stream = [System.IO.File]::OpenRead($Path)
     try {
-        $hashBytes = $sha256.ComputeHash($stream)
-        return [System.BitConverter]::ToString($hashBytes).Replace('-', '').ToLowerInvariant()
+        $sha256 = [System.Security.Cryptography.SHA256]::Create()
+        try {
+            $hashBytes = $sha256.ComputeHash($stream)
+        }
+        finally {
+            $sha256.Dispose()
+        }
     }
     finally {
-        $sha256.Dispose()
         $stream.Dispose()
+    }
+
+    return ([System.BitConverter]::ToString($hashBytes).Replace('-', '').ToLowerInvariant())
+}
+
+function New-CompatTemporaryFile {
+    <#
+    .SYNOPSIS
+    Creates a temporary file object compatible with New-TemporaryFile usage
+    #>
+    $tempPath = [System.IO.Path]::GetTempFileName()
+    return [PSCustomObject]@{
+        FullName = $tempPath
     }
 }
 
@@ -134,7 +147,8 @@ function Add-ContentToBlobs {
         throw "Source path not found: $SourcePath"
     }
     
-    $digest = Get-OciFileSha256 -Path $SourcePath
+    # Use .NET hashing to avoid dependency on Get-FileHash availability.
+    $digest = Get-Sha256HexLower -Path $SourcePath
     $blobPath = Join-Path $BlobsDir $digest
     
     if ($Move) {
@@ -164,16 +178,16 @@ function Add-JsonContentToBlobs {
         [object]$Content
     )
     
-    $tempFile = New-K2sTempFile
+    $tempFile = New-CompatTemporaryFile
     try {
         $json = $Content | ConvertTo-Json -Depth 20
-        [System.IO.File]::WriteAllText($tempFile, $json, [System.Text.UTF8Encoding]::new($false))
-        $result = Add-ContentToBlobs -BlobsDir $BlobsDir -SourcePath $tempFile -Move
+        [System.IO.File]::WriteAllText($tempFile.FullName, $json, [System.Text.UTF8Encoding]::new($false))
+        $result = Add-ContentToBlobs -BlobsDir $BlobsDir -SourcePath $tempFile.FullName -Move
         return $result
     }
     finally {
-        if (Test-Path $tempFile) {
-            Remove-Item -Path $tempFile -Force -ErrorAction SilentlyContinue
+        if (Test-Path $tempFile.FullName) {
+            Remove-Item -Path $tempFile.FullName -Force -ErrorAction SilentlyContinue
         }
     }
 }
@@ -210,7 +224,7 @@ function Get-BlobByDigest {
     
     # Verify content integrity per OCI Image Spec descriptor verification
     if (-not $SkipVerification) {
-        $computedHash = Get-OciFileSha256 -Path $blobPath
+        $computedHash = Get-Sha256HexLower -Path $blobPath
         if ($computedHash -ne $hash) {
             throw "Blob integrity check failed for digest: $Digest (computed: sha256:$computedHash)"
         }

@@ -11,7 +11,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/siemens-healthineers/k2s/internal/powershell"
+	"github.com/siemens-healthineers/k2s/internal/providers/powershell"
 
 	ac "github.com/siemens-healthineers/k2s/cmd/k2s/cmd/addons/common"
 	cconfig "github.com/siemens-healthineers/k2s/internal/contracts/config"

@@ -6,6 +6,7 @@
 package provider
 
 import (
+	"context"
 	"fmt"
 	"log/slog"
 	"os"
@@ -209,7 +210,10 @@ func (p *linuxAddonProvider) RunCommand(cfg AddonRunCommandConfig) error {
 
 // isAddonDeployed checks if an addon has any pods deployed in the cluster.
 func isAddonDeployed(addonName string) bool {
-	output, err := exec.Command("kubectl", "get", "pods", "-A",
+	ctx, cancel := context.WithTimeout(context.Background(), defaultKubeTimeout)
+	defer cancel()
+
+	output, err := exec.CommandContext(ctx, "kubectl", "get", "pods", "-A",
 		"-l", fmt.Sprintf("app.kubernetes.io/name=%s", addonName),
 		"-o", "jsonpath={.items}").Output()
 	if err != nil {

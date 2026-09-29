@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText:  © 2025 Siemens Healthineers AG
+// SPDX-FileCopyrightText:  © 2026 Siemens Healthineers AG
 // SPDX-License-Identifier:   MIT
 
 package dsl
@@ -13,7 +13,6 @@ import (
 	"strings"
 	"time"
 
-	contracts "github.com/siemens-healthineers/k2s/internal/contracts/ssh"
 	"github.com/siemens-healthineers/k2s/internal/definitions"
 	k2s_json "github.com/siemens-healthineers/k2s/internal/json"
 	"github.com/siemens-healthineers/k2s/internal/providers/ssh"
@@ -136,18 +135,6 @@ func (k2s *K2s) FilterOutK8sImages(images []string) []string {
 	return filtered
 }
 
-func (k2s *K2s) getK8sImages() (images []string) {
-	configFilePath := filepath.Join(k2s.suite.SetupInfo().Config.Host().K2sSetupConfigDir(), k8sImagesConfigFileName)
-
-	config, err := k2s_json.FromFile[[]k8sImageConfig](configFilePath)
-	Expect(err).ToNot(HaveOccurred())
-
-	for _, imageConfig := range *config {
-		images = append(images, fmt.Sprintf("%s:%s", imageConfig.Repository, imageConfig.Tag))
-	}
-	return
-}
-
 func (k2s *K2s) getK8sImageRepositories() (repos []string) {
 	configFilePath := filepath.Join(k2s.suite.SetupInfo().Config.Host().K2sSetupConfigDir(), k8sImagesConfigFileName)
 
@@ -178,7 +165,7 @@ func (k2s *K2s) getImagesFromWindowsNode(ctx context.Context) (images []string) 
 func (k2s *K2s) getImagesFromLinuxNode() (images []string) {
 	output := new(bytes.Buffer)
 
-	connectionOptions := contracts.ConnectionOptions{
+	connectionOptions := ssh.ConnectionOptions{
 		IpAddress:         k2s.suite.SetupInfo().Config.ControlPlane().IpAddress(),
 		Port:              definitions.SSHDefaultPort,
 		RemoteUser:        definitions.SSHRemoteUser,
@@ -187,7 +174,7 @@ func (k2s *K2s) getImagesFromLinuxNode() (images []string) {
 		StdOutWriter:      output,
 	}
 
-	err := ssh.Exec("sudo buildah images --json", connectionOptions)
+	err := ssh.NewSSH(connectionOptions).Exec("sudo buildah images --json")
 	Expect(err).ToNot(HaveOccurred())
 
 	var imageList []buildahImage

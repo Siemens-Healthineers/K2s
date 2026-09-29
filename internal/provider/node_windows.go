@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText:  © 2025 Siemens Healthineers AG
+// SPDX-FileCopyrightText:  © 2026 Siemens Healthineers AG
 // SPDX-License-Identifier:   MIT
 
 //go:build windows
@@ -9,13 +9,13 @@ import (
 	"path/filepath"
 
 	"github.com/siemens-healthineers/k2s/cmd/k2s/utils"
-	k2sos "github.com/siemens-healthineers/k2s/internal/os"
-	"github.com/siemens-healthineers/k2s/internal/powershell"
+	"github.com/siemens-healthineers/k2s/internal/output"
+	"github.com/siemens-healthineers/k2s/internal/providers/powershell"
 )
 
 type windowsNodeProvider struct {
 	installDir string
-	stdWriter  k2sos.StdWriter
+	stdWriter  output.StreamWriter
 }
 
 func newWindowsNodeProvider(cfg ProviderConfig) *windowsNodeProvider {

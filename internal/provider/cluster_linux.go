@@ -9,16 +9,12 @@ import (
 	"encoding/json"
 	"fmt"
 	"log/slog"
-	"os"
 	"os/exec"
-	"path/filepath"
 	"strings"
 	"time"
 
 	linuxlifecycle "github.com/siemens-healthineers/k2s/internal/linux/lifecycle"
 )
-
-const linuxAdminKubeconfig = "/etc/kubernetes/admin.conf"
 
 type linuxClusterProvider struct {
 	installDir string
@@ -95,7 +91,7 @@ func (p *linuxClusterProvider) Status(_ ClusterStatusConfig) (*ClusterStatus, er
 // ---------- kubectl helpers ----------
 
 func isAPIServerReachable() bool {
-	cmd := exec.Command("kubectl", linuxKubectlArgs("cluster-info", "--request-timeout=5s")...)
+	cmd := exec.Command("kubectl", "cluster-info", "--request-timeout=5s")
 	return cmd.Run() == nil
 }
 
@@ -133,7 +129,7 @@ type k8sNodeItem struct {
 }
 
 func gatherNodeStatus() ([]NodeStatus, error) {
-	output, err := exec.Command("kubectl", linuxKubectlArgs("get", "nodes", "-o", "json")...).Output()
+	output, err := exec.Command("kubectl", "get", "nodes", "-o", "json").Output()
 	if err != nil {
 		return nil, fmt.Errorf("kubectl get nodes: %w", err)
 	}
@@ -220,7 +216,7 @@ type k8sPodItem struct {
 }
 
 func gatherPodStatus() ([]PodStatus, error) {
-	output, err := exec.Command("kubectl", linuxKubectlArgs("get", "pods", "--all-namespaces", "-o", "json")...).Output()
+	output, err := exec.Command("kubectl", "get", "pods", "--all-namespaces", "-o", "json").Output()
 	if err != nil {
 		return nil, fmt.Errorf("kubectl get pods: %w", err)
 	}
@@ -273,7 +269,7 @@ type versionResult struct {
 func gatherVersionInfo() (*versionResult, error) {
 	info := &versionResult{}
 
-	if output, err := exec.Command("kubectl", linuxKubectlArgs("version", "--client", "-o", "json")...).Output(); err == nil {
+	if output, err := exec.Command("kubectl", "version", "--client", "-o", "json").Output(); err == nil {
 		var v struct {
 			ClientVersion struct {
 				GitVersion string `json:"gitVersion"`
@@ -284,7 +280,7 @@ func gatherVersionInfo() (*versionResult, error) {
 		}
 	}
 
-	if output, err := exec.Command("kubectl", linuxKubectlArgs("version", "-o", "json")...).Output(); err == nil {
+	if output, err := exec.Command("kubectl", "version", "-o", "json").Output(); err == nil {
 		var v struct {
 			ServerVersion struct {
 				GitVersion string `json:"gitVersion"`
@@ -296,23 +292,6 @@ func gatherVersionInfo() (*versionResult, error) {
 	}
 
 	return info, nil
-}
-
-func linuxKubectlArgs(args ...string) []string {
-	return append([]string{"--kubeconfig", linuxKubeconfig()}, args...)
-}
-
-func linuxKubeconfig() string {
-	if _, err := os.Stat(linuxAdminKubeconfig); err == nil {
-		return linuxAdminKubeconfig
-	}
-	if homeDir, err := os.UserHomeDir(); err == nil {
-		userKubeconfig := filepath.Join(homeDir, ".kube", "config")
-		if _, err := os.Stat(userKubeconfig); err == nil {
-			return userKubeconfig
-		}
-	}
-	return linuxAdminKubeconfig
 }
 
 func formatDuration(d time.Duration) string {

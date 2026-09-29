@@ -97,8 +97,8 @@ function GenerateBomGolang($dirname) {
     trivy.exe fs `"$indir`" --scanners license --license-full --format cyclonedx -o `"$bomfile`"
 
     if ($Annotate) {
-        Write-Output "Enriching generated sbom with command 'sbomgenerator.exe -e `"$bomfile`" "
-        &"$bomRootDir\sbomgenerator.exe" -e `"$bomfile`"
+        Write-Output "Enriching generated SBOM for '$dirname'"
+        & "$bomRootDir\sbomgenerator.exe" -e "$bomfile"
     }
 
     Write-Output "bom now available: $bomfile"
@@ -184,6 +184,54 @@ function CheckVMState() {
     }
 }
 
+function Get-KubeMasterGoExecutableInventory([string] $OutputPath) {
+    $remoteInventoryPath = '/home/remote/kubemaster-go-executables.tsv'
+    $inventoryScript = @'
+rm -f /home/remote/kubemaster-go-executables.tsv
+
+if ! command -v go >/dev/null 2>&1; then
+    echo 'Go toolchain is not available; executable-level Go module inventory cannot be generated.' >&2
+    exit 2
+fi
+
+{
+    for directory in /usr/local/bin /usr/bin /usr/sbin /opt /home/remote; do
+        [ -d "$directory" ] || continue
+        find "$directory" -xdev -type f -executable -print0 2>/dev/null
+    done
+} | while IFS= read -r -d '' executable; do
+    go version -m "$executable" 2>/dev/null | awk -v executable="$executable" '
+        NR == 1 && $2 ~ /^go[0-9]/ {
+            version = $2
+            sub(/^go/, "v", version)
+            print "pkg:golang/stdlib@" version "\t" executable
+        }
+        $1 == "dep" && $2 != "" && $3 != "" {
+            print "pkg:golang/" $2 "@" $3 "\t" executable
+        }
+    '
+done | sort -u > /home/remote/kubemaster-go-executables.tsv
+'@
+    $encodedScript = [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($inventoryScript))
+
+    try {
+        Write-Output 'Generate KubeMaster Go module-to-executable inventory'
+        ExecCmdMaster "echo $encodedScript | base64 --decode | sudo bash" -NoLog
+
+        Copy-FromToMaster -Source "$global:Remote_Master`:$remoteInventoryPath" -Target $OutputPath
+        $entryCount = @(Get-Content -Path $OutputPath).Count
+        Write-Output "KubeMaster executable inventory contains $entryCount module-to-executable entries"
+        return $true
+    }
+    catch {
+        Write-Warning "Could not generate KubeMaster executable inventory: $($_.Exception.Message)"
+        return $false
+    }
+    finally {
+        ExecCmdMaster "sudo rm -f $remoteInventoryPath" -IgnoreErrors -NoLog
+    }
+}
+
 function GenerateBomDebian() {
     Write-Output 'Generate bom for debian packages'
 
@@ -222,8 +270,21 @@ function GenerateBomDebian() {
 
     if ($Annotate) {
         $kubeSBOMJsonFile = "$bomRootDir\merge\kubemaster.json"
-        Write-Output "Enriching generated sbom with command 'sbomgenerator.exe -e `"$kubeSBOMJsonFile`" "
-        &"$bomRootDir\sbomgenerator.exe" -e `"$kubeSBOMJsonFile`"
+        $kubeExecutableInventoryPath = "$bomRootDir\merge\kubemaster-go-executables.tsv"
+        try {
+            $inventoryAvailable = Get-KubeMasterGoExecutableInventory -OutputPath $kubeExecutableInventoryPath
+            if ($inventoryAvailable) {
+                Write-Output 'Enriching KubeMaster SBOM with executable-level provenance'
+                & "$bomRootDir\sbomgenerator.exe" -e "$kubeSBOMJsonFile" -root-executable-map "$kubeExecutableInventoryPath"
+            }
+            else {
+                Write-Warning 'Enriching KubeMaster SBOM without executable-level provenance.'
+                & "$bomRootDir\sbomgenerator.exe" -e "$kubeSBOMJsonFile"
+            }
+        }
+        finally {
+            Remove-Item -Path $kubeExecutableInventoryPath -Force -ErrorAction SilentlyContinue
+        }
     }
 }
 

@@ -45,9 +45,14 @@ function Enable-MissingFeature {
     if ($featureState -match 'Disabled') {
         Write-Log "WindowsOptionalFeature '$Name' is '$featureState'. Will activate feature..."
 
-        Enable-WindowsOptionalFeature -Online -FeatureName $Name -All -NoRestart -WarningAction silentlyContinue
+        $enableResult = Enable-WindowsOptionalFeature -Online -FeatureName $Name -All -NoRestart -WarningAction SilentlyContinue -ErrorAction Stop
+        if ($null -eq $enableResult) {
+            throw "[PREREQ-FAILED] Enabling WindowsOptionalFeature '$Name' returned no result"
+        }
+        $restartNeeded = [bool]$enableResult.RestartNeeded
+        Write-Log "WindowsOptionalFeature '$Name' enabled. Restart needed: $restartNeeded"
 
-        return $true
+        return $restartNeeded
     }
 
     return $false

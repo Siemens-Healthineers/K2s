@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText:  © 2025 Siemens Healthineers AG
+// SPDX-FileCopyrightText:  © 2026 Siemens Healthineers AG
 // SPDX-License-Identifier:   MIT
 
 package kubeconfig_test
@@ -12,14 +12,16 @@ import (
 	"github.com/go-logr/logr"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	contracts "github.com/siemens-healthineers/k2s/internal/contracts/kubeconfig"
+	"github.com/siemens-healthineers/k2s/internal/contracts/config"
+	"github.com/siemens-healthineers/k2s/internal/contracts/users"
+	"github.com/siemens-healthineers/k2s/internal/definitions"
 	"github.com/siemens-healthineers/k2s/internal/providers/kubeconfig"
 	"gopkg.in/yaml.v2"
 )
 
 func TestKubeconfigPkg(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "kubeconfig pkg Tests", Label("ci", "internal", "k8s", "kubeconfig"))
+	RunSpecs(t, "kubeconfig pkg Tests", Label("ci", "internal", "kubeconfig"))
 }
 
 var _ = BeforeSuite(func() {
@@ -27,10 +29,10 @@ var _ = BeforeSuite(func() {
 })
 
 var _ = Describe("kubeconfig pkg", func() {
-	Describe("ReadFile", Label("integration"), func() {
+	Describe("FromFile", Label("integration"), func() {
 		When("file read failed", func() {
 			It("returns error", func() {
-				actual, err := kubeconfig.ReadFile("non-existent")
+				actual, err := kubeconfig.FromFile("non-existent")
 
 				Expect(actual).To(BeNil())
 				Expect(err).To(MatchError(os.ErrNotExist))
@@ -55,7 +57,7 @@ var _ = Describe("kubeconfig pkg", func() {
 			})
 
 			It("reads kubeconfig file correctly", func() {
-				actual, err := kubeconfig.ReadFile(path)
+				actual, err := kubeconfig.FromFile(path)
 
 				Expect(err).ToNot(HaveOccurred())
 				Expect(actual.CurrentContext).To(Equal(writtenConfig["current-context"]))
@@ -67,9 +69,9 @@ var _ = Describe("kubeconfig pkg", func() {
 		When("not found", func() {
 			It("returns error", func() {
 				const name = "non-existent"
-				config := &contracts.Kubeconfig{}
+				config := &kubeconfig.Kubeconfig{}
 
-				actual, err := kubeconfig.FindCluster(config, name)
+				actual, err := config.FindCluster(name)
 
 				Expect(actual).To(BeNil())
 				Expect(err).To(MatchError(ContainSubstring("cluster 'non-existent' not found")))
@@ -79,11 +81,11 @@ var _ = Describe("kubeconfig pkg", func() {
 		When("found", func() {
 			It("returns finding", func() {
 				const name = "existent"
-				config := &contracts.Kubeconfig{
-					Clusters: []contracts.ClusterConfig{{Name: name}},
+				config := &kubeconfig.Kubeconfig{
+					Clusters: []kubeconfig.Cluster{{Name: name}},
 				}
 
-				actual, err := kubeconfig.FindCluster(config, name)
+				actual, err := config.FindCluster(name)
 
 				Expect(err).ToNot(HaveOccurred())
 				Expect(actual.Name).To(Equal(name))
@@ -95,9 +97,9 @@ var _ = Describe("kubeconfig pkg", func() {
 		When("not found", func() {
 			It("returns error", func() {
 				const name = "non-existent"
-				config := &contracts.Kubeconfig{}
+				config := &kubeconfig.Kubeconfig{}
 
-				actual, err := kubeconfig.FindUser(config, name)
+				actual, err := config.FindUser(name)
 
 				Expect(actual).To(BeNil())
 				Expect(err).To(MatchError(ContainSubstring("user 'non-existent' not found")))
@@ -107,11 +109,11 @@ var _ = Describe("kubeconfig pkg", func() {
 		When("found", func() {
 			It("returns finding", func() {
 				const name = "existent"
-				config := &contracts.Kubeconfig{
-					Users: []contracts.UserConfig{{Name: name}},
+				config := &kubeconfig.Kubeconfig{
+					Users: []kubeconfig.User{{Name: name}},
 				}
 
-				actual, err := kubeconfig.FindUser(config, name)
+				actual, err := config.FindUser(name)
 
 				Expect(err).ToNot(HaveOccurred())
 				Expect(actual.Name).To(Equal(name))
@@ -123,9 +125,9 @@ var _ = Describe("kubeconfig pkg", func() {
 		When("not found", func() {
 			It("returns error", func() {
 				const clusterName = "non-existent"
-				config := &contracts.Kubeconfig{}
+				config := &kubeconfig.Kubeconfig{}
 
-				actual, err := kubeconfig.FindContextByCluster(config, clusterName)
+				actual, err := config.FindContextByCluster(clusterName)
 
 				Expect(actual).To(BeNil())
 				Expect(err).To(MatchError(ContainSubstring("context for cluster 'non-existent' not found")))
@@ -137,16 +139,18 @@ var _ = Describe("kubeconfig pkg", func() {
 				const clusterName = "existent"
 				const contextName = "my-ctx"
 
-				config := &contracts.Kubeconfig{
-					Contexts: []contracts.ContextConfig{
+				config := &kubeconfig.Kubeconfig{
+					Contexts: []kubeconfig.Context{
 						{
-							Name:    contextName,
-							Cluster: clusterName,
+							Name: contextName,
+							Details: kubeconfig.ContextDetails{
+								Cluster: clusterName,
+							},
 						},
 					},
 				}
 
-				actual, err := kubeconfig.FindContextByCluster(config, clusterName)
+				actual, err := config.FindContextByCluster(clusterName)
 
 				Expect(err).ToNot(HaveOccurred())
 				Expect(actual.Name).To(Equal(contextName))
@@ -158,9 +162,9 @@ var _ = Describe("kubeconfig pkg", func() {
 		When("context not found", func() {
 			It("returns error", func() {
 				const contextName = "non-existent"
-				config := &contracts.Kubeconfig{}
+				config := &kubeconfig.Kubeconfig{}
 
-				cluster, user, err := kubeconfig.FindK8sApiCredentials(config, contextName)
+				cluster, user, err := config.FindK8sApiCredentials(contextName)
 
 				Expect(cluster).To(BeNil())
 				Expect(user).To(BeNil())
@@ -171,16 +175,18 @@ var _ = Describe("kubeconfig pkg", func() {
 		When("user not found", func() {
 			It("returns error", func() {
 				const contextName = "my-context"
-				config := &contracts.Kubeconfig{
-					Contexts: []contracts.ContextConfig{
+				config := &kubeconfig.Kubeconfig{
+					Contexts: []kubeconfig.Context{
 						{
 							Name: contextName,
-							User: "non-existent",
+							Details: kubeconfig.ContextDetails{
+								User: "non-existent",
+							},
 						},
 					},
 				}
 
-				cluster, user, err := kubeconfig.FindK8sApiCredentials(config, contextName)
+				cluster, user, err := config.FindK8sApiCredentials(contextName)
 
 				Expect(cluster).To(BeNil())
 				Expect(user).To(BeNil())
@@ -192,18 +198,20 @@ var _ = Describe("kubeconfig pkg", func() {
 			It("returns error", func() {
 				const contextName = "my-context"
 				const userName = "my-user"
-				config := &contracts.Kubeconfig{
-					Contexts: []contracts.ContextConfig{
+				config := &kubeconfig.Kubeconfig{
+					Contexts: []kubeconfig.Context{
 						{
-							Name:    contextName,
-							User:    userName,
-							Cluster: "non-existent",
+							Name: contextName,
+							Details: kubeconfig.ContextDetails{
+								User:    userName,
+								Cluster: "non-existent",
+							},
 						},
 					},
-					Users: []contracts.UserConfig{{Name: userName}},
+					Users: []kubeconfig.User{{Name: userName}},
 				}
 
-				cluster, user, err := kubeconfig.FindK8sApiCredentials(config, contextName)
+				cluster, user, err := config.FindK8sApiCredentials(contextName)
 
 				Expect(cluster).To(BeNil())
 				Expect(user).To(BeNil())
@@ -216,23 +224,40 @@ var _ = Describe("kubeconfig pkg", func() {
 				const contextName = "my-context"
 				const userName = "my-user"
 				const clusterName = "my-cluster"
-				config := &contracts.Kubeconfig{
-					Contexts: []contracts.ContextConfig{
+				config := &kubeconfig.Kubeconfig{
+					Contexts: []kubeconfig.Context{
 						{
-							Name:    contextName,
-							User:    userName,
-							Cluster: clusterName,
+							Name: contextName,
+							Details: kubeconfig.ContextDetails{
+								User:    userName,
+								Cluster: clusterName,
+							},
 						},
 					},
-					Users:    []contracts.UserConfig{{Name: userName}},
-					Clusters: []contracts.ClusterConfig{{Name: clusterName}},
+					Users:    []kubeconfig.User{{Name: userName}},
+					Clusters: []kubeconfig.Cluster{{Name: clusterName}},
 				}
 
-				cluster, user, err := kubeconfig.FindK8sApiCredentials(config, contextName)
+				cluster, user, err := config.FindK8sApiCredentials(contextName)
 
 				Expect(err).ToNot(HaveOccurred())
 				Expect(cluster.Name).To(Equal(clusterName))
 				Expect(user.Name).To(Equal(userName))
+			})
+		})
+	})
+
+	Describe("KubeconfigResolver", func() {
+		Describe("ResolveKubeconfigPath", func() {
+			It("returns correct kubeconfig path", func() {
+				config := config.NewKubeConfig("", "~/test-kube-dir", "")
+				user := users.NewOSUser("", "", "c:\\users\\test-user")
+
+				sut := kubeconfig.NewKubeconfigResolver(config)
+
+				actual := sut.ResolveKubeconfigPath(user)
+
+				Expect(actual).To(Equal("c:\\users\\test-user\\test-kube-dir\\" + definitions.KubeconfigName))
 			})
 		})
 	})

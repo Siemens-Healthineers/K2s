@@ -51,6 +51,15 @@ function Get-ClusterInstalledFolder {
 	return $installFolder
 }
 
+function Get-UpdateVmModulePath {
+	if ($script:runningFromDelta) {
+		$installFolder = Get-ClusterInstalledFolder
+		return Join-Path $installFolder 'lib\modules\windows\node\k2s.node.module\linuxnode\vm\vm.module.psm1'
+	}
+
+	return "$PSScriptRoot\..\..\..\node\k2s.node.module\linuxnode\vm\vm.module.psm1"
+}
+
 function Get-ProductVersionGivenKubePath {
 	param (
 		[Parameter(Mandatory = $false)]
@@ -131,14 +140,14 @@ function Restore-CoreDnsEtcdConfiguration {
 		
 		# Verify SSH helper is available
 		if (-not (Get-Command -Name Invoke-CmdOnControlPlaneViaSSHKey -ErrorAction SilentlyContinue)) {
-			$vmModule = "$PSScriptRoot\..\..\..\node\k2s.node.module\linuxnode\vm\vm.module.psm1"
+			$vmModule = Get-UpdateVmModulePath
 			if (Test-Path -LiteralPath $vmModule) { 
-				Import-Module $vmModule -ErrorAction SilentlyContinue 
+				Import-Module $vmModule -Force -ErrorAction SilentlyContinue
 			} else {
 				$installFolder = Get-ClusterInstalledFolder
 				$vmModule = Join-Path $installFolder 'lib/modules/windows/node/k2s.node.module/linuxnode/vm/vm.module.psm1'
 				if (Test-Path -LiteralPath $vmModule) {
-					Import-Module $vmModule -ErrorAction SilentlyContinue
+					Import-Module $vmModule -Force -ErrorAction SilentlyContinue
 				}
 			}
 		}
@@ -313,13 +322,13 @@ function Restore-ClusterIPWebhook {
 
 		# Verify SSH helpers are available
 		if (-not (Get-Command -Name Invoke-CmdOnControlPlaneViaSSHKey -ErrorAction SilentlyContinue)) {
-			$vmModule = "$PSScriptRoot\..\..\..\node\k2s.node.module\linuxnode\vm\vm.module.psm1"
+			$vmModule = Get-UpdateVmModulePath
 			if (Test-Path -LiteralPath $vmModule) {
-				Import-Module $vmModule -ErrorAction SilentlyContinue
+				Import-Module $vmModule -Force -ErrorAction SilentlyContinue
 			} else {
 				$vmModule = Join-Path $TargetInstallPath 'lib/modules/windows/node/k2s.node.module/linuxnode/vm/vm.module.psm1'
 				if (Test-Path -LiteralPath $vmModule) {
-					Import-Module $vmModule -ErrorAction SilentlyContinue
+					Import-Module $vmModule -Force -ErrorAction SilentlyContinue
 				}
 			}
 		}
@@ -543,6 +552,102 @@ function Copy-UnchangedInstallationFiles {
 	return $true
 }
 
+function Confirm-UpdateInstallationHome {
+	param(
+		[Parameter(Mandatory = $true)][string] $SetupConfigPath,
+		[Parameter(Mandatory = $true)][string] $ExpectedInstallPath
+	)
+
+	$setup = Get-Content -LiteralPath $SetupConfigPath -Raw -ErrorAction Stop | ConvertFrom-Json -ErrorAction Stop
+	if ([string]::IsNullOrWhiteSpace($setup.InstallFolder) -or
+		$setup.InstallFolder.TrimEnd('\') -ne $ExpectedInstallPath.TrimEnd('\')) {
+		throw "[Update] Installation folder verification failed in '$SetupConfigPath': expected '$ExpectedInstallPath', found '$($setup.InstallFolder)'."
+	}
+}
+
+function Set-UpdateSetupConfigValue {
+	param(
+		[Parameter(Mandatory = $true)][string] $SetupConfigPath,
+		[Parameter(Mandatory = $true)][string] $Key,
+		[Parameter(Mandatory = $true)][object] $Value
+	)
+
+	Set-ConfigValue -Path $SetupConfigPath -Key $Key -Value $Value
+
+	$setup = Get-Content -LiteralPath $SetupConfigPath -Raw -ErrorAction Stop | ConvertFrom-Json -ErrorAction Stop
+	$persistedValue = $setup.psobject.Properties[$Key].Value
+	if ([string]$persistedValue -ne [string]$Value) {
+		throw "[Update] setup.json verification failed for '$Key': expected '$Value', found '$persistedValue'."
+	}
+}
+
+function Confirm-DeltaKubernetesVersion {
+	param(
+		[Parameter(Mandatory = $true)][string] $ExpectedVersion,
+		[Parameter(Mandatory = $true)][string] $InstallPath
+	)
+
+	# The imported k8s-api module still resolves kubectl relative to the old installation.
+	$kubectlPath = Join-Path $InstallPath 'bin\kube\kubectl.exe'
+	$kubeconfigPath = Join-Path $InstallPath 'config'
+	foreach ($path in @($kubectlPath, $kubeconfigPath)) {
+		if (-not (Test-Path -LiteralPath $path -PathType Leaf)) {
+			throw "[Update] Kubernetes version verification requires '$path'."
+		}
+	}
+	Write-Log "[Update] Verifying Kubernetes version using '$kubectlPath' with kubeconfig '$kubeconfigPath'."
+	$stderrPath = [System.IO.Path]::GetTempFileName()
+	try {
+		$output = & $kubectlPath --kubeconfig $kubeconfigPath --request-timeout=30s version -o json 2> $stderrPath
+		$queryExitCode = $LASTEXITCODE
+		$stderr = Get-Content -LiteralPath $stderrPath -Raw -ErrorAction Stop
+		if (-not [string]::IsNullOrWhiteSpace($stderr)) {
+			Write-Log "[Update] kubectl version stderr: $stderr"
+		}
+		if ($queryExitCode -ne 0) {
+			throw "[Update] Kubernetes version query failed using '$kubectlPath' (exit code $queryExitCode): $output $stderr"
+		}
+	} finally {
+		Remove-Item -LiteralPath $stderrPath -Force -ErrorAction Stop
+	}
+	$versionInfo = $output | Out-String | ConvertFrom-Json -ErrorAction Stop
+	$clientVersion = $versionInfo.clientVersion.gitVersion
+	$serverVersion = $versionInfo.serverVersion.gitVersion
+	if ($serverVersion -ne $ExpectedVersion -or $clientVersion -ne $ExpectedVersion) {
+		throw "[Update] Kubernetes version verification failed: expected client and server '$ExpectedVersion', got client '$clientVersion' and server '$serverVersion'."
+	}
+}
+
+function Get-DeltaTargetKubernetesVersion {
+	param(
+		[Parameter(Mandatory = $true)] $Manifest,
+		[Parameter(Mandatory = $true)][string] $DeltaRoot
+	)
+
+	$targetVersion = [string]$Manifest.TargetKubernetesVersion
+	if (-not [string]::IsNullOrWhiteSpace($targetVersion)) {
+		if ($targetVersion -notmatch '^v') {
+			$targetVersion = "v$targetVersion"
+		}
+		return $targetVersion
+	}
+
+	if ($Manifest.DebianDeltaRelativePath) {
+		$expectedVersionFile = Join-Path (Join-Path $DeltaRoot $Manifest.DebianDeltaRelativePath) 'expected-k8s-version'
+		if (Test-Path -LiteralPath $expectedVersionFile) {
+			$targetVersion = (Get-Content -LiteralPath $expectedVersionFile -Raw).Trim()
+			if (-not [string]::IsNullOrWhiteSpace($targetVersion)) {
+				if ($targetVersion -notmatch '^v') {
+					$targetVersion = "v$targetVersion"
+				}
+				return $targetVersion
+			}
+		}
+	}
+
+	return $null
+}
+
 <#
 .SYNOPSIS
 	Re-points the K2s installation from one folder to another (delta update re-home).
@@ -576,6 +681,8 @@ function Set-K2sInstallationHome {
 	$consoleSwitch = $ShowLogs
 	$FromPath = $FromPath.TrimEnd('\')
 	$ToPath = $ToPath.TrimEnd('\')
+	# Keep the authoritative path before destination imports can change config command bindings.
+	$setupConfigPath = Get-SetupConfigFilePath
 
 	Write-Log ("[Update] Re-homing installation from '{0}' to '{1}'" -f $FromPath, $ToPath) -Console:$consoleSwitch
 
@@ -734,6 +841,7 @@ function Set-K2sInstallationHome {
 	# 6. Update setup.json InstallFolder
 	try {
 		Set-ConfigInstallFolder -Value $ToPath
+		Confirm-UpdateInstallationHome -SetupConfigPath $setupConfigPath -ExpectedInstallPath $ToPath
 		Write-Log ("[Update] setup.json InstallFolder set to '{0}'" -f $ToPath) -Console:$consoleSwitch
 	} catch {
 		Write-Log ("[Update][Error] Failed to update setup.json InstallFolder: {0}" -f $_.Exception.Message) -Console
@@ -859,6 +967,7 @@ Current directory: $deltaRoot
 	}
 	
 	Write-Log ("[Update] Delta package root detected: {0}" -f $deltaRoot) -Console:$consoleSwitch
+	$setupConfigPath = Get-SetupConfigFilePath
 
 	# Check if k2s is currently running - we'll handle stopping/starting automatically
 	$setupInfo = Get-SetupInfo
@@ -871,6 +980,11 @@ Current directory: $deltaRoot
 		} else {
 			Write-Log '[Update] K2s is not running' -Console:$consoleSwitch
 		}
+	}
+
+	if (-not $wasRunning) {
+		Write-Log '[Update][Error] Delta upgrade requires a running cluster. Run k2s start from the current installation and retry. No update changes have been applied.' -Console
+		return $false
 	}
 
 	$script:phaseId = 0
@@ -1738,7 +1852,7 @@ Current directory: $deltaRoot
 			
 			# Update setup.json configuration to reflect the new version
 			Write-Log ("[Update] Updating setup.json product version from {0} to {1}" -f $currentVersion, $deltaTargetVersion) -Console:$consoleSwitch
-			Set-ConfigProductVersion -Value $deltaTargetVersion
+			Set-UpdateSetupConfigValue -SetupConfigPath $setupConfigPath -Key 'Version' -Value $deltaTargetVersion
 			Write-Log '[Update] Setup configuration updated successfully' -Console:$consoleSwitch
 		} catch {
 			Write-Log ("[Update][Warn] Failed to update version information: {0}" -f $_.Exception.Message) -Console:$consoleSwitch
@@ -1747,29 +1861,25 @@ Current directory: $deltaRoot
 		Write-Log '[Update][Info] Target version not determined; version information not updated' -Console:$consoleSwitch
 	}
 
-	# 13b. Update setup.json KubernetesVersion when the delta bumped Kubernetes.
-	# The delta package only carries the 'debian-delta/expected-k8s-version' marker (kubelet X.Y.Z)
-	# when the kubelet package actually changed; otherwise the Kubernetes version is unchanged and
-	# setup.json must keep its current value. install records the version with a leading 'v', so
-	# normalize the marker (which has no 'v') to match.
+	# 13b. Verify and persist the target Kubernetes version declared by the target package.
+	# Older delta packages do not have TargetKubernetesVersion in their manifest; retain the
+	# expected-k8s-version marker as a compatibility fallback.
 	try {
-		if ($manifest.DebianDeltaRelativePath) {
-			$expectedK8sVersionFile = Join-Path (Join-Path $deltaRoot $manifest.DebianDeltaRelativePath) 'expected-k8s-version'
-			if (Test-Path -LiteralPath $expectedK8sVersionFile) {
-				$newK8sVersion = (Get-Content -LiteralPath $expectedK8sVersionFile -Raw).Trim()
-				if (-not [string]::IsNullOrWhiteSpace($newK8sVersion)) {
-					if ($newK8sVersion -notmatch '^v') { $newK8sVersion = "v$newK8sVersion" }
-					$currentK8sVersion = Get-ConfigInstalledKubernetesVersion
-					Write-Log ("[Update] Updating setup.json KubernetesVersion from {0} to {1}" -f $currentK8sVersion, $newK8sVersion) -Console:$consoleSwitch
-					Set-ConfigInstalledKubernetesVersion -Value $newK8sVersion
-				}
-			} else {
-				Write-Log '[Update][Info] No expected-k8s-version marker in delta; Kubernetes version unchanged' -Console:$consoleSwitch
-			}
+		$newK8sVersion = Get-DeltaTargetKubernetesVersion -Manifest $manifest -DeltaRoot $deltaRoot
+		if ($newK8sVersion) {
+			Confirm-DeltaKubernetesVersion -ExpectedVersion $newK8sVersion -InstallPath $targetInstallPath
+			$currentK8sVersion = Get-ConfigValue -Path $setupConfigPath -Key 'KubernetesVersion'
+			Write-Log ("[Update] Updating setup.json KubernetesVersion from {0} to {1}" -f $currentK8sVersion, $newK8sVersion) -Console:$consoleSwitch
+			Set-UpdateSetupConfigValue -SetupConfigPath $setupConfigPath -Key 'KubernetesVersion' -Value $newK8sVersion
+		} else {
+			Write-Log '[Update][Info] Target Kubernetes version not declared by delta; setup.json KubernetesVersion unchanged' -Console:$consoleSwitch
 		}
 	} catch {
-		Write-Log ("[Update][Warn] Failed to update setup.json KubernetesVersion: {0}" -f $_.Exception.Message) -Console:$consoleSwitch
+		Write-Log ("[Update][Error] Failed to verify or update setup.json KubernetesVersion: {0}" -f $_.Exception.Message) -Console
+		throw
 	}
+
+	Confirm-UpdateInstallationHome -SetupConfigPath $setupConfigPath -ExpectedInstallPath $targetInstallPath
 
 	# Clean delta-package-only artifacts so the new installation folder is a clean installation
 	# and is not misdetected as a delta package on a subsequent upgrade.
@@ -1910,8 +2020,8 @@ function Invoke-GuestConfigDeltaApply {
 	}
 
 	# Import vm module + verify control plane reachability (mirror Invoke-CommandInMasterVM).
-	$vmModule = "$PSScriptRoot\..\..\..\node\k2s.node.module\linuxnode\vm\vm.module.psm1"
-	if (Test-Path -LiteralPath $vmModule) { Import-Module $vmModule -ErrorAction SilentlyContinue }
+	$vmModule = Get-UpdateVmModulePath
+	if (Test-Path -LiteralPath $vmModule) { Import-Module $vmModule -Force -ErrorAction SilentlyContinue }
 	if (-not (Get-Command -Name Invoke-CmdOnControlPlaneViaSSHKey -ErrorAction SilentlyContinue) -or
 		-not (Get-Command -Name Copy-ToControlPlaneViaSSHKey -ErrorAction SilentlyContinue)) {
 		Write-Log '[GuestConfigApply][Warn] SSH helpers not available; skipping guest-config apply.' -Console:$consoleSwitch
@@ -2029,8 +2139,11 @@ function Invoke-CommandInMasterVM {
 	if (-not (Test-Path -LiteralPath $ScriptPath)) { throw "ScriptPath not found: $ScriptPath" }
 
 	# Import vm module to access SSH helpers (idempotent import)
-	$vmModule = "$PSScriptRoot\..\..\..\node\k2s.node.module\linuxnode\vm\vm.module.psm1"
-	if (Test-Path -LiteralPath $vmModule) { Import-Module $vmModule -ErrorAction SilentlyContinue }
+	$vmModule = Get-UpdateVmModulePath
+	if (-not (Test-Path -LiteralPath $vmModule)) {
+		throw "VM module not found: $vmModule"
+	}
+	Import-Module $vmModule -Force -ErrorAction Stop
 	if (-not (Get-Command -Name Invoke-CmdOnControlPlaneViaSSHKey -ErrorAction SilentlyContinue)) {
 		throw 'Invoke-CmdOnControlPlaneViaSSHKey not available (vm module not imported)'
 	}
@@ -2044,8 +2157,8 @@ function Invoke-CommandInMasterVM {
 	}
 	if (-not $wslEnabled) {
 		# Import vm module for Get-IsControlPlaneRunning / Wait-ForSSHConnectionToLinuxVMViaSshKey
-		$vmModule = "$PSScriptRoot\..\..\..\node\k2s.node.module\linuxnode\vm\vm.module.psm1"
-		if (Test-Path -LiteralPath $vmModule) { Import-Module $vmModule -ErrorAction SilentlyContinue }
+		$vmModule = Get-UpdateVmModulePath
+		if (Test-Path -LiteralPath $vmModule) { Import-Module $vmModule -Force -ErrorAction SilentlyContinue }
 		$cpRunning = $false
 		if (Get-Command -Name Get-IsControlPlaneRunning -ErrorAction SilentlyContinue) {
 			try { $cpRunning = Get-IsControlPlaneRunning } catch { $cpRunning = $false }
@@ -2072,12 +2185,27 @@ function Invoke-CommandInMasterVM {
 	$remoteScriptName = Split-Path -Leaf $ScriptPath
 	$remoteScriptPath = "$remoteBase/$remoteScriptName"
 
+	function Invoke-RequiredControlPlaneCommand {
+		param(
+			[Parameter(Mandatory = $true)][string] $Command,
+			[Parameter(Mandatory = $true)][string] $Operation
+		)
+
+		$result = Invoke-CmdOnControlPlaneViaSSHKey $Command -Retries $RetryCount -Timeout 2
+		if ($null -eq $result -or -not $result.Success) {
+			throw "$Operation failed on the control plane"
+		}
+		return $result.Output
+	}
+
 	Write-Log "[DebPkg][VM] Staging Debian delta script '$remoteScriptName'" -Console:$consoleSwitch
 	try {
 		# Ensure remote directory and make it writable by the user
 		# Note: Do NOT use -Nested:$true as it removes -n flag from SSH which causes hangs
 		# in CI environments where outer SSH uses stdin from /dev/null
-		(Invoke-CmdOnControlPlaneViaSSHKey "sudo mkdir -p $remoteBase && sudo chown `$(whoami) $remoteBase" -Retries $RetryCount -Timeout 2).Output | Out-Null
+		Invoke-RequiredControlPlaneCommand `
+			-Command "sudo mkdir -p $remoteBase && sudo chown `$(whoami) $remoteBase" `
+			-Operation 'Creating the Debian delta staging directory' | Out-Null
 
 		# Copy only the script (avoid large recursive transfers unless needed)
 		Copy-ToControlPlaneViaSSHKey -Source $ScriptPath -Target $remoteBase -IgnoreErrors:$false
@@ -2107,7 +2235,9 @@ function Invoke-CommandInMasterVM {
 				$tarFiles = Get-ChildItem -LiteralPath $imagesDir -Filter '*.tar' -File -ErrorAction SilentlyContinue
 				if ($tarFiles.Count -gt 0) {
 					Write-Log "[DebPkg][VM] Copying $($tarFiles.Count) container images for offline kubeadm upgrade" -Console:$consoleSwitch
-					(Invoke-CmdOnControlPlaneViaSSHKey "mkdir -p $remoteBase/images" -Retries $RetryCount -Timeout 2).Output | Out-Null
+					Invoke-RequiredControlPlaneCommand `
+						-Command "mkdir -p $remoteBase/images" `
+						-Operation 'Creating the Debian delta image directory' | Out-Null
 					Copy-ToControlPlaneViaSSHKey -Source $imagesDir -Target $remoteBase -IgnoreErrors:$false
 					$imagesCopied = $true
 					Write-Log '[DebPkg][VM] Container images copied successfully' -Console:$consoleSwitch
@@ -2116,7 +2246,9 @@ function Invoke-CommandInMasterVM {
 		}
 		
 		# Make executable
-		(Invoke-CmdOnControlPlaneViaSSHKey "sudo chmod +x $remoteScriptPath" -Retries $RetryCount -Timeout 2 -IgnoreErrors:$false).Output | Out-Null
+		Invoke-RequiredControlPlaneCommand `
+			-Command "sudo chmod +x $remoteScriptPath" `
+			-Operation 'Making the Debian delta script executable' | Out-Null
 	} catch {
 		throw "Failed to stage script in master VM: $($_.Exception.Message)"
 	}
@@ -2139,7 +2271,9 @@ function Invoke-CommandInMasterVM {
 	$launchCmd = "sh -c '$bgCmd' </dev/null >/dev/null 2>&1"
 	
 	Write-Log '[DebPkg][VM] Launching script in background...' -Console:$consoleSwitch
-	(Invoke-CmdOnControlPlaneViaSSHKey -CmdToExecute $launchCmd -IgnoreErrors:$true).Output | Out-Null
+	Invoke-RequiredControlPlaneCommand `
+		-Command $launchCmd `
+		-Operation 'Launching the Debian delta script' | Out-Null
 	
 	# Brief wait to let the script start
 	Start-Sleep -Seconds 2
