@@ -9,6 +9,7 @@ import (
 	"log/slog"
 	"path/filepath"
 	"strconv"
+	"strings"
 
 	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/common"
 
@@ -60,17 +61,11 @@ func listRegistries(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("unable to parse flag '%s': %w", nodesFlag, err)
 	}
 
-	nodesParam := nodesSelection
+	nodesParam := strings.TrimSpace(nodesSelection)
 	if nodesParam == "" {
-		nodesParam = nodeSelection
+		nodesParam = strings.TrimSpace(nodeSelection)
 	}
 
-	// If node(s) specified, call PowerShell script
-	if nodesParam != "" {
-		return listRegistriesOnNodes(cmd, nodesParam)
-	}
-
-	// Default: list global registries
 	context := cmd.Context().Value(common.ContextKeyCmdContext).(*common.CmdContext)
 	runtimeConfig, err := config.ReadRuntimeConfig(context.Config().Host().K2sSetupConfigDir())
 	if err != nil {
@@ -83,8 +78,24 @@ func listRegistries(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	registries := runtimeConfig.ClusterConfig().Registries()
+	if err := validateNodeSelector(nodesParam, runtimeConfig); err != nil {
+		return err
+	}
 
+	// On Linux-only host, never invoke PowerShell; print registries directly from config
+	if runtimeConfig.InstallConfig().LinuxOnly() {
+		return printRegistries(runtimeConfig.ClusterConfig().Registries())
+	}
+
+	// If node(s) specified on Windows host, call PowerShell script
+	if nodesParam != "" {
+		return listRegistriesOnNodes(cmd, nodesParam)
+	}
+
+	return printRegistries(runtimeConfig.ClusterConfig().Registries())
+}
+
+func printRegistries(registries []cconfig.Registry) error {
 	terminalPrinter := terminal.NewTerminalPrinter()
 
 	if len(registries) == 0 {

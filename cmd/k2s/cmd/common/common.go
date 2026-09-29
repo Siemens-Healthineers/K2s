@@ -7,12 +7,15 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"time"
 
 	"github.com/siemens-healthineers/k2s/cmd/k2s/utils/logging"
 	"github.com/siemens-healthineers/k2s/internal/contracts/config"
+	"github.com/siemens-healthineers/k2s/internal/definitions"
 	bl "github.com/siemens-healthineers/k2s/internal/logging"
 	"github.com/siemens-healthineers/k2s/internal/output"
 	"github.com/siemens-healthineers/k2s/internal/provider"
@@ -283,12 +286,30 @@ func (c *CmdContext) Providers() *provider.Registry { return c.providers }
 func (c *CmdContext) EnsureK2sK8sContext(clusterName string) error {
 	slog.Debug("Ensuring correct K8s context", "cluster-name", clusterName)
 
-	kubeConfig, err := kubeconfig.FromFile(filepath.Join(c.config.Host().KubeConfig().CurrentDir(), kubeconfig.DefaultFileName))
+	kubeConfigPath := filepath.Join(c.config.Host().KubeConfig().CurrentDir(), kubeconfig.DefaultFileName)
+	if runtime.GOOS == "linux" {
+		if _, err := os.Stat(kubeConfigPath); errors.Is(err, os.ErrNotExist) {
+			const adminConfig = "/etc/kubernetes/admin.conf"
+			if _, adminErr := os.Stat(adminConfig); adminErr == nil {
+				slog.Debug("Falling back to admin kubeconfig", "path", adminConfig)
+				kubeConfigPath = adminConfig
+			}
+		}
+	}
+
+	kubeConfig, err := kubeconfig.FromFile(kubeConfigPath)
 	if err != nil {
 		return fmt.Errorf("could not read kubeconfig: %w", err)
 	}
 
 	context, err := kubeConfig.FindContextByCluster(clusterName)
+	if err != nil && clusterName != definitions.LegacyClusterName {
+		if legacyContext, legacyErr := kubeConfig.FindContextByCluster(definitions.LegacyClusterName); legacyErr == nil {
+			slog.Debug("Falling back to legacy cluster context", "cluster-name", definitions.LegacyClusterName)
+			context = legacyContext
+			err = nil
+		}
+	}
 	if err != nil {
 		return fmt.Errorf("could not find context for cluster '%s': %w", clusterName, err)
 	}

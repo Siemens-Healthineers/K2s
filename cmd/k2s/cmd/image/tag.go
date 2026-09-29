@@ -6,12 +6,9 @@ package image
 import (
 	"errors"
 	"fmt"
-	"path/filepath"
 	"strconv"
 
 	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/common"
-
-	"github.com/siemens-healthineers/k2s/cmd/k2s/utils"
 
 	cconfig "github.com/siemens-healthineers/k2s/internal/contracts/config"
 	"github.com/siemens-healthineers/k2s/internal/core/config"
@@ -23,7 +20,6 @@ import (
 
 var (
 	targetImageNameFlagName = "target-name"
-	parseFlagErrorFormatTag = "unable to parse flag '%s': %w"
 	tagCommandExample       = `
   # Tag image on default nodes (Linux control-plane and local Windows host)
   k2s image tag -n k2s.registry.local/myimage:v1 -t k2s.registry.local/myimage:release
@@ -95,12 +91,12 @@ func tagImage(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	if runtimeConfig.InstallConfig().LinuxOnly() {
-		return common.CreateFuncUnavailableForLinuxOnlyCmdFailure()
-	}
-
 	nodeSelector, err := parseNodeSelector(cmd)
 	if err != nil {
+		return err
+	}
+
+	if err := validateNodeSelector(nodeSelector, runtimeConfig); err != nil {
 		return err
 	}
 
@@ -119,52 +115,3 @@ func tagImage(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
-func buildTagPsCmd(cmd *cobra.Command) (psCmd string, params []string, err error) {
-	imageId, err := cmd.Flags().GetString(imageIdFlagName)
-	if err != nil {
-		return "", nil, fmt.Errorf(parseFlagErrorFormatTag, imageIdFlagName, err)
-	}
-
-	imageName, err := cmd.Flags().GetString(imageNameFlagName)
-	if err != nil {
-		return "", nil, fmt.Errorf(parseFlagErrorFormatTag, imageNameFlagName, err)
-	}
-
-	targetImageName, err := cmd.Flags().GetString(targetImageNameFlagName)
-	if err != nil {
-		return "", nil, fmt.Errorf(parseFlagErrorFormatTag, targetImageNameFlagName, err)
-	}
-
-	showOutput, err := strconv.ParseBool(cmd.Flags().Lookup(common.OutputFlagName).Value.String())
-	if err != nil {
-		return "", nil, err
-	}
-
-	if imageId == "" && imageName == "" {
-		return "", nil, errors.New("no image id or image name provided")
-	}
-
-	psCmd = utils.FormatScriptFilePath(filepath.Join(utils.InstallDir(), "lib", "scripts", "windows", "host", "image", "Tag-Image.ps1"))
-
-	if imageId != "" {
-		params = append(params, " -Id "+imageId)
-	}
-	if imageName != "" {
-		params = append(params, " -ImageName "+imageName)
-	}
-
-	nodeSelector, err := parseNodeSelector(cmd)
-	if err != nil {
-		return "", nil, err
-	}
-	params = appendNodesParam(params, nodeSelector)
-
-	if targetImageName != "" {
-		params = append(params, " -TargetImageName "+targetImageName)
-	}
-	if showOutput {
-		params = append(params, " -ShowLogs")
-	}
-
-	return
-}

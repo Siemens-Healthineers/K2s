@@ -57,7 +57,11 @@ k2s_require_host() {
 }
 
 k2s_control_plane_install() {
-  local pod service cfg; pod=$(k2s_cfg '.smallsetup.podNetworkCIDR'); service=$(k2s_cfg '.smallsetup.servicesCIDR'); cfg=$(mktemp)
+  local pod service cfg cluster_name
+  pod=$(k2s_cfg '.smallsetup.podNetworkCIDR')
+  service=$(k2s_cfg '.smallsetup.servicesCIDR')
+  cluster_name="${K2S_CLUSTER_NAME:-$(k2s_cfg '.clusterName // "k2s-cluster"')}"
+  cfg=$(mktemp)
   cat > "$cfg" <<EOF
 apiVersion: kubeadm.k8s.io/v1beta4
 kind: InitConfiguration
@@ -67,6 +71,7 @@ nodeRegistration:
 apiVersion: kubeadm.k8s.io/v1beta4
 kind: ClusterConfiguration
 kubernetesVersion: $K2S_VERSION
+clusterName: $cluster_name
 networking:
   podSubnet: $pod
   serviceSubnet: $service
@@ -76,6 +81,10 @@ EOF
   rm -f "$cfg"
   systemctl enable kubelet || true
   local user="${SUDO_USER:-root}" home; home=$(getent passwd "$user" | cut -d: -f6); mkdir -p "$home/.kube"; cp /etc/kubernetes/admin.conf "$home/.kube/config"; chown -R "$user":"$(id -gn "$user")" "$home/.kube"
+  if [[ "$user" != "root" ]]; then
+    mkdir -p /root/.kube
+    cp /etc/kubernetes/admin.conf /root/.kube/config
+  fi
 }
 
 k2s_install_control_plane_tools() {

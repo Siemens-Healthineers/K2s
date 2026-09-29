@@ -7,16 +7,14 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
-	"path/filepath"
 	"strconv"
+	"strings"
 
 	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/common"
 
-	"github.com/siemens-healthineers/k2s/cmd/k2s/utils"
-
 	cconfig "github.com/siemens-healthineers/k2s/internal/contracts/config"
 	"github.com/siemens-healthineers/k2s/internal/core/config"
-	"github.com/siemens-healthineers/k2s/internal/providers/powershell"
+	"github.com/siemens-healthineers/k2s/internal/provider"
 
 	"github.com/pterm/pterm"
 	"github.com/spf13/cobra"
@@ -94,12 +92,45 @@ func addRegistry(cmd *cobra.Command, args []string) error {
 
 	pterm.Printfln("🤖 Adding registry '%s' to K2s cluster", registryName)
 
-	psCmd, params, err := buildAddPsCmd(registryName, cmd)
+	showOutput, err := strconv.ParseBool(cmd.Flags().Lookup(common.OutputFlagName).Value.String())
 	if err != nil {
-		return err
+		return fmt.Errorf("unable to parse flag '%s': %w", common.OutputFlagName, err)
 	}
 
-	slog.Debug("PS command created", "command", psCmd, "params", params)
+	username, err := cmd.Flags().GetString(usernameFlag)
+	if err != nil {
+		return fmt.Errorf("unable to parse flag '%s': %w", usernameFlag, err)
+	}
+
+	password, err := cmd.Flags().GetString(passwordFlag)
+	if err != nil {
+		return fmt.Errorf("unable to parse flag '%s': %w", passwordFlag, err)
+	}
+
+	skipVerify, err := strconv.ParseBool(cmd.Flags().Lookup(skipVerifyFlag).Value.String())
+	if err != nil {
+		return fmt.Errorf("unable to parse flag '%s': %w", skipVerifyFlag, err)
+	}
+
+	plainHttp, err := strconv.ParseBool(cmd.Flags().Lookup(plainHttpFlag).Value.String())
+	if err != nil {
+		return fmt.Errorf("unable to parse flag '%s': %w", plainHttpFlag, err)
+	}
+
+	nodesSelection, err := cmd.Flags().GetString(nodesFlag)
+	if err != nil {
+		return fmt.Errorf("unable to parse flag '%s': %w", nodesFlag, err)
+	}
+
+	nodeSelection, err := cmd.Flags().GetString(nodeFlag)
+	if err != nil {
+		return fmt.Errorf("unable to parse flag '%s': %w", nodeFlag, err)
+	}
+
+	nodesParam := strings.TrimSpace(nodesSelection)
+	if nodesParam == "" {
+		nodesParam = strings.TrimSpace(nodeSelection)
+	}
 
 	context := cmd.Context().Value(common.ContextKeyCmdContext).(*common.CmdContext)
 	runtimeConfig, err := config.ReadRuntimeConfig(context.Config().Host().K2sSetupConfigDir())
@@ -113,17 +144,20 @@ func addRegistry(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	if runtimeConfig.InstallConfig().LinuxOnly() {
-		return common.CreateFuncUnavailableForLinuxOnlyCmdFailure()
-	}
-
-	cmdResult, err := powershell.ExecutePsWithStructuredResult[*common.CmdResult](psCmd, "CmdResult", common.NewPtermWriter(), params...)
-	if err != nil {
+	if err := validateNodeSelector(nodesParam, runtimeConfig); err != nil {
 		return err
 	}
 
-	if cmdResult.Failure != nil {
-		return cmdResult.Failure
+	if err := context.Providers().Image.RegistryAdd(provider.ImageRegistryAddConfig{
+		RegistryName: registryName,
+		Username:     username,
+		Password:     password,
+		SkipVerify:   skipVerify,
+		PlainHttp:    plainHttp,
+		Nodes:        nodesParam,
+		ShowOutput:   showOutput,
+	}); err != nil {
+		return err
 	}
 
 	cmdSession.Finish()
@@ -131,69 +165,3 @@ func addRegistry(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
-func buildAddPsCmd(registryName string, cmd *cobra.Command) (psCmd string, params []string, err error) {
-	psCmd = utils.FormatScriptFilePath(filepath.Join(utils.InstallDir(), "lib", "scripts", "windows", "host", "image", "registry", "Add-Registry.ps1"))
-
-	showOutput, err := strconv.ParseBool(cmd.Flags().Lookup(common.OutputFlagName).Value.String())
-	if err != nil {
-		return "", nil, fmt.Errorf(parseFlagErrorFormat, common.OutputFlagName, err)
-	}
-
-	username, err := cmd.Flags().GetString(usernameFlag)
-	if err != nil {
-		return "", nil, fmt.Errorf(parseFlagErrorFormat, usernameFlag, err)
-	}
-
-	password, err := cmd.Flags().GetString(passwordFlag)
-	if err != nil {
-		return "", nil, fmt.Errorf(parseFlagErrorFormat, passwordFlag, err)
-	}
-
-	skipVerify, err := strconv.ParseBool(cmd.Flags().Lookup(skipVerifyFlag).Value.String())
-	if err != nil {
-		return "", nil, fmt.Errorf(parseFlagErrorFormat, skipVerifyFlag, err)
-	}
-
-	plainHttp, err := strconv.ParseBool(cmd.Flags().Lookup(plainHttpFlag).Value.String())
-	if err != nil {
-		return "", nil, fmt.Errorf(parseFlagErrorFormat, plainHttpFlag, err)
-	}
-
-	if plainHttp {
-		params = append(params, " -PlainHttp")
-	}
-
-	if skipVerify {
-		params = append(params, " -SkipVerify")
-	}
-
-	if showOutput {
-		params = append(params, " -ShowLogs")
-	}
-
-	nodesSelection, err := cmd.Flags().GetString(nodesFlag)
-	if err != nil {
-		return "", nil, fmt.Errorf(parseFlagErrorFormat, nodesFlag, err)
-	}
-
-	nodeSelection, err := cmd.Flags().GetString(nodeFlag)
-	if err != nil {
-		return "", nil, fmt.Errorf(parseFlagErrorFormat, nodeFlag, err)
-	}
-
-	nodesParam := nodesSelection
-	if nodesParam == "" {
-		nodesParam = nodeSelection
-	}
-
-	if nodesParam != "" {
-		params = append(params, " -Nodes "+utils.EscapeWithSingleQuotes(nodesParam))
-	}
-
-	params = append(params,
-		" -RegistryName "+utils.EscapeWithSingleQuotes(registryName),
-		" -Username "+utils.EscapeWithSingleQuotes(username),
-		" -Password "+utils.EscapeWithSingleQuotes(password))
-
-	return
-}

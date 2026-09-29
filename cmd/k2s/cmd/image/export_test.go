@@ -4,79 +4,87 @@
 package image
 
 import (
-	"path/filepath"
+	"os"
 
 	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/common"
-	"github.com/siemens-healthineers/k2s/cmd/k2s/utils"
+	"github.com/siemens-healthineers/k2s/internal/provider"
+	"github.com/stretchr/testify/mock"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )
 
 var _ = Describe("export", Ordered, func() {
+	var mockImg *mockImageProvider
+	var tempDir string
+
 	BeforeAll(func() {
 		exportCmd.Flags().BoolP(common.OutputFlagName, common.OutputFlagShorthand, false, common.OutputFlagUsage)
 	})
-	Describe("buildExportCmd", func() {
-		BeforeEach(func() {
-			resetExportFlags()
 
-			DeferCleanup(resetExportFlags)
+	BeforeEach(func() {
+		mockImg = &mockImageProvider{}
+		resetExportFlags()
+		DeferCleanup(resetExportFlags)
+	})
+
+	AfterEach(func() {
+		if tempDir != "" {
+			_ = os.RemoveAll(tempDir)
+		}
+	})
+
+	When("neither name nor id provided", func() {
+		It("returns error", func() {
+			exportCmd.Flags().Set(tarFlag, "myExportPath")
+
+			err := exportImage(exportCmd, []string{})
+
+			Expect(err).To(MatchError("no image id or image name provided"))
 		})
+	})
 
-		When("no Docker archive flag", func() {
-			It("returns correct command", func() {
-				exportCmd.Flags().Set(removeImgNameFlagName, "myImageName")
-				exportCmd.Flags().Set(imageIdFlagName, "myImageId")
-				exportCmd.Flags().Set(tarFlag, "myExportPath")
+	When("no export path provided", func() {
+		It("returns error", func() {
+			exportCmd.Flags().Set(removeImgNameFlagName, "myImageName")
 
-				cmd, params, err := buildExportPsCmd(exportCmd)
+			err := exportImage(exportCmd, []string{})
 
-				Expect(err).ToNot(HaveOccurred())
-				Expect(cmd).To(Equal("&'" + filepath.Join(utils.InstallDir(), "lib", "scripts", "windows", "host", "image", "Export-Image.ps1") + "'"))
-				Expect(params).To(ConsistOf(" -Id 'myImageId'", " -Name 'myImageName'", " -ExportPath 'myExportPath'"))
-			})
+			Expect(err).To(MatchError("no export path provided"))
 		})
+	})
 
-		When("with Docker archive flag", func() {
-			It("returns correct command", func() {
-				exportCmd.Flags().Set(removeImgNameFlagName, "myImageName")
-				exportCmd.Flags().Set(imageIdFlagName, "myImageId")
-				exportCmd.Flags().Set(tarFlag, "myExportPath")
-				exportCmd.Flags().Set(dockerArchiveFlag, "true")
+	When("running on Linux-only with invalid node selector", func() {
+		It("rejects multi-node selector", func() {
+			tempDir = setupTestCmdContext(exportCmd, mockImg, true, "control-plane")
+			exportCmd.Flags().Set(removeImgNameFlagName, "myImageName")
+			exportCmd.Flags().Set(tarFlag, "/tmp/export.tar")
+			exportCmd.Flags().Set(nodesFlagName, "node-1,node-2")
 
-				cmd, params, err := buildExportPsCmd(exportCmd)
+			err := exportImage(exportCmd, []string{})
 
-				Expect(err).ToNot(HaveOccurred())
-				Expect(cmd).To(Equal("&'" + filepath.Join(utils.InstallDir(), "lib", "scripts", "windows", "host", "image", "Export-Image.ps1") + "'"))
-				Expect(params).To(ConsistOf(" -Id 'myImageId'", " -Name 'myImageName'", " -ExportPath 'myExportPath'", " -DockerArchive"))
-			})
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("multi-node selection 'node-1,node-2' is not supported on a Linux-only installation"))
 		})
+	})
 
-		When("neither name nor id provided", func() {
-			It("returns error", func() {
-				exportCmd.Flags().Set(tarFlag, "myExportPath")
-				exportCmd.Flags().Set(dockerArchiveFlag, "true")
+	When("running on Linux-only with valid flags and DockerArchive", func() {
+		It("routes to provider Image.Export with DockerArchive set", func() {
+			tempDir = setupTestCmdContext(exportCmd, mockImg, true, "control-plane")
+			exportCmd.Flags().Set(removeImgNameFlagName, "myImageName")
+			exportCmd.Flags().Set(tarFlag, "/tmp/export.tar")
+			exportCmd.Flags().Set(dockerArchiveFlag, "true")
 
-				cmd, params, err := buildExportPsCmd(exportCmd)
+			mockImg.On("Export", mock.MatchedBy(func(cfg provider.ImageExportConfig) bool {
+				return cfg.ImageName == "myImageName" &&
+					cfg.OutputPath == "/tmp/export.tar" &&
+					cfg.DockerArchive
+			})).Return(nil)
 
-				Expect(cmd).To(BeEmpty())
-				Expect(params).To(BeNil())
-				Expect(err).To(MatchError("no image id or image name provided"))
-			})
-		})
+			err := exportImage(exportCmd, []string{})
 
-		When("no export path provided", func() {
-			It("returns error", func() {
-				exportCmd.Flags().Set(removeImgNameFlagName, "myImageName")
-				exportCmd.Flags().Set(imageIdFlagName, "myImageId")
-
-				cmd, params, err := buildExportPsCmd(exportCmd)
-
-				Expect(cmd).To(BeEmpty())
-				Expect(params).To(BeNil())
-				Expect(err).To(MatchError("no export path provided"))
-			})
+			Expect(err).ToNot(HaveOccurred())
+			mockImg.AssertExpectations(GinkgoT())
 		})
 	})
 })
@@ -85,5 +93,7 @@ func resetExportFlags() {
 	exportCmd.Flags().Set(removeImgNameFlagName, "")
 	exportCmd.Flags().Set(imageIdFlagName, "")
 	exportCmd.Flags().Set(tarFlag, "")
-	exportCmd.Flags().Set(dockerArchiveFlag, "")
+	exportCmd.Flags().Set(dockerArchiveFlag, "false")
+	exportCmd.Flags().Set(nodeFlagName, "")
+	exportCmd.Flags().Set(nodesFlagName, "")
 }

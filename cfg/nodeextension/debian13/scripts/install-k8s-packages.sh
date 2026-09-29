@@ -67,6 +67,13 @@ if ! command -v crictl >/dev/null 2>&1; then
     exit 1
 fi
 
+if ! command -v buildah >/dev/null 2>&1; then
+    echo "[InstallK8s] Installing buildah for container image operations"
+    sudo DEBIAN_FRONTEND=noninteractive apt-get install -y \
+        -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold" \
+        buildah
+fi
+
 # ---------------------------------------------------------------------------
 # Configure bridged traffic (kernel modules + sysctl)
 # ---------------------------------------------------------------------------
@@ -121,7 +128,7 @@ if [ -n "$PROXY" ]; then
 fi
 
 if [ "$CONFIGURE_CONTAINER_TOOLING_PROXY" = "true" ] && [ -n "$PROXY" ]; then
-    # Native Linux K2s uses Buildah and Podman directly on the host. Keep
+    # Native Linux K2s uses Buildah directly on the host. Keep
     # its proxy configuration separate from CRI-O and user configuration.
     echo "[InstallK8s] Configuring containers tooling proxy: $PROXY"
     sudo mkdir -p /etc/containers/containers.conf.d
