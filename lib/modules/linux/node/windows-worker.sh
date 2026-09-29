@@ -25,7 +25,7 @@ k2s_windows_worker_ip() {
 
 k2s_windows_worker_install_host_dependencies() {
   local package
-  local packages='qemu-system-x86 qemu-utils libvirt-daemon-system libvirt-daemon-driver-qemu libvirt-clients ovmf xorriso openssh-client'
+  local packages='qemu-system-x86 qemu-utils libvirt-daemon-system libvirt-daemon-driver-qemu libvirt-daemon-config-network libvirt-clients dnsmasq-base ovmf xorriso openssh-client'
   k2s_log INFO 'Installing KVM Windows worker host dependencies.'
   k2s_wait_for_dpkg_lock || return 1
   k2s_run env DEBIAN_FRONTEND=noninteractive apt-get update || return 1
@@ -88,6 +88,8 @@ k2s_windows_worker_preflight() {
   local command memory_mb available_mb total_mb disk_gb available_gb
   [[ -r /dev/kvm && -c /dev/kvm ]] || { k2s_log ERROR 'KVM is unavailable. Enable nested virtualization and expose /dev/kvm to the Debian host.'; return 3; }
   for command in virsh qemu-img ssh scp ssh-keyscan ssh-keygen xorriso sha256sum; do k2s_require_command "$command" || return 4; done
+  getent passwd libvirt-qemu >/dev/null || { k2s_log ERROR 'The libvirt-qemu service account is missing. Reinstall libvirt-daemon-system.'; return 3; }
+  getent passwd dnsmasq >/dev/null || { k2s_log ERROR 'The dnsmasq service account is missing. Install dnsmasq-base.'; return 3; }
   k2s_windows_worker_start_libvirt || return 3
   [[ "$K2S_WORKER_CPU_COUNT" =~ ^[1-9][0-9]*$ ]] || { k2s_log ERROR "Invalid --worker-cpus value: $K2S_WORKER_CPU_COUNT"; return 2; }
   memory_mb=$(k2s_windows_worker_memory_mb) || return $?
