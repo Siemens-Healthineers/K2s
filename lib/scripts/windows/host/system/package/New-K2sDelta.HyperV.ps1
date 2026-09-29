@@ -22,6 +22,16 @@ Helper overview (all internal to this file):
 External (already defined in Debian helpers): Invoke-GuestDebAcquisition
 --#>
 
+function Get-K2sPackageBinPath {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string] $ScriptDirectory
+    )
+
+    # ScriptDirectory is lib\scripts\windows\host\system\package.
+    return [System.IO.Path]::GetFullPath((Join-Path $ScriptDirectory '..\..\..\..\..\..\bin'))
+}
+
 function New-K2sHvNetwork {
     param(
         [string] $SwitchName,
@@ -371,9 +381,8 @@ function Invoke-K2sGuestCmd {
 
         # Get SSH client from known locations
         # Resolve script root to absolute path first
-        # Path: lib/scripts/windows/host/system/package -> need 5 levels up to reach repo root
         $scriptDir = if ($PSScriptRoot) { $PSScriptRoot } else { Split-Path -Parent $MyInvocation.MyCommand.Path }
-        $binDir = [System.IO.Path]::GetFullPath((Join-Path $scriptDir '..\..\..\..\..\bin'))
+        $binDir = Get-K2sPackageBinPath -ScriptDirectory $scriptDir
 
         $sshCandidates = @(
             (Join-Path $binDir 'plink.exe'),
@@ -537,9 +546,8 @@ function Copy-K2sGuestFile {
         $sshPwd = 'admin'
 
         # Resolve script root to absolute path first
-        # Path: lib/scripts/windows/host/system/package -> need 5 levels up to reach repo root
         $scriptDir = if ($PSScriptRoot) { $PSScriptRoot } else { Split-Path -Parent $MyInvocation.MyCommand.Path }
-        $binDir = [System.IO.Path]::GetFullPath((Join-Path $scriptDir '..\..\..\..\..\bin'))
+        $binDir = Get-K2sPackageBinPath -ScriptDirectory $scriptDir
 
         # Use pscp (PuTTY's scp) if available, otherwise scp
         $pscpPath = Join-Path $binDir 'pscp.exe'

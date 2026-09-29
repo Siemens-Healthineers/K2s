@@ -4,10 +4,13 @@
 package add
 
 import (
+	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"path/filepath"
 	"strconv"
+	"time"
 
 	"github.com/pterm/pterm"
 	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/common"
@@ -32,6 +35,8 @@ const (
 	MachineRoleFlagUsage      = "Role of the node"
 	NodePackagePath           = "node-package"
 	NodePackagePathFlagUsage  = "Path to a node package zip (offline installation). When provided, packages and images from the zip are used instead of downloading from the internet. If the package was created with --include-gpu and an NVIDIA GPU is detected on the target node, GPU support is automatically configured (NVIDIA Container Toolkit installed, CRI-O configured, node labeled)."
+	systemStatusMaxAttempts   = 5
+	systemStatusRetryDelay    = 10 * time.Second
 )
 
 func NewCmd() *cobra.Command {
@@ -71,8 +76,8 @@ func NewCmd() *cobra.Command {
 
 func addNode(ccmd *cobra.Command, args []string) error {
 	cmdSession := common.StartCmdSession(ccmd.CommandPath())
-	context := ccmd.Context().Value(common.ContextKeyCmdContext).(*common.CmdContext)
-	runtimeConfig, err := config.ReadRuntimeConfig(context.Config().Host().K2sSetupConfigDir())
+	cmdContext := ccmd.Context().Value(common.ContextKeyCmdContext).(*common.CmdContext)
+	runtimeConfig, err := config.ReadRuntimeConfig(cmdContext.Config().Host().K2sSetupConfigDir())
 	if err != nil {
 		if errors.Is(err, cconfig.ErrSystemInCorruptedState) {
 			return common.CreateSystemInCorruptedStateCmdFailure()
@@ -83,11 +88,18 @@ func addNode(ccmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	if err := context.EnsureK2sK8sContext(runtimeConfig.ClusterConfig().Name()); err != nil {
+	if err := cmdContext.EnsureK2sK8sContext(runtimeConfig.ClusterConfig().Name()); err != nil {
 		return err
 	}
 
-	systemStatus, err := status.LoadStatus(context)
+	systemStatus, err := loadSystemStatusWithRetry(
+		ccmd.Context(),
+		func() (*status.LoadedStatus, error) {
+			return status.LoadStatus(cmdContext)
+		},
+		systemStatusMaxAttempts,
+		systemStatusRetryDelay,
+	)
 	if err != nil {
 		return fmt.Errorf("could not determine system status: %w", err)
 	}
@@ -114,7 +126,7 @@ func addNode(ccmd *cobra.Command, args []string) error {
 		return fmt.Errorf("flag --%s is required", MachineUsername)
 	}
 
-	isLocalVM, err := config.DetectLocalVM(machineIpAddress, context.Config().Host().K2sInstallDir())
+	isLocalVM, err := config.DetectLocalVM(machineIpAddress, cmdContext.Config().Host().K2sInstallDir())
 	if err != nil {
 		return fmt.Errorf("failed to determine node type: %w", err)
 	}
@@ -125,7 +137,7 @@ func addNode(ccmd *cobra.Command, args []string) error {
 
 	pterm.Printfln("🤖 Adding node to K2s cluster")
 
-	if err := context.Providers().Node.Add(provider.NodeAddConfig{
+	if err := cmdContext.Providers().Node.Add(provider.NodeAddConfig{
 		IpAddress:       machineIpAddress,
 		UserName:        machineUserName,
 		NodeName:        machineName,
@@ -139,6 +151,51 @@ func addNode(ccmd *cobra.Command, args []string) error {
 	cmdSession.Finish()
 
 	return nil
+}
+
+func loadSystemStatusWithRetry(
+	ctx context.Context,
+	loadStatus func() (*status.LoadedStatus, error),
+	maxAttempts int,
+	retryDelay time.Duration,
+) (*status.LoadedStatus, error) {
+	if maxAttempts < 1 {
+		return nil, errors.New("system status max attempts must be at least one")
+	}
+
+	var lastErr error
+	for attempt := 1; attempt <= maxAttempts; attempt++ {
+		systemStatus, err := loadStatus()
+		if err == nil {
+			return systemStatus, nil
+		}
+
+		lastErr = err
+		if attempt == maxAttempts {
+			break
+		}
+
+		slog.Warn("Could not determine system status; retrying",
+			"error", err,
+			"attempt", attempt,
+			"maxAttempts", maxAttempts,
+			"retryDelay", retryDelay)
+
+		timer := time.NewTimer(retryDelay)
+		select {
+		case <-ctx.Done():
+			if !timer.Stop() {
+				select {
+				case <-timer.C:
+				default:
+				}
+			}
+			return nil, ctx.Err()
+		case <-timer.C:
+		}
+	}
+
+	return nil, lastErr
 }
 
 func buildAddNodeCmd(flags *pflag.FlagSet, setupName string) (string, error) {

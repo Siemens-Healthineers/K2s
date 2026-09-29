@@ -3,10 +3,11 @@
 # SPDX-License-Identifier: MIT
 
 $infraModule = "$PSScriptRoot\..\lib\modules\windows\infra\k2s.infra.module\k2s.infra.module.psm1"
+$pathModule = "$PSScriptRoot\..\lib\modules\windows\infra\k2s.infra.module\path\path.module.psm1"
 $clusterModule = "$PSScriptRoot\..\lib\modules\windows\cluster\k2s.cluster.module\k2s.cluster.module.psm1"
 $nodeModule = "$PSScriptRoot/../lib/modules/windows/node/k2s.node.module/k2s.node.module.psm1"
 
-Import-Module $infraModule, $clusterModule, $nodeModule
+Import-Module $infraModule, $clusterModule, $nodeModule, $pathModule
 
 $ConfigKey_EnabledAddons = 'EnabledAddons'
 $hooksDir = "$PSScriptRoot\hooks"
@@ -1016,18 +1017,6 @@ function Test-TrustManagerServiceAvailability {
 
 <#
 .DESCRIPTION
-Determines if keycloak service is deployed in the cluster
-#>
-function Test-KeyCloakServiceAvailability {
-	$existingServices = (Invoke-Kubectl -Params 'get', 'service', '-n', 'security', '-o', 'yaml').Output
-	if ("$existingServices" -match '.*keycloak*') {
-		return $true
-	}
-	return $false
-}
-
-<#
-.DESCRIPTION
 Enables a ingress addon based on the input
 #>
 function Enable-IngressAddon([string]$Ingress) {
@@ -1153,7 +1142,6 @@ Gets the location of nginx ingress gateway yaml
 function Get-IngressNginxGatewayConfig {
 	return 'ingress-nginx-gw'
 }
-
 
 <#
 .DESCRIPTION
@@ -1689,8 +1677,6 @@ function Install-CmctlCli {
         [Parameter(Mandatory = $false)]
         [string] $Proxy
     )
-    Write-Log 'Downloading cert-manager CLI tools' -Console
-    
     $manifest = Get-FromYamlFile -Path $ManifestPath
     
     # Get the first implementation (nginx) which contains the cmctl download specification
@@ -1722,6 +1708,7 @@ function Install-CmctlCli {
             Write-Log "File $destination already exists. Skipping download." -Console
             continue
         }
+        Write-Log 'Downloading cert-manager CLI tools' -Console
         Invoke-DownloadFile $destination $url $true -ProxyToUse $Proxy
     }
 }
@@ -1742,11 +1729,17 @@ function Install-CertManagerControllers {
     # deadline waiting for a cold network pull from quay.io.
     Write-Log '[CertManager] Pre-pulling cert-manager images on control-plane node' -Console
     $certManagerConfig = Get-CertManagerConfig
-    $certManagerImages = Get-ImagesFromYaml -YamlContent (Get-Content -Path $certManagerConfig -Raw)
+    $certManagerImages = Get-ImagesFromYaml -YamlContent (Get-Content -Path $certManagerConfig -Raw) | Select-Object -Unique
     
     foreach ($image in $certManagerImages) {
+        $inspectResult = Invoke-CmdOnControlPlaneViaSSHKey -CmdToExecute "sudo crictl inspecti '$image' >/dev/null 2>&1" -IgnoreErrors
+        if ($inspectResult.Success -eq $true) {
+            Write-Log "[CertManager] Image '$image' is already cached on control-plane node, skipping pull" -Console
+            continue
+        }
+
         Write-Log "[CertManager] Pre-pulling image: $image" -Console
-        $pullResult = Invoke-CmdOnControlPlaneViaSSHKey -CmdToExecute "sudo timeout 300 crictl pull '$image' 2>&1"
+        $pullResult = Invoke-CmdOnControlPlaneViaSSHKey -CmdToExecute "sudo timeout 300 crictl pull '$image' 2>&1" -IgnoreErrors
         if ($pullResult.Success -eq $true) {
             Write-Log "[CertManager] Pre-pull succeeded: $image"
         }
@@ -1863,6 +1856,7 @@ function Wait-ForCertManagerAvailable {
     if ($out -match 'The cert-manager API is ready') {
         return $true
     }
+	Write-Log "cmctl check api failed: $out"
     return $false
 }
 
@@ -1953,6 +1947,90 @@ function Get-CAIssuerName {
     return 'K2s Self-Signed CA'
 }
 
+function Test-CertificateProviderAvailable {
+	try {
+		$null = Get-PSDrive -Name 'Cert' -ErrorAction Stop
+		return $true
+	}
+	catch {
+		return $false
+	}
+}
+
+function Import-CertificateToTrustedRootStore {
+	param(
+		[Parameter(Mandatory = $true)]
+		[string]$CertificatePath,
+		[Parameter(Mandatory = $true)]
+		[string]$CertStoreLocation
+	)
+
+	if (-not (Test-Path -LiteralPath $CertificatePath -PathType Leaf)) {
+		throw "Certificate file does not exist: '$CertificatePath'"
+	}
+
+	if (Test-CertificateProviderAvailable) {
+		Import-Certificate -FilePath $CertificatePath -CertStoreLocation $CertStoreLocation -ErrorAction Stop | Out-Null
+		return
+	}
+
+	$certificate = [System.Security.Cryptography.X509Certificates.X509Certificate2]::new($CertificatePath)
+	$store = [System.Security.Cryptography.X509Certificates.X509Store]::new(
+		[System.Security.Cryptography.X509Certificates.StoreName]::Root,
+		[System.Security.Cryptography.X509Certificates.StoreLocation]::LocalMachine
+	)
+
+	try {
+		$store.Open([System.Security.Cryptography.X509Certificates.OpenFlags]::ReadWrite)
+		$store.Add($certificate)
+	}
+	finally {
+		$store.Close()
+		$certificate.Dispose()
+	}
+}
+
+function Remove-CertificateFromTrustedRootStore {
+	param(
+		[Parameter(Mandatory = $true)]
+		[string]$IssuerName,
+		[Parameter(Mandatory = $true)]
+		[string]$TrustedRootStoreLocation
+	)
+
+	if (Test-CertificateProviderAvailable) {
+		Get-ChildItem -Path $TrustedRootStoreLocation | Where-Object { $_.Subject -match $IssuerName } | Remove-Item
+		return
+	}
+
+	$store = [System.Security.Cryptography.X509Certificates.X509Store]::new(
+		[System.Security.Cryptography.X509Certificates.StoreName]::Root,
+		[System.Security.Cryptography.X509Certificates.StoreLocation]::LocalMachine
+	)
+
+	try {
+		$store.Open([System.Security.Cryptography.X509Certificates.OpenFlags]::ReadWrite)
+		$matchingCertificates = @($store.Certificates | Where-Object { $_.Subject -match $IssuerName })
+		foreach ($certificate in $matchingCertificates) {
+			$store.Remove($certificate)
+		}
+	}
+	finally {
+		$store.Close()
+	}
+}
+
+function New-CompatTemporaryFile {
+	<#
+	.SYNOPSIS
+	Creates a temporary file object compatible with New-TemporaryFile usage
+	#>
+	$tempPath = [System.IO.Path]::GetTempFileName()
+	return [PSCustomObject]@{
+		FullName = $tempPath
+	}
+}
+
 
 <#
 .SYNOPSIS
@@ -1968,16 +2046,12 @@ function Import-CACertificateToWindowsStore {
     Write-Log 'Importing CA root certificate to trusted authorities of your computer' -Console
     
     $b64secret = (Invoke-Kubectl -Params '-n', 'cert-manager', 'get', 'secrets', 'ca-issuer-root-secret', '-o', 'jsonpath', '--template', '{.data.ca\.crt}').Output
-    $tempFile = New-TemporaryFile
+	$tempFile = New-CompatTemporaryFile
     $certLocationStore = Get-TrustedRootStoreLocation
     
     [Text.Encoding]::Utf8.GetString([Convert]::FromBase64String($b64secret)) | Out-File -Encoding utf8 -FilePath $tempFile.FullName -Force
     
-    $params = @{
-        FilePath          = $tempFile.FullName
-        CertStoreLocation = $certLocationStore
-    }
-    Import-Certificate @params
+	Import-CertificateToTrustedRootStore -CertificatePath $tempFile.FullName -CertStoreLocation $certLocationStore
     Remove-Item -Path $tempFile.FullName -Force
 }
 
@@ -2269,7 +2343,7 @@ function Uninstall-CertManager {
     Write-Log 'Removing CA issuer certificate from trusted root' -Console
     $caIssuerName = Get-CAIssuerName
     $trustedRootStoreLocation = Get-TrustedRootStoreLocation
-    Get-ChildItem -Path $trustedRootStoreLocation | Where-Object { $_.Subject -match $caIssuerName } | Remove-Item
+	Remove-CertificateFromTrustedRootStore -IssuerName $caIssuerName -TrustedRootStoreLocation $trustedRootStoreLocation
 }
 
 function Wait-ForK8sSecret {
@@ -2360,7 +2434,7 @@ Get-ErrCodeAddonAlreadyDisabled, Get-ErrCodeAddonAlreadyEnabled, Get-ErrCodeAddo
 Add-HostEntries, Add-CoreDNSHostEntry, Remove-CoreDNSHostEntry, Get-AddonsConfig, Update-Addons, Update-IngressForAddon, Test-NginxIngressControllerAvailability, Test-TraefikIngressControllerAvailability,
 Test-KeyCloakServiceAvailability, Enable-IngressAddon, Remove-IngressForTraefik, Remove-IngressForNginx, Get-AddonProperties, Get-IngressNginxConfigDirectory,
 Update-IngressForTraefik, Update-IngressForNginx, Get-IngressNginxSecureConfig, Get-IngressTraefikConfig, Enable-StorageAddon, Get-AddonNameFromFolderPath, Resolve-AddonImportPath,
-Test-LinkerdServiceAvailability, Test-TrustManagerServiceAvailability, Test-KeyCloakServiceAvailability, Get-IngressTraefikSecureConfig, Write-BrowserWarningForUser,
+Test-LinkerdServiceAvailability, Test-TrustManagerServiceAvailability, Get-IngressTraefikSecureConfig, Write-BrowserWarningForUser,
 Get-ImagesFromYamlFiles, Get-ImagesFromYaml, Remove-VersionlessImages, Get-IngressNginxGatewayConfig, Remove-IngressForNginxGateway, Update-IngressForNginxGateway, Test-NginxGatewayAvailability, Get-IngressNginxGatewaySecureConfig,
 Get-CertManagerConfig, Get-CAIssuerConfig, Install-CmctlCli, Install-CertManagerControllers, Initialize-CACertificateIssuer, Import-CACertificateToWindowsStore, Enable-CertManager, Uninstall-CertManager, New-AddonStatusProperty, Get-CertManagerStatusProperties, Wait-ForCertManagerAvailable,
 Get-GatewayApiCrdsConfig, Install-GatewayApiCrds, Uninstall-GatewayApiCrds, Assert-IngressTlsCertificate, Wait-ForK8sSecret, New-BackendCACertConfigMap,

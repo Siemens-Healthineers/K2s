@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText:  © 2024 Siemens Healthineers AG
+// SPDX-FileCopyrightText:  © 2026 Siemens Healthineers AG
 // SPDX-License-Identifier:   MIT
 
 package buildonly
@@ -9,7 +9,7 @@ import (
 	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/common"
 	ic "github.com/siemens-healthineers/k2s/cmd/k2s/cmd/install/config"
 
-	r "github.com/siemens-healthineers/k2s/internal/reflection"
+	r "github.com/siemens-healthineers/k2s/internal/test/reflection"
 
 	"github.com/siemens-healthineers/k2s/cmd/k2s/utils"
 

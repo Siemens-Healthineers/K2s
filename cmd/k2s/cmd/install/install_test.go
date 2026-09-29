@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText:  © 2024 Siemens Healthineers AG
+// SPDX-FileCopyrightText:  © 2026 Siemens Healthineers AG
 // SPDX-License-Identifier:   MIT
 
 package install
@@ -12,7 +12,7 @@ import (
 	ic "github.com/siemens-healthineers/k2s/cmd/k2s/cmd/install/config"
 
 	"github.com/siemens-healthineers/k2s/internal/contracts/config"
-	r "github.com/siemens-healthineers/k2s/internal/reflection"
+	r "github.com/siemens-healthineers/k2s/internal/test/reflection"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"

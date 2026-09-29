@@ -30,10 +30,11 @@ spec:
           secretName: etcd-client-for-core-dns
       containers:
       - name: external-dns
-        image: registry.k8s.io/external-dns/external-dns:v0.22.0
+        image: registry.k8s.io/external-dns/external-dns:v0.23.0
         args:
         - --source=ingress
         - --provider=coredns
+        - --policy=sync
         - --log-level=debug # debug only
         volumeMounts:
         - mountPath: /etc/kubernetes/pki/etcd-ca

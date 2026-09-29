@@ -268,14 +268,13 @@ function Wait-NetworkL2BridgeReady {
             $lastShownFlannelPid = $currentFlannelPid
         }
 
-        # check cbr0
-        $cbr0 = Get-NetIpInterface | Where-Object InterfaceAlias -Like '*cbr0*' | Where-Object AddressFamily -Eq IPv4
-        if ( $cbr0 ) {
-            Write-Output '           OK: cbr0 switch is now found'
-            Write-Output "`nOK: cbr0 switch is now found"
-
+        if (Test-NetworkL2BridgeReady -PodSubnetworkNumber $PodSubnetworkNumber) {
             $l2BridgeSwitchName = Get-L2BridgeSwitchName
-            $l2BridgeInterfaceIndex = Get-NetIPInterface | Where-Object InterfaceAlias -Like "*$l2BridgeSwitchName*" | Where-Object AddressFamily -Eq IPv4 | Select-Object -expand 'ifIndex'
+            $endpointInterfaceAlias = "vEthernet ($($l2BridgeSwitchName)_ep)"
+            $l2BridgeInterfaceIndex = (Get-NetAdapter -Name $endpointInterfaceAlias -IncludeHidden -ErrorAction Stop).ifIndex
+            Write-Output "           OK: $endpointInterfaceAlias is ready"
+            Write-Output "`nOK: $endpointInterfaceAlias is ready"
+
             Set-NetIPInterface -InterfaceIndex $l2BridgeInterfaceIndex -InterfaceMetric 101
             Write-Output "Index for interface $l2BridgeSwitchName : ($l2BridgeInterfaceIndex) -> metric 101"
 
@@ -295,16 +294,80 @@ function Wait-NetworkL2BridgeReady {
             break;
         }
         elseif ($cbr0Stopwatch.Elapsed.TotalSeconds -gt 150) {
-            Stop-Service flanneld
-            Write-Output "FAIL: No cbr0 switch found, timeout. Aborting.`n"
+            Stop-Service flanneld -ErrorAction SilentlyContinue
+            Write-NetworkL2BridgeDiagnostics -PodSubnetworkNumber $PodSubnetworkNumber
+            Write-Output "FAIL: cbr0 endpoint did not become ready, timeout. Aborting.`n"
             $flannelLogHint = Join-Path -Path (Get-ConfiguredLogDirectory) -ChildPath 'flanneld'
             Write-Output "For troubleshooting look into the log file $flannelLogHint"
             Write-Output ''
-            throw 'Timeout: flanneld failed to create cbr0 switch'
+            throw 'Timeout: flanneld failed to create a healthy cbr0 endpoint and route'
         }
 
         Start-Sleep -s $SleepInLoop
     }
+}
+
+function Test-NetworkL2BridgeReady {
+    Param(
+        [string] $PodSubnetworkNumber = $(throw 'Argument missing: PodSubnetworkNumber')
+    )
+
+    $l2BridgeSwitchName = Get-L2BridgeSwitchName
+    $endpointInterfaceAlias = "vEthernet ($($l2BridgeSwitchName)_ep)"
+    $adapter = Get-NetAdapter -Name $endpointInterfaceAlias -IncludeHidden -ErrorAction SilentlyContinue
+    if ($null -eq $adapter) {
+        return $false
+    }
+
+    if ($adapter.Status -eq 'Disabled') {
+        Write-Log "[Network] Enabling disabled cbr0 endpoint adapter '$endpointInterfaceAlias'"
+        Enable-NetAdapter -Name $endpointInterfaceAlias -Confirm:$false -ErrorAction SilentlyContinue
+        $adapter = Get-NetAdapter -Name $endpointInterfaceAlias -IncludeHidden -ErrorAction SilentlyContinue
+    }
+    if ($null -eq $adapter -or $adapter.Status -notin @('Up', 'Disconnected')) {
+        return $false
+    }
+
+    $expectedIpAddress = Get-ConfiguredClusterCIDRNextHop -PodSubnetworkNumber $PodSubnetworkNumber
+    $endpointAddress = Get-NetIPAddress -InterfaceIndex $adapter.ifIndex -AddressFamily IPv4 -ErrorAction SilentlyContinue |
+        Where-Object { $_.IPAddress -eq $expectedIpAddress } |
+        Select-Object -First 1
+    if ($null -eq $endpointAddress) {
+        return $false
+    }
+
+    $podSubnet = Get-ConfiguredClusterCIDRHost -PodSubnetworkNumber $PodSubnetworkNumber
+    $connectedRoute = Get-NetRoute -DestinationPrefix $podSubnet -InterfaceIndex $adapter.ifIndex `
+        -PolicyStore ActiveStore -ErrorAction SilentlyContinue |
+        Where-Object { $_.NextHop -eq '0.0.0.0' } |
+        Select-Object -First 1
+    if ($null -eq $connectedRoute) {
+        Write-Log "[Network] Restoring missing on-link route '$podSubnet' on '$endpointInterfaceAlias'"
+        try {
+            New-NetRoute -DestinationPrefix $podSubnet -InterfaceIndex $adapter.ifIndex -NextHop '0.0.0.0' `
+                -RouteMetric 5 -PolicyStore ActiveStore -ErrorAction Stop | Out-Null
+        }
+        catch {
+            Write-Log "[Network] Failed to restore route '$podSubnet' on '$endpointInterfaceAlias': $($_.Exception.Message)"
+            return $false
+        }
+    }
+
+    return $true
+}
+
+function Write-NetworkL2BridgeDiagnostics {
+    Param(
+        [string] $PodSubnetworkNumber = $(throw 'Argument missing: PodSubnetworkNumber')
+    )
+
+    $l2BridgeSwitchName = Get-L2BridgeSwitchName
+    $endpointInterfaceAlias = "vEthernet ($($l2BridgeSwitchName)_ep)"
+    $podSubnet = Get-ConfiguredClusterCIDRHost -PodSubnetworkNumber $PodSubnetworkNumber
+    Write-Log "[Network] cbr0 endpoint diagnostics for '$endpointInterfaceAlias' and '$podSubnet'"
+    Get-NetAdapter -Name $endpointInterfaceAlias -IncludeHidden -ErrorAction SilentlyContinue | Format-List * | Out-String | Write-Log
+    Get-NetIPAddress -InterfaceAlias $endpointInterfaceAlias -AddressFamily IPv4 -ErrorAction SilentlyContinue | Format-List * | Out-String | Write-Log
+    Get-NetRoute -DestinationPrefix $podSubnet -PolicyStore ActiveStore -ErrorAction SilentlyContinue | Format-List * | Out-String | Write-Log
 }
 
 
@@ -412,27 +475,30 @@ function EnsureDirectoryPathExists(
 }
 
 function Set-RoutesToKubemaster {
-    # the usage of these routes was removed because windows takes care on it's own for such routes !!!
-    # route for VM
     $ipControlPlaneCIDR = Get-ConfiguredControlPlaneCIDR
     $windowsHostIpAddress = Get-ConfiguredKubeSwitchIP
 
-    # get the index of the master node switch
-    # $ipindex = Get-MasterNodeSwitchIndex
-    # if (-not $ipindex) {
-    Write-Log 'No index found for master node switch, set routes to kubemaster with no interface index'
-    Write-Log "Remove obsolete route to $ipControlPlaneCIDR"
-    route delete $ipControlPlaneCIDR >$null 2>&1
-    Write-Log "Add route to host network for master CIDR:$ipControlPlaneCIDR with metric 3"
-    route -p add $ipControlPlaneCIDR $windowsHostIpAddress METRIC 3 | Out-Null 
-    # }
-    # else {
-    #     Write-Log "Index for master node switch: $ipindex"
-    #     Write-Log "Remove obsolete route to $ipControlPlaneCIDR"
-    #     route delete $ipControlPlaneCIDR >$null 2>&1
-    #     Write-Log "Add route to host network for master CIDR:$ipControlPlaneCIDR with metric 3"
-    #     route -p add $ipControlPlaneCIDR $windowsHostIpAddress METRIC 3 IF $ipindex | Out-Null 
-    # }
+    $switchAddresses = @(Get-NetIPAddress -IPAddress $windowsHostIpAddress -AddressFamily IPv4 -ErrorAction Stop)
+    if ($switchAddresses.Count -ne 1) {
+        throw "Cannot identify a unique control-plane switch interface for $windowsHostIpAddress"
+    }
+    $switchIndex = $switchAddresses[0].InterfaceIndex
+    $connectedRoute = Get-NetRoute -PolicyStore ActiveStore -ErrorAction Stop |
+        Where-Object { $_.DestinationPrefix -eq $ipControlPlaneCIDR -and $_.InterfaceIndex -eq $switchIndex -and $_.NextHop -eq '0.0.0.0' }
+    if (-not $connectedRoute) {
+        Write-Log "[Routes] Restoring on-link route to $ipControlPlaneCIDR on interface $switchIndex"
+        New-NetRoute -DestinationPrefix $ipControlPlaneCIDR -InterfaceIndex $switchIndex -NextHop '0.0.0.0' `
+            -RouteMetric 3 -PolicyStore ActiveStore -ErrorAction Stop | Out-Null
+    }
+
+    foreach ($policyStore in @('PersistentStore', 'ActiveStore')) {
+        $obsoleteRoutes = Get-NetRoute -PolicyStore $policyStore -ErrorAction Stop |
+            Where-Object { $_.DestinationPrefix -eq $ipControlPlaneCIDR -and $_.NextHop -eq $windowsHostIpAddress }
+        foreach ($obsoleteRoute in $obsoleteRoutes) {
+            Write-Log "[Routes] Removing obsolete route to $ipControlPlaneCIDR via $windowsHostIpAddress from $policyStore"
+            $obsoleteRoute | Remove-NetRoute -Confirm:$false -ErrorAction Stop
+        }
+    }
 }
 
 function Set-RoutesToLinuxWorkloads {
@@ -551,6 +617,8 @@ Remove-WindowsWorkerNodeOnWindowsHost,
 Start-WindowsWorkerNodeOnWindowsHost,
 Stop-WindowsWorkerNodeOnWindowsHost,
 Wait-NetworkL2BridgeReady,
+Test-NetworkL2BridgeReady,
+Write-NetworkL2BridgeDiagnostics,
 Repair-K2sRoutes,
 Remove-FlannelConflictingRoutesOnLoopback,
 Set-RoutesToKubemaster,

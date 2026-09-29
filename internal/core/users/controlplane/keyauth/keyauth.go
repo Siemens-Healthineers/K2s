@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText:  © 2025 Siemens Healthineers AG
+// SPDX-FileCopyrightText:  © 2026 Siemens Healthineers AG
 // SPDX-License-Identifier:   MIT
 
 package keyauth
@@ -7,23 +7,21 @@ import (
 	"fmt"
 	"log/slog"
 	"path/filepath"
-
-	"github.com/siemens-healthineers/k2s/internal/contracts/ssh"
 )
 
-type remoteAccessProvider interface {
+type sshProvider interface {
 	Exec(command string) error
-	Copy(copyOptions ssh.CopyOptions) error
+	CopyToNode(source, target string) error
 }
 
 type KeyAuthorizer struct {
-	remoteAccessProvider remoteAccessProvider
+	sshProvider sshProvider
 }
 
 const authorizedKeysPath = "~/.ssh/authorized_keys"
 
-func NewKeyAuthorizer(remoteAccessProvider remoteAccessProvider) *KeyAuthorizer {
-	return &KeyAuthorizer{remoteAccessProvider: remoteAccessProvider}
+func NewKeyAuthorizer(sshProvider sshProvider) *KeyAuthorizer {
+	return &KeyAuthorizer{sshProvider: sshProvider}
 }
 
 func (k *KeyAuthorizer) AuthorizePubKeyOnRemote(publicKeyPath, publicKeyComment string) error {
@@ -34,18 +32,13 @@ func (k *KeyAuthorizer) AuthorizePubKeyOnRemote(publicKeyPath, publicKeyComment 
 	removeRemotePubKeyCmd := "rm -f " + remotePubKeyPath
 
 	slog.Debug("Removing existing public SSH key from remote machine", "path", remotePubKeyPath)
-	if err := k.remoteAccessProvider.Exec(removeRemotePubKeyCmd); err != nil {
+	if err := k.sshProvider.Exec(removeRemotePubKeyCmd); err != nil {
 		return fmt.Errorf("failed to remove existing SSH public key '%s' from remote machine: %w", remotePubKeyPath, err)
 	}
 
 	slog.Debug("Copying public SSH key to remote machine", "path", remotePubKeyPath)
-	copyOptions := ssh.CopyOptions{
-		Source:    publicKeyPath,
-		Target:    remotePubKeyPath,
-		Direction: ssh.CopyToNode,
-	}
 
-	if err := k.remoteAccessProvider.Copy(copyOptions); err != nil {
+	if err := k.sshProvider.CopyToNode(publicKeyPath, remotePubKeyPath); err != nil {
 		return fmt.Errorf("failed to copy public SSH key to remote machine: %w", err)
 	}
 
@@ -58,7 +51,7 @@ func (k *KeyAuthorizer) AuthorizePubKeyOnRemote(publicKeyPath, publicKeyComment 
 		removePubKeyFile
 
 	slog.Debug("Adding public SSH key to authorized keys file on remote machine")
-	if err := k.remoteAccessProvider.Exec(authorizeRemotePubKeyCmd); err != nil {
+	if err := k.sshProvider.Exec(authorizeRemotePubKeyCmd); err != nil {
 		return fmt.Errorf("failed to add public SSH key to authorized keys file: %w", err)
 	}
 
