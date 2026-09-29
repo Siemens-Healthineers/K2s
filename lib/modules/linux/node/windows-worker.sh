@@ -30,6 +30,7 @@ k2s_windows_worker_install_host_dependencies() {
   k2s_wait_for_dpkg_lock || return 1
   k2s_run env DEBIAN_FRONTEND=noninteractive apt-get update || return 1
   k2s_run env DEBIAN_FRONTEND=noninteractive apt-get install -y $packages || return 1
+  k2s_run systemd-sysusers || return 1
   for package in $packages; do
     if ! dpkg-query -W -f='${Status}' "$package" 2>/dev/null | grep -Fq 'install ok installed'; then
       k2s_log ERROR "KVM Windows worker dependency was not installed: $package"
