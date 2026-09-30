@@ -576,9 +576,13 @@ if (-not (Test-Path $newClusterScript)) {
 }
 
 Write-Log "[Ceph] Dispatching new Ceph cluster creation to '$newClusterScript' (node=$clusterHostNode, ip=$clusterHostNodeIp)" -Console
+$clusterCreateStopwatch = [System.Diagnostics.Stopwatch]::StartNew()
 & $newClusterScript -NodeIp $clusterHostNodeIp -Config $Config -ShowLogs:$ShowLogs
-if ($LASTEXITCODE -ne 0) {
-  Write-Log "[Ceph] ERROR: New Ceph cluster creation failed (exit code $LASTEXITCODE)." -Console -Error
+$clusterCreateExitCode = $LASTEXITCODE
+$clusterCreateStopwatch.Stop()
+Write-Log "[Ceph] Ceph cluster creation phase finished in $([math]::Round($clusterCreateStopwatch.Elapsed.TotalSeconds, 1))s (exit code $clusterCreateExitCode)" -Console
+if ($clusterCreateExitCode -ne 0) {
+  Write-Log "[Ceph] ERROR: New Ceph cluster creation failed (exit code $clusterCreateExitCode)." -Console -Error
   if ($EncodeStructuredOutput -eq $true) {
     Send-ToCli -MessageType $MessageType -Message @{Error = (New-CephStructuredError -Message 'New Ceph cluster creation failed') }
   }
@@ -737,6 +741,7 @@ parameters:
 
   # Wait for Ceph CSI workloads to become ready before reporting success.
   $allReady = $true
+  $csiReadinessStopwatch = [System.Diagnostics.Stopwatch]::StartNew()
   Write-Log "[Ceph] Waiting for Ceph operator pod readiness" -Console
   $operatorReady = Wait-ForPodCondition -Condition Ready -Label 'control-plane=ceph-csi-op-controller-manager' -Namespace $cephOperatorNamespace -TimeoutSeconds 300
   $allReady = ($allReady -and $operatorReady)
@@ -754,6 +759,9 @@ parameters:
     }
     Start-Sleep -Seconds 3
     $ctrlDeployElapsed += 3
+    if (($ctrlDeployElapsed % 30) -eq 0) {
+      Write-Log "[Ceph] Still waiting for CephFS CSI controller deployment '$cephfsCtrlDeploymentName' to be created by operator (${ctrlDeployElapsed}s/${ctrlDeployTimeoutSeconds}s elapsed)" -Console
+    }
   }
 
   if (-not $ctrlDeployExists) {
@@ -773,6 +781,9 @@ parameters:
   Write-Log "[Ceph] Waiting for CephFS CSI nodeplugin pod readiness" -Console
   $cephfsNodeReady = Wait-ForPodCondition -Condition Ready -Label 'app.kubernetes.io/component=cephfs-nodeplugin,app.kubernetes.io/part-of=k2s-ceph-csi' -Namespace $cephOperatorNamespace -TimeoutSeconds 300
   $allReady = ($allReady -and $cephfsNodeReady)
+
+  $csiReadinessStopwatch.Stop()
+  Write-Log "[Ceph] Ceph CSI readiness phase finished in $([math]::Round($csiReadinessStopwatch.Elapsed.TotalSeconds, 1))s (allReady=$allReady)" -Console
 
   if (-not $allReady) {
     throw 'Ceph CSI pods did not become Ready within the timeout. Check kubectl get pods -A and pod logs for details.'

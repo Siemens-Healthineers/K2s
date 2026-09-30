@@ -405,7 +405,7 @@ if (-not (Test-Path $diskScript)) {
 
 try {
     Write-Log "[Ceph] Preparing raw OSD disk on '$NodeIp' ($nodeType)$(if ($Device) { " target '$Device'" })..." -Console
-    $diskOutput = Invoke-RemoteScript -LocalScriptPath $diskScript -UserName $sshUserName -IpAddress $NodeIp -Arguments $scriptArgs -CleanupAfterExecution -Retries 2
+    $diskOutput = Invoke-RemoteScript -LocalScriptPath $diskScript -UserName $sshUserName -IpAddress $NodeIp -Arguments $scriptArgs -CleanupAfterExecution -Retries 2 -DetailedLogging
 
     $diskOutputText = ($diskOutput | Out-String)
     $readyLine = $diskOutputText -split "`r?`n" | Where-Object { $_.Trim().StartsWith('K2S_CEPH_OSD_DISK_READY=') } | Select-Object -Last 1

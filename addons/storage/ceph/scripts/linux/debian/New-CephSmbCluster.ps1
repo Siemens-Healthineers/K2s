@@ -148,7 +148,7 @@ Function Set-CephSmbClusterOnNode {
                         -UserPwd $UserPwd `
                         -Arguments @($CephImage, $CephfsVolume, $SmbClusterId, $SmbShareId, $SmbShareName, $SmbUser, $SmbPwd, $SmbPath, $PlacementLabel, $Subvolume, $SubvolumeSizeBytes, $SubvolumeGroup) `
                         -CleanupAfterExecution `
-                        -Retries 0
+                        -Retries 0 -DetailedLogging
 
     Write-Log '[CephSMB] Finished remote Ceph mgr/smb configuration'
 

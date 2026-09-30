@@ -292,7 +292,7 @@ foreach ($osdHostConfig in $osdHosts) {
                             -UserPwd '' `
                             -Arguments $prepareHostArgs `
                             -CleanupAfterExecution `
-                            -Retries 2
+                            -Retries 2 -DetailedLogging
 
         if (-not (($hostPrepOutput | Out-String) -match 'K2S_CEPH_OSD_HOST_READY=1')) {
             Write-Log "[Ceph] ERROR: OSD host preparation did not complete successfully on node '$osdNodeIp'." -Console -Error
@@ -357,7 +357,7 @@ foreach ($osdHostConfig in $osdHosts) {
                             -UserPwd '' `
                             -Arguments @($orchestratorHostName) `
                             -CleanupAfterExecution `
-                            -Retries 2
+                            -Retries 2 -DetailedLogging
     if (($addLabelsOutput | Out-String) -match '\[CephOsdAdd\]\s+ERROR:') {
         Write-Log "[Ceph] ERROR: Failed while adding host labels on '$orchestratorHostName'. See previous CephOsdAdd logs." -Console -Error
         exit 1
@@ -412,7 +412,7 @@ foreach ($osdHostConfig in $osdHosts) {
                             -UserPwd '' `
                             -Arguments $createOsdScriptArgs `
                             -CleanupAfterExecution `
-                            -Retries 2
+                            -Retries 2 -DetailedLogging
         if (($addOsdOutput | Out-String) -match '\[CephOsdAdd\]\s+ERROR:') {
             Write-Log "[Ceph] ERROR: Failed while creating OSD #$osdIndex on '$orchestratorHostName'. See previous CephOsdAdd logs." -Console -Error
             exit 1

@@ -84,7 +84,7 @@ Function Remove-CephClusterOnNode {
                         -IpAddress $IpAddress `
                         -UserPwd $UserPwd `
                         -CleanupAfterExecution `
-                        -Retries 2
+                        -Retries 2 -DetailedLogging
 
     Write-Log '[Ceph] Finished Ceph cluster teardown'
 

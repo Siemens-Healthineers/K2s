@@ -2321,7 +2321,12 @@ function Invoke-RemoteScript {
         
         [switch]$CleanupAfterExecution,
         
-        [uint16]$Retries = 3
+        [uint16]$Retries = 3,
+
+        # Opt-in flag (currently used by the Ceph storage addon) that adds a start marker,
+        # per-line output logging and an execution-duration line. Left off by default so all
+        # other callers keep their original single 'Script output:' log line behavior.
+        [switch]$DetailedLogging
     )
     
     # Generate remote script path (always /tmp), using the original script filename
@@ -2379,9 +2384,40 @@ function Invoke-RemoteScript {
     # may have \r\n endings which cause bash to fail finding the interpreter in the shebang line.
     &$executeRemoteCommand "sed -i 's/\r//' $RemoteScriptPath" | Out-Null
 
-    $result = &$executeRemoteCommand "chmod +x $RemoteScriptPath && $RemoteScriptPath $argumentString"
-    
-    Write-Log "Script output: $result"
+    if ($DetailedLogging) {
+        $scriptLeafName = Split-Path -Leaf $RemoteScriptPath
+        Write-Log "[RemoteScript:$scriptLeafName] Execution started"
+        $remoteExecStopwatch = [System.Diagnostics.Stopwatch]::StartNew()
+
+        $result = &$executeRemoteCommand "chmod +x $RemoteScriptPath && $RemoteScriptPath $argumentString"
+
+        $remoteExecStopwatch.Stop()
+
+        # Log the captured remote output line-by-line so each line becomes its own timestamped log
+        # entry (far easier to read and correlate than the single bulk 'Script output:' line).
+        # NOTE: the remote command's stdout is only available after the script returns, so these
+        # timestamps reflect log-write time on the Windows host, not the instant each line was produced
+        # on the remote node. The '[RemoteScript:<name>] completed in <n>s' line below is therefore the
+        # authoritative measure of how long the remote step actually took.
+        $remoteOutputLines = ($result | Out-String) -split "`n" | ForEach-Object { $_.TrimEnd("`r") }
+        $hasRemoteOutput = $false
+        foreach ($remoteLine in $remoteOutputLines) {
+            if (-not [string]::IsNullOrWhiteSpace($remoteLine)) {
+                Write-Log "[RemoteScript:$scriptLeafName] $remoteLine"
+                $hasRemoteOutput = $true
+            }
+        }
+        if (-not $hasRemoteOutput) {
+            Write-Log "[RemoteScript:$scriptLeafName] (no output)"
+        }
+
+        Write-Log "[RemoteScript:$scriptLeafName] completed in $([math]::Round($remoteExecStopwatch.Elapsed.TotalSeconds, 1))s"
+    }
+    else {
+        $result = &$executeRemoteCommand "chmod +x $RemoteScriptPath && $RemoteScriptPath $argumentString"
+
+        Write-Log "Script output: $result"
+    }
     
     # Cleanup
     if ($CleanupAfterExecution) {

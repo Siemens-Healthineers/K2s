@@ -84,7 +84,7 @@ try {
         -UserPwd '' `
         -Arguments @($SmbClusterId, $PlacementLabel, $cephfsVolume, $smbSubvolume, $smbSubvolumeGroup) `
         -CleanupAfterExecution `
-        -Retries 0 | Out-Null
+        -Retries 0 -DetailedLogging | Out-Null
 
     Write-Log "[CephSMB] Ceph mgr/smb configuration removed for cluster '$SmbClusterId'." -Console
 }

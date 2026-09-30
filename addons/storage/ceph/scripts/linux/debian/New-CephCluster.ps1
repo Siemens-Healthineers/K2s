@@ -129,7 +129,7 @@ Function New-CephClusterOnNode {
                         -UserPwd $UserPwd `
                         -Arguments @($Proxy, $CephadminUrl, $CephFsFilesystem, 'root', $OsdCrushChooseleafType, $MonCount, $MgrCount, $MdsCount, $TotalOsdCount, $CephImage) `
                         -CleanupAfterExecution `
-                        -Retries 0
+                        -Retries 0 -DetailedLogging
 
     Write-Log '[Ceph] Finished new Ceph cluster bootstrap'
 
@@ -416,7 +416,7 @@ function Invoke-CephOsdPreparation {
                                 -UserPwd '' `
                                 -Arguments $prepareHostArgs `
                                 -CleanupAfterExecution `
-                                -Retries 2
+                                -Retries 2 -DetailedLogging
 
             if (-not (($hostPrepOutput | Out-String) -match 'K2S_CEPH_OSD_HOST_READY=1')) {
                 Write-Log "[Ceph] ERROR: OSD host preparation did not complete successfully on node '$osdNodeIp'." -Console -Error
@@ -488,7 +488,7 @@ function Invoke-CephOsdPreparation {
                                 -UserPwd '' `
                                 -Arguments @($orchestratorHostName) `
                                 -CleanupAfterExecution `
-                                -Retries 2
+                                -Retries 2 -DetailedLogging
 
         if (($addLabelsOutput | Out-String) -match '\[CephOsdAdd\]\s+ERROR:') {
             Write-Log "[Ceph] ERROR: Failed while adding host labels on '$orchestratorHostName'. See previous CephOsdAdd logs." -Console -Error
@@ -561,7 +561,7 @@ function Invoke-CephOsdPreparation {
                                 -UserPwd '' `
                                 -Arguments $createOsdScriptArgs `
                                 -CleanupAfterExecution `
-                                -Retries 2
+                                -Retries 2 -DetailedLogging
 
             if (($addOsdOutput | Out-String) -match '\[CephOsdAdd\]\s+ERROR:') {
                 Write-Log "[Ceph] ERROR: Failed while creating OSD #$osdIndex on '$orchestratorHostName'. See previous CephOsdAdd logs." -Console -Error

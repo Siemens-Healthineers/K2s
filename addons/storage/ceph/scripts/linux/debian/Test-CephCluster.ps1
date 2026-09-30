@@ -85,7 +85,7 @@ try {
                         -IpAddress $NodeIp `
                         -UserPwd '' `
                         -CleanupAfterExecution `
-                        -Retries 2
+                        -Retries 2 -DetailedLogging
 }
 catch {
     Write-Log "[Ceph] ERROR: SSH connection to node '$NodeIp' failed: $($_.Exception.Message)" -Console -Error
