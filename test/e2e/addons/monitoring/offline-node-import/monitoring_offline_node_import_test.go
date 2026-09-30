@@ -16,6 +16,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 
 	"github.com/siemens-healthineers/k2s/internal/core/addons"
+	"github.com/siemens-healthineers/k2s/internal/core/clusterconfig"
 	"github.com/siemens-healthineers/k2s/test/e2e/addons/exportimport"
 	"github.com/siemens-healthineers/k2s/test/framework"
 	"github.com/siemens-healthineers/k2s/test/framework/dsl"
@@ -167,8 +168,25 @@ func expectMonitoringImageOnLinuxWorkers(ctx context.Context) {
 	for _, worker := range linuxWorkers {
 		command := fmt.Sprintf("sudo crictl images --output json | grep -Fq -- '%s'", strings.ReplaceAll(nodeExporterImage, "'", "'\\''"))
 		GinkgoWriter.Printf("Checking CRI-O image %q on Linux worker %q (%s)\n", nodeExporterImage, worker.Name, internalIP(worker))
-		suite.K2sCli().MustExec(ctx, "node", "exec", "-i", internalIP(worker), "-u", "remote", "-c", command, "-o")
+		suite.K2sCli().MustExec(ctx, "node", "exec", "-i", internalIP(worker), "-u", linuxWorkerUsername(worker), "-c", command, "-o")
 	}
+}
+
+func linuxWorkerUsername(worker corev1.Node) string {
+	clusterCfg, err := clusterconfig.Read(suite.SetupInfo().Config.Host().K2sSetupConfigDir())
+	Expect(err).NotTo(HaveOccurred(), "cluster configuration should be readable")
+	Expect(clusterCfg).NotTo(BeNil(), "cluster configuration should exist")
+
+	workerIP := internalIP(worker)
+	for _, configuredNode := range clusterCfg.Nodes {
+		if configuredNode.Role == clusterconfig.RoleWorker && configuredNode.IpAddress == workerIP {
+			Expect(configuredNode.Username).NotTo(BeEmpty(), "worker %s should have a configured SSH username", worker.Name)
+			return configuredNode.Username
+		}
+	}
+
+	Fail(fmt.Sprintf("Linux worker %s (%s) is missing from cluster configuration", worker.Name, workerIP))
+	return ""
 }
 
 func workersWithoutReadyNodeExporter(ctx context.Context, workers []string) []string {
