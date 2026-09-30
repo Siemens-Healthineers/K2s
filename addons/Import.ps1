@@ -63,7 +63,9 @@ function Import-AddonImageLayer {
         [Parameter(Mandatory = $true)]
         [string] $AddonName,
         [Parameter(Mandatory = $true)]
-        [string] $ImportImageScript
+        [string] $ImportImageScript,
+        [Parameter(Mandatory = $false)]
+        [switch] $ShowLogs
     )
 
     $osLabel = if ($Windows) { 'Windows' } else { 'Linux' }
@@ -82,6 +84,7 @@ function Import-AddonImageLayer {
         $extractResult = & tar -xf $LayerTarPath 2>&1
         if ($LASTEXITCODE -ne 0) {
             Write-Log "[Import] Warning: Failed to extract $osLabel images tar: $extractResult" -Console
+            $script:hasImportFailures = $true
         }
     }
     finally {
@@ -761,7 +764,7 @@ foreach ($addon in $addonsToImport) {
         $linuxImagesLayer = Join-Path $tempLayerDir 'images-linux.tar'
         if (Test-Path $linuxImagesLayer) {
             if ($nodeList.Count -eq 0 -or $linuxNodes.Count -gt 0) {
-                Import-AddonImageLayer -LayerTarPath $linuxImagesLayer -TempLayerDir $tempLayerDir -ExtractedDirName 'images-linux-extracted' -TargetNodes $linuxNodes -AddonName $addon.name -ImportImageScript $importImageScript
+                Import-AddonImageLayer -LayerTarPath $linuxImagesLayer -TempLayerDir $tempLayerDir -ExtractedDirName 'images-linux-extracted' -TargetNodes $linuxNodes -AddonName $addon.name -ImportImageScript $importImageScript -ShowLogs:$ShowLogs
             } else {
                 Write-Log "[Import] Skipping Linux images import: no Linux target nodes specified in '$Nodes'" -Console
             }
@@ -773,7 +776,7 @@ foreach ($addon in $addonsToImport) {
         $windowsImagesLayer = Join-Path $tempLayerDir 'images-windows.tar'
         if ((Test-Path $windowsImagesLayer) -and (-not $setupInfo.LinuxOnly)) {
             if ($nodeList.Count -eq 0 -or $windowsNodes.Count -gt 0) {
-                Import-AddonImageLayer -LayerTarPath $windowsImagesLayer -TempLayerDir $tempLayerDir -ExtractedDirName 'images-windows-extracted' -TargetNodes $windowsNodes -Windows -AddonName $addon.name -ImportImageScript $importImageScript
+                Import-AddonImageLayer -LayerTarPath $windowsImagesLayer -TempLayerDir $tempLayerDir -ExtractedDirName 'images-windows-extracted' -TargetNodes $windowsNodes -Windows -AddonName $addon.name -ImportImageScript $importImageScript -ShowLogs:$ShowLogs
             } else {
                 Write-Log "[Import] Skipping Windows images import: no Windows target nodes specified in '$Nodes'" -Console
             }
