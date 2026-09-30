@@ -350,6 +350,21 @@ function Write-CephUsageForUser {
 "@ -split "`r`n" | ForEach-Object { Write-Log $_ -Console }
 
   if (-not [string]::IsNullOrWhiteSpace($DashboardUrl)) {
+    # Parse the dashboard host/port so the remote-access hints can reference the concrete
+    # node IP and port. The dashboard is served directly by ceph-mgr on the (host-only)
+    # node IP, so it is reachable from the K2s Windows host but NOT from other machines
+    # on the LAN without a port-forward/tunnel.
+    $dashboardHostForForward = '172.19.1.100'
+    $dashboardPortForForward = '8443'
+    try {
+      $parsedDashboardUri = [uri]$DashboardUrl
+      if (-not [string]::IsNullOrWhiteSpace($parsedDashboardUri.Host)) { $dashboardHostForForward = $parsedDashboardUri.Host }
+      if ($parsedDashboardUri.Port -gt 0) { $dashboardPortForForward = "$($parsedDashboardUri.Port)" }
+    }
+    catch {
+      Write-Log "[Ceph] WARNING: Could not parse dashboard URL '$DashboardUrl' for port-forward hints; using defaults." -Console
+    }
+
     @"
 
                                      CEPH DASHBOARD
@@ -360,6 +375,16 @@ function Write-CephUsageForUser {
      Password: $DashboardPassword
 
  Store these credentials securely and change the password after first login.
+
+                                     PORT FORWARDING
+ The dashboard runs on node $dashboardHostForForward`:$dashboardPortForForward (host-only K2s network). To open it
+ via localhost on the K2s host, run this as Administrator:
+
+     netsh interface portproxy add v4tov4 listenport=$dashboardPortForForward listenaddress=127.0.0.1 connectport=$dashboardPortForForward connectaddress=$dashboardHostForForward
+
+ Then browse to: https://localhost:$dashboardPortForForward/
+ List rules:  netsh interface portproxy show all
+ Remove rule: netsh interface portproxy delete v4tov4 listenport=$dashboardPortForForward listenaddress=127.0.0.1
 
                                      CEPH CLI ACCESS
  On the Ceph host node you can access the Ceph CLI as follows.
