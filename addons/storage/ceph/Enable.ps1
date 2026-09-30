@@ -1011,6 +1011,3 @@ if ($EncodeStructuredOutput -eq $true) {
       StorageClasses = $allStorageClasses
     }
 }
-
-# Update other addons that depend on storage
-Update-Addons -AddonName $addonName
