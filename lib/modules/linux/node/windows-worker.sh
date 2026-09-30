@@ -25,7 +25,7 @@ k2s_windows_worker_ip() {
 
 k2s_windows_worker_install_host_dependencies() {
   local package
-  local packages='qemu-system-x86 qemu-utils libvirt-daemon-system libvirt-daemon-driver-qemu libvirt-daemon-config-network libvirt-clients dnsmasq-base ovmf xorriso openssh-client'
+  local packages='qemu-system-x86 qemu-utils qemu-block-extra util-linux libvirt-daemon-system libvirt-daemon-driver-qemu libvirt-daemon-config-network libvirt-clients dnsmasq-base ovmf xorriso openssh-client'
   k2s_log INFO 'Installing KVM Windows worker host dependencies.'
   k2s_wait_for_dpkg_lock || return 1
   k2s_run env DEBIAN_FRONTEND=noninteractive apt-get update || return 1
@@ -67,28 +67,10 @@ k2s_windows_worker_disk_gb() {
   printf '%s\n' "${BASH_REMATCH[1]}"
 }
 
-k2s_windows_worker_ovmf_code() {
-  local firmware
-  for firmware in /usr/share/OVMF/OVMF_CODE_4M.fd /usr/share/OVMF/OVMF_CODE.fd; do
-    [[ -r "$firmware" ]] && { printf '%s\n' "$firmware"; return 0; }
-  done
-  k2s_log ERROR 'Standard OVMF firmware is unavailable. Install the ovmf package.'
-  return 1
-}
-
-k2s_windows_worker_ovmf_vars() {
-  local variables
-  for variables in /usr/share/OVMF/OVMF_VARS_4M.fd /usr/share/OVMF/OVMF_VARS.fd; do
-    [[ -r "$variables" ]] && { printf '%s\n' "$variables"; return 0; }
-  done
-  k2s_log ERROR 'Standard OVMF variable-store template is unavailable. Install the ovmf package.'
-  return 1
-}
-
 k2s_windows_worker_preflight() {
   local command memory_mb available_mb total_mb disk_gb available_gb
   [[ -r /dev/kvm && -c /dev/kvm ]] || { k2s_log ERROR 'KVM is unavailable. Enable nested virtualization and expose /dev/kvm to the Debian host.'; return 3; }
-  for command in virsh qemu-img ssh scp ssh-keyscan ssh-keygen xorriso sha256sum; do k2s_require_command "$command" || return 4; done
+  for command in virsh qemu-img qemu-nbd sfdisk ssh scp ssh-keyscan ssh-keygen xorriso sha256sum; do k2s_require_command "$command" || return 4; done
   getent passwd libvirt-qemu >/dev/null || { k2s_log ERROR 'The libvirt-qemu service account is missing. Reinstall libvirt-daemon-system.'; return 3; }
   getent passwd dnsmasq >/dev/null || { k2s_log ERROR 'The dnsmasq service account is missing. Install dnsmasq-base.'; return 3; }
   k2s_windows_worker_start_libvirt || return 3
@@ -162,6 +144,32 @@ k2s_windows_worker_import_qcow2() {
   qemu-img check "$temporary_cache" || { rm -f "$temporary_cache"; return 1; }
   chmod 0644 "$temporary_cache" || { rm -f "$temporary_cache"; return 1; }
   mv "$temporary_cache" "$cache"
+}
+
+k2s_windows_worker_detect_boot_mode() {
+  local disk="$1" partition_table nbd_device=''
+  modprobe nbd max_part=8 || return 1
+  nbd_device=$(for device in /dev/nbd*; do
+    [[ -b "$device" && ! -s "/sys/class/block/${device##*/}/pid" ]] && { printf '%s\n' "$device"; break; }
+  done)
+  [[ -n "$nbd_device" ]] || { k2s_log ERROR 'No unused NBD device is available to inspect the Windows worker disk.'; return 1; }
+  qemu-nbd --connect="$nbd_device" --read-only "$disk" || return 1
+  partition_table=$(sfdisk --json "$nbd_device" 2>/dev/null | jq -r '.partitiontable.label // empty')
+  qemu-nbd --disconnect "$nbd_device" || true
+  case "$partition_table" in
+    dos)
+      k2s_log INFO 'Detected MBR partition table; booting the Windows worker with BIOS.'
+      printf '%s\n' bios
+      ;;
+    gpt)
+      k2s_log INFO 'Detected GPT partition table; booting the Windows worker with UEFI.'
+      printf '%s\n' uefi
+      ;;
+    *)
+      k2s_log ERROR "Cannot detect a supported Windows worker partition table (found: ${partition_table:-none})."
+      return 2
+      ;;
+  esac
 }
 
 k2s_windows_worker_ssh_dir() { printf '%s/ssh' "$K2S_CONFIG_DIR"; }
@@ -304,11 +312,17 @@ k2s_windows_worker_wait_for_node() {
 }
 
 k2s_windows_worker_define() {
-  local disk="$1" install_iso="${2:-}" bootstrap_iso="${3:-}" memory_mb nvram domain_xml boot_order media_disks firmware variables
+  local disk="$1" install_iso="${2:-}" bootstrap_iso="${3:-}" memory_mb domain_xml boot_order media_disks boot_mode firmware variables nvram firmware_xml
   memory_mb=$(k2s_windows_worker_memory_mb) || return $?
-  firmware=$(k2s_windows_worker_ovmf_code) || return 1
-  variables=$(k2s_windows_worker_ovmf_vars) || return 1
-  nvram="/var/lib/libvirt/qemu/nvram/${K2S_WINDOWS_WORKER_NAME}_VARS.fd"
+  boot_mode=$(k2s_windows_worker_detect_boot_mode "$disk") || return $?
+  firmware_xml=''
+  if [[ "$boot_mode" == uefi ]]; then
+    firmware=/usr/share/OVMF/OVMF_CODE_4M.fd
+    variables=/usr/share/OVMF/OVMF_VARS_4M.fd
+    [[ -r "$firmware" && -r "$variables" ]] || { k2s_log ERROR 'UEFI boot requires standard OVMF firmware and variables from the ovmf package.'; return 1; }
+    nvram="/var/lib/libvirt/qemu/nvram/${K2S_WINDOWS_WORKER_NAME}_VARS.fd"
+    firmware_xml="<loader readonly='yes' secure='no' type='pflash'>$firmware</loader><nvram template='$variables'>$nvram</nvram>"
+  fi
   domain_xml=$(mktemp)
   boot_order="<boot dev='hd'/>"; media_disks=''
   if [[ -n "$install_iso" && -n "$bootstrap_iso" ]]; then
@@ -316,7 +330,7 @@ k2s_windows_worker_define() {
     media_disks="<disk type='file' device='cdrom'><driver name='qemu' type='raw'/><source file='$install_iso'/><target dev='sdb' bus='sata'/><readonly/></disk><disk type='file' device='cdrom'><driver name='qemu' type='raw'/><source file='$bootstrap_iso'/><target dev='sdc' bus='sata'/><readonly/></disk>"
   fi
   cat > "$domain_xml" <<EOF
-<domain type='kvm'><name>$K2S_WINDOWS_WORKER_NAME</name><memory unit='MiB'>$memory_mb</memory><currentMemory unit='MiB'>$memory_mb</currentMemory><vcpu placement='static'>$K2S_WORKER_CPU_COUNT</vcpu><os><type arch='x86_64' machine='q35'>hvm</type><loader readonly='yes' secure='no' type='pflash'>$firmware</loader><nvram template='$variables'>$nvram</nvram>$boot_order</os><features><acpi/><apic/><hyperv mode='custom'><relaxed state='on'/><vapic state='on'/><spinlocks state='on' retries='8191'/><vpindex state='on'/><runtime state='on'/><synic state='on'/><stimer state='on'/></hyperv></features><cpu mode='host-passthrough' check='none'/><clock offset='localtime'><timer name='hypervclock' present='yes'/><timer name='hpet' present='no'/></clock><devices><disk type='file' device='disk'><driver name='qemu' type='qcow2' discard='unmap'/><source file='$disk'/><target dev='sda' bus='sata'/></disk>$media_disks<interface type='network'><mac address='$K2S_WINDOWS_WORKER_MAC'/><source network='$K2S_WINDOWS_WORKER_NETWORK'/><model type='e1000'/></interface><serial type='pty'/><console type='pty'/><graphics type='vnc' autoport='yes' listen='127.0.0.1'><listen type='address' address='127.0.0.1'/></graphics><video><model type='vga' vram='16384' heads='1' primary='yes'/></video><rng model='virtio'><backend model='random'>/dev/urandom</backend></rng><memballoon model='virtio'/></devices></domain>
+<domain type='kvm'><name>$K2S_WINDOWS_WORKER_NAME</name><memory unit='MiB'>$memory_mb</memory><currentMemory unit='MiB'>$memory_mb</currentMemory><vcpu placement='static'>$K2S_WORKER_CPU_COUNT</vcpu><os><type arch='x86_64' machine='q35'>hvm</type>$firmware_xml$boot_order</os><features><acpi/><apic/><hyperv mode='custom'><relaxed state='on'/><vapic state='on'/><spinlocks state='on' retries='8191'/><vpindex state='on'/><runtime state='on'/><synic state='on'/><stimer state='on'/></hyperv></features><cpu mode='host-passthrough' check='none'/><clock offset='localtime'><timer name='hypervclock' present='yes'/><timer name='hpet' present='no'/></clock><devices><disk type='file' device='disk'><driver name='qemu' type='qcow2' discard='unmap'/><source file='$disk'/><target dev='sda' bus='sata'/></disk>$media_disks<interface type='network'><mac address='$K2S_WINDOWS_WORKER_MAC'/><source network='$K2S_WINDOWS_WORKER_NETWORK'/><model type='e1000'/></interface><serial type='pty'/><console type='pty'/><graphics type='vnc' autoport='yes' listen='127.0.0.1'><listen type='address' address='127.0.0.1'/></graphics><video><model type='vga' vram='16384' heads='1' primary='yes'/></video><rng model='virtio'><backend model='random'>/dev/urandom</backend></rng><memballoon model='virtio'/></devices></domain>
 EOF
   virsh define "$domain_xml"; local result=$?; rm -f "$domain_xml"; return "$result"
 }

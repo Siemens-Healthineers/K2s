@@ -61,8 +61,8 @@ type InstallConfig struct {
 	Nodes           []NodeConfig   `mapstructure:"nodes"`
 	Env             EnvConfig      `mapstructure:"env"`
 	Behavior        BehaviorConfig `mapstructure:"installBehavior"`
-	LinuxOnly       bool           `mapstructure:"linuxOnly"`
-	WindowsQCOW2Path string        `mapstructure:"windowsQCOW2Path"`
+	LinuxOnly        bool   `mapstructure:"linuxOnly"`
+	WindowsQCOW2Path string `mapstructure:"windowsQCOW2Path"`
 }
 
 type NodeConfig struct {
