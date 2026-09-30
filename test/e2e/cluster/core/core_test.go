@@ -127,7 +127,15 @@ var _ = AfterSuite(func(ctx context.Context) {
 		podWatcher.Stop()
 	}
 
-	suite.StatusChecker().IsK2sRunning(ctx)
+	if runtime.GOOS == "linux" && suite.SetupInfo().RuntimeConfig.InstallConfig().LinuxOnly() {
+		if _, err := os.Stat("/etc/kubernetes/admin.conf"); err == nil {
+			suite.StatusChecker().IsK2sRunning(ctx)
+		} else {
+			GinkgoWriter.Println("Skipping native Linux status check because system reset removed runtime state")
+		}
+	} else {
+		suite.StatusChecker().IsK2sRunning(ctx)
+	}
 
 	GinkgoWriter.Println("Deleting workloads..")
 
@@ -137,10 +145,8 @@ var _ = AfterSuite(func(ctx context.Context) {
 
 	// for finding out the sporadically failed test runs
 	if suite.ShouldCleanup(testFailed) {
-		suite.Kubectl().MustExec(ctx, "delete", "-k", manifestDir)
-
+		suite.Kubectl().MustExec(ctx, "delete", "-k", manifestDir, "--ignore-not-found=true")
 		GinkgoWriter.Println("Workloads deleted")
-
 		suite.TearDown(ctx, framework.RestartKubeProxy)
 	}
 })
@@ -388,6 +394,95 @@ func controlPlaneNodeName() string {
 	hostname, err := os.Hostname()
 	Expect(err).NotTo(HaveOccurred())
 	return strings.ToLower(hostname)
+}
+
+func restoreLinuxOnlyCoreSuiteState(ctx context.Context) {
+	GinkgoWriter.Println("Reinstalling native Linux-only cluster after reset..")
+	installArgs := []string{"install", "--linux-only"}
+	if suite.Proxy() != "" {
+		installArgs = append(installArgs, "--proxy", suite.Proxy())
+	}
+	suite.K2sCli().UseProxy().MustExec(ctx, installArgs...)
+	suite.SetupInfo().ReloadRuntimeConfig()
+	Expect(suite.SetupInfo().RuntimeConfig.InstallConfig().LinuxOnly()).To(BeTrue())
+	suite.Kubectl().MustExec(ctx, "get", "nodes")
+	expectLinuxOnlyInstallArtifacts()
+	GinkgoWriter.Println("Native Linux-only cluster restored after reset")
+}
+
+// expectLinuxOnlyResetCleanup verifies that 'k2s system reset' removed the
+// Kubernetes admin kubeconfig and the flannel/CNI network devices on the native
+// Linux host.
+func expectLinuxOnlyResetCleanup(devices ...string) {
+	GinkgoWriter.Println("Verifying native Linux-only reset removed Kubernetes components..")
+
+	_, err := os.Stat("/etc/kubernetes/admin.conf")
+	Expect(os.IsNotExist(err)).To(BeTrue(), "expected /etc/kubernetes/admin.conf to be removed by system reset")
+
+	if len(devices) == 0 {
+		devices = []string{"cni0"}
+	}
+
+	for _, device := range devices {
+		output, err := exec.Command("ip", "link", "show", device).CombinedOutput()
+		Expect(err).To(HaveOccurred(), "expected network device %s to be removed by system reset, got:\n%s", device, string(output))
+		Expect(string(output)).To(Or(
+			ContainSubstring("does not exist"),
+			ContainSubstring("Cannot find device"),
+		),
+			"expected network device %s to be removed by system reset", device)
+	}
+
+	GinkgoWriter.Println("Native Linux-only reset cleanup verified")
+}
+
+// expectLinuxOnlyNetworkResetCleanup verifies that 'k2s system reset network'
+// removed the host CNI interfaces without requiring the admin kubeconfig to be
+// absent. This is the host-network-only cleanup path on native Linux hosts.
+func expectLinuxOnlyNetworkResetCleanup(devices ...string) {
+	GinkgoWriter.Println("Verifying native Linux-only network reset removed host CNI devices..")
+
+	if len(devices) == 0 {
+		devices = []string{"cni0", "flannel.1"}
+	}
+
+	for _, device := range devices {
+		output, err := exec.Command("ip", "link", "show", device).CombinedOutput()
+		Expect(err).To(HaveOccurred(), "expected network device %s to be removed by system reset network, got:\n%s", device, string(output))
+		Expect(string(output)).To(Or(
+			ContainSubstring("does not exist"),
+			ContainSubstring("Cannot find device"),
+		),
+			"expected network device %s to be removed by system reset network", device)
+	}
+
+	GinkgoWriter.Println("Native Linux-only network reset cleanup verified")
+}
+
+// expectLinuxOnlyInstallArtifacts verifies that 'k2s install --linux-only'
+// recreated the Kubernetes admin kubeconfig and the flannel/CNI network devices
+// on the native Linux host. The CNI devices appear once pods are scheduled, so
+// the check is retried within the configured test step timeout.
+func expectLinuxOnlyInstallArtifacts() {
+	GinkgoWriter.Println("Verifying native Linux-only install created Kubernetes components..")
+
+	Eventually(func() error {
+		if _, err := os.Stat("/etc/kubernetes/admin.conf"); err != nil {
+			return fmt.Errorf("/etc/kubernetes/admin.conf not present: %w", err)
+		}
+
+		for _, device := range []string{"cni0", "flannel.1"} {
+			output, err := exec.Command("ip", "link", "show", device).CombinedOutput()
+			if err != nil {
+				return fmt.Errorf("network device %s not present: %w; output: %s", device, err, strings.TrimSpace(string(output)))
+			}
+		}
+
+		return nil
+	}).WithTimeout(suite.TestStepTimeout()).WithPolling(suite.TestStepPollInterval()).Should(Succeed(),
+		"expected native Linux-only install to recreate admin.conf and flannel/CNI devices")
+
+	GinkgoWriter.Println("Native Linux-only install artifacts verified")
 }
 
 var _ = Describe("Cluster Core", func() {
@@ -716,6 +811,28 @@ var _ = Describe("Cluster Core", func() {
 			Expect(svc.Spec.ClusterIP).NotTo(BeEmpty(), "albums-linux1 has no ClusterIP")
 			Expect(strings.HasPrefix(svc.Spec.ClusterIP, "172.21.0.")).To(BeTrue(),
 				"albums-linux1 ClusterIP %s is not in the Linux subnet 172.21.0.0/24", svc.Spec.ClusterIP)
+		})
+	})
+
+	Describe("Linux-only reset commands", Ordered, func() {
+		BeforeAll(func() {
+			if runtime.GOOS != "linux" || !suite.SetupInfo().RuntimeConfig.InstallConfig().LinuxOnly() {
+				Skip("native Linux-only setup required")
+			}
+		})
+
+		It("resets the native Linux-only cluster and removes Kubernetes components", func(ctx SpecContext) {
+			suite.K2sCli().MustExec(ctx, "system", "reset")
+			expectLinuxOnlyResetCleanup("cni0")
+		})
+
+		It("resets the native Linux-only host network and removes CNI devices", func(ctx SpecContext) {
+			suite.K2sCli().MustExec(ctx, "system", "reset", "network", "--force")
+			expectLinuxOnlyNetworkResetCleanup("cni0", "flannel.1")
+		})
+
+		It("can reinstall the native Linux-only cluster after reset", func(ctx SpecContext) {
+			restoreLinuxOnlyCoreSuiteState(ctx)
 		})
 	})
 })
