@@ -110,16 +110,6 @@ func readCephBackupManifest(zipPath string) cephBackupManifest {
 	return cephBackupManifest{}
 }
 
-func expectCephSmbResourcesAbsent(ctx context.Context) {
-	storageClass, storageClassExitCode := suite.Kubectl().Exec(ctx, "get", "storageclass", cephSmbStorageClass, "-o", "name", "--ignore-not-found")
-	Expect(storageClassExitCode).To(Equal(0))
-	Expect(strings.TrimSpace(storageClass)).To(BeEmpty(), "Ceph SMB StorageClass should not exist")
-
-	namespace, namespaceExitCode := suite.Kubectl().Exec(ctx, "get", "namespace", cephSmbNamespace, "-o", "name", "--ignore-not-found")
-	Expect(namespaceExitCode).To(Equal(0))
-	Expect(strings.TrimSpace(namespace)).To(BeEmpty(), "Ceph SMB namespace should not exist")
-}
-
 func expectCephSmbResourcesPresent(ctx context.Context) {
 	Eventually(func() string {
 		out, exitCode := suite.Kubectl().Exec(ctx, "get", "storageclass", cephSmbStorageClass, "-o", "name", "--ignore-not-found")
