@@ -25,7 +25,7 @@ k2s_windows_worker_ip() {
 
 k2s_windows_worker_install_host_dependencies() {
   local package
-  local packages='qemu-system-x86 qemu-utils qemu-block-extra util-linux libvirt-daemon-system libvirt-daemon-driver-qemu libvirt-daemon-config-network libvirt-clients dnsmasq-base ovmf xorriso openssh-client'
+  local packages='qemu-system-x86 qemu-utils util-linux libvirt-daemon-system libvirt-daemon-driver-qemu libvirt-daemon-config-network libvirt-clients dnsmasq-base ovmf xorriso openssh-client'
   k2s_log INFO 'Installing KVM Windows worker host dependencies.'
   k2s_wait_for_dpkg_lock || return 1
   k2s_run env DEBIAN_FRONTEND=noninteractive apt-get update || return 1
@@ -70,7 +70,7 @@ k2s_windows_worker_disk_gb() {
 k2s_windows_worker_preflight() {
   local command memory_mb available_mb total_mb disk_gb available_gb
   [[ -r /dev/kvm && -c /dev/kvm ]] || { k2s_log ERROR 'KVM is unavailable. Enable nested virtualization and expose /dev/kvm to the Debian host.'; return 3; }
-  for command in virsh qemu-img qemu-nbd sfdisk ssh scp ssh-keyscan ssh-keygen xorriso sha256sum; do k2s_require_command "$command" || return 4; done
+  for command in virsh qemu-img sfdisk ssh scp ssh-keyscan ssh-keygen xorriso sha256sum; do k2s_require_command "$command" || return 4; done
   getent passwd libvirt-qemu >/dev/null || { k2s_log ERROR 'The libvirt-qemu service account is missing. Reinstall libvirt-daemon-system.'; return 3; }
   getent passwd dnsmasq >/dev/null || { k2s_log ERROR 'The dnsmasq service account is missing. Install dnsmasq-base.'; return 3; }
   k2s_windows_worker_start_libvirt || return 3
@@ -147,15 +147,13 @@ k2s_windows_worker_import_qcow2() {
 }
 
 k2s_windows_worker_detect_boot_mode() {
-  local disk="$1" partition_table nbd_device=''
-  modprobe nbd max_part=8 || return 1
-  nbd_device=$(for device in /dev/nbd*; do
-    [[ -b "$device" && ! -s "/sys/class/block/${device##*/}/pid" ]] && { printf '%s\n' "$device"; break; }
-  done)
-  [[ -n "$nbd_device" ]] || { k2s_log ERROR 'No unused NBD device is available to inspect the Windows worker disk.'; return 1; }
-  qemu-nbd --connect="$nbd_device" --read-only "$disk" || return 1
-  partition_table=$(sfdisk --json "$nbd_device" 2>/dev/null | jq -r '.partitiontable.label // empty')
-  qemu-nbd --disconnect "$nbd_device" || true
+  local disk="$1" partition_table boot_sector
+  boot_sector=$(mktemp) || return 1
+  # A GPT header resides at LBA 1, while the MBR is at LBA 0. Copying 2 MiB
+  # gives sfdisk both headers without attaching an NBD device to this nested VM.
+  qemu-img dd -f qcow2 "if=$disk" "of=$boot_sector" bs=1M count=2 >/dev/null 2>&1 || { rm -f "$boot_sector"; return 1; }
+  partition_table=$(sfdisk --json "$boot_sector" 2>/dev/null | jq -r '.partitiontable.label // empty')
+  rm -f "$boot_sector"
   case "$partition_table" in
     dos)
       k2s_log INFO 'Detected MBR partition table; booting the Windows worker with BIOS.'

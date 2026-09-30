@@ -106,6 +106,11 @@ k2s_install_control_plane_tools() {
   command -v helm yq >/dev/null
 }
 
+k2s_enable_host_ssh() {
+  k2s_log INFO 'Enabling SSH access on the native Debian host.'
+  systemctl enable --now ssh || return 1
+}
+
 k2s_install_cluster() {
   [[ ! -e /etc/kubernetes/admin.conf ]] || return 5
   k2s_log INFO 'Validating native Debian 13 host prerequisites.'
@@ -116,6 +121,7 @@ k2s_install_cluster() {
   fi
   k2s_log INFO 'Configuring K2s proxy compatibility network.'
   k2s_proxy_network_install || return $?
+  k2s_enable_host_ssh || return $?
   k2s_log INFO 'Configuring K2s HTTP proxy service.'
   k2s_proxy_install || return $?
   k2s_log INFO 'Provisioning Kubernetes and CRI-O packages.'
