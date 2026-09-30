@@ -1190,6 +1190,17 @@ You're not viewing the latest release version.
 </li>
         
           <li class="md-nav__item">
+  <a href="#system-reset" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        system reset
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#system-reset-network" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -3736,6 +3747,17 @@ You're not viewing the latest release version.
 </li>
         
           <li class="md-nav__item">
+  <a href="#system-reset" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        system reset
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#system-reset-network" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -4944,9 +4966,15 @@ SPDX-License-Identifier: MIT
 </tr>
 </tbody>
 </table>
+<h3 id="system-reset">system reset</h3>
+<p>Reset the local K2s system state.</p>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-43-1" name="__codelineno-43-1" href="#__codelineno-43-1"></a><span class="go">k2s system reset</span>
+</code></pre></div>
+<p>On Windows this runs the standard host reset flow.</p>
+<p>On Linux hosts this runs the native uninstall-style cleanup for the installed Linux-only setup, removing the cluster state, common CNI interfaces, and persisted K2s runtime configuration so a fresh install can be started afterwards. Host-network-only cleanup remains the responsibility of <code>k2s system reset network</code>.</p>
 <h3 id="system-reset-network">system reset network</h3>
 <p>Reset the host network configuration (requires reboot).</p>
-<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-43-1" name="__codelineno-43-1" href="#__codelineno-43-1"></a><span class="go">k2s system reset network [flags]</span>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-44-1" name="__codelineno-44-1" href="#__codelineno-44-1"></a><span class="go">k2s system reset network [flags]</span>
 </code></pre></div>
 <table>
 <thead>
@@ -4964,13 +4992,14 @@ SPDX-License-Identifier: MIT
 </tr>
 </tbody>
 </table>
+<p>When a setup is still installed, uninstall it first or run <code>k2s system reset</code> before using the standalone network reset. On Linux hosts, <code>k2s system reset network</code> is the host-network cleanup path; <code>k2s system reset</code> removes only the installed Linux-only cluster state and persisted K2s runtime state.</p>
 <hr />
 <h2 id="node">node</h2>
 <p>Manage additional cluster nodes.</p>
 <p>Currently, <code>node</code> commands document and support additional Linux worker nodes on physical hosts or existing VMs. Support for Windows worker nodes will follow.</p>
 <h3 id="node-add">node add</h3>
 <p>Add a node to the cluster. Currently, this is documented for Linux worker nodes.</p>
-<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-44-1" name="__codelineno-44-1" href="#__codelineno-44-1"></a><span class="go">k2s node add [flags]</span>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-45-1" name="__codelineno-45-1" href="#__codelineno-45-1"></a><span class="go">k2s node add [flags]</span>
 </code></pre></div>
 <table>
 <thead>
@@ -5011,7 +5040,7 @@ SPDX-License-Identifier: MIT
 <p>Use <code>--node-package</code> together with a node package created through <code>k2s system package --node-package --os ...</code> on an installed <em>K2s</em> cluster when adding a Linux worker node without internet access.</p>
 <h3 id="node-remove">node remove</h3>
 <p>Remove a node from the cluster.</p>
-<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-45-1" name="__codelineno-45-1" href="#__codelineno-45-1"></a><span class="go">k2s node remove [flags]</span>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-46-1" name="__codelineno-46-1" href="#__codelineno-46-1"></a><span class="go">k2s node remove [flags]</span>
 </code></pre></div>
 <table>
 <thead>
@@ -5031,7 +5060,7 @@ SPDX-License-Identifier: MIT
 </table>
 <h3 id="node-copy">node copy</h3>
 <p>Copy files or folders between the host and a node.</p>
-<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-46-1" name="__codelineno-46-1" href="#__codelineno-46-1"></a><span class="go">k2s node copy [flags]</span>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-47-1" name="__codelineno-47-1" href="#__codelineno-47-1"></a><span class="go">k2s node copy [flags]</span>
 </code></pre></div>
 <table>
 <thead>
@@ -5081,7 +5110,7 @@ SPDX-License-Identifier: MIT
 </table>
 <h3 id="node-exec">node exec</h3>
 <p>Execute a command on a remote node.</p>
-<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-47-1" name="__codelineno-47-1" href="#__codelineno-47-1"></a><span class="go">k2s node exec [flags]</span>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-48-1" name="__codelineno-48-1" href="#__codelineno-48-1"></a><span class="go">k2s node exec [flags]</span>
 </code></pre></div>
 <table>
 <thead>
@@ -5126,7 +5155,7 @@ SPDX-License-Identifier: MIT
 </table>
 <h3 id="node-connect">node connect</h3>
 <p>Open an interactive <abbr title="Secure Shell">SSH</abbr> session to a remote node.</p>
-<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-48-1" name="__codelineno-48-1" href="#__codelineno-48-1"></a><span class="go">k2s node connect [flags]</span>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-49-1" name="__codelineno-49-1" href="#__codelineno-49-1"></a><span class="go">k2s node connect [flags]</span>
 </code></pre></div>
 <table>
 <thead>

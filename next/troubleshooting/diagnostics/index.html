@@ -3078,6 +3078,7 @@ SPDX-License-Identifier: MIT
 <p>Alternatively, use the <abbr title="Command-Line Interface">CLI</abbr> for a network reset (requires a reboot):</p>
 <div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="go">k2s system reset network</span>
 </code></pre></div>
+<p>On Linux hosts, <code>k2s system reset network</code> performs the host-network cleanup path. It leaves the K2s runtime configuration in place; use <code>k2s system reset</code> when you also need to remove the installed Linux-only cluster state and persisted K2s install state.</p>
 <h2 id="listing-all-pvcs">Listing ALL PVCs</h2>
 <p>Get the list of all mounted volumes, their size and their namespace:
 <div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="go">kg pv</span>
