@@ -267,7 +267,7 @@ k2s_windows_worker_password_scp() {
 k2s_windows_worker_bootstrap_ssh_key() {
   k2s_log INFO 'Installing the generated Windows worker SSH key through temporary password authentication.'
   k2s_windows_worker_password_scp || return $?
-  k2s_windows_worker_password_ssh 'powershell.exe -NoProfile -Command "New-Item -ItemType Directory -Path C:\Users\remote\.ssh -Force | Out-Null; Copy-Item -Path C:\Users\remote\windows-worker.pub -Destination C:\Users\remote\.ssh\authorized_keys -Force; icacls C:\Users\remote\.ssh /inheritance:r /grant remote:(OI)(CI)F | Out-Null; icacls C:\Users\remote\.ssh\authorized_keys /inheritance:r /grant remote:F | Out-Null; Remove-Item C:\Users\remote\windows-worker.pub -Force; Restart-Service sshd"'
+  k2s_windows_worker_password_ssh 'powershell.exe -NoProfile -Command "New-Item -ItemType Directory -Path C:\Users\remote\.ssh -Force | Out-Null; Copy-Item -Path C:\Users\remote\windows-worker.pub -Destination C:\Users\remote\.ssh\authorized_keys -Force; icacls C:\Users\remote\.ssh /inheritance:r /grant \"remote:(OI)(CI)F\" | Out-Null; icacls C:\Users\remote\.ssh\authorized_keys /inheritance:r /grant \"remote:F\" | Out-Null; Remove-Item C:\Users\remote\windows-worker.pub -Force; Restart-Service sshd"'
 }
 
 k2s_windows_worker_wait_for_ssh() {
