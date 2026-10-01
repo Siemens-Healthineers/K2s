@@ -70,7 +70,7 @@ k2s_windows_worker_disk_gb() {
 k2s_windows_worker_preflight() {
   local command memory_mb available_mb total_mb disk_gb available_gb
   [[ -r /dev/kvm && -c /dev/kvm ]] || { k2s_log ERROR 'KVM is unavailable. Enable nested virtualization and expose /dev/kvm to the Debian host.'; return 3; }
-  for command in virsh qemu-img sfdisk ssh scp ssh-keyscan ssh-keygen sshpass sha256sum; do k2s_require_command "$command" || return 4; done
+  for command in virsh qemu-img sfdisk ssh scp ssh-keyscan ssh-keygen sshpass sha256sum tar; do k2s_require_command "$command" || return 4; done
   getent passwd libvirt-qemu >/dev/null || { k2s_log ERROR 'The libvirt-qemu service account is missing. Reinstall libvirt-daemon-system.'; return 3; }
   getent passwd dnsmasq >/dev/null || { k2s_log ERROR 'The dnsmasq service account is missing. Install dnsmasq-base.'; return 3; }
   k2s_windows_worker_start_libvirt || return 3
@@ -311,6 +311,23 @@ k2s_windows_worker_log_ssh_diagnostics() {
   tail -n 100 "/var/log/libvirt/qemu/${K2S_WINDOWS_WORKER_NAME}.log" 2>&1 | tee -a "$K2S_LOG_FILE" || true
 }
 
+k2s_windows_worker_copy_runtime() {
+  local archive result
+  archive=$(mktemp --suffix=.tar) || return 1
+  k2s_log INFO 'Copying K2s runtime files to the Windows worker.'
+  tar -C "$K2S_INSTALL_DIR" \
+    --exclude='bin/*.iso' \
+    --exclude='bin/*.qcow2' \
+    --exclude='bin/*.vhdx' \
+    -cf "$archive" cfg lib smallsetup bin || { rm -f "$archive"; return 1; }
+  k2s_windows_worker_ssh 'powershell.exe -NoProfile -Command "New-Item -ItemType Directory -Path C:\ProgramData\K2s -Force | Out-Null"' || { rm -f "$archive"; return 1; }
+  scp -i "$(k2s_windows_worker_private_key)" -o BatchMode=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile="$(k2s_windows_worker_known_hosts)" "$archive" "remote@$(k2s_windows_worker_ip):C:/ProgramData/K2s/k2s-runtime.tar"
+  result=$?
+  rm -f "$archive"
+  (( result == 0 )) || return "$result"
+  k2s_windows_worker_ssh 'powershell.exe -NoProfile -Command "New-Item -ItemType Directory -Path C:\k2s -Force | Out-Null; tar.exe -xf C:\ProgramData\K2s\k2s-runtime.tar -C C:\k2s; Remove-Item C:\ProgramData\K2s\k2s-runtime.tar -Force"'
+}
+
 k2s_windows_worker_join_cluster() {
   local join_command join_script escaped_join gateway
   join_command=$(kubeadm token create --ttl 30m --print-join-command) || return 1
@@ -381,6 +398,7 @@ k2s_windows_worker_provision() {
   k2s_windows_worker_write_state "$disk" || return 1
   virsh start "$K2S_WINDOWS_WORKER_NAME" || return 1
   k2s_windows_worker_wait_for_ssh || return $?
+  k2s_windows_worker_copy_runtime || return $?
   k2s_windows_worker_join_cluster || return $?
   k2s_windows_worker_wait_for_node || return $?
   k2s_log INFO 'Managed Windows worker is reachable through SSH and joined to the Kubernetes cluster.'
