@@ -4583,8 +4583,8 @@ SPDX-License-Identifier: MIT
 </thead>
 <tbody>
 <tr>
-<td><code>--zip</code></td>
-<td><code>-z</code></td>
+<td><code>--file</code></td>
+<td><code>-f</code></td>
 <td>Path to the OCI artifact tar file</td>
 </tr>
 <tr>
@@ -4592,11 +4592,19 @@ SPDX-License-Identifier: MIT
 <td></td>
 <td>Target node name for addon image import (e.g. <code>worker-1</code>); defaults to control-plane and local Windows host when omitted</td>
 </tr>
+<tr>
+<td><code>--nodes</code></td>
+<td></td>
+<td>Target node names (comma-separated) for addon image import (e.g. <code>worker-1,worker-2</code>)</td>
+</tr>
 </tbody>
 </table>
-<p>By default the addon images are imported onto the control-plane node and the local Windows host. Use <code>--node</code> to import them onto a specific worker node instead. The node must exist and be in the <code>Ready</code> state; otherwise the command fails without importing anything.</p>
+<p>By default the addon images are imported onto the control-plane node and the local Windows host. Use <code>--node</code> to import them onto a specific worker node, control-plane, or local Windows host, or <code>--nodes</code> to import them onto multiple nodes. When both <code>--node</code> and <code>--nodes</code> are provided, <code>--nodes</code> takes precedence. Target nodes must exist and be in the <code>Ready</code> state; otherwise the command fails without importing anything.</p>
 <div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-28-1" name="__codelineno-28-1" href="#__codelineno-28-1"></a><span class="gp"># </span>Import<span class="w"> </span>an<span class="w"> </span>addon<span class="w"> </span>and<span class="w"> </span>distribute<span class="w"> </span>its<span class="w"> </span>images<span class="w"> </span>to<span class="w"> </span>a<span class="w"> </span>specific<span class="w"> </span>worker<span class="w"> </span>node
 <a id="__codelineno-28-2" name="__codelineno-28-2" href="#__codelineno-28-2"></a><span class="go">k2s addons import registry -f C:\tmp\addons.oci.tar --node worker-1</span>
+<a id="__codelineno-28-3" name="__codelineno-28-3" href="#__codelineno-28-3"></a>
+<a id="__codelineno-28-4" name="__codelineno-28-4" href="#__codelineno-28-4"></a><span class="gp"># </span>Import<span class="w"> </span>an<span class="w"> </span>addon<span class="w"> </span>and<span class="w"> </span>distribute<span class="w"> </span>its<span class="w"> </span>images<span class="w"> </span>to<span class="w"> </span>multiple<span class="w"> </span>worker<span class="w"> </span>nodes
+<a id="__codelineno-28-5" name="__codelineno-28-5" href="#__codelineno-28-5"></a><span class="go">k2s addons import registry -f C:\tmp\addons.oci.tar --nodes worker-1,worker-2</span>
 </code></pre></div>
 <h3 id="addons-backup">addons backup</h3>
 <p>Back up addon data (persistent volumes, configuration).</p>
