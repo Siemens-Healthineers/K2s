@@ -12,7 +12,7 @@ Param (
     [string] $ArtifactFile,
     [parameter(Mandatory = $false, HelpMessage = 'Name of Addons to import')]
     [string[]] $Names,
-    [parameter(Mandatory = $false, HelpMessage = 'Target node name for addon image import (e.g. worker-1); defaults to control-plane and local Windows host when omitted')]
+    [parameter(Mandatory = $false, HelpMessage = 'Target node name(s) for addon image import (comma-separated, e.g. worker-1,worker-2); defaults to control-plane and local Windows host when omitted')]
     [string] $Nodes = '',
     [parameter(Mandatory = $false, HelpMessage = 'If set to true, will encode and send result as structured data to the CLI.')]
     [switch] $EncodeStructuredOutput,
@@ -39,6 +39,91 @@ function New-CompatTemporaryFile {
     }
 }
 
+function Import-AddonImageLayer {
+    <#
+    .SYNOPSIS
+    Extracts a staged image layer tar and imports its images via Import-Image.ps1.
+
+    .DESCRIPTION
+    Shared by the Layer 4 (Linux) and Layer 5 (Windows) image import sections. Sets
+    $script:hasImportFailures on any extraction/import failure so the caller can
+    propagate the overall command result.
+    #>
+    param(
+        [Parameter(Mandatory = $true)]
+        [string] $LayerTarPath,
+        [Parameter(Mandatory = $true)]
+        [string] $TempLayerDir,
+        [Parameter(Mandatory = $true)]
+        [string] $ExtractedDirName,
+        [Parameter(Mandatory = $false)]
+        [string[]] $TargetNodes = @(),
+        [Parameter(Mandatory = $false)]
+        [switch] $Windows,
+        [Parameter(Mandatory = $true)]
+        [string] $AddonName,
+        [Parameter(Mandatory = $true)]
+        [string] $ImportImageScript,
+        [Parameter(Mandatory = $false)]
+        [switch] $ShowLogs
+    )
+
+    $osLabel = if ($Windows) { 'Windows' } else { 'Linux' }
+    Write-Log "[Import] Importing $osLabel images layer from blob" -Console
+
+    # Check if this is a consolidated tar (tar of tars) or single image tar
+    $tempImagesDir = Join-Path $TempLayerDir $ExtractedDirName
+    if (-not (Test-Path $tempImagesDir)) {
+        New-Item -ItemType Directory -Path $tempImagesDir -Force | Out-Null
+    }
+
+    # Extract the tar file
+    $currentLocation = Get-Location
+    try {
+        Set-Location $tempImagesDir
+        $extractResult = & tar -xf $LayerTarPath 2>&1
+        if ($LASTEXITCODE -ne 0) {
+            Write-Log "[Import] Warning: Failed to extract $osLabel images tar: $extractResult" -Console
+            $script:hasImportFailures = $true
+        }
+    }
+    finally {
+        Set-Location $currentLocation
+    }
+
+    # Check if we extracted individual image tars or a single image
+    $extractedTars = Get-ChildItem -Path $tempImagesDir -Filter '*.tar' -File
+    $imageFiles = Get-ChildItem -Path $tempImagesDir -Recurse -File
+
+    Write-Log "[Import] Extracted files in $tempImagesDir`: $($extractedTars.Count) tars" -Console
+    if ($extractedTars.Count -gt 0) {
+        foreach ($tar in $extractedTars) {
+            Write-Log "[Import]   - $($tar.Name) ($([math]::Round($tar.Length / 1MB, 2)) MB)" -Console
+        }
+    }
+
+    if ($extractedTars.Count -gt 0 -or $imageFiles.Count -gt 0) {
+        if ($TargetNodes -and $TargetNodes.Count -gt 0) {
+            $importResult = &$ImportImageScript -ImageDir $tempImagesDir -Windows:$Windows -Nodes ($TargetNodes -join ',') -ShowLogs:$ShowLogs -ReturnStatus
+        } else {
+            $importResult = &$ImportImageScript -ImageDir $tempImagesDir -Windows:$Windows -ShowLogs:$ShowLogs -ReturnStatus
+        }
+        if ($importResult -isnot [bool] -or -not $importResult) {
+            Write-Log "[Import] Warning: $osLabel images import failed for $AddonName" -Console
+            $script:hasImportFailures = $true
+        } else {
+            Write-Log "[Import] $osLabel images imported successfully for $AddonName" -Console
+        }
+    } else {
+        Write-Log "[Import] Warning: No $osLabel image files found after extraction" -Console
+        Write-Log "[Import] Warning: $osLabel images import failed for $AddonName with exit code 1" -Console
+        $script:hasImportFailures = $true
+    }
+
+    # Cleanup extracted images
+    Remove-Item -Path $tempImagesDir -Recurse -Force -ErrorAction SilentlyContinue
+}
+
 Initialize-Logging -ShowLogs:$ShowLogs
 
 $systemError = Test-SystemAvailability -Structured
@@ -54,25 +139,38 @@ if ($systemError) {
 
 $setupInfo = Get-SetupInfo
 
-if (-not [string]::IsNullOrWhiteSpace($Nodes)) {
-    $targetNode = Resolve-ImageNode -NodeName $Nodes
-    if ($null -eq $targetNode) {
-        $nodeError = New-Error -Severity Warning -Code 'import-node-not-found' -Message "Node '$Nodes' was not found in the cluster - run 'kubectl get nodes' to list available nodes"
-        if ($EncodeStructuredOutput -eq $true) {
-            Send-ToCli -MessageType $MessageType -Message @{Error = $nodeError }
-            return
+$linuxNodes = @()
+$windowsNodes = @()
+$script:hasImportFailures = $false
+
+$nodeList = Resolve-NodeList -Nodes $Nodes
+if ($nodeList.Count -gt 0) {
+    foreach ($node in $nodeList) {
+        $targetNode = Resolve-ImageNode -NodeName $node
+        if ($null -eq $targetNode) {
+            $nodeError = New-Error -Severity Warning -Code 'import-node-not-found' -Message "Node '$node' was not found in the cluster - run 'kubectl get nodes' to list available nodes"
+            if ($EncodeStructuredOutput -eq $true) {
+                Send-ToCli -MessageType $MessageType -Message @{Error = $nodeError }
+                return
+            }
+            Write-Log "[Import] $($nodeError.Message)" -Error
+            exit 1
         }
-        Write-Log $nodeError.Message -Error
-        exit 1
-    }
-    if (-not (Test-NodeReady -NodeName $Nodes -Kind $targetNode.Kind)) {
-        $nodeError = New-Error -Severity Warning -Code 'import-node-not-ready' -Message "Node '$Nodes' is not in Ready state - run 'kubectl get nodes' to check node status"
-        if ($EncodeStructuredOutput -eq $true) {
-            Send-ToCli -MessageType $MessageType -Message @{Error = $nodeError }
-            return
+        if (-not (Test-NodeReady -NodeName $node -Kind $targetNode.Kind)) {
+            $nodeError = New-Error -Severity Warning -Code 'import-node-not-ready' -Message "Node '$node' is not in Ready state - run 'kubectl get nodes' to check node status"
+            if ($EncodeStructuredOutput -eq $true) {
+                Send-ToCli -MessageType $MessageType -Message @{Error = $nodeError }
+                return
+            }
+            Write-Log "[Import] $($nodeError.Message)" -Error
+            exit 1
         }
-        Write-Log $nodeError.Message -Error
-        exit 1
+        if ($targetNode.OS -eq 'linux') {
+            $linuxNodes += $node
+        }
+        elseif ($targetNode.OS -eq 'windows') {
+            $windowsNodes += $node
+        }
     }
 }
 
@@ -665,129 +763,25 @@ foreach ($addon in $addonsToImport) {
         # Import Layer 4: Linux Images (from staged temp location)
         $linuxImagesLayer = Join-Path $tempLayerDir 'images-linux.tar'
         if (Test-Path $linuxImagesLayer) {
-            Write-Log "Importing Linux images layer from blob" -Console
-            
-            # Check if this is a consolidated tar (tar of tars) or single image tar
-            $tempImagesDir = Join-Path $tempLayerDir 'images-linux-extracted'
-            if (-not (Test-Path $tempImagesDir)) {
-                New-Item -ItemType Directory -Path $tempImagesDir -Force | Out-Null
-            }
-            
-            # Extract the tar file
-            $currentLocation = Get-Location
-            try {
-                Set-Location $tempImagesDir
-                $extractResult = & tar -xf $linuxImagesLayer 2>&1
-                if ($LASTEXITCODE -ne 0) {
-                    Write-Log "Warning: Failed to extract Linux images tar: $extractResult" -Console
-                }
-            }
-            finally {
-                Set-Location $currentLocation
-            }
-            
-            # Check if we extracted individual image tars or a single image
-            $extractedTars = Get-ChildItem -Path $tempImagesDir -Filter '*.tar' -File
-            
-            Write-Log "Extracted files in $tempImagesDir`: $($extractedTars.Count) tars" -Console
-            if ($extractedTars.Count -gt 0) {
-                foreach ($tar in $extractedTars) {
-                    Write-Log "  - $($tar.Name) ($([math]::Round($tar.Length / 1MB, 2)) MB)" -Console
-                }
-            }
-            
-            $importImageScript = "$PSScriptRoot\..\lib\scripts\windows\host\image\Import-Image.ps1"
-            if ($extractedTars.Count -gt 0) {
-                # Multiple image tars extracted - use directory import
-                Write-Log "Found $($extractedTars.Count) image tar(s), importing from directory" -Console
-                &$importImageScript -ImageDir $tempImagesDir -Nodes $Nodes -ShowLogs:$ShowLogs
-                $importExitCode = $LASTEXITCODE
+            if ($nodeList.Count -eq 0 -or $linuxNodes.Count -gt 0) {
+                Import-AddonImageLayer -LayerTarPath $linuxImagesLayer -TempLayerDir $tempLayerDir -ExtractedDirName 'images-linux-extracted' -TargetNodes $linuxNodes -AddonName $addon.name -ImportImageScript $importImageScript -ShowLogs:$ShowLogs
             } else {
-                # Single image tar - check if extraction created image files directly
-                $imageFiles = Get-ChildItem -Path $tempImagesDir -Recurse -File
-                if ($imageFiles.Count -gt 0) {
-                    Write-Log "Importing extracted image files from directory" -Console
-                    &$importImageScript -ImageDir $tempImagesDir -Nodes $Nodes -ShowLogs:$ShowLogs
-                    $importExitCode = $LASTEXITCODE
-                } else {
-                    Write-Log "Warning: No image files found after extraction" -Console
-                    $importExitCode = 1
-                }
+                Write-Log "[Import] Skipping Linux images import: no Linux target nodes specified in '$Nodes'" -Console
             }
-            
-            if ($importExitCode -ne 0) {
-                Write-Log "Warning: Linux images import failed for $($addon.name) with exit code $importExitCode" -Console
-            } else {
-                Write-Log "Linux images imported successfully for $($addon.name)" -Console
-            }
-            
-            # Cleanup extracted images
-            Remove-Item -Path $tempImagesDir -Recurse -Force -ErrorAction SilentlyContinue
         } else {
-            Write-Log "No Linux images layer found for $($addon.name)"
+            Write-Log "[Import] No Linux images layer found for $($addon.name)"
         }
         
         # Import Layer 5: Windows Images (from staged temp location)
         $windowsImagesLayer = Join-Path $tempLayerDir 'images-windows.tar'
         if ((Test-Path $windowsImagesLayer) -and (-not $setupInfo.LinuxOnly)) {
-            Write-Log "Importing Windows images layer from blob" -Console
-            
-            # Check if this is a consolidated tar (tar of tars) or single image tar
-            $tempImagesDir = Join-Path $tempLayerDir 'images-windows-extracted'
-            if (-not (Test-Path $tempImagesDir)) {
-                New-Item -ItemType Directory -Path $tempImagesDir -Force | Out-Null
-            }
-            
-            # Extract the tar file
-            $currentLocation = Get-Location
-            try {
-                Set-Location $tempImagesDir
-                $extractResult = & tar -xf $windowsImagesLayer 2>&1
-                if ($LASTEXITCODE -ne 0) {
-                    Write-Log "Warning: Failed to extract Windows images tar: $extractResult" -Console
-                }
-            }
-            finally {
-                Set-Location $currentLocation
-            }
-            
-            # Check if we extracted individual image tars
-            $extractedTars = Get-ChildItem -Path $tempImagesDir -Filter '*.tar' -File
-            
-            Write-Log "Extracted files in $tempImagesDir`: $($extractedTars.Count) tars" -Console
-            if ($extractedTars.Count -gt 0) {
-                foreach ($tar in $extractedTars) {
-                    Write-Log "  - $($tar.Name) ($([math]::Round($tar.Length / 1MB, 2)) MB)" -Console
-                }
-            }
-            
-            $importImageScript = "$PSScriptRoot\..\lib\scripts\windows\host\image\Import-Image.ps1"
-            if ($extractedTars.Count -gt 0) {
-                Write-Log "Found $($extractedTars.Count) Windows image tar(s), importing from directory" -Console
-                &$importImageScript -ImageDir $tempImagesDir -Windows -Nodes $Nodes -ShowLogs:$ShowLogs
-                $importExitCode = $LASTEXITCODE
+            if ($nodeList.Count -eq 0 -or $windowsNodes.Count -gt 0) {
+                Import-AddonImageLayer -LayerTarPath $windowsImagesLayer -TempLayerDir $tempLayerDir -ExtractedDirName 'images-windows-extracted' -TargetNodes $windowsNodes -Windows -AddonName $addon.name -ImportImageScript $importImageScript -ShowLogs:$ShowLogs
             } else {
-                $imageFiles = Get-ChildItem -Path $tempImagesDir -Recurse -File
-                if ($imageFiles.Count -gt 0) {
-                    Write-Log "Importing extracted Windows image files from directory" -Console
-                    &$importImageScript -ImageDir $tempImagesDir -Windows -Nodes $Nodes -ShowLogs:$ShowLogs
-                    $importExitCode = $LASTEXITCODE
-                } else {
-                    Write-Log "Warning: No Windows image files found after extraction" -Console
-                    $importExitCode = 1
-                }
+                Write-Log "[Import] Skipping Windows images import: no Windows target nodes specified in '$Nodes'" -Console
             }
-            
-            if ($importExitCode -ne 0) {
-                Write-Log "Warning: Windows images import failed for $($addon.name) with exit code $importExitCode" -Console
-            } else {
-                Write-Log "Windows images imported successfully for $($addon.name)" -Console
-            }
-            
-            # Cleanup extracted images
-            Remove-Item -Path $tempImagesDir -Recurse -Force -ErrorAction SilentlyContinue
         } else {
-            Write-Log "No Windows images layer found for $($addon.name) or Linux-only setup"
+            Write-Log "[Import] No Windows images layer found for $($addon.name) or Linux-only setup"
         }
         
         # Process Layer 6: Packages (already extracted to temp location)
@@ -884,6 +878,18 @@ Remove-Item -Force "$tmpDir" -Recurse -Confirm:$False -ErrorAction SilentlyConti
 
 Write-Log '---'
 $importedNames = ($addonsToImport | ForEach-Object { $_.name }) -join ', '
+
+if ($script:hasImportFailures) {
+    $errMsg = "Addons '$importedNames' import completed with image import failures - check the log for details"
+    if ($EncodeStructuredOutput -eq $true) {
+        $err = New-Error -Code 'image-import-failed' -Message $errMsg
+        Send-ToCli -MessageType $MessageType -Message @{Error = $err }
+        return
+    }
+    Write-Log $errMsg -Error
+    exit 1
+}
+
 Write-Log "Addons '$importedNames' imported successfully from OCI artifact!" -Console
 Write-Log "OCI Artifact layers processed:" -Console
 Write-Log "  Config:  metadata.json       (addon metadata)" -Console
