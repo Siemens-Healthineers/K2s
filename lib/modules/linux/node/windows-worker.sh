@@ -323,9 +323,12 @@ k2s_windows_worker_define() {
   fi
   domain_xml=$(mktemp)
   boot_order="<boot dev='hd'/>"; media_disks=''
-  if [[ -n "$install_iso" && -n "$bootstrap_iso" ]]; then
+  if [[ -n "$install_iso" ]]; then
     boot_order="<boot dev='cdrom'/><boot dev='hd'/>"
-    media_disks="<disk type='file' device='cdrom'><driver name='qemu' type='raw'/><source file='$install_iso'/><target dev='sdb' bus='sata'/><readonly/></disk><disk type='file' device='cdrom'><driver name='qemu' type='raw'/><source file='$bootstrap_iso'/><target dev='sdc' bus='sata'/><readonly/></disk>"
+    media_disks="<disk type='file' device='cdrom'><driver name='qemu' type='raw'/><source file='$install_iso'/><target dev='sdb' bus='sata'/><readonly/></disk>"
+  fi
+  if [[ -n "$bootstrap_iso" ]]; then
+    media_disks+="<disk type='file' device='cdrom'><driver name='qemu' type='raw'/><source file='$bootstrap_iso'/><target dev='sdc' bus='sata'/><readonly/></disk>"
   fi
   cat > "$domain_xml" <<EOF
 <domain type='kvm'><name>$K2S_WINDOWS_WORKER_NAME</name><memory unit='MiB'>$memory_mb</memory><currentMemory unit='MiB'>$memory_mb</currentMemory><vcpu placement='static'>$K2S_WORKER_CPU_COUNT</vcpu><os><type arch='x86_64' machine='q35'>hvm</type>$firmware_xml$boot_order</os><features><acpi/><apic/><hyperv mode='custom'><relaxed state='on'/><vapic state='on'/><spinlocks state='on' retries='8191'/><vpindex state='on'/><runtime state='on'/><synic state='on'/><stimer state='on'/></hyperv></features><cpu mode='host-passthrough' check='none'/><clock offset='localtime'><timer name='hypervclock' present='yes'/><timer name='hpet' present='no'/></clock><devices><disk type='file' device='disk'><driver name='qemu' type='qcow2' discard='unmap'/><source file='$disk'/><target dev='sda' bus='sata'/></disk>$media_disks<interface type='network'><mac address='$K2S_WINDOWS_WORKER_MAC'/><source network='$K2S_WINDOWS_WORKER_NETWORK'/><model type='e1000'/></interface><serial type='pty'/><console type='pty'/><graphics type='vnc' autoport='yes' listen='127.0.0.1'><listen type='address' address='127.0.0.1'/></graphics><video><model type='vga' vram='16384' heads='1' primary='yes'/></video><rng model='virtio'><backend model='random'>/dev/urandom</backend></rng><memballoon model='virtio'/></devices></domain>
@@ -346,16 +349,29 @@ k2s_windows_worker_provision() {
   k2s_log INFO 'Preflighting managed KVM Windows worker.'
   k2s_windows_worker_preflight || return $?
   k2s_windows_worker_network_create || return 1
-  local disk; disk=$(k2s_windows_worker_prepare_image) || return $?
-  k2s_windows_worker_define "$disk" || return 1
+  local disk bootstrap_iso
+  disk=$(k2s_windows_worker_prepare_image) || return $?
+  k2s_windows_worker_create_ssh_key || return 1
+  bootstrap_iso=$(k2s_windows_worker_create_bootstrap_media) || return $?
+  k2s_windows_worker_define "$disk" '' "$bootstrap_iso" || return 1
   k2s_windows_worker_write_state "$disk" || return 1
   virsh start "$K2S_WINDOWS_WORKER_NAME" || return 1
   k2s_windows_worker_wait_for_ssh || return $?
   k2s_windows_worker_join_cluster || return $?
   k2s_windows_worker_wait_for_node || return $?
-  k2s_log INFO "Managed Windows worker is reachable through SSH and joined to the Kubernetes cluster."
+  k2s_log INFO 'Managed Windows worker is reachable through SSH and joined to the Kubernetes cluster.'
 }
 
 k2s_windows_worker_start() { virsh net-start "$K2S_WINDOWS_WORKER_NETWORK" 2>/dev/null || true; virsh start "$K2S_WINDOWS_WORKER_NAME" 2>/dev/null || true; }
 k2s_windows_worker_stop() { virsh shutdown "$K2S_WINDOWS_WORKER_NAME" 2>/dev/null || true; }
-k2s_windows_worker_remove() { local vm_dir; vm_dir=$(k2s_windows_worker_vm_dir); ip route del "$K2S_WINDOWS_WORKER_POD_SUBNET" 2>/dev/null || true; virsh destroy "$K2S_WINDOWS_WORKER_NAME" 2>/dev/null || true; virsh undefine "$K2S_WINDOWS_WORKER_NAME" --remove-all-storage --nvram 2>/dev/null || true; rm -f "$vm_dir/$K2S_WINDOWS_WORKER_NAME.qcow2" "$vm_dir/${K2S_WINDOWS_WORKER_NAME}_VARS.fd" "$vm_dir/windows-worker-build.qcow2" "$vm_dir/windows-worker-bootstrap.iso" "$vm_dir/windows-worker-install.iso"; virsh net-destroy "$K2S_WINDOWS_WORKER_NETWORK" 2>/dev/null || true; virsh net-undefine "$K2S_WINDOWS_WORKER_NETWORK" 2>/dev/null || true; rm -f "$(k2s_windows_worker_state_file)"; }
+k2s_windows_worker_remove() {
+  local vm_dir
+  vm_dir=$(k2s_windows_worker_vm_dir)
+  ip route del "$K2S_WINDOWS_WORKER_POD_SUBNET" 2>/dev/null || true
+  virsh destroy "$K2S_WINDOWS_WORKER_NAME" 2>/dev/null || true
+  virsh undefine "$K2S_WINDOWS_WORKER_NAME" --remove-all-storage --nvram 2>/dev/null || true
+  rm -f "$vm_dir/$K2S_WINDOWS_WORKER_NAME.qcow2" "$vm_dir/${K2S_WINDOWS_WORKER_NAME}_VARS.fd" "$vm_dir/windows-worker-bootstrap.iso"
+  virsh net-destroy "$K2S_WINDOWS_WORKER_NETWORK" 2>/dev/null || true
+  virsh net-undefine "$K2S_WINDOWS_WORKER_NETWORK" 2>/dev/null || true
+  rm -f "$(k2s_windows_worker_state_file)"
+}
