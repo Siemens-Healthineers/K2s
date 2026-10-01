@@ -1282,6 +1282,17 @@ You're not viewing the latest release version.
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
+  <a href="#windows-default-switch-validation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Windows Default Switch validation
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#additional-options" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -2734,6 +2745,17 @@ You're not viewing the latest release version.
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
+  <a href="#windows-default-switch-validation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Windows Default Switch validation
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#additional-options" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -2799,6 +2821,21 @@ SPDX-License-Identifier: MIT
 <p class="admonition-title">Note</p>
 <p><em>K2s</em> will start automatically after the installation has finished.</p>
 </div>
+<h3 id="windows-default-switch-validation">Windows Default Switch validation</h3>
+<p>On Windows, startup validates the Hyper-V Default Switch against the configured
+K2s subnets before starting networking. If an existing switch's IPv4 address is
+initially missing, startup observes it for up to 120 seconds to allow Windows
+networking to initialize. Windows client hosts also observe an initially absent
+switch because Windows can create it asynchronously during boot. Windows Server
+hosts without a Default Switch skip this wait.
+A conflicting switch is removed and revalidated before K2s networking starts.
+If the switch remains absent, startup can continue; an existing switch without
+an IPv4 address fails validation because its subnet cannot be checked.</p>
+<p>If startup performs networking initialization, it checks again before reporting
+success. The already-running early-return path uses only the initial validation.
+This final check does not remove
+networks: if a conflicting Default Switch appears during startup, startup reports
+an error. After Windows networking has settled, retry <code>k2s start</code>.</p>
 <h3 id="additional-options">Additional Options</h3>
 <h4 id="skip-starting-if-already-running">Skip Starting if Already Running</h4>
 <p>To skip starting the <em>K2s</em> cluster if it is already running, use the <code>--ignore-if-running</code> flag or its shortcut <code>-i</code>:
