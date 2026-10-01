@@ -26,6 +26,10 @@ Describe 'Test-DefaultSwitch' -Tag 'unit', 'ci', 'network' {
         Mock Remove-K2sDefaultSwitch -ModuleName windows-host-network.module
         Mock Start-Sleep -ModuleName windows-host-network.module
         Mock Get-VMSwitch -ModuleName windows-host-network.module
+        Mock Get-NetAdapter -ModuleName windows-host-network.module
+        Mock Get-CimInstance -ModuleName windows-host-network.module {
+            [pscustomobject]@{ ProductType = 1 }
+        }
     }
 
     It 'returns without removal when the Default Switch does not conflict' {
@@ -118,14 +122,31 @@ Describe 'Test-DefaultSwitch' -Tag 'unit', 'ci', 'network' {
         Assert-MockCalled Remove-K2sDefaultSwitch -ModuleName windows-host-network.module -Times 0
     }
 
-    It 'allows a genuinely absent switch after exactly the configured observation period' {
+    It 'observes an absent switch on Windows client hosts to detect late creation' {
         Mock Get-NetIPAddress -ModuleName windows-host-network.module
 
         Test-DefaultSwitch -SwitchObservationSeconds 120
 
         Assert-MockCalled Get-NetIPAddress -ModuleName windows-host-network.module -Times 25 -Exactly
         Assert-MockCalled Start-Sleep -ModuleName windows-host-network.module -Times 24 -Exactly -ParameterFilter { $Seconds -eq 5 }
-        Assert-MockCalled Get-VMSwitch -ModuleName windows-host-network.module -Times 1 -Exactly
+        Assert-MockCalled Get-VMSwitch -ModuleName windows-host-network.module -Times 2 -Exactly
+        Assert-MockCalled Remove-K2sDefaultSwitch -ModuleName windows-host-network.module -Times 0
+    }
+
+    It 'skips observation when the Default Switch is absent on a server host' -TestCases @(
+        @{ ProductType = 2 },
+        @{ ProductType = 3 }
+    ) {
+        param($ProductType)
+        Mock Get-NetIPAddress -ModuleName windows-host-network.module
+        Mock Get-CimInstance -ModuleName windows-host-network.module {
+            [pscustomobject]@{ ProductType = $ProductType }
+        }
+
+        Test-DefaultSwitch -SwitchObservationSeconds 120
+
+        Assert-MockCalled Start-Sleep -ModuleName windows-host-network.module -Times 0
+        Assert-MockCalled Get-NetIPAddress -ModuleName windows-host-network.module -Times 1 -Exactly
         Assert-MockCalled Remove-K2sDefaultSwitch -ModuleName windows-host-network.module -Times 0
     }
 
@@ -140,6 +161,21 @@ Describe 'Test-DefaultSwitch' -Tag 'unit', 'ci', 'network' {
         Assert-MockCalled Start-Sleep -ModuleName windows-host-network.module -Times 1 -Exactly -ParameterFilter { $Seconds -eq 5 }
         Assert-MockCalled Start-Sleep -ModuleName windows-host-network.module -Times 1 -Exactly -ParameterFilter { $Seconds -eq 2 }
         Assert-MockCalled Remove-K2sDefaultSwitch -ModuleName windows-host-network.module -Times 0
+    }
+
+    It 'still observes an existing uninitialized switch on Windows Server' {
+        Mock Get-NetIPAddress -ModuleName windows-host-network.module
+        Mock Get-NetAdapter -ModuleName windows-host-network.module {
+            [pscustomobject]@{ Name = 'vEthernet (Default Switch)' }
+        }
+        Mock Get-CimInstance -ModuleName windows-host-network.module {
+            [pscustomobject]@{ ProductType = 3 }
+        }
+
+        { Test-DefaultSwitch -SwitchObservationSeconds 5 } | Should -Throw '*subnet cannot be validated*'
+
+        Assert-MockCalled Start-Sleep -ModuleName windows-host-network.module -Times 1 -Exactly
+        Assert-MockCalled Get-CimInstance -ModuleName windows-host-network.module -Times 0
     }
 
     It 'detects a conflict on final validation after an initially absent switch' {
@@ -207,6 +243,71 @@ Describe 'Test-DefaultSwitch' -Tag 'unit', 'ci', 'network' {
 
         Assert-MockCalled Remove-K2sDefaultSwitch -ModuleName windows-host-network.module -Times 0
     }
+
+    It 'logs Hyper-V query failure and falls back to detecting a newly visible adapter' {
+        $global:defaultSwitchAdapterProbeCount = 0
+        Mock Get-NetIPAddress -ModuleName windows-host-network.module
+        Mock Get-VMSwitch -ModuleName windows-host-network.module { throw 'VMMS is starting' }
+        Mock Get-NetAdapter -ModuleName windows-host-network.module {
+            $global:defaultSwitchAdapterProbeCount++
+            if ($global:defaultSwitchAdapterProbeCount -gt 1) {
+                [pscustomobject]@{ Name = 'vEthernet (Default Switch)' }
+            }
+        }
+        try {
+            { Test-DefaultSwitch } | Should -Throw '*subnet cannot be validated*'
+        }
+        finally {
+            Remove-Variable defaultSwitchAdapterProbeCount -Scope Global
+        }
+        Assert-MockCalled Write-Log -ModuleName windows-host-network.module -Times 1 -Exactly -ParameterFilter {
+            ($Messages -join ' ') -like '*Hyper-V switch query failed*VMMS is starting*'
+        }
+        Assert-MockCalled Get-NetAdapter -ModuleName windows-host-network.module -Times 2 -Exactly
+    }
+
+    It 'continues observing a client host after transient Hyper-V query failures' {
+        $global:defaultSwitchProbeCount = 0
+        Mock Get-NetIPAddress -ModuleName windows-host-network.module {
+            $global:defaultSwitchProbeCount++
+            if ($global:defaultSwitchProbeCount -gt 1) {
+                [pscustomobject]@{ IPAddress = '192.168.128.1'; PrefixLength = 20 }
+            }
+        }
+        Mock Get-VMSwitch -ModuleName windows-host-network.module { throw 'VMMS is starting' }
+        try {
+            Test-DefaultSwitch -SwitchObservationSeconds 120
+        }
+        finally {
+            Remove-Variable defaultSwitchProbeCount -Scope Global
+        }
+        Assert-MockCalled Start-Sleep -ModuleName windows-host-network.module -Times 1 -Exactly
+        Assert-MockCalled Write-Log -ModuleName windows-host-network.module -Times 1 -Exactly -ParameterFilter {
+            ($Messages -join ' ') -like '*Hyper-V switch query failed*'
+        }
+    }
+
+    It 'propagates adapter query errors rather than reporting an absent switch' {
+        Mock Get-NetIPAddress -ModuleName windows-host-network.module
+        Mock Get-NetAdapter -ModuleName windows-host-network.module { throw 'Adapter query failed' }
+
+        { Test-DefaultSwitch } | Should -Throw '*Adapter query failed*'
+    }
+
+    It 'does not stall an absent-switch server when VMMS is unavailable' {
+        Mock Get-NetIPAddress -ModuleName windows-host-network.module
+        Mock Get-VMSwitch -ModuleName windows-host-network.module { throw 'VMMS is stopped' }
+        Mock Get-CimInstance -ModuleName windows-host-network.module {
+            [pscustomobject]@{ ProductType = 3 }
+        }
+
+        { Test-DefaultSwitch -SwitchObservationSeconds 120 } | Should -Not -Throw
+
+        Assert-MockCalled Start-Sleep -ModuleName windows-host-network.module -Times 0
+        Assert-MockCalled Write-Log -ModuleName windows-host-network.module -Times 1 -Exactly -ParameterFilter {
+            ($Messages -join ' ') -like '*Hyper-V switch query failed*VMMS is stopped*'
+        }
+    }
 }
 
 Describe 'Startup Default Switch validation' -Tag 'unit', 'ci', 'network' {
@@ -252,12 +353,12 @@ Describe 'Startup Default Switch validation' -Tag 'unit', 'ci', 'network' {
         Assert-MockCalled Test-DefaultSwitch -Times 1 -Exactly -ParameterFilter { -not $ResolveConflict -and -not $SwitchObservationSeconds }
     }
 
-    It 'also validates before the already-running early return' {
+    It 'validates only once before the already-running early return' {
         Mock Select-K2sIsRunning { $true }
 
         & $startupBody
 
-        Assert-MockCalled Test-DefaultSwitch -Times 2 -Exactly
+        Assert-MockCalled Test-DefaultSwitch -Times 1 -Exactly -ParameterFilter { $ResolveConflict -and $SwitchObservationSeconds -eq 120 }
         Assert-MockCalled Invoke-HNSCommand -Times 0
     }
 

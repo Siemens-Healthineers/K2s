@@ -214,6 +214,8 @@ Number of seconds to wait for the network state to settle after removal.
 
 .PARAMETER SwitchObservationSeconds
 Maximum time to observe an initially missing Default Switch IPv4 address.
+Absent switches are observed only on Windows client hosts, where Windows may
+create the Default Switch asynchronously during boot.
 An existing switch without an IPv4 address after observation fails validation.
 
 .EXAMPLE
@@ -244,6 +246,19 @@ function Test-DefaultSwitch {
 
         $defaultSwitchIps = @(Get-NetIPAddress -InterfaceAlias 'vEthernet (Default Switch)' -AddressFamily IPv4 -ErrorAction SilentlyContinue)
         $remainingObservationSeconds = $SwitchObservationSeconds
+        if ($defaultSwitchIps.Count -eq 0 -and $remainingObservationSeconds -gt 0) {
+            $switchPresent = Test-DefaultSwitchPresent
+            if (-not $switchPresent) {
+                $operatingSystem = Get-CimInstance -ClassName Win32_OperatingSystem -ErrorAction Stop
+                if ($operatingSystem.ProductType -notin @(1, 2, 3)) {
+                    throw '[PREREQ-FAILED] Cannot determine whether this host supports asynchronous Default Switch creation.'
+                }
+                if ($operatingSystem.ProductType -ne 1) {
+                    Write-Log '[DefaultSwitch] No Default Switch found on Windows Server; skipping observation.'
+                    return
+                }
+            }
+        }
         while ($defaultSwitchIps.Count -eq 0 -and $remainingObservationSeconds -gt 0) {
             $sleepSeconds = [Math]::Min(5, $remainingObservationSeconds)
             Write-Log "[DefaultSwitch] Waiting for Default Switch IPv4 initialization ($remainingObservationSeconds seconds remaining)."
@@ -252,15 +267,7 @@ function Test-DefaultSwitch {
             $defaultSwitchIps = @(Get-NetIPAddress -InterfaceAlias 'vEthernet (Default Switch)' -AddressFamily IPv4 -ErrorAction SilentlyContinue)
         }
         if ($defaultSwitchIps.Count -eq 0) {
-            $defaultSwitch = @()
-            if (Get-Command Get-VMSwitch -ErrorAction SilentlyContinue) {
-                $defaultSwitch = @(Get-VMSwitch -ErrorAction Stop | Where-Object Name -EQ 'Default Switch')
-            }
-            else {
-                Write-Log '[DefaultSwitch] Hyper-V switch management is unavailable; checking for an uninitialized Default Switch adapter.'
-                $defaultSwitch = @(Get-NetAdapter -Name 'vEthernet (Default Switch)' -ErrorAction SilentlyContinue)
-            }
-            if ($defaultSwitch.Count -gt 0) {
+            if (Test-DefaultSwitchPresent) {
                 $errorMsg = 'Hyper-V Default Switch exists without an IPv4 address; its subnet cannot be validated. Retry k2s start after Windows networking has initialized.'
                 Write-Log "[DefaultSwitch] $errorMsg" -Error
                 throw "[PREREQ-FAILED] $errorMsg"
@@ -318,6 +325,28 @@ function Test-DefaultSwitch {
             Start-Sleep -Seconds $RetryDelaySeconds
         }
     }
+}
+
+function Test-DefaultSwitchPresent {
+    $adapter = @(Get-NetAdapter -ErrorAction Stop | Where-Object Name -EQ 'vEthernet (Default Switch)')
+    if ($adapter.Count -gt 0) {
+        return $true
+    }
+
+    if (Get-Command Get-VMSwitch -ErrorAction SilentlyContinue) {
+        try {
+            $defaultSwitch = @(Get-VMSwitch -ErrorAction Stop | Where-Object Name -EQ 'Default Switch')
+            return ($defaultSwitch.Count -gt 0)
+        }
+        catch {
+            Write-Log "[DefaultSwitch] Hyper-V switch query failed; falling back to adapter detection: $($_.Exception.Message)"
+            $adapter = @(Get-NetAdapter -ErrorAction Stop | Where-Object Name -EQ 'vEthernet (Default Switch)')
+            return ($adapter.Count -gt 0)
+        }
+    }
+
+    Write-Log '[DefaultSwitch] Hyper-V switch management is unavailable; no Default Switch adapter found.'
+    return $false
 }
 
 <#

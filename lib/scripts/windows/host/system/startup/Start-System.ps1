@@ -453,7 +453,6 @@ try {
     # check if k2s is running
     $k2sRunning = Select-K2sIsRunning
     if ($k2sRunning) {
-        Test-DefaultSwitch
         Write-Log "[$logUseCase] k2s is running, no need todo anything"
         Write-Log "[$logUseCase] finished"
         return
