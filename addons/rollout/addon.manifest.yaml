@@ -51,7 +51,7 @@ spec:
           script:
             subPath: argocd/Disable.ps1
     - name: fluxcd
-      description: Automating the deployment/updating of applications using Flux CD
+      description: Automating the deployment/updating of applications using FluxCD
       offline_usage:
         linux:
           repos: []
