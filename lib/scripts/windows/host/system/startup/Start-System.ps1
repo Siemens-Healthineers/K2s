@@ -226,12 +226,23 @@ function Wait-ForControlPlaneTransitReachability {
     }
 
     $endTime = [DateTime]::UtcNow.AddSeconds($TimeoutSeconds)
+    $sshResult = Invoke-CmdOnControlPlaneViaSSHKey -CmdToExecute 'true' -IgnoreErrors -NoLog
+    if (-not $sshResult.Success) {
+        $message = "[$logUseCase] Cannot check transit reachability because control-plane SSH failed: $($sshResult.Output)"
+        Write-Log $message -Console
+        throw $message
+    }
     while ([DateTime]::UtcNow -lt $endTime) {
         $unreachableIps = [System.Collections.ArrayList]@()
         foreach ($targetIp in $targetIps) {
             $pingCommand = "ping -c 1 -W 2 $targetIp >/dev/null 2>&1"
             $pingResult = Invoke-CmdOnControlPlaneViaSSHKey -CmdToExecute $pingCommand -IgnoreErrors -NoLog
             if (-not $pingResult.Success) {
+                if ($pingResult.ExitCode -ne 1) {
+                    $message = "[$logUseCase] Cannot check transit reachability to '$targetIp' because SSH or the ping command failed: $($pingResult.Output)"
+                    Write-Log $message -Console
+                    throw $message
+                }
                 $unreachableIps.Add($targetIp) | Out-Null
             }
         }
@@ -260,6 +271,11 @@ function Get-MissingWindowsPodRoutesOnControlPlane {
     $missingRoutes = [System.Collections.ArrayList]@()
     foreach ($nodeRoute in $WindowsNodeRoutes) {
         $routeResult = Invoke-CmdOnControlPlaneViaSSHKey -CmdToExecute "ip -4 route show $($nodeRoute.PodCIDR)" -IgnoreErrors -NoLog
+        if (-not $routeResult.Success) {
+            $message = "[$logUseCase] Cannot inspect Windows pod route '$($nodeRoute.PodCIDR)' on control plane: $($routeResult.Output)"
+            Write-Log $message -Console
+            throw $message
+        }
         $routeOutput = ($routeResult.Output | Out-String).Trim()
         $expectedGatewayPattern = "(^|\s)via\s+$([regex]::Escape($nodeRoute.InternalIP))(\s|$)"
 
@@ -292,6 +308,11 @@ function Restore-ControlPlaneTransitRoute {
 
     $routeCheckCmd = "ip -4 route show $loopbackCIDR"
     $routeResult = Invoke-CmdOnControlPlaneViaSSHKey -CmdToExecute $routeCheckCmd -IgnoreErrors -NoLog
+    if (-not $routeResult.Success) {
+        $message = "[$logUseCase] Cannot inspect transit route '$loopbackCIDR' on control plane: $($routeResult.Output)"
+        Write-Log $message -Console
+        throw $message
+    }
     $existingRoute = ($routeResult.Output | Out-String).Trim()
 
     if (-not [string]::IsNullOrWhiteSpace($existingRoute) -and $existingRoute -match "(^|\s)via\s+$([regex]::Escape($kubeSwitchIP))(\s|$)") {
@@ -307,7 +328,9 @@ function Restore-ControlPlaneTransitRoute {
     }
     else {
         $addOutput = ($addResult.Output | Out-String).Trim()
-        Write-Log "[$logUseCase] WARNING: Failed to restore transit route to $loopbackCIDR via $kubeSwitchIP - $addOutput"
+        $message = "[$logUseCase] Failed to restore transit route to $loopbackCIDR via $kubeSwitchIP - $addOutput"
+        Write-Log $message -Console
+        throw $message
     }
 }
 
