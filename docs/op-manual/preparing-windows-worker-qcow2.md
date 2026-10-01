@@ -18,14 +18,11 @@ session inside the guest and run the following script once:
 ```powershell
 $ErrorActionPreference = 'Stop'
 
+$password = ConvertTo-SecureString -String 'admin' -AsPlainText -Force
 if (-not (Get-LocalUser -Name remote -ErrorAction SilentlyContinue)) {
-    $password = ConvertTo-SecureString -String 'admin' -AsPlainText -Force
     New-LocalUser -Name remote -Password $password -PasswordNeverExpires | Out-Null
 }
-else {
-    $password = ConvertTo-SecureString -String 'admin' -AsPlainText -Force
-    Set-LocalUser -Name remote -Password $password
-}
+Set-LocalUser -Name remote -Password $password
 
 $openSshCapability = Get-WindowsCapability -Online -Name OpenSSH.Server~~~~0.0.1.0
 if ($openSshCapability.State -ne 'Installed') {
