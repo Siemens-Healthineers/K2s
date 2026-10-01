@@ -1282,6 +1282,17 @@ You're not viewing the latest release version.
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
+  <a href="#windows-reboot-recovery-and-ssh" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Windows reboot recovery and SSH
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#windows-default-switch-validation" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -2745,6 +2756,17 @@ You're not viewing the latest release version.
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
+  <a href="#windows-reboot-recovery-and-ssh" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Windows reboot recovery and SSH
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#windows-default-switch-validation" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -2821,6 +2843,16 @@ SPDX-License-Identifier: MIT
 <p class="admonition-title">Note</p>
 <p><em>K2s</em> will start automatically after the installation has finished.</p>
 </div>
+<h3 id="windows-reboot-recovery-and-ssh">Windows reboot recovery and <abbr title="Secure Shell">SSH</abbr></h3>
+<p>Windows startup recovery uses <abbr title="Secure Shell">SSH</abbr> to inspect and restore control-plane routes.
+<em>K2s</em> restricts its private <abbr title="Secure Shell">SSH</abbr> key to the built-in Administrators group and
+LOCAL SYSTEM, with inheritance disabled, so both elevated <abbr title="Command-Line Interface">CLI</abbr> commands and
+the startup service can use it. Existing keys are secured before <abbr title="Secure Shell">SSH</abbr> or SCP
+access without regenerating the key.</p>
+<p>If the key cannot be secured or <abbr title="Secure Shell">SSH</abbr> authentication fails, recovery logs the
+failure instead of treating it as a missing route. Resolve the reported <abbr title="Secure Shell">SSH</abbr>
+error before retrying <code>k2s start</code>; restarting flannel cannot repair an
+authentication failure.</p>
 <h3 id="windows-default-switch-validation">Windows Default Switch validation</h3>
 <p>On Windows, startup validates the Hyper-V Default Switch against the configured
 K2s subnets before starting networking. If an existing switch's IPv4 address is
