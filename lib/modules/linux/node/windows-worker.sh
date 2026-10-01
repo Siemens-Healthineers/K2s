@@ -226,6 +226,22 @@ EOF
   chmod 0644 "$media"; rm -rf "$stage"
 }
 
+# The prepared QCOW2 already contains Windows and K2s bootstrap logic. It only
+# needs the per-install public key, delivered as a small read-only config drive.
+k2s_windows_worker_create_bootstrap_media() {
+  local stage media vm_dir public_key
+  vm_dir=$(k2s_windows_worker_vm_dir)
+  install -d -m 0711 "$vm_dir" || return 1
+  stage=$(mktemp -d) || return 1
+  media="$vm_dir/windows-worker-bootstrap.iso"
+  public_key=$(cat "$(k2s_windows_worker_private_key).pub") || { rm -rf "$stage"; return 1; }
+  printf '%s\n' "$public_key" > "$stage/windows-worker.pub"
+  xorriso -as mkisofs -quiet -J -R -V K2SBOOT -o "$media" "$stage" || { rm -rf "$stage"; return 1; }
+  chmod 0644 "$media"
+  rm -rf "$stage"
+  printf '%s\n' "$media"
+}
+
 k2s_windows_worker_wait_for_shutdown() {
   local deadline=$((SECONDS + 2400))
   while [[ $(virsh domstate "$K2S_WINDOWS_WORKER_NAME" 2>/dev/null) != 'shut off' ]]; do
