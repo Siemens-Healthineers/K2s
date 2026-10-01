@@ -2176,6 +2176,23 @@ You're not viewing the latest release version.
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="Automate Everything">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#windows-workload-readiness-diagnostics" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Windows Workload Readiness Diagnostics
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
         <li class="md-nav__item">
@@ -2946,6 +2963,23 @@ You're not viewing the latest release version.
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="Automate Everything">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#windows-workload-readiness-diagnostics" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Windows Workload Readiness Diagnostics
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
         <li class="md-nav__item">
@@ -3207,6 +3241,17 @@ SPDX-License-Identifier: MIT
 <p class="admonition-title">Info</p>
 <p>Acceptance tests might require a running <em>K2s</em> cluster.</p>
 </div>
+<h3 id="windows-workload-readiness-diagnostics">Windows Workload Readiness Diagnostics</h3>
+<p>If the core acceptance suite exhausts its Windows <abbr title="Hypertext Transfer Protocol">HTTP</abbr> readiness retries, it
+collects evidence without changing the readiness criteria. The suite probes
+Service <abbr title="Domain Name System">DNS</abbr>, Service ClusterIPs, and EndpointSlice Pod IPs from both the host
+and the Linux curl pod. It also captures Kubernetes resources, forwarding
+logs, and Windows adapter, route, and HNS state. These observations help
+distinguish <abbr title="Domain Name System">DNS</abbr>, Service forwarding, and direct endpoint failures; they do
+not identify the failing component on their own.</p>
+<p>Diagnostic commands have a ten-second timeout and share a four-minute
+collection budget. Query and probe failures are recorded without replacing
+the original readiness failure or preventing independent probes.</p>
 <h2 id="prerequisites">Prerequisites</h2>
 <p><a href="#install-pester">Install <em>Pester</em></a> and <a href="https://onsi.github.io/ginkgo/#installing-ginkgo" target="_blank" rel="noopener">Install <em>Ginkgo</em></a>.</p>
 <div class="admonition tip">

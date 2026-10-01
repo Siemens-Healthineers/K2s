@@ -2694,6 +2694,15 @@ SPDX-License-Identifier: MIT
 <p>To stop the <em><abbr title="Kubernetes">K8s</abbr></em> cluster and all accompanying services, run:
 <div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="go">k2s stop</span>
 </code></pre></div></p>
+<p>On Windows, the shared Hyper-V stop helper gives stop-job waiting and the
+optional Off-state confirmation a combined 360-second budget. A failed or
+stalled stop is reported with the <abbr title="Virtual Machine">VM</abbr> identity, job state, and elapsed time
+instead of synchronously waiting inside <code>Stop-VM</code>. The existing <code>Stop-VM -Force</code>
+shutdown policy is preserved; there is no additional <code>-TurnOff</code> fallback.
+Unfinished jobs are logged and retained in the calling PowerShell session
+because forcibly removing them can itself block. Hyper-V may still be
+processing a shutdown after a timeout, so check the <abbr title="Virtual Machine">VM</abbr> state and Hyper-V
+events before retrying.</p>
 <div class="admonition danger">
 <p class="admonition-title">Danger</p>
 <p>It is <strong>highly recommended to stop K2s before (shutting down | suspending | hibernating) the Windows host system</strong> to avoid <em>Windows</em> networking issues on the next host system startup!</p>
