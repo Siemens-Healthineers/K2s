@@ -108,8 +108,9 @@ all subsequent worker actions use the generated key. Remove this password
 bootstrap after the worker onboarding path has been finalized.
 
 After key authentication succeeds, K2s copies its required runtime files to
-`C:\k2s` before initializing the Windows worker. The QCOW2 therefore does not
-need a preinstalled K2s directory.
+`C:\k2s` before initializing the Windows worker: `VERSION`, `cfg`, `lib`,
+`smallsetup`, `bin`, and `LocalHooks` when present. The QCOW2 therefore does
+not need a preinstalled K2s directory.
 
 Because `remote` is a local administrator, Windows OpenSSH applies its
 `Match Group administrators` rule. K2s installs the generated key in

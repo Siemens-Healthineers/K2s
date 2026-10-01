@@ -313,13 +313,15 @@ k2s_windows_worker_log_ssh_diagnostics() {
 
 k2s_windows_worker_copy_runtime() {
   local archive result
+  local runtime_paths=(VERSION cfg lib smallsetup bin)
+  [[ -d "$K2S_INSTALL_DIR/LocalHooks" ]] && runtime_paths+=(LocalHooks)
   archive=$(mktemp --suffix=.tar) || return 1
   k2s_log INFO 'Copying K2s runtime files to the Windows worker.'
   tar -C "$K2S_INSTALL_DIR" \
     --exclude='bin/*.iso' \
     --exclude='bin/*.qcow2' \
     --exclude='bin/*.vhdx' \
-    -cf "$archive" VERSION cfg lib smallsetup bin || { rm -f "$archive"; return 1; }
+    -cf "$archive" "${runtime_paths[@]}" || { rm -f "$archive"; return 1; }
   k2s_windows_worker_ssh 'powershell.exe -NoProfile -Command "New-Item -ItemType Directory -Path C:\ProgramData\K2s -Force | Out-Null"' || { rm -f "$archive"; return 1; }
   scp -i "$(k2s_windows_worker_private_key)" -o BatchMode=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile="$(k2s_windows_worker_known_hosts)" "$archive" "remote@$(k2s_windows_worker_ip):C:/ProgramData/K2s/k2s-runtime.tar"
   result=$?
