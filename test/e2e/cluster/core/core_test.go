@@ -6,7 +6,9 @@ package core
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
+	"net"
 	"os"
 	"os/exec"
 	"runtime"
@@ -20,6 +22,8 @@ import (
 	"github.com/siemens-healthineers/k2s/test/framework"
 	"github.com/siemens-healthineers/k2s/test/framework/dsl"
 	"github.com/siemens-healthineers/k2s/test/framework/watcher"
+	core_v1 "k8s.io/api/core/v1"
+	discovery_v1 "k8s.io/api/discovery/v1"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -361,7 +365,7 @@ func probeDeploymentFromCurlPod(ctx context.Context, deploymentName string) erro
 func collectWindowsWorkloadNetworkDiagnostics() {
 	GinkgoWriter.Println("Collecting Windows workload network diagnostics after readiness failure..")
 
-	diagCtx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
+	diagCtx, cancel := context.WithTimeout(context.Background(), 4*time.Minute)
 	defer cancel()
 
 	runDiagnosticCommand(diagCtx, "get", "nodes", "-o", "wide")
@@ -370,6 +374,27 @@ func collectWindowsWorkloadNetworkDiagnostics() {
 	runDiagnosticCommand(diagCtx, "get", "endpoints", "-n", namespace, "-o", "wide")
 	runDiagnosticCommand(diagCtx, "get", "endpointslices", "-n", namespace, "-o", "wide")
 	runDiagnosticCommand(diagCtx, "get", "events", "-n", namespace, "--sort-by=.lastTimestamp")
+	if runtime.GOOS == "windows" {
+		for _, script := range []string{
+			"Get-Service kubeproxy,kubelet,flanneld | Format-List Name,Status",
+			"Get-NetAdapter | Format-Table -AutoSize",
+			"Get-NetRoute -AddressFamily IPv4 | Format-Table -AutoSize",
+			"Import-Module HostNetworkingService; Get-HNSNetwork | ConvertTo-Json -Depth 15",
+			"Import-Module HostNetworkingService; Get-HNSEndpoint | ConvertTo-Json -Depth 15",
+			"Import-Module HostNetworkingService; Get-HNSPolicyList | ConvertTo-Json -Depth 15",
+		} {
+			_, _ = runBoundedDiagnostic(diagCtx, "powershell.exe", "-NoProfile", "-Command", "$ErrorActionPreference = 'Stop'; "+script)
+		}
+	}
+	collectWindowsForwardingDiagnostics(diagCtx, winDeploymentNames,
+		func(ctx context.Context, args ...string) (string, error) {
+			return runBoundedDiagnostic(ctx, suite.Kubectl().Path(), args...)
+		},
+		func(ctx context.Context, args ...string) (string, error) {
+			return runBoundedDiagnostic(ctx, suite.Cli("curl").Path(), args...)
+		})
+	runDiagnosticCommand(diagCtx, "logs", "-n", "kube-flannel", "-l", "app=flannel", "--all-containers=true", "--tail=100")
+	runDiagnosticCommand(diagCtx, "logs", "-n", "kube-system", "-l", "k8s-app=kube-proxy", "--all-containers=true", "--tail=100")
 
 	for _, deploymentName := range winDeploymentNames {
 		runDiagnosticCommand(diagCtx, "describe", "deployment", deploymentName, "-n", namespace)
@@ -379,11 +404,130 @@ func collectWindowsWorkloadNetworkDiagnostics() {
 }
 
 func runDiagnosticCommand(ctx context.Context, args ...string) {
-	GinkgoWriter.Printf(">>> DIAG: kubectl %s\n", strings.Join(args, " "))
-	_, exitCode := suite.Kubectl().Exec(ctx, args...)
-	if exitCode != 0 {
-		GinkgoWriter.Printf(">>> DIAG: kubectl %s exited with code %d\n", strings.Join(args, " "), exitCode)
+	_, _ = runBoundedDiagnostic(ctx, suite.Kubectl().Path(), args...)
+}
+
+func runBoundedDiagnostic(ctx context.Context, executable string, args ...string) (string, error) {
+	if err := ctx.Err(); err != nil {
+		GinkgoWriter.Printf(">>> DIAG: skipping %s after collection deadline: %v\n", executable, err)
+		return "", err
 	}
+	commandCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
+	defer cancel()
+	GinkgoWriter.Printf(">>> DIAG: %s %s\n", executable, strings.Join(args, " "))
+	command := exec.CommandContext(commandCtx, executable, args...)
+	var stdout, stderr bytes.Buffer
+	command.Stdout = &stdout
+	command.Stderr = &stderr
+	command.WaitDelay = time.Second
+	err := command.Run()
+	GinkgoWriter.Print(stdout.String())
+	GinkgoWriter.Print(stderr.String())
+	if err != nil {
+		GinkgoWriter.Printf(">>> DIAG: command failed: %v (context: %v)\n", err, commandCtx.Err())
+	}
+	return stdout.String(), err
+}
+
+type forwardingDiagnosticTarget struct {
+	kind    string
+	address string
+	port    int32
+}
+
+func collectWindowsForwardingDiagnostics(ctx context.Context, deployments []string,
+	kubectl, curl func(context.Context, ...string) (string, error)) {
+	for _, deployment := range deployments {
+		if ctx.Err() != nil {
+			GinkgoWriter.Printf(">>> DIAG: forwarding probes stopped: %v\n", ctx.Err())
+			return
+		}
+		targets := []forwardingDiagnosticTarget{{kind: "Service DNS", address: deployment + "." + namespace + ".svc.cluster.local", port: 80}}
+		serviceJSON, err := kubectl(ctx, "get", "service", deployment, "-n", namespace, "-o", "json")
+		if err == nil {
+			serviceTargets, parseErr := serviceForwardingTargets(serviceJSON)
+			if parseErr != nil {
+				GinkgoWriter.Printf(">>> DIAG: cannot parse service %s: %v\n", deployment, parseErr)
+			} else {
+				targets = append(targets, serviceTargets...)
+				if len(serviceTargets) == 0 {
+					GinkgoWriter.Printf(">>> DIAG: no Service ClusterIP/TCP port available for %s\n", deployment)
+				}
+			}
+		} else {
+			GinkgoWriter.Printf(">>> DIAG: cannot query service %s: %v\n", deployment, err)
+		}
+		endpointJSON, err := kubectl(ctx, "get", "endpointslices", "-n", namespace, "-l", "kubernetes.io/service-name="+deployment, "-o", "json")
+		if err == nil {
+			endpointTargets, parseErr := endpointForwardingTargets(endpointJSON)
+			if parseErr != nil {
+				GinkgoWriter.Printf(">>> DIAG: cannot parse endpoints for %s: %v\n", deployment, parseErr)
+			} else {
+				targets = append(targets, endpointTargets...)
+				if len(endpointTargets) == 0 {
+					GinkgoWriter.Printf(">>> DIAG: no endpoint IP/port available for %s\n", deployment)
+				}
+			}
+		} else {
+			GinkgoWriter.Printf(">>> DIAG: cannot query endpoints for %s: %v\n", deployment, err)
+		}
+		for _, target := range targets {
+			if ctx.Err() != nil {
+				return
+			}
+			url := "http://" + net.JoinHostPort(target.address, fmt.Sprint(target.port)) + "/" + deployment
+			GinkgoWriter.Printf(">>> DIAG: host -> %s %s at %s\n", deployment, target.kind, url)
+			_, _ = curl(ctx, "-sS", "-f", "-m", "5", url)
+			GinkgoWriter.Printf(">>> DIAG: Linux curl pod -> %s %s at %s\n", deployment, target.kind, url)
+			_, _ = kubectl(ctx, "exec", "deployment/curl", "-n", namespace, "-c", "curl", "--", "curl", "-sS", "-f", "-m", "5", url)
+		}
+	}
+}
+
+func serviceForwardingTargets(content string) ([]forwardingDiagnosticTarget, error) {
+	var service core_v1.Service
+	if err := json.Unmarshal([]byte(content), &service); err != nil {
+		return nil, err
+	}
+	var targets []forwardingDiagnosticTarget
+	if net.ParseIP(service.Spec.ClusterIP) == nil {
+		return targets, nil
+	}
+	for _, port := range service.Spec.Ports {
+		if port.Port > 0 && port.Port <= 65535 && (port.Protocol == "" || port.Protocol == core_v1.ProtocolTCP) {
+			targets = append(targets, forwardingDiagnosticTarget{kind: "Service ClusterIP", address: service.Spec.ClusterIP, port: port.Port})
+		}
+	}
+	return targets, nil
+}
+
+func endpointForwardingTargets(content string) ([]forwardingDiagnosticTarget, error) {
+	var slices discovery_v1.EndpointSliceList
+	if err := json.Unmarshal([]byte(content), &slices); err != nil {
+		return nil, err
+	}
+	var targets []forwardingDiagnosticTarget
+	seen := make(map[forwardingDiagnosticTarget]bool)
+	for _, slice := range slices.Items {
+		for _, endpoint := range slice.Endpoints {
+			for _, address := range endpoint.Addresses {
+				if net.ParseIP(address) == nil {
+					continue
+				}
+				for _, port := range slice.Ports {
+					if port.Port == nil || *port.Port <= 0 || *port.Port > 65535 || (port.Protocol != nil && *port.Protocol != core_v1.ProtocolTCP) {
+						continue
+					}
+					target := forwardingDiagnosticTarget{kind: "Pod IP", address: address, port: *port.Port}
+					if !seen[target] {
+						targets = append(targets, target)
+						seen[target] = true
+					}
+				}
+			}
+		}
+	}
+	return targets, nil
 }
 
 func controlPlaneNodeName() string {
