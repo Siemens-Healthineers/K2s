@@ -448,7 +448,7 @@ try {
     # This must run before Select-K2sIsRunning because the invoking k2s start process
     # is otherwise detected as an already-running operation and skips recovery.
     Write-Log "[$logUseCase] Validating and recovering Hyper-V Default Switch network"
-    Test-DefaultSwitch -ResolveConflict
+    Test-DefaultSwitch -ResolveConflict -SwitchObservationSeconds 120
 
     # check if k2s is running
     $k2sRunning = Select-K2sIsRunning
@@ -563,6 +563,8 @@ try {
             }
         }
     }
+    Write-Log "[$logUseCase] Revalidating Hyper-V Default Switch after networking startup"
+    Test-DefaultSwitch
     Write-Log "[$logUseCase] finished"
     if ($EncodeStructuredOutput -eq $true) {
         Send-ToCli -MessageType $MessageType -Message @{Error = $null }
