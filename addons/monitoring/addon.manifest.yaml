@@ -45,6 +45,9 @@ spec:
                 description: Omit Grafana web UI; deploy only Prometheus, Alertmanager, and exporters
                 type: boolean
                 default: false
+                omittedImages:
+                  fromFiles:
+                    - manifests/monitoring/grafana/deployment.yaml
             examples:
               - cmd: k2s addons enable monitoring
                 comment: Enable monitoring in k2s

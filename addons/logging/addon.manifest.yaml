@@ -28,6 +28,10 @@ spec:
               - name: omitOpensearch
                 description: Deploy only Fluent-bit; omit OpenSearch and OpenSearch Dashboards
                 default: false
+                omittedImages:
+                  fromFiles:
+                    - manifests/logging/opensearch/statefulset.yaml
+                    - manifests/logging/opensearch-dashboards/deployment.yaml
               - name: snode
                 shorthand: s
                 default: ""
