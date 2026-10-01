@@ -6,10 +6,9 @@ SPDX-License-Identifier: MIT
 # Preparing a Windows Worker QCOW2
 
 The native Linux K2s host creates a new SSH key for every managed Windows
-worker. A prepared QCOW2 must therefore include a startup task that imports the
-public key from the K2s config drive. K2s attaches this read-only CD-ROM with
-the volume label `K2SBOOT` and the file `windows-worker.pub` for every worker
-start.
+worker. During temporary password-bootstrap operation, K2s authenticates once
+as `remote`, installs that generated public key, then continues with key-only
+SSH authentication. No config-drive CD-ROM is attached to the worker.
 
 ## Prepare the Hyper-V VM
 
@@ -20,8 +19,12 @@ session inside the guest and run the following script once:
 $ErrorActionPreference = 'Stop'
 
 if (-not (Get-LocalUser -Name remote -ErrorAction SilentlyContinue)) {
-    $password = ConvertTo-SecureString -String ([guid]::NewGuid().Guid) -AsPlainText -Force
+    $password = ConvertTo-SecureString -String 'admin' -AsPlainText -Force
     New-LocalUser -Name remote -Password $password -PasswordNeverExpires | Out-Null
+}
+else {
+    $password = ConvertTo-SecureString -String 'admin' -AsPlainText -Force
+    Set-LocalUser -Name remote -Password $password
 }
 
 $openSshCapability = Get-WindowsCapability -Online -Name OpenSSH.Server~~~~0.0.1.0
@@ -61,32 +64,12 @@ New-ItemProperty -Path $windowsUpdatePolicy -Name NoAutoUpdate -PropertyType DWo
 Stop-Service -Name wuauserv -Force -ErrorAction SilentlyContinue
 Set-Service -Name wuauserv -StartupType Disabled
 
-$scriptPath = 'C:\ProgramData\K2s\Import-WorkerSshKey.ps1'
-New-Item -ItemType Directory -Path (Split-Path $scriptPath) -Force | Out-Null
-@'
-$ErrorActionPreference = 'Stop'
-$volume = Get-Volume | Where-Object FileSystemLabel -eq 'K2SBOOT' | Select-Object -First 1
-if ($null -eq $volume -or [string]::IsNullOrWhiteSpace($volume.DriveLetter)) { exit 0 }
-$publicKey = Get-Content -Raw "$($volume.DriveLetter):\windows-worker.pub" -ErrorAction SilentlyContinue
-if ([string]::IsNullOrWhiteSpace($publicKey)) { exit 0 }
-$sshDirectory = 'C:\Users\remote\.ssh'
-$authorizedKeys = Join-Path $sshDirectory 'authorized_keys'
-New-Item -ItemType Directory -Path $sshDirectory -Force | Out-Null
-Set-Content -Path $authorizedKeys -Value $publicKey.Trim() -NoNewline
-icacls $sshDirectory /inheritance:r /grant 'remote:(OI)(CI)F' | Out-Null
-icacls $authorizedKeys /inheritance:r /grant 'remote:F' | Out-Null
-Restart-Service sshd
-'@ | Set-Content -Path $scriptPath -Encoding utf8
-
-$action = New-ScheduledTaskAction -Execute 'PowerShell.exe' -Argument "-NoProfile -ExecutionPolicy Bypass -File `"$scriptPath`""
-$trigger = New-ScheduledTaskTrigger -AtStartup
-Register-ScheduledTask -TaskName 'K2s Import Worker SSH Key' -Action $action -Trigger $trigger -User 'SYSTEM' -RunLevel Highest -Force | Out-Null
 ```
 
 Shut down the VM. Preserve its partition style: K2s automatically boots an MBR
 image with BIOS and a GPT image with UEFI. Do not generalize the image after
-creating the scheduled task, because that task and the OpenSSH setup must remain
-in the base image.
+configuring OpenSSH, because its service and the `remote` account must remain in
+the base image.
 
 ## Convert to QCOW2
 
@@ -104,7 +87,21 @@ Use the resulting image with `--windows-qcow2-path`. Before publishing it,
 verify the image source VM has the required components:
 
 ```powershell
-Get-ScheduledTask -TaskName 'K2s Import Worker SSH Key'
 Get-Service sshd
 Get-LocalUser remote
 ```
+
+## Temporary Password Bootstrap
+
+For the current bootstrap workflow, K2s uses the temporary `remote` password
+`admin`. An alternative password can be supplied only through the process
+environment; do not add it to an install configuration file or command-line
+flag:
+
+```console
+sudo env K2S_WINDOWS_WORKER_PASSWORD=admin ./k2s install --windows-qcow2-path /path/to/WindowsWorker-Base.qcow2
+```
+
+K2s uses this password once to install its generated public key for `remote`;
+all subsequent worker actions use the generated key. Remove this password
+bootstrap after the worker onboarding path has been finalized.

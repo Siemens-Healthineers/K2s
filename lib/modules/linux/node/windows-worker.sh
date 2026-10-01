@@ -25,7 +25,7 @@ k2s_windows_worker_ip() {
 
 k2s_windows_worker_install_host_dependencies() {
   local package
-  local packages='qemu-system-x86 qemu-utils util-linux libvirt-daemon-system libvirt-daemon-driver-qemu libvirt-daemon-config-network libvirt-clients dnsmasq-base ovmf xorriso openssh-client'
+  local packages='qemu-system-x86 qemu-utils util-linux libvirt-daemon-system libvirt-daemon-driver-qemu libvirt-daemon-config-network libvirt-clients dnsmasq-base ovmf openssh-client sshpass'
   k2s_log INFO 'Installing KVM Windows worker host dependencies.'
   k2s_wait_for_dpkg_lock || return 1
   k2s_run env DEBIAN_FRONTEND=noninteractive apt-get update || return 1
@@ -70,7 +70,7 @@ k2s_windows_worker_disk_gb() {
 k2s_windows_worker_preflight() {
   local command memory_mb available_mb total_mb disk_gb available_gb
   [[ -r /dev/kvm && -c /dev/kvm ]] || { k2s_log ERROR 'KVM is unavailable. Enable nested virtualization and expose /dev/kvm to the Debian host.'; return 3; }
-  for command in virsh qemu-img sfdisk ssh scp ssh-keyscan ssh-keygen xorriso sha256sum; do k2s_require_command "$command" || return 4; done
+  for command in virsh qemu-img sfdisk ssh scp ssh-keyscan ssh-keygen sshpass sha256sum; do k2s_require_command "$command" || return 4; done
   getent passwd libvirt-qemu >/dev/null || { k2s_log ERROR 'The libvirt-qemu service account is missing. Reinstall libvirt-daemon-system.'; return 3; }
   getent passwd dnsmasq >/dev/null || { k2s_log ERROR 'The dnsmasq service account is missing. Install dnsmasq-base.'; return 3; }
   k2s_windows_worker_start_libvirt || return 3
@@ -254,6 +254,22 @@ k2s_windows_worker_ssh() {
   ssh -i "$(k2s_windows_worker_private_key)" -o BatchMode=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile="$(k2s_windows_worker_known_hosts)" -o ConnectTimeout=10 "remote@$(k2s_windows_worker_ip)" "$@"
 }
 
+k2s_windows_worker_password() { printf '%s' "${K2S_WINDOWS_WORKER_PASSWORD:-admin}"; }
+
+k2s_windows_worker_password_ssh() {
+  SSHPASS=$(k2s_windows_worker_password) sshpass -e ssh -o BatchMode=no -o PreferredAuthentications=password -o PubkeyAuthentication=no -o StrictHostKeyChecking=yes -o UserKnownHostsFile="$(k2s_windows_worker_known_hosts)" -o ConnectTimeout=10 "remote@$(k2s_windows_worker_ip)" "$@"
+}
+
+k2s_windows_worker_password_scp() {
+  SSHPASS=$(k2s_windows_worker_password) sshpass -e scp -o BatchMode=no -o PreferredAuthentications=password -o PubkeyAuthentication=no -o StrictHostKeyChecking=yes -o UserKnownHostsFile="$(k2s_windows_worker_known_hosts)" "$(k2s_windows_worker_private_key).pub" "remote@$(k2s_windows_worker_ip):windows-worker.pub"
+}
+
+k2s_windows_worker_bootstrap_ssh_key() {
+  k2s_log INFO 'Installing the generated Windows worker SSH key through temporary password authentication.'
+  k2s_windows_worker_password_scp || return $?
+  k2s_windows_worker_password_ssh 'powershell.exe -NoProfile -Command "New-Item -ItemType Directory -Path C:\Users\remote\.ssh -Force | Out-Null; Copy-Item -Path C:\Users\remote\windows-worker.pub -Destination C:\Users\remote\.ssh\authorized_keys -Force; icacls C:\Users\remote\.ssh /inheritance:r /grant remote:(OI)(CI)F | Out-Null; icacls C:\Users\remote\.ssh\authorized_keys /inheritance:r /grant remote:F | Out-Null; Remove-Item C:\Users\remote\windows-worker.pub -Force; Restart-Service sshd"'
+}
+
 k2s_windows_worker_wait_for_ssh() {
   local known_hosts worker_ip deadline=$((SECONDS + 900))
   k2s_windows_worker_create_ssh_key || return 1
@@ -269,6 +285,7 @@ k2s_windows_worker_wait_for_ssh() {
     fi
     sleep 10
   done
+  k2s_windows_worker_bootstrap_ssh_key || return $?
   while ! k2s_windows_worker_ssh 'exit 0'; do
     if (( SECONDS >= deadline )); then
       k2s_windows_worker_log_ssh_diagnostics "$worker_ip"
@@ -326,7 +343,7 @@ k2s_windows_worker_wait_for_node() {
 }
 
 k2s_windows_worker_define() {
-  local disk="$1" install_iso="${2:-}" bootstrap_iso="${3:-}" memory_mb domain_xml boot_order media_disks boot_mode firmware variables nvram firmware_xml
+  local disk="$1" memory_mb domain_xml boot_mode firmware variables nvram firmware_xml
   memory_mb=$(k2s_windows_worker_memory_mb) || return $?
   boot_mode=$(k2s_windows_worker_detect_boot_mode "$disk") || return $?
   firmware_xml=''
@@ -338,16 +355,8 @@ k2s_windows_worker_define() {
     firmware_xml="<loader readonly='yes' secure='no' type='pflash'>$firmware</loader><nvram template='$variables'>$nvram</nvram>"
   fi
   domain_xml=$(mktemp)
-  boot_order="<boot dev='hd'/>"; media_disks=''
-  if [[ -n "$install_iso" ]]; then
-    boot_order="<boot dev='cdrom'/><boot dev='hd'/>"
-    media_disks="<disk type='file' device='cdrom'><driver name='qemu' type='raw'/><source file='$install_iso'/><target dev='sdb' bus='sata'/><readonly/></disk>"
-  fi
-  if [[ -n "$bootstrap_iso" ]]; then
-    media_disks+="<disk type='file' device='cdrom'><driver name='qemu' type='raw'/><source file='$bootstrap_iso'/><target dev='sdc' bus='sata'/><readonly/></disk>"
-  fi
   cat > "$domain_xml" <<EOF
-<domain type='kvm'><name>$K2S_WINDOWS_WORKER_NAME</name><memory unit='MiB'>$memory_mb</memory><currentMemory unit='MiB'>$memory_mb</currentMemory><vcpu placement='static'>$K2S_WORKER_CPU_COUNT</vcpu><os><type arch='x86_64' machine='q35'>hvm</type>$firmware_xml$boot_order</os><features><acpi/><apic/><hyperv mode='custom'><relaxed state='on'/><vapic state='on'/><spinlocks state='on' retries='8191'/><vpindex state='on'/><runtime state='on'/><synic state='on'/><stimer state='on'/></hyperv></features><cpu mode='host-passthrough' check='none'/><clock offset='localtime'><timer name='hypervclock' present='yes'/><timer name='hpet' present='no'/></clock><devices><disk type='file' device='disk'><driver name='qemu' type='qcow2' discard='unmap'/><source file='$disk'/><target dev='sda' bus='sata'/></disk>$media_disks<interface type='network'><mac address='$K2S_WINDOWS_WORKER_MAC'/><source network='$K2S_WINDOWS_WORKER_NETWORK'/><model type='e1000'/></interface><serial type='pty'/><console type='pty'/><graphics type='vnc' autoport='yes' listen='127.0.0.1'><listen type='address' address='127.0.0.1'/></graphics><video><model type='vga' vram='16384' heads='1' primary='yes'/></video><rng model='virtio'><backend model='random'>/dev/urandom</backend></rng><memballoon model='virtio'/></devices></domain>
+<domain type='kvm'><name>$K2S_WINDOWS_WORKER_NAME</name><memory unit='MiB'>$memory_mb</memory><currentMemory unit='MiB'>$memory_mb</currentMemory><vcpu placement='static'>$K2S_WORKER_CPU_COUNT</vcpu><os><type arch='x86_64' machine='q35'>hvm</type>$firmware_xml<boot dev='hd'/></os><features><acpi/><apic/><hyperv mode='custom'><relaxed state='on'/><vapic state='on'/><spinlocks state='on' retries='8191'/><vpindex state='on'/><runtime state='on'/><synic state='on'/><stimer state='on'/></hyperv></features><cpu mode='host-passthrough' check='none'/><clock offset='localtime'><timer name='hypervclock' present='yes'/><timer name='hpet' present='no'/></clock><devices><disk type='file' device='disk'><driver name='qemu' type='qcow2' discard='unmap'/><source file='$disk'/><target dev='sda' bus='sata'/></disk><interface type='network'><mac address='$K2S_WINDOWS_WORKER_MAC'/><source network='$K2S_WINDOWS_WORKER_NETWORK'/><model type='e1000'/></interface><serial type='pty'/><console type='pty'/><graphics type='vnc' autoport='yes' listen='127.0.0.1'><listen type='address' address='127.0.0.1'/></graphics><video><model type='vga' vram='16384' heads='1' primary='yes'/></video><rng model='virtio'><backend model='random'>/dev/urandom</backend></rng><memballoon model='virtio'/></devices></domain>
 EOF
   virsh define "$domain_xml"; local result=$?; rm -f "$domain_xml"; return "$result"
 }
@@ -365,11 +374,10 @@ k2s_windows_worker_provision() {
   k2s_log INFO 'Preflighting managed KVM Windows worker.'
   k2s_windows_worker_preflight || return $?
   k2s_windows_worker_network_create || return 1
-  local disk bootstrap_iso
+  local disk
   disk=$(k2s_windows_worker_prepare_image) || return $?
   k2s_windows_worker_create_ssh_key || return 1
-  bootstrap_iso=$(k2s_windows_worker_create_bootstrap_media) || return $?
-  k2s_windows_worker_define "$disk" '' "$bootstrap_iso" || return 1
+  k2s_windows_worker_define "$disk" || return 1
   k2s_windows_worker_write_state "$disk" || return 1
   virsh start "$K2S_WINDOWS_WORKER_NAME" || return 1
   k2s_windows_worker_wait_for_ssh || return $?
