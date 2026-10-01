@@ -33,17 +33,24 @@ spec:
           imagePullPolicy: IfNotPresent
           name: nvidia-device-plugin-ctr
           args:
+            - --device-list-strategy=cdi-annotations
+            - --pass-device-specs=true
+            - --fail-on-init-error=false
+            - --cdi-annotation-prefix=cdi.k8s.io/
             - --config-file=/etc/nvidia/config.yaml
           env:
             - name: FAIL_ON_INIT_ERROR
               value: "false"
-            # Some externally added workers expose their GPU through a
-            # non-NVML path. CDI device-list strategies are rejected there.
+            # CDI strategy required for CRI-O to inject GPU device and driver mounts.
             - name: DEVICE_LIST_STRATEGY
-              value: envvar
+              value: cdi-annotations
+            - name: PASS_DEVICE_SPECS
+              value: "true"
+            - name: CDI_ANNOTATION_PREFIX
+              value: cdi.k8s.io/
             # Debian installs NVML below the NVIDIA alternatives directory.
             - name: LD_LIBRARY_PATH
-              value: /usr/lib/x86_64-linux-gnu/nvidia/current
+              value: /usr/lib/x86_64-linux-gnu/nvidia/current:/usr/lib/x86_64-linux-gnu
           resources:
             requests:
               cpu: 50m
@@ -67,6 +74,11 @@ spec:
             - name: time-slicing-config
               mountPath: /etc/nvidia/config.yaml
               subPath: config.yaml
+            - name: cdi-etc
+              mountPath: /etc/cdi
+              readOnly: true
+            - name: cdi-run
+              mountPath: /var/run/cdi
       volumes:
         - name: device-plugin
           hostPath:
@@ -81,6 +93,14 @@ spec:
         - name: time-slicing-config
           configMap:
             name: time-slicing-config
+        - name: cdi-etc
+          hostPath:
+            path: /etc/cdi
+            type: DirectoryOrCreate
+        - name: cdi-run
+          hostPath:
+            path: /var/run/cdi
+            type: DirectoryOrCreate
       nodeSelector:
         kubernetes.io/os: linux
         gpu: "true"
