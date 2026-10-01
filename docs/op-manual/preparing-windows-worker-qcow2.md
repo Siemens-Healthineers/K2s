@@ -23,6 +23,9 @@ if (-not (Get-LocalUser -Name remote -ErrorAction SilentlyContinue)) {
     New-LocalUser -Name remote -Password $password -PasswordNeverExpires | Out-Null
 }
 Set-LocalUser -Name remote -Password $password
+if (-not (Get-LocalGroupMember -Group 'Administrators' | Where-Object Name -Match '(^|\\)remote$')) {
+    Add-LocalGroupMember -Group 'Administrators' -Member remote
+}
 
 $openSshCapability = Get-WindowsCapability -Online -Name OpenSSH.Server~~~~0.0.1.0
 if ($openSshCapability.State -ne 'Installed') {
@@ -86,6 +89,7 @@ verify the image source VM has the required components:
 ```powershell
 Get-Service sshd
 Get-LocalUser remote
+Get-LocalGroupMember -Group 'Administrators' | Where-Object Name -Match '(^|\\)remote$'
 ```
 
 ## Temporary Password Bootstrap
