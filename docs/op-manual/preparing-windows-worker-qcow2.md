@@ -106,3 +106,8 @@ sudo env K2S_WINDOWS_WORKER_PASSWORD=admin ./k2s install --windows-qcow2-path /p
 K2s uses this password once to install its generated public key for `remote`;
 all subsequent worker actions use the generated key. Remove this password
 bootstrap after the worker onboarding path has been finalized.
+
+Because `remote` is a local administrator, Windows OpenSSH applies its
+`Match Group administrators` rule. K2s installs the generated key in
+`C:\ProgramData\ssh\administrators_authorized_keys` with the ACL required by
+that rule; it does not use `C:\Users\remote\.ssh\authorized_keys`.
