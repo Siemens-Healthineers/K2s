@@ -12,6 +12,19 @@ k2s start
 !!! note
     *K2s* will start automatically after the installation has finished.
 
+### Windows reboot recovery and SSH
+
+Windows startup recovery uses SSH to inspect and restore control-plane routes.
+*K2s* restricts its private SSH key to the built-in Administrators group and
+LOCAL SYSTEM, with inheritance disabled, so both elevated CLI commands and
+the startup service can use it. Existing keys are secured before SSH or SCP
+access without regenerating the key.
+
+If the key cannot be secured or SSH authentication fails, recovery logs the
+failure instead of treating it as a missing route. Resolve the reported SSH
+error before retrying `k2s start`; restarting flannel cannot repair an
+authentication failure.
+
 ### Additional Options
 
 #### Skip Starting if Already Running
