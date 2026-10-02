@@ -103,7 +103,7 @@ func (p *linuxAddonProvider) Enable(cfg AddonEnableConfig) error {
 }
 
 func (p *linuxAddonProvider) enableRegistry(cfg AddonEnableConfig) error {
-	if isAddonDeployed("registry") {
+	if p.isAddonEnabledInConfig("registry") {
 		return fmt.Errorf("addon 'registry' is already enabled, nothing to do")
 	}
 
@@ -194,7 +194,7 @@ func (p *linuxAddonProvider) Disable(cfg AddonDisableConfig) error {
 }
 
 func (p *linuxAddonProvider) disableRegistry(cfg AddonDisableConfig) error {
-	if !isAddonDeployed("registry") {
+	if !p.isAddonEnabledInConfig("registry") && !isAddonDeployed("registry") {
 		return fmt.Errorf("addon 'registry' is already disabled, nothing to do")
 	}
 
@@ -490,6 +490,30 @@ func ensureHostEntry(hostname, ip string) {
 		cmd := exec.Command("sudo", "sh", "-c", fmt.Sprintf("printf '%%s' '%s' >> /etc/hosts", entry))
 		_ = cmd.Run()
 	}
+}
+
+func (p *linuxAddonProvider) isAddonEnabledInConfig(addonName string) bool {
+	configDir := p.configDir
+	if configDir == "" {
+		configDir = host.K2sConfigDir()
+	}
+	configPath := filepath.Join(configDir, definitions.K2sRuntimeConfigFileName)
+	cfgMap, err := kjson.FromFile[map[string]any](configPath)
+	if err != nil {
+		return false
+	}
+	if rawAddons, ok := (*cfgMap)["EnabledAddons"]; ok && rawAddons != nil {
+		if list, ok := rawAddons.([]any); ok {
+			for _, a := range list {
+				if m, ok := a.(map[string]any); ok {
+					if n, ok := m["Name"].(string); ok && strings.EqualFold(n, addonName) {
+						return true
+					}
+				}
+			}
+		}
+	}
+	return false
 }
 
 // isAddonDeployed checks if an addon has any pods deployed in the cluster.
