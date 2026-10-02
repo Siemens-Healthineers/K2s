@@ -295,6 +295,9 @@ func (c *CmdContext) EnsureK2sK8sContext(clusterName string) error {
 				kubeConfigPath = adminConfig
 			}
 		}
+		if os.Getenv("KUBECONFIG") == "" {
+			_ = os.Setenv("KUBECONFIG", kubeConfigPath)
+		}
 	}
 
 	kubeConfig, err := kubeconfig.FromFile(kubeConfigPath)

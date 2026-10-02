@@ -44,6 +44,7 @@ type AddonEnableConfig struct {
 type AddonDisableConfig struct {
 	Name           string
 	Implementation string
+	Params         map[string]string
 	ShowOutput     bool
 }
 
