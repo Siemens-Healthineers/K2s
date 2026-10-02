@@ -377,6 +377,12 @@ catch {
 Write-Log "Building the l2 bridge on network adapter '\$(\$adapter.Name)'"
 Set-ConfigL2BridgeAdapterName -Value \$adapter.Name
 
+# Puts \$installationPath\bin\kube on PATH. The kubeadm join preflight shells out to
+# 'kubelet --version' and fails fatally with ERROR KubeletVersion when it is missing;
+# that check is not covered by the --ignore-preflight-errors the join already passes.
+# On a Windows host this is done by the control-plane setup, which does not run here.
+Set-EnvVars
+
 # Populates C:\k2s\bin\windowsnode, which Initialize-WinNode consumes but never fills.
 Invoke-DeployWinArtifacts -KubernetesVersion (Get-DefaultK8sVersion) -Proxy 'http://$gateway:8181'
 
@@ -438,6 +444,10 @@ Initialize-Logging -ShowLogs
 \$ProgressPreference = 'SilentlyContinue'
 
 Set-Location (Get-KubePath)
+
+# sshd caches its environment block, so a new SSH session does not pick up the PATH the
+# join wrote to the registry. Re-apply it; Update-SystemPath de-duplicates.
+Set-EnvVars
 
 \$workerNodeStartParams = @{
     PodSubnetworkNumber = '1'
