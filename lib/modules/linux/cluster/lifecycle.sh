@@ -41,7 +41,7 @@ k2s_merge_no_proxy() {
   local pod_cidr service_cidr
   pod_cidr=$(k2s_cfg '.smallsetup.podNetworkCIDR') || return 1
   service_cidr=$(k2s_cfg '.smallsetup.servicesCIDR') || return 1
-  K2S_NO_PROXY=$(printf '%s\n' "${K2S_NO_PROXY//,/$'\n'}" localhost 127.0.0.1 ::1 "$pod_cidr" "$service_cidr" .svc .cluster.local | awk 'NF && !seen[$0]++' | paste -sd, -)
+  K2S_NO_PROXY=$(printf '%s\n' "${K2S_NO_PROXY//,/$'\n'}" localhost 127.0.0.1 ::1 "$pod_cidr" "$service_cidr" .svc .cluster.local k2s.registry.local | awk 'NF && !seen[$0]++' | paste -sd, -)
   export K2S_NO_PROXY
 }
 
