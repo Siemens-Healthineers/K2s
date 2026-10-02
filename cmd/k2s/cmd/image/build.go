@@ -238,4 +238,3 @@ func parseBuildArguments(arguments []string) (map[string]string, error) {
 	}
 	return buildArgsMap, nil
 }
-

@@ -39,8 +39,8 @@ if command -v buildah >/dev/null 2>&1; then
         startswith("docker.io/flannel") or
         startswith("docker.io/calico") or
         startswith("quay.io/coreos") or
-        startswith("shsk2s.azurecr.io") or
-        contains(".azurecr.io");
+        startswith("shsk2s.azurecr.io/clusterip-webhook") or
+        startswith("shsk2s.azurecr.io/pause");
       def is_k8s:
         ([(.names // [])[]? | select(is_k8s_str)] | length > 0);
       .[]? | select(is_k8s | not) | .id
@@ -71,8 +71,8 @@ if command -v crictl >/dev/null 2>&1; then
         startswith("docker.io/flannel") or
         startswith("docker.io/calico") or
         startswith("quay.io/coreos") or
-        startswith("shsk2s.azurecr.io") or
-        contains(".azurecr.io");
+        startswith("shsk2s.azurecr.io/clusterip-webhook") or
+        startswith("shsk2s.azurecr.io/pause");
       def is_k8s:
         ([.repoTags[]? | select(is_k8s_str)] | length > 0) or
         ([.repoDigests[]? | select(is_k8s_str)] | length > 0);

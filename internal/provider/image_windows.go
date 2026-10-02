@@ -325,4 +325,3 @@ func (p *windowsImageProvider) RegistryRemove(cfg ImageRegistryRemoveConfig) err
 	}
 	return p.execPS(psCmd, params...)
 }
-

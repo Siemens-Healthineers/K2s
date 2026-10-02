@@ -5,6 +5,7 @@ package image
 
 import (
 	"fmt"
+	"os"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -64,10 +65,16 @@ func validateNodeSelector(nodeSelector string, runtimeConfig *contracts.K2sRunti
 		if runtimeConfig.ControlPlaneConfig() != nil {
 			cpHostname = strings.ToLower(runtimeConfig.ControlPlaneConfig().Hostname())
 		}
-		if lower != "linux" && (cpHostname == "" || lower != cpHostname) {
+		localHost, _ := os.Hostname()
+		localHost = strings.ToLower(localHost)
+
+		if lower != "linux" && (cpHostname == "" || lower != cpHostname) && (localHost == "" || lower != localHost) {
 			hostname := ""
 			if runtimeConfig.ControlPlaneConfig() != nil {
 				hostname = runtimeConfig.ControlPlaneConfig().Hostname()
+			}
+			if hostname == "" {
+				hostname = localHost
 			}
 			return fmt.Errorf("node '%s' is not part of this cluster; Linux-only installation only targets the local host node ('%s')", nodeSelector, hostname)
 		}
@@ -75,4 +82,3 @@ func validateNodeSelector(nodeSelector string, runtimeConfig *contracts.K2sRunti
 
 	return nil
 }
-

@@ -21,8 +21,8 @@ import (
 )
 
 const (
-	winVMIP      = "172.19.1.101"
-	sshUser      = "remote"
+	winVMIP = "172.19.1.101"
+	sshUser = "remote"
 )
 
 type linuxImageProvider struct {
@@ -659,7 +659,7 @@ func listBuildahImages() ([]ContainerImage, error) {
 				ImageId:    shortId,
 				Repository: repo,
 				Tag:        tag,
-				Node:       "linux",
+				Node:       getNodeName(),
 				Size:       img.Size,
 			})
 		}
@@ -715,7 +715,7 @@ func listCrictlImages() ([]ContainerImage, error) {
 				ImageId:    shortId,
 				Repository: repo,
 				Tag:        tag,
-				Node:       "linux",
+				Node:       getNodeName(),
 				Size:       img.Size,
 			})
 		}
@@ -779,6 +779,14 @@ func listWindowsVMImages() ([]ContainerImage, error) {
 	return images, nil
 }
 
+func getNodeName() string {
+	h, err := os.Hostname()
+	if err == nil && h != "" {
+		return strings.ToLower(h)
+	}
+	return "linux"
+}
+
 func isK8sImage(repo string) bool {
 	k8sPrefixes := []string{
 		"registry.k8s.io/",
@@ -786,15 +794,13 @@ func isK8sImage(repo string) bool {
 		"docker.io/flannel",
 		"docker.io/calico",
 		"quay.io/coreos",
-		"shsk2s.azurecr.io",
+		"shsk2s.azurecr.io/clusterip-webhook",
+		"shsk2s.azurecr.io/pause",
 	}
 	for _, prefix := range k8sPrefixes {
 		if strings.HasPrefix(repo, prefix) {
 			return true
 		}
-	}
-	if strings.Contains(repo, ".azurecr.io") {
-		return true
 	}
 	return false
 }

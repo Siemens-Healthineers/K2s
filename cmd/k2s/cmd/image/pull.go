@@ -113,6 +113,10 @@ func pullImage(cmd *cobra.Command, args []string) error {
 		return common.CreateFuncUnavailableForLinuxOnlyCmdFailure()
 	}
 
+	if err := validateNodeSelector(nodeSelector, runtimeConfig); err != nil {
+		return err
+	}
+
 	if err := context.Providers().Image.Pull(provider.ImagePullConfig{
 		ImageName:  imageToPull,
 		Windows:    pullForWindows,

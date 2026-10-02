@@ -168,4 +168,3 @@ func extractRemoveOptions(cmd *cobra.Command) (*removeOptions, error) {
 		showOutput:   showOutput,
 	}, nil
 }
-

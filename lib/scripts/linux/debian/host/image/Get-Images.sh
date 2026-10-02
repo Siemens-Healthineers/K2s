@@ -55,8 +55,8 @@ processed_json=$(echo "$raw_json" | jq --argjson incK8s "$include_k8s" '
     ($repo | startswith("docker.io/flannel")) or
     ($repo | startswith("docker.io/calico")) or
     ($repo | startswith("quay.io/coreos")) or
-    ($repo | startswith("shsk2s.azurecr.io")) or
-    ($repo | contains(".azurecr.io"));
+    ($repo | startswith("shsk2s.azurecr.io/clusterip-webhook")) or
+    ($repo | startswith("shsk2s.azurecr.io/pause"));
 
   def parse_tag($t):
     if ($t == null or $t == "" or $t == "<none>:<none>") then
@@ -74,7 +74,7 @@ processed_json=$(echo "$raw_json" | jq --argjson incK8s "$include_k8s" '
       imageId: ($img.id | sub("^sha256:"; "") | .[:12]),
       repository: $parsed.repo,
       tag: $parsed.tag,
-      node: "linux",
+      node: (env.HOSTNAME // "linux"),
       size: ($img.size // "0")
     } | select($incK8s or (is_k8s(.repository) | not))
   ]
