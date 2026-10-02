@@ -80,6 +80,39 @@ if ! command -v buildah >/dev/null 2>&1 && ! command -v nerdctl >/dev/null 2>&1;
   fi
 fi
 
+precompiled_binary=""
+cleanup() {
+  if [[ -n "$precompiled_binary" && -f "$precompiled_binary" ]]; then
+    rm -f "$precompiled_binary"
+  fi
+}
+trap cleanup EXIT
+
+# If no dockerfile specified, check for Dockerfile.PreCompile or Dockerfile
+if [[ -z "$dockerfile" ]]; then
+  if [[ -f "$dir/Dockerfile.PreCompile" ]]; then
+    dockerfile="$dir/Dockerfile.PreCompile"
+  elif [[ -f "$dir/Dockerfile" ]]; then
+    dockerfile="$dir/Dockerfile"
+  fi
+fi
+
+# Pre-compilation support for Dockerfiles ending with or containing PreCompile
+if [[ -n "$dockerfile" && "$dockerfile" == *"PreCompile"* && -f "$dockerfile" ]]; then
+  exe_name="$(grep -m1 -E '^# *ExeName: +' "$dockerfile" | awk '{print $NF}' || true)"
+  if [[ -n "$exe_name" && ! -f "$dir/$exe_name" ]]; then
+    go_cmd="$(command -v go 2>/dev/null || echo "")"
+    if [[ -z "$go_cmd" && -x /usr/local/go/bin/go ]]; then
+      go_cmd="/usr/local/go/bin/go"
+    fi
+    if [[ -n "$go_cmd" ]] && { [[ -f "$dir/go.mod" ]] || [[ -f "$dir/main.go" ]]; }; then
+      k2s_log INFO "Pre-compiling Go binary '$exe_name'..."
+      (cd "$dir" && CGO_ENABLED=0 "$go_cmd" build -ldflags="-w -s" -trimpath -o "$exe_name" .)
+      precompiled_binary="$dir/$exe_name"
+    fi
+  fi
+fi
+
 builder=""
 if command -v buildah >/dev/null 2>&1; then
   builder="buildah"
@@ -92,7 +125,7 @@ fi
 
 build_cmd=("$builder")
 if [[ "$builder" == "buildah" ]]; then
-  build_cmd+=("bud")
+  build_cmd+=("bud" "--layers")
 else
   build_cmd+=("build")
 fi
