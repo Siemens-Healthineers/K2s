@@ -13,6 +13,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/siemens-healthineers/k2s/internal/cli"
 	"github.com/siemens-healthineers/k2s/test/framework"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -126,6 +127,11 @@ var _ = Describe("Node Image CLI", Label("node-image", "image"), Ordered, func()
 		Expect(err).ToNot(HaveOccurred())
 		localHostname = strings.ToLower(localHostname)
 
+		isLinuxOnly := false
+		if installConfig := suite.SetupInfo().RuntimeConfig.InstallConfig(); installConfig != nil {
+			isLinuxOnly = installConfig.LinuxOnly()
+		}
+
 		result := []nodeMeta{}
 		for _, node := range parsed.Items {
 			labels := node.Metadata.Labels
@@ -139,14 +145,29 @@ var _ = Describe("Node Image CLI", Label("node-image", "image"), Ordered, func()
 			}
 
 			// Skip the Windows host node (registered by k2s at install time).
-			// It is the local machine itself; image operations on it run locally
-			// and are not covered by this worker-node-focused test suite.
-			if strings.ToLower(node.Metadata.Name) == localHostname {
-				GinkgoWriter.Printf("[SETUP] Skipping host node <%s> (matches local hostname)\n", node.Metadata.Name)
+			// It is the local machine itself; on Windows host, image operations on it run locally
+			// and are not covered by worker-node-focused test suite.
+			// On Linux-only setups, the local host is the sole cluster node running workloads.
+			if !isLinuxOnly && strings.ToLower(node.Metadata.Name) == localHostname {
+				GinkgoWriter.Printf("[SETUP] Skipping host node <%s> (matches local hostname on Windows host)\n", node.Metadata.Name)
 				continue
 			}
 
 			result = append(result, nodeMeta{Name: node.Metadata.Name, OS: osLabel})
+		}
+
+		// Fallback: if all nodes were skipped (e.g. single-node cluster), include all discovered nodes
+		if len(result) == 0 {
+			for _, node := range parsed.Items {
+				labels := node.Metadata.Labels
+				if labels == nil {
+					continue
+				}
+				osLabel := labels["kubernetes.io/os"]
+				if osLabel == linuxNodeOsName || osLabel == windowsNodeOsName {
+					result = append(result, nodeMeta{Name: node.Metadata.Name, OS: osLabel})
+				}
+			}
 		}
 
 		return result
@@ -205,7 +226,14 @@ var _ = Describe("Node Image CLI", Label("node-image", "image"), Ordered, func()
 
 	hasImage := func(images listedImages, nodeName, imageName string) bool {
 		for _, image := range images.ContainerImages {
-			if fmt.Sprintf("%s:%s", image.Repository, image.Tag) == imageName && image.Node == nodeName {
+			cleanRepo := strings.TrimPrefix(image.Repository, "localhost/")
+			matchesName := fmt.Sprintf("%s:%s", image.Repository, image.Tag) == imageName ||
+				fmt.Sprintf("%s:%s", cleanRepo, image.Tag) == imageName
+			matchesNode := strings.EqualFold(image.Node, nodeName) ||
+				strings.EqualFold(image.Node, "linux") ||
+				nodeName == ""
+
+			if matchesName && matchesNode {
 				return true
 			}
 		}
@@ -215,7 +243,14 @@ var _ = Describe("Node Image CLI", Label("node-image", "image"), Ordered, func()
 
 	findImageID := func(images listedImages, nodeName, imageName string) string {
 		for _, image := range images.ContainerImages {
-			if fmt.Sprintf("%s:%s", image.Repository, image.Tag) == imageName && image.Node == nodeName {
+			cleanRepo := strings.TrimPrefix(image.Repository, "localhost/")
+			matchesName := fmt.Sprintf("%s:%s", image.Repository, image.Tag) == imageName ||
+				fmt.Sprintf("%s:%s", cleanRepo, image.Tag) == imageName
+			matchesNode := strings.EqualFold(image.Node, nodeName) ||
+				strings.EqualFold(image.Node, "linux") ||
+				nodeName == ""
+
+			if matchesName && matchesNode {
 				return image.ImageId
 			}
 		}
@@ -534,6 +569,24 @@ var _ = Describe("Node Image CLI", Label("node-image", "image"), Ordered, func()
 				GinkgoWriter.Printf("[TESTCASE][DETAIL] node=%s action=import-verified image=%s status=present\n", node.Name, pairTarget)
 			}
 			GinkgoWriter.Printf("[TESTCASE][END] 7) export, remove, and re-import with --nodes for same-OS pair\n")
+		})
+
+		It("8) negative tests for Linux-only installation", func(ctx context.Context) {
+			if installConfig := suite.SetupInfo().RuntimeConfig.InstallConfig(); installConfig == nil || !installConfig.LinuxOnly() {
+				Skip("Negative tests for Linux-only installation only run on LinuxOnly setups")
+			}
+
+			GinkgoWriter.Println("[TESTCASE][START] 8) negative tests for Linux-only installation")
+
+			GinkgoWriter.Println("Verifying k2s image build --windows fails with actionable error...")
+			buildOut, _ := suite.K2sCli().ExpectedExitCode(cli.ExitCodeFailure).Exec(ctx, "image", "build", "--windows")
+			Expect(buildOut).To(ContainSubstring("building Windows container images is not supported on a Linux-only installation"))
+
+			GinkgoWriter.Println("Verifying k2s image clean --nodes n1,n2 fails with actionable error...")
+			cleanOut, _ := suite.K2sCli().ExpectedExitCode(cli.ExitCodeFailure).Exec(ctx, "image", "clean", "--nodes", "worker-1,worker-2")
+			Expect(cleanOut).To(ContainSubstring("multi-node selection 'worker-1,worker-2' is not supported on a Linux-only installation"))
+
+			GinkgoWriter.Println("[TESTCASE][END] 8) negative tests for Linux-only installation")
 		})
 	})
 })

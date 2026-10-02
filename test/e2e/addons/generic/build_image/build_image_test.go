@@ -7,6 +7,7 @@ import (
 	"context"
 	"fmt"
 	"path/filepath"
+	"runtime"
 	"strconv"
 	"testing"
 	"time"
@@ -104,7 +105,7 @@ var _ = Describe("build container image", Ordered, func() {
 
 				suite.K2sCli().MustExec(ctx, "image", "build",
 					"--input-folder", linuxSrcDirName,
-					"--dockerfile", linuxSrcDirName+"\\Dockerfile",
+					"--dockerfile", filepath.Join(linuxSrcDirName, "Dockerfile"),
 					"--image-name", imageName,
 					"--image-tag", randomImageTag, "-o", "--push")
 			})
@@ -247,6 +248,10 @@ var _ = Describe("build container image", Ordered, func() {
 		var fullName string
 
 		BeforeAll(func() {
+			if suite.SetupInfo().RuntimeConfig.InstallConfig().LinuxOnly() {
+				Skip("Building Windows container images is not supported on Linux hosts")
+			}
+
 			fullName = imageName + ":" + randomImageTag
 
 			DeferCleanup(func(ctx context.Context) {
@@ -262,7 +267,7 @@ var _ = Describe("build container image", Ordered, func() {
 
 			suite.K2sCli().MustExec(ctx, "image", "build",
 				"--input-folder", winSrcDirName,
-				"--dockerfile", winSrcDirName+"\\Dockerfile.PreCompile",
+				"--dockerfile", filepath.Join(winSrcDirName, "Dockerfile.PreCompile"),
 				"--image-name", imageName,
 				"--image-tag", randomImageTag, "-o", "--push", "--windows")
 		})
@@ -368,5 +373,9 @@ func removeImageFromLocalRegistry(ctx context.Context, name string) {
 }
 
 func verifyDeploymentAccessibility(ctx context.Context, url string) {
-	suite.Cli("curl.exe").MustExec(ctx, url, "--fail", "-v", "-ipv4", "--retry", "10", "--retry-all-errors", "--retry-connrefused", "--retry-delay", "30")
+	curlCmd := "curl"
+	if runtime.GOOS == "windows" {
+		curlCmd = "curl.exe"
+	}
+	suite.Cli(curlCmd).MustExec(ctx, url, "--fail", "-v", "-ipv4", "--retry", "10", "--retry-all-errors", "--retry-connrefused", "--retry-delay", "30")
 }
