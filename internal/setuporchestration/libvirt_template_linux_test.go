@@ -134,6 +134,7 @@ var _ = Describe("loadLibvirtTemplateFromDir", Ordered, func() {
 				NetworkBridge:  "k2s",
 				FirmwarePath:  "/usr/share/OVMF/OVMF_CODE.fd",
 				NVRAMPath:     "/var/lib/k2s/images/win_VARS.fd",
+				MACAddress:    "52:54:00:25:57:01",
 			}
 			Expect(tmpl.Execute(&buf, data)).To(Succeed())
 
@@ -143,6 +144,7 @@ var _ = Describe("loadLibvirtTemplateFromDir", Ordered, func() {
 			Expect(rendered).To(ContainSubstring("<vcpu placement='static'>2</vcpu>"))
 			Expect(rendered).To(ContainSubstring("/var/lib/k2s/images/win.qcow2"))
 			Expect(rendered).To(ContainSubstring("network='k2s'"))
+			Expect(rendered).To(ContainSubstring("mac address='52:54:00:25:57:01'"))
 			Expect(rendered).To(ContainSubstring("OVMF_CODE.fd"))
 		})
 
@@ -163,7 +165,7 @@ var _ = Describe("loadLibvirtTemplateFromDir", Ordered, func() {
 				DHCPRangeStart: "172.19.1.100",
 				DHCPRangeEnd:   "172.19.1.199",
 				WinVMIP:        "172.19.1.101",
-				WinVMMac:       "52:54:00:k2:5w:01",
+				WinVMMac:       "52:54:00:25:57:01",
 			}
 			Expect(tmpl.Execute(&buf, data)).To(Succeed())
 
@@ -174,7 +176,7 @@ var _ = Describe("loadLibvirtTemplateFromDir", Ordered, func() {
 			Expect(rendered).To(ContainSubstring("start='172.19.1.100'"))
 			Expect(rendered).To(ContainSubstring("end='172.19.1.199'"))
 			Expect(rendered).To(ContainSubstring("ip='172.19.1.101'"))
-			Expect(rendered).To(ContainSubstring("mac='52:54:00:k2:5w:01'"))
+			Expect(rendered).To(ContainSubstring("mac='52:54:00:25:57:01'"))
 		})
 	})
 })

@@ -84,3 +84,13 @@ var _ = Describe("resolveInstallDirFromPath", func() {
 	})
 })
 
+var _ = Describe("formatLinuxCLIInvocation", func() {
+	It("uses POSIX-safe quoting for Linux command arguments", func() {
+		args := []string{"/opt/k2s/k2s", "install", "--windows-qcow2-path", "/tmp/Windows 11's.qcow2", "--proxy", "http://proxy:81"}
+
+		actual := formatLinuxCLIInvocation(args)
+
+		Expect(actual).To(Equal("/opt/k2s/k2s install --windows-qcow2-path '/tmp/Windows 11'\"'\"'s.qcow2' --proxy http://proxy:81"))
+	})
+})
+

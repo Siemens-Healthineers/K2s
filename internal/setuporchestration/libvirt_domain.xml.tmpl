@@ -55,6 +55,7 @@ SPDX-License-Identifier:   MIT
 
     <!-- VirtIO network adapter -->
     <interface type='network'>
+      <mac address='{{.MACAddress}}'/>
       <source network='{{.NetworkBridge}}'/>
       <model type='virtio'/>
     </interface>
