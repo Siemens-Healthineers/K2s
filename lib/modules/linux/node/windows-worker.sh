@@ -212,19 +212,24 @@ k2s_windows_worker_password_scp() {
   SSHPASS=$(k2s_windows_worker_password) sshpass -e scp -o BatchMode=no -o PreferredAuthentications=password -o PubkeyAuthentication=no -o StrictHostKeyChecking=yes -o UserKnownHostsFile="$(k2s_windows_worker_known_hosts)" "$(k2s_windows_worker_private_key).pub" "remote@$(k2s_windows_worker_ip):windows-worker.pub"
 }
 
+# sshd reads administrators_authorized_keys on every authentication, so the key takes
+# effect without restarting the service. Restarting it would tear down the very session
+# running this command and can leave port 22 unreachable while the guest is still busy
+# with its first boot.
 k2s_windows_worker_bootstrap_ssh_key() {
-  k2s_log INFO 'Installing the generated Windows worker SSH key through temporary password authentication.'
   k2s_windows_worker_password_scp || return $?
-  k2s_windows_worker_password_ssh 'powershell.exe -NoProfile -Command "New-Item -ItemType Directory -Path C:\ProgramData\ssh -Force | Out-Null; Copy-Item -Path C:\Users\remote\windows-worker.pub -Destination C:\ProgramData\ssh\administrators_authorized_keys -Force; icacls C:\ProgramData\ssh\administrators_authorized_keys /inheritance:r /grant \"Administrators:F\" /grant \"SYSTEM:F\" | Out-Null; Remove-Item C:\Users\remote\windows-worker.pub -Force; Restart-Service sshd"'
+  k2s_windows_worker_password_ssh 'powershell.exe -NoProfile -Command "New-Item -ItemType Directory -Path C:\ProgramData\ssh -Force | Out-Null; Copy-Item -Path C:\Users\remote\windows-worker.pub -Destination C:\ProgramData\ssh\administrators_authorized_keys -Force; icacls C:\ProgramData\ssh\administrators_authorized_keys /inheritance:r /grant \"Administrators:F\" /grant \"SYSTEM:F\" | Out-Null; Remove-Item C:\Users\remote\windows-worker.pub -Force"'
 }
 
 k2s_windows_worker_wait_for_ssh() {
-  local known_hosts worker_ip deadline=$((SECONDS + 900))
+  local known_hosts worker_ip deadline attempt=0
   k2s_windows_worker_create_ssh_key || return 1
   known_hosts=$(k2s_windows_worker_known_hosts)
   worker_ip=$(k2s_windows_worker_ip) || return 1
   install -d -m 0700 "$(k2s_windows_worker_ssh_dir)" || return 1
   : > "$known_hosts"; chmod 600 "$known_hosts"
+  k2s_log INFO "Waiting for the Windows worker to answer SSH on $worker_ip."
+  deadline=$((SECONDS + 900))
   while ! ssh-keyscan -T 10 -H "$worker_ip" >> "$known_hosts" 2>/dev/null; do
     if (( SECONDS >= deadline )); then
       k2s_windows_worker_log_ssh_diagnostics "$worker_ip"
@@ -233,15 +238,24 @@ k2s_windows_worker_wait_for_ssh() {
     fi
     sleep 10
   done
-  k2s_windows_worker_bootstrap_ssh_key || return $?
-  while ! k2s_windows_worker_ssh 'exit 0'; do
+  k2s_log INFO 'Windows worker SSH host key retrieved; installing the generated key.'
+  # The guest is still settling during its first boot, so the bootstrap itself can fail
+  # transiently. Retry it instead of only polling for its result.
+  deadline=$((SECONDS + 900))
+  until k2s_windows_worker_ssh 'exit 0' 2>/dev/null; do
     if (( SECONDS >= deadline )); then
+      k2s_log ERROR 'Windows worker SSH key authentication never succeeded. Last attempt:'
+      k2s_windows_worker_ssh 'exit 0' || true
       k2s_windows_worker_log_ssh_diagnostics "$worker_ip"
-      k2s_log ERROR 'Timed out waiting for Windows worker SSH key authentication.'
+      k2s_log ERROR "Timed out waiting for Windows worker SSH key authentication after $attempt attempts."
       return 1
     fi
+    attempt=$((attempt + 1))
+    k2s_log INFO "Installing the Windows worker SSH key through temporary password authentication (attempt $attempt)."
+    k2s_windows_worker_bootstrap_ssh_key || k2s_log WARN 'SSH key installation attempt failed; the guest is probably still booting.'
     sleep 10
   done
+  k2s_log INFO "Windows worker SSH key authentication established after $attempt attempt(s)."
 }
 
 k2s_windows_worker_log_ssh_diagnostics() {
