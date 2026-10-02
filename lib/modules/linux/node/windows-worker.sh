@@ -278,6 +278,27 @@ k2s_windows_worker_copy_runtime() {
   k2s_windows_worker_ssh 'powershell.exe -NoProfile -Command "New-Item -ItemType Directory -Path C:\k2s -Force | Out-Null; tar.exe -xf C:\ProgramData\K2s\k2s-runtime.tar -C C:\k2s; Remove-Item C:\ProgramData\K2s\k2s-runtime.tar -Force"'
 }
 
+# kubectl on the worker is invoked without --kubeconfig during the join. On a Windows
+# host the control-plane install fetches the config from the control plane (see
+# Copy-KubeConfigFromControlPlaneNode); there is no Windows control plane here, so the
+# host pushes it to the location the Windows node modules expect.
+k2s_windows_worker_copy_kubeconfig() {
+  local kubeconfig result
+  k2s_log INFO 'Copying the cluster kubeconfig to the Windows worker.'
+  kubeconfig=$(mktemp) || return 1
+  cp /etc/kubernetes/admin.conf "$kubeconfig" || { rm -f "$kubeconfig"; return 1; }
+  scp -i "$(k2s_windows_worker_private_key)" -o BatchMode=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile="$(k2s_windows_worker_known_hosts)" "$kubeconfig" "remote@$(k2s_windows_worker_ip):C:/k2s/config"
+  result=$?
+  rm -f "$kubeconfig"
+  return "$result"
+}
+
+# The Kubernetes node registers under the worker's Windows computer name, which comes
+# from the prepared QCOW2 image and is unrelated to the libvirt domain name.
+k2s_windows_worker_node_name() {
+  k2s_windows_worker_ssh 'powershell.exe -NoProfile -Command "$env:COMPUTERNAME.ToLower()"' | tr -d '[:space:]'
+}
+
 k2s_windows_worker_join_cluster() {
   local join_command join_script escaped_join gateway worker_ip
   join_command=$(kubeadm token create --ttl 30m --print-join-command) || return 1
@@ -323,6 +344,18 @@ Set-ConfigL2BridgeAdapterName -Value \$adapter.Name
 
 # Populates C:\k2s\bin\windowsnode, which Initialize-WinNode consumes but never fills.
 Invoke-DeployWinArtifacts -KubernetesVersion (Get-DefaultK8sVersion) -Proxy 'http://$gateway:8181'
+
+# The host put the kubeconfig at \$installationPath\config. Publish it the way
+# Add-K8sContext would, which cannot run yet because it needs kubectl.exe and that is
+# only deployed later by Add-WindowsWorkerNodeOnWindowsHost.
+Set-InstalledClusterName -Value '$K2S_CLUSTER_NAME'
+\$kubeConfigDir = Get-ConfiguredKubeConfigDir
+if (!(Test-Path \$kubeConfigDir)) {
+    New-Item -ItemType Directory -Path \$kubeConfigDir -Force | Out-Null
+}
+Copy-Item "\$installationPath\config" -Destination "\$kubeConfigDir\config" -Force
+\$env:KUBECONFIG = "\$installationPath\config"
+[Environment]::SetEnvironmentVariable('KUBECONFIG', "\$installationPath\config", [System.EnvironmentVariableTarget]::Machine)
 
 \$workerNodeParams = @{
     Proxy               = 'http://$gateway:8181'
@@ -377,12 +410,16 @@ EOF
 }
 
 k2s_windows_worker_wait_for_node() {
-  local deadline=$((SECONDS + 1200))
-  while ! k2s_kubectl get node "$K2S_WINDOWS_WORKER_NAME" >/dev/null 2>&1; do
-    (( SECONDS < deadline )) || { k2s_log ERROR 'Timed out waiting for the Windows worker Kubernetes node.'; return 1; }
+  local node_name deadline
+  node_name=$(k2s_windows_worker_node_name) || return 1
+  [[ -n "$node_name" ]] || { k2s_log ERROR 'Could not determine the Windows worker computer name.'; return 1; }
+  k2s_log INFO "Waiting for the Windows worker to register as Kubernetes node '$node_name'."
+  deadline=$((SECONDS + 1200))
+  while ! k2s_kubectl get node "$node_name" >/dev/null 2>&1; do
+    (( SECONDS < deadline )) || { k2s_log ERROR "Timed out waiting for the Windows worker Kubernetes node '$node_name'."; return 1; }
     sleep 10
   done
-  k2s_kubectl wait --for=condition=Ready "node/$K2S_WINDOWS_WORKER_NAME" --timeout=10m
+  k2s_kubectl wait --for=condition=Ready "node/$node_name" --timeout=10m
 }
 
 k2s_windows_worker_define() {
@@ -425,6 +462,7 @@ k2s_windows_worker_provision() {
   virsh start "$K2S_WINDOWS_WORKER_NAME" || return 1
   k2s_windows_worker_wait_for_ssh || return $?
   k2s_windows_worker_copy_runtime || return $?
+  k2s_windows_worker_copy_kubeconfig || return $?
   k2s_windows_worker_join_cluster || return $?
   k2s_windows_worker_start_node || return $?
   k2s_windows_worker_wait_for_node || return $?
