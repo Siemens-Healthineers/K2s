@@ -24,6 +24,14 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
+func init() {
+	if os.Getenv("KUBECONFIG") == "" {
+		if _, err := os.Stat("/etc/kubernetes/admin.conf"); err == nil {
+			_ = os.Setenv("KUBECONFIG", "/etc/kubernetes/admin.conf")
+		}
+	}
+}
+
 type linuxAddonProvider struct {
 	installDir string
 	configDir  string
@@ -113,6 +121,10 @@ func (p *linuxAddonProvider) enableRegistry(cfg AddonEnableConfig) error {
 	}
 
 	ingressType := cfg.Params["ingress"]
+	if ingressType != "" && ingressType != "nginx" {
+		return fmt.Errorf("ingress implementation '%s' is not supported on Linux hosts", ingressType)
+	}
+
 	if ingressType == "nginx" {
 		if !p.isAddonEnabledInConfig("ingress", "nginx") {
 			if err := p.enableIngress(AddonEnableConfig{Name: "ingress", Implementation: "nginx", ShowOutput: cfg.ShowOutput}); err != nil {
@@ -172,12 +184,13 @@ func (p *linuxAddonProvider) enableRegistry(cfg AddonEnableConfig) error {
 		}
 	}
 
-	// 6. Ensure /etc/hosts has k2s.registry.local
+	// 6. Ensure /etc/hosts has k2s.registry.local pointing to node IP
 	nodeIP := getNodeIP()
 	if nodeIP != "" && nodeIP != "127.0.0.1" {
-		ensureHostEntry("k2s.registry.local", nodeIP)
+		setHostEntry("k2s.registry.local", nodeIP)
+	} else {
+		setHostEntry("k2s.registry.local", "127.0.0.1")
 	}
-	ensureHostEntry("k2s.registry.local", "127.0.0.1")
 
 	// 7. Add registry via Add-Registry.sh
 	addRegScript := filepath.Join(p.installDir, "lib", "scripts", "linux", "debian", "host", "image", "registry", "Add-Registry.sh")
@@ -197,9 +210,10 @@ func (p *linuxAddonProvider) enableRegistry(cfg AddonEnableConfig) error {
 
 	// 8. Update setup.json
 	_ = p.addAddonToConfig("registry", "")
-	_ = p.addRegistryToConfig("k2s.registry.local:30500")
 	if hasIngress {
 		_ = p.addRegistryToConfig("k2s.registry.local")
+	} else {
+		_ = p.addRegistryToConfig("k2s.registry.local:30500")
 	}
 
 	return nil
@@ -260,6 +274,12 @@ func (p *linuxAddonProvider) enableIngress(cfg AddonEnableConfig) error {
 		_ = exec.Command("kubectl", "apply", "-f", clusterLocal).Run()
 	}
 
+	if nodeIP != "" && nodeIP != "127.0.0.1" {
+		setHostEntry("k2s.cluster.local", nodeIP)
+	} else {
+		setHostEntry("k2s.cluster.local", "127.0.0.1")
+	}
+
 	// 6. Update setup.json
 	_ = p.addAddonToConfig("ingress", impl)
 
@@ -309,6 +329,13 @@ func (p *linuxAddonProvider) disableRegistry(cfg AddonDisableConfig) error {
 
 	_ = exec.Command("kubectl", "delete", "namespace", "registry", "--ignore-not-found").Run()
 
+	if cfg.Params != nil && (cfg.Params["deleteimages"] == "true" || cfg.Params["delete-images"] == "true" || cfg.Params["d"] == "true") {
+		_ = exec.Command("sudo", "rm", "-rf", "/registry").Run()
+	}
+
+	// Remove host entry from /etc/hosts
+	removeHostEntry("k2s.registry.local")
+
 	// Remove registries via Remove-Registry.sh
 	rmRegScript := filepath.Join(p.installDir, "lib", "scripts", "linux", "debian", "host", "image", "registry", "Remove-Registry.sh")
 	if _, err := os.Stat(rmRegScript); err == nil {
@@ -333,6 +360,8 @@ func (p *linuxAddonProvider) disableIngress(cfg AddonDisableConfig) error {
 	if !p.isAddonEnabledInConfig("ingress", impl) && !isAddonDeployed("ingress-nginx") {
 		return fmt.Errorf("addon 'ingress %s' is already disabled, nothing to do", impl)
 	}
+
+	removeHostEntry("k2s.cluster.local")
 
 	clusterLocal := filepath.Join(p.installDir, "addons", "ingress", "nginx", "manifests", "cluster-local-ingress.yaml")
 	if _, err := os.Stat(clusterLocal); err == nil {
@@ -526,6 +555,7 @@ func (p *linuxAddonProvider) RunCommand(cfg AddonRunCommandConfig) error {
 		return p.Disable(AddonDisableConfig{
 			Name:           cfg.AddonName,
 			Implementation: cfg.Implementation,
+			Params:         params,
 			ShowOutput:     cfg.ShowOutput,
 		})
 	default:
@@ -537,17 +567,36 @@ func (p *linuxAddonProvider) RunCommand(cfg AddonRunCommandConfig) error {
 func parsePsParams(params []string) map[string]string {
 	m := make(map[string]string)
 	for i := 0; i < len(params); i++ {
-		p := params[i]
-		if strings.HasPrefix(p, "-") {
-			key := strings.ToLower(strings.TrimPrefix(p, "-"))
-			if idx := strings.Index(key, ":"); idx != -1 {
-				m[key[:idx]] = key[idx+1:]
-			} else if i+1 < len(params) && !strings.HasPrefix(params[i+1], "-") {
-				m[key] = params[i+1]
-				i++
-			} else {
-				m[key] = "true"
-			}
+		p := strings.TrimSpace(params[i])
+		if !strings.HasPrefix(p, "-") {
+			continue
+		}
+		p = strings.TrimPrefix(p, "-")
+
+		// Case 1: "-Key Value" (space-separated in single entry)
+		if spaceIdx := strings.Index(p, " "); spaceIdx != -1 {
+			key := strings.ToLower(strings.TrimSpace(p[:spaceIdx]))
+			val := strings.Trim(strings.TrimSpace(p[spaceIdx+1:]), "'\"")
+			m[key] = val
+			continue
+		}
+
+		// Case 2: "-Key:Value"
+		if colonIdx := strings.Index(p, ":"); colonIdx != -1 {
+			key := strings.ToLower(strings.TrimSpace(p[:colonIdx]))
+			val := strings.Trim(strings.TrimSpace(p[colonIdx+1:]), "'\"")
+			m[key] = val
+			continue
+		}
+
+		// Case 3: "-Key" followed by "Value" in next element
+		key := strings.ToLower(strings.TrimSpace(p))
+		if i+1 < len(params) && !strings.HasPrefix(strings.TrimSpace(params[i+1]), "-") {
+			m[key] = strings.Trim(strings.TrimSpace(params[i+1]), "'\"")
+			i++
+		} else {
+			// Case 4: Boolean flag
+			m[key] = "true"
 		}
 	}
 	return m
@@ -714,20 +763,78 @@ func (p *linuxAddonProvider) removeRegistryFromConfig(registry string) error {
 	return kjson.ToFile(configPath, cfgMap)
 }
 
-func ensureHostEntry(hostname, ip string) {
+func setHostEntry(hostname, ip string) {
 	content, err := os.ReadFile("/etc/hosts")
-	if err == nil {
-		if strings.Contains(string(content), hostname) {
-			return
-		}
+	if err != nil {
+		return
 	}
-	entry := fmt.Sprintf("\n%s %s\n", ip, hostname)
-	f, err := os.OpenFile("/etc/hosts", os.O_APPEND|os.O_WRONLY, 0644)
-	if err == nil {
-		defer f.Close()
-		_, _ = f.WriteString(entry)
-	} else {
-		cmd := exec.Command("sudo", "sh", "-c", fmt.Sprintf("printf '%%s' '%s' >> /etc/hosts", entry))
+	lines := strings.Split(string(content), "\n")
+	var newLines []string
+	found := false
+	for _, line := range lines {
+		trimmed := strings.TrimSpace(line)
+		if strings.HasPrefix(trimmed, "#") {
+			newLines = append(newLines, line)
+			continue
+		}
+		fields := strings.Fields(trimmed)
+		if len(fields) >= 2 {
+			hasHost := false
+			for _, f := range fields[1:] {
+				if f == hostname {
+					hasHost = true
+					break
+				}
+			}
+			if hasHost {
+				newLines = append(newLines, fmt.Sprintf("%s %s", ip, hostname))
+				found = true
+				continue
+			}
+		}
+		newLines = append(newLines, line)
+	}
+	if !found {
+		newLines = append(newLines, fmt.Sprintf("%s %s", ip, hostname))
+	}
+	newContent := strings.Join(newLines, "\n")
+	if err := os.WriteFile("/etc/hosts", []byte(newContent), 0644); err != nil {
+		cmd := exec.Command("sudo", "sh", "-c", fmt.Sprintf("printf '%%s\n' %q > /etc/hosts", newContent))
+		_ = cmd.Run()
+	}
+}
+
+func removeHostEntry(hostname string) {
+	content, err := os.ReadFile("/etc/hosts")
+	if err != nil {
+		return
+	}
+	lines := strings.Split(string(content), "\n")
+	var newLines []string
+	for _, line := range lines {
+		trimmed := strings.TrimSpace(line)
+		if strings.HasPrefix(trimmed, "#") {
+			newLines = append(newLines, line)
+			continue
+		}
+		fields := strings.Fields(trimmed)
+		if len(fields) >= 2 {
+			hasHost := false
+			for _, f := range fields[1:] {
+				if f == hostname {
+					hasHost = true
+					break
+				}
+			}
+			if hasHost {
+				continue
+			}
+		}
+		newLines = append(newLines, line)
+	}
+	newContent := strings.Join(newLines, "\n")
+	if err := os.WriteFile("/etc/hosts", []byte(newContent), 0644); err != nil {
+		cmd := exec.Command("sudo", "sh", "-c", fmt.Sprintf("printf '%%s\n' %q > /etc/hosts", newContent))
 		_ = cmd.Run()
 	}
 }
