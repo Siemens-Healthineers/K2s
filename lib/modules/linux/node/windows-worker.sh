@@ -279,10 +279,11 @@ k2s_windows_worker_copy_runtime() {
 }
 
 k2s_windows_worker_join_cluster() {
-  local join_command join_script escaped_join gateway
+  local join_command join_script escaped_join gateway worker_ip
   join_command=$(kubeadm token create --ttl 30m --print-join-command) || return 1
   escaped_join=${join_command//\'/\'\'}
   gateway=$(k2s_windows_worker_gateway) || return 1
+  worker_ip=$(k2s_windows_worker_ip) || return 1
   join_script=$(mktemp)
   cat > "$join_script" <<EOF
 Import-Module 'C:\\k2s\\lib\\modules\\windows\\infra\\k2s.infra.module\\k2s.infra.module.psm1' -Force
@@ -298,6 +299,14 @@ Initialize-Logging
 
 Set-Location (Get-KubePath)
 
+# This worker is a dedicated VM, so the l2 bridge is built on its own Ethernet NIC
+# instead of the loopback adapter the Windows-host setup creates to avoid taking
+# over the user's NIC. Resolve the adapter by IP; Windows may name it 'Ethernet 2'.
+\$ipConfig = Get-NetIPAddress -AddressFamily IPv4 -IPAddress '$worker_ip' -ErrorAction Stop
+\$adapter = Get-NetAdapter -InterfaceIndex \$ipConfig.InterfaceIndex -ErrorAction Stop
+Write-Log "Building the l2 bridge on network adapter '\$(\$adapter.Name)'"
+Set-ConfigL2BridgeAdapterName -Value \$adapter.Name
+
 \$workerNodeParams = @{
     Proxy               = 'http://$gateway:8181'
     PodSubnetworkNumber = '1'
@@ -308,6 +317,40 @@ EOF
   scp -i "$(k2s_windows_worker_private_key)" -o BatchMode=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile="$(k2s_windows_worker_known_hosts)" "$join_script" "remote@$(k2s_windows_worker_ip):C:/ProgramData/K2s/JoinWorker.ps1"
   local result=$?; rm -f "$join_script"; (( result == 0 )) || return "$result"
   k2s_windows_worker_ssh 'powershell.exe -NoProfile -ExecutionPolicy Bypass -File C:\ProgramData\K2s\JoinWorker.ps1'
+}
+
+# Mirrors lib/scripts/windows/worker/windows-host/Start.ps1. Installing the worker
+# only registers the services; this is what creates the cbr0 l2 bridge and starts
+# containerd, flanneld, kubelet and kubeproxy, so the node can become Ready.
+k2s_windows_worker_start_node() {
+  local start_script gateway
+  gateway=$(k2s_windows_worker_gateway) || return 1
+  start_script=$(mktemp)
+  cat > "$start_script" <<EOF
+Import-Module 'C:\\k2s\\lib\\modules\\windows\\infra\\k2s.infra.module\\k2s.infra.module.psm1' -Force
+Import-Module 'C:\\k2s\\lib\\modules\\windows\\node\\k2s.node.module\\k2s.node.module.psm1' -Force
+Import-Module 'C:\\k2s\\lib\\modules\\windows\\cluster\\k2s.cluster.module\\k2s.cluster.module.psm1' -Force
+
+Initialize-Logging
+
+# Mirror lib/scripts/windows/worker/windows-host/Install.ps1: the Windows node
+# modules are written and tested against 'Continue'. Forcing 'Stop' here turns
+# their benign non-terminating errors into fatal ones.
+\$ErrorActionPreference = 'Continue'
+\$ProgressPreference = 'SilentlyContinue'
+
+Set-Location (Get-KubePath)
+
+\$workerNodeStartParams = @{
+    PodSubnetworkNumber = '1'
+    DnsServers          = '$gateway'
+    SkipHeaderDisplay   = \$true
+}
+Start-WindowsWorkerNodeOnWindowsHost @workerNodeStartParams
+EOF
+  scp -i "$(k2s_windows_worker_private_key)" -o BatchMode=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile="$(k2s_windows_worker_known_hosts)" "$start_script" "remote@$(k2s_windows_worker_ip):C:/ProgramData/K2s/StartWorker.ps1"
+  local result=$?; rm -f "$start_script"; (( result == 0 )) || return "$result"
+  k2s_windows_worker_ssh 'powershell.exe -NoProfile -ExecutionPolicy Bypass -File C:\ProgramData\K2s\StartWorker.ps1'
 }
 
 k2s_windows_worker_wait_for_node() {
@@ -360,11 +403,17 @@ k2s_windows_worker_provision() {
   k2s_windows_worker_wait_for_ssh || return $?
   k2s_windows_worker_copy_runtime || return $?
   k2s_windows_worker_join_cluster || return $?
+  k2s_windows_worker_start_node || return $?
   k2s_windows_worker_wait_for_node || return $?
   k2s_log INFO 'Managed Windows worker is reachable through SSH and joined to the Kubernetes cluster.'
 }
 
-k2s_windows_worker_start() { virsh net-start "$K2S_WINDOWS_WORKER_NETWORK" 2>/dev/null || true; virsh start "$K2S_WINDOWS_WORKER_NAME" 2>/dev/null || true; }
+k2s_windows_worker_start() {
+  virsh net-start "$K2S_WINDOWS_WORKER_NETWORK" 2>/dev/null || true
+  virsh start "$K2S_WINDOWS_WORKER_NAME" 2>/dev/null || true
+  k2s_windows_worker_wait_for_ssh || return $?
+  k2s_windows_worker_start_node
+}
 k2s_windows_worker_stop() { virsh shutdown "$K2S_WINDOWS_WORKER_NAME" 2>/dev/null || true; }
 k2s_windows_worker_remove() {
   local vm_dir
