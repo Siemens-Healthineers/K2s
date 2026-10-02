@@ -297,7 +297,21 @@ Initialize-Logging
 # their benign non-terminating errors into fatal ones.
 \$ErrorActionPreference = 'Continue'
 
-Set-Location (Get-KubePath)
+\$installationPath = Get-KubePath
+Set-Location \$installationPath
+
+# Mirror lib/scripts/control-plane/Install.ps1: on a Windows host the control-plane
+# install seeds these before any worker setup runs. There is no Windows control plane
+# here, so the worker has to do it for itself.
+Set-ConfigProductVersion -Value (Get-ProductVersion)
+Set-ConfigInstallFolder -Value \$installationPath
+try {
+    Set-ConfigLogRoot -Value (Get-ConfiguredLogDirectory)
+    Update-LogFilePathFromConfig -Force
+}
+catch {
+    Write-Log "Could not persist resolved log root: \$_"
+}
 
 # This worker is a dedicated VM, so the l2 bridge is built on its own Ethernet NIC
 # instead of the loopback adapter the Windows-host setup creates to avoid taking
@@ -307,12 +321,21 @@ Set-Location (Get-KubePath)
 Write-Log "Building the l2 bridge on network adapter '\$(\$adapter.Name)'"
 Set-ConfigL2BridgeAdapterName -Value \$adapter.Name
 
+# Populates C:\k2s\bin\windowsnode, which Initialize-WinNode consumes but never fills.
+Invoke-DeployWinArtifacts -KubernetesVersion (Get-DefaultK8sVersion) -Proxy 'http://$gateway:8181'
+
 \$workerNodeParams = @{
     Proxy               = 'http://$gateway:8181'
     PodSubnetworkNumber = '1'
     JoinCommand         = '$escaped_join'
 }
 Add-WindowsWorkerNodeOnWindowsHost @workerNodeParams
+
+# Mirror lib/scripts/windows/worker/windows-host/Install.ps1.
+Write-Log 'Adding mirror registries'
+foreach (\$registry in (Get-MirrorRegistries)) {
+    Set-Registry -Name \$registry.registry -Https -SkipVerify -Mirror \$registry.mirror -Server \$registry.server
+}
 EOF
   scp -i "$(k2s_windows_worker_private_key)" -o BatchMode=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile="$(k2s_windows_worker_known_hosts)" "$join_script" "remote@$(k2s_windows_worker_ip):C:/ProgramData/K2s/JoinWorker.ps1"
   local result=$?; rm -f "$join_script"; (( result == 0 )) || return "$result"
