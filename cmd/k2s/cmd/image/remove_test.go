@@ -48,15 +48,19 @@ var _ = Describe("remove", Ordered, func() {
 	})
 
 	When("running on Linux-only with --from-registry", func() {
-		It("rejects from-registry with actionable message", func() {
+		It("routes to provider Image.Remove with FromRegistry true", func() {
 			tempDir = setupTestCmdContext(removeCmd, mockImg, true, "control-plane")
 			removeCmd.Flags().Set(removeImgNameFlagName, "myimage:v1")
 			removeCmd.Flags().Set(fromRegistryFlagName, "true")
 
+			mockImg.On("Remove", mock.MatchedBy(func(cfg provider.ImageRemoveConfig) bool {
+				return cfg.ImageName == "myimage:v1" && cfg.FromRegistry
+			})).Return(nil)
+
 			err := removeImage(removeCmd, []string{})
 
-			Expect(err).To(HaveOccurred())
-			Expect(err.Error()).To(ContainSubstring("removing images from registry is not supported on a Linux-only installation"))
+			Expect(err).ToNot(HaveOccurred())
+			mockImg.AssertExpectations(GinkgoT())
 		})
 	})
 
