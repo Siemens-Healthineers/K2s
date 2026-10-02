@@ -95,9 +95,11 @@ if [[ -z "$dockerfile" ]]; then
   elif [[ -f "$dir/Dockerfile" ]]; then
     dockerfile="$dir/Dockerfile"
   fi
+elif [[ ! -f "$dockerfile" && -f "$dir/$dockerfile" ]]; then
+  dockerfile="$dir/$dockerfile"
 fi
 
-# Pre-compilation support for Dockerfiles ending with or containing PreCompile
+# Pre-compilation support: compile the binary on the Linux host first, then use for image build
 if [[ -n "$dockerfile" && "$dockerfile" == *"PreCompile"* && -f "$dockerfile" ]]; then
   exe_name="$(grep -m1 -E '^# *ExeName: +' "$dockerfile" | awk '{print $NF}' || true)"
   if [[ -n "$exe_name" && ! -f "$dir/$exe_name" ]]; then
@@ -106,9 +108,11 @@ if [[ -n "$dockerfile" && "$dockerfile" == *"PreCompile"* && -f "$dockerfile" ]]
       go_cmd="/usr/local/go/bin/go"
     fi
     if [[ -n "$go_cmd" ]] && { [[ -f "$dir/go.mod" ]] || [[ -f "$dir/main.go" ]]; }; then
-      k2s_log INFO "Pre-compiling Go binary '$exe_name'..."
+      k2s_log INFO "Pre-compiling Go binary '$exe_name' on Linux host..."
       (cd "$dir" && CGO_ENABLED=0 "$go_cmd" build -ldflags="-w -s" -trimpath -o "$exe_name" .)
       precompiled_binary="$dir/$exe_name"
+    else
+      k2s_log WARN "PreCompile requested for '$exe_name' but Go compiler or Go source not found in '$dir'"
     fi
   fi
 fi
