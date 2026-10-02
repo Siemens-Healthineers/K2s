@@ -3150,10 +3150,8 @@ SPDX-License-Identifier: MIT
 <p>Running existing (often legacy or closed‑source) native Windows applications in Kubernetes can be challenging when you need modern platform capabilities (service mesh, observability, scaling) but the binaries were never built for container awareness or multi‑instance coexistence. On Windows, <strong>network compartments</strong> provide a logical isolation boundary for network configuration (interfaces, routes, policies, <abbr title="Domain Name System">DNS</abbr>) similar in spirit to a network namespace on Linux, but they are not automatically created for HostProcess containers (which execute directly in the host context).
 Bringing these native Windows applications into Kubernetes as HostProcess containers and isolating them to run in a specific pod network compartment lets you reuse these platform capabilities (service mesh, observability, scaling) with minimal or no code change.</p>
 <div align="center">
-
-![Overview](assets/compartments.png)
+<p><img alt="Overview" src="../assets/compartments.png" /></p>
 </div>
-
 <p>This pattern enables you to:</p>
 <ul>
 <li>Place an unmodified native Windows process into an isolated network compartment</li>

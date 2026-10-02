@@ -2943,10 +2943,8 @@ SPDX-License-Identifier: MIT
 <p><b>Reduced Operational Overhead and Increased Reliability</b>: A simpler architecture with fewer moving parts inherently reduces the system's attack surface and the potential for component failure or misconfiguration. This lean operational model lowers the cognitive load on platform teams, making the cluster easier to manage, secure, and upgrade, thereby increasing overall system reliability.</p>
 <p><b>Enhanced Developer and Operator Experience</b>: The intuitive networking model empowers development teams to deploy and manage their applications without needing to become experts in complex network virtualization. This clarity fosters a stronger sense of ownership and accelerates the development lifecycle, as teams can reason about network communication in a straightforward manner.</p>
 <div align="center">
-
-![Overview](assets/networksimplicity.png)
+<p><img alt="Overview" src="../assets/networksimplicity.png" /></p>
 </div>
-
 <h2 id="alternative-solutions-considered-network-policy-controllers-same-applies-for-more-complex-cnis-like-calico">Alternative Solutions Considered: Network Policy Controllers (same applies for more complex CNIs like Calico)</h2>
 <p>During our evaluation, we analyzed solutions designed to enable native Kubernetes NetworkPolicy support on platforms where the CNI does not enforce it. A notable example is the windows-network-policy-controller from the Kubernetes SIGs community, which translates NetworkPolicy objects into rules for the Windows Filtering Platform.</p>
 <p><b>Potential Advantage</b>: The primary benefit of such a controller is the ability to use the standard Kubernetes NetworkPolicy <abbr title="Application Programming Interface">API</abbr>. This provides a familiar, powerful abstraction for defining granular, label-based traffic rules between pods, which is highly desirable from a user-experience perspective.</p>
