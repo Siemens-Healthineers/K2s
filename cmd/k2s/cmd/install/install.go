@@ -220,7 +220,14 @@ func install(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return err
 	}
-	worker := installConfig.GetOrCreateNodeByRole(ic.WorkerRoleName, ic.ResourceConfig{Cpu: "4", Memory: "8GB", Disk: "64GB"})
+	// The managed Windows worker only exists for native Linux hosts. Everywhere
+	// else the worker resources stay empty so nothing is resolved or passed on.
+	var worker ic.NodeConfig
+	if runtime.GOOS == "linux" && !installConfig.LinuxOnly {
+		if configured, found := installConfig.FindNodeByRole(ic.WorkerRoleName); found {
+			worker = *configured
+		}
+	}
 
 	hostname, _ := os.Hostname()
 	ver := version.GetVersion()
@@ -290,10 +297,11 @@ func install(cmd *cobra.Command, args []string) error {
 }
 
 func validateLinuxInstallOptions(cmd *cobra.Command, linuxOnly bool) error {
+	// Flags the Linux flag set does not register at all (see flags_linux.go) are
+	// rejected by cobra itself, so only the cross-platform ones are listed here.
 	unsupportedFlags := []string{
 		cc.ForceOnlineInstallFlagName,
 		cc.DeleteFilesFlagName,
-		ic.K8sBinFlagName,
 	}
 	for _, flagName := range unsupportedFlags {
 		if cmd.Flags().Changed(flagName) {

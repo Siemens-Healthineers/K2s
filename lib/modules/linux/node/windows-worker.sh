@@ -11,11 +11,12 @@ readonly K2S_WINDOWS_WORKER_NAME='k2s-win-worker'
 readonly K2S_WINDOWS_WORKER_NETWORK='k2s-switch'
 readonly K2S_WINDOWS_WORKER_BRIDGE='kubeswitch'
 readonly K2S_WINDOWS_WORKER_MAC='52:54:00:25:57:01'
-readonly K2S_WINDOWS_WORKER_POD_SUBNET='172.20.1.0/24'
-
 k2s_windows_worker_state_file() { printf '%s/windows-worker.json' "$K2S_CONFIG_DIR"; }
 k2s_windows_worker_vm_dir() { printf '%s' '/var/lib/libvirt/images/k2s'; }
 k2s_windows_worker_gateway() { k2s_cfg '.smallsetup.kubeSwitch'; }
+# Pod subnet of the Windows worker; corresponds to the -PodSubnetworkNumber '1'
+# passed to Add-WindowsWorkerNodeOnWindowsHost in k2s_windows_worker_join_cluster.
+k2s_windows_worker_pod_subnet() { k2s_cfg '.smallsetup.podNetworkWorkerCIDR'; }
 k2s_windows_worker_network_cidr() { k2s_cfg '.smallsetup.masterNetworkCIDR'; }
 k2s_windows_worker_ip() {
   local gateway
@@ -70,7 +71,7 @@ k2s_windows_worker_disk_gb() {
 k2s_windows_worker_preflight() {
   local command memory_mb available_mb total_mb disk_gb available_gb
   [[ -r /dev/kvm && -c /dev/kvm ]] || { k2s_log ERROR 'KVM is unavailable. Enable nested virtualization and expose /dev/kvm to the Debian host.'; return 3; }
-  for command in virsh qemu-img sfdisk ssh scp ssh-keyscan ssh-keygen sshpass sha256sum tar; do k2s_require_command "$command" || return 4; done
+  for command in virsh qemu-img sfdisk ssh scp ssh-keyscan ssh-keygen sshpass tar; do k2s_require_command "$command" || return 4; done
   getent passwd libvirt-qemu >/dev/null || { k2s_log ERROR 'The libvirt-qemu service account is missing. Reinstall libvirt-daemon-system.'; return 3; }
   getent passwd dnsmasq >/dev/null || { k2s_log ERROR 'The dnsmasq service account is missing. Install dnsmasq-base.'; return 3; }
   k2s_windows_worker_start_libvirt || return 3
@@ -86,33 +87,36 @@ k2s_windows_worker_preflight() {
 }
 
 k2s_windows_worker_network_create() {
-  local gateway network_cidr worker_ip prefix network_xml result existing_xml
+  local gateway network_cidr worker_ip prefix network_xml result existing_xml pod_subnet
   gateway=$(k2s_windows_worker_gateway) || return 1
   network_cidr=$(k2s_windows_worker_network_cidr) || return 1
   worker_ip=$(k2s_windows_worker_ip) || return 1
+  pod_subnet=$(k2s_windows_worker_pod_subnet) || return 1
   prefix=${network_cidr#*/}
   [[ "$prefix" == '24' ]] || { k2s_log ERROR "Managed KubeSwitch requires a /24 masterNetworkCIDR, found: $network_cidr"; return 2; }
   if virsh net-info "$K2S_WINDOWS_WORKER_NETWORK" >/dev/null 2>&1; then
     existing_xml=$(virsh net-dumpxml "$K2S_WINDOWS_WORKER_NETWORK") || return 1
-    if ! printf '%s' "$existing_xml" | grep -Fq "bridge name='$K2S_WINDOWS_WORKER_BRIDGE'" || ! printf '%s' "$existing_xml" | grep -Fq "address='$gateway'"; then
+    # A network defined before DNS was disabled still runs a dnsmasq holding
+    # port 53 on the gateway, which the K2s DNS proxy needs. Redefine it.
+    if ! printf '%s' "$existing_xml" | grep -Fq "bridge name='$K2S_WINDOWS_WORKER_BRIDGE'" || ! printf '%s' "$existing_xml" | grep -Fq "address='$gateway'" || ! printf '%s' "$existing_xml" | grep -Fq "<dns enable='no'/>"; then
       k2s_log INFO 'Replacing a prior K2s-managed libvirt network definition with the configured KubeSwitch network.'
       virsh net-destroy "$K2S_WINDOWS_WORKER_NETWORK" 2>/dev/null || true
       virsh net-undefine "$K2S_WINDOWS_WORKER_NETWORK" || return 1
     else
       virsh net-start "$K2S_WINDOWS_WORKER_NETWORK" 2>/dev/null || true
       virsh net-autostart "$K2S_WINDOWS_WORKER_NETWORK" || return 1
-      ip route replace "$K2S_WINDOWS_WORKER_POD_SUBNET" via "$worker_ip"
+      ip route replace "$pod_subnet" via "$worker_ip"
       return 0
     fi
   fi
   network_xml=$(mktemp)
   cat > "$network_xml" <<EOF
-<network><name>$K2S_WINDOWS_WORKER_NETWORK</name><forward mode='nat'/><bridge name='$K2S_WINDOWS_WORKER_BRIDGE' stp='on' delay='0'/><ip address='$gateway' netmask='255.255.255.0'><dhcp><range start='${gateway%.*}.100' end='${gateway%.*}.199'/><host mac='$K2S_WINDOWS_WORKER_MAC' name='$K2S_WINDOWS_WORKER_NAME' ip='$worker_ip'/></dhcp></ip></network>
+<network><name>$K2S_WINDOWS_WORKER_NETWORK</name><forward mode='nat'/><bridge name='$K2S_WINDOWS_WORKER_BRIDGE' stp='on' delay='0'/><dns enable='no'/><ip address='$gateway' netmask='255.255.255.0'><dhcp><range start='${gateway%.*}.100' end='${gateway%.*}.199'/><host mac='$K2S_WINDOWS_WORKER_MAC' name='$K2S_WINDOWS_WORKER_NAME' ip='$worker_ip'/></dhcp></ip></network>
 EOF
   virsh net-define "$network_xml" && virsh net-start "$K2S_WINDOWS_WORKER_NETWORK" && virsh net-autostart "$K2S_WINDOWS_WORKER_NETWORK"
   result=$?; rm -f "$network_xml"
   (( result == 0 )) || return "$result"
-  ip route replace "$K2S_WINDOWS_WORKER_POD_SUBNET" via "$worker_ip"
+  ip route replace "$pod_subnet" via "$worker_ip"
 }
 
 k2s_windows_worker_prepare_image() {
@@ -123,13 +127,25 @@ k2s_windows_worker_prepare_image() {
   install -d -m 0711 "$vm_dir" || return 1
   [[ ! -e "$disk" ]] || { printf '%s\n' "$disk"; return 0; }
   local cache="$vm_dir/WindowsWorker-Base.qcow2"
-  if [[ -f "$cache" ]]; then
-    qemu-img create -f qcow2 -F qcow2 -b "$cache" "$disk" >&2 || return 1
-  else
-    k2s_windows_worker_import_qcow2 "$cache" >&2 || return $?
-    qemu-img create -f qcow2 -F qcow2 -b "$cache" "$disk" >&2 || return 1
-  fi
+  [[ -f "$cache" ]] || k2s_windows_worker_import_qcow2 "$cache" >&2 || return $?
+  k2s_windows_worker_create_overlay "$cache" "$disk" "$disk_gb" || return $?
   printf '%s\n' "$disk"
+}
+
+# A QCOW2 overlay cannot be smaller than the image it is backed by, so
+# --worker-disk is an "at least" request: it grows the worker disk beyond the
+# prepared base image, and is capped at the base image size when it is smaller.
+k2s_windows_worker_create_overlay() {
+  local cache="$1" disk="$2" disk_gb="$3" backing_bytes backing_gb
+  backing_bytes=$(qemu-img info --output=json "$cache" | jq -r '.["virtual-size"]') || return 1
+  backing_gb=$(( (backing_bytes + 1073741823) / 1073741824 ))
+  if (( disk_gb <= backing_gb )); then
+    (( disk_gb == backing_gb )) || k2s_log WARN "--worker-disk ${disk_gb}GB is smaller than the prepared base image (${backing_gb}GB); using ${backing_gb}GB."
+    qemu-img create -f qcow2 -F qcow2 -b "$cache" "$disk" >&2
+  else
+    k2s_log INFO "Growing the Windows worker disk from the ${backing_gb}GB base image to ${disk_gb}GB."
+    qemu-img create -f qcow2 -F qcow2 -b "$cache" "$disk" "${disk_gb}G" >&2
+  fi
 }
 
 k2s_windows_worker_import_qcow2() {
@@ -180,74 +196,6 @@ k2s_windows_worker_create_ssh_key() {
   mkdir -p "$key_dir"; chmod 700 "$key_dir"
   [[ -f "$key" && -f "$key.pub" ]] || ssh-keygen -q -t ed25519 -N '' -f "$key" -C k2s-windows-worker
   chmod 600 "$key"; chmod 644 "$key.pub"
-}
-
-k2s_windows_worker_create_bootstrap_media() {
-  local stage media vm_dir admin_password public_key
-  vm_dir=$(k2s_windows_worker_vm_dir)
-  install -d -m 0711 "$vm_dir" || return 1
-  stage=$(mktemp -d); media="$vm_dir/windows-worker-bootstrap.iso"
-  admin_password=$(od -An -N16 -tx1 /dev/urandom | tr -d ' \n')
-  public_key=$(cat "$(k2s_windows_worker_private_key).pub")
-  mkdir -p "$stage/k2s"
-  cp -a "$K2S_INSTALL_DIR/cfg" "$K2S_INSTALL_DIR/lib" "$K2S_INSTALL_DIR/smallsetup" "$stage/k2s/" || { rm -rf "$stage"; return 1; }
-  if [[ -d "$K2S_INSTALL_DIR/bin" ]]; then
-    tar -C "$K2S_INSTALL_DIR" --exclude='bin/*.iso' --exclude='bin/*.qcow2' --exclude='bin/*.vhdx' -cf - bin | tar -C "$stage/k2s" -xf - || { rm -rf "$stage"; return 1; }
-  fi
-  cat > "$stage/bootstrap.ps1" <<'EOF'
-$ErrorActionPreference = 'Stop'
-$bootstrapVolume = Get-Volume | Where-Object { $_.FileSystemLabel -eq 'K2SBOOT' } | Select-Object -First 1
-if ($null -eq $bootstrapVolume -or [string]::IsNullOrWhiteSpace($bootstrapVolume.DriveLetter)) { throw 'K2S bootstrap media is unavailable.' }
-$source = "$($bootstrapVolume.DriveLetter):\k2s"
-New-Item -ItemType Directory -Path 'C:\k2s' -Force | Out-Null
-Copy-Item -Path "$source\*" -Destination 'C:\k2s' -Recurse -Force
-$password = ConvertTo-SecureString -String (New-Guid).Guid -AsPlainText -Force
-if (-not (Get-LocalUser -Name remote -ErrorAction SilentlyContinue)) { New-LocalUser -Name remote -Password $password -PasswordNeverExpires | Out-Null }
-netsh winhttp set proxy '@KUBESWITCH_PROXY@' | Out-Null
-Add-WindowsCapability -Online -Name OpenSSH.Server~~~~0.0.1.0
-Set-Service -Name sshd -StartupType Automatic
-Start-Service sshd
-New-NetFirewallRule -DisplayName 'K2s OpenSSH' -Direction Inbound -Action Allow -Protocol TCP -LocalPort 22 -ErrorAction SilentlyContinue | Out-Null
-New-Item -ItemType Directory -Path 'C:\Users\remote\.ssh' -Force | Out-Null
-Set-Content -Path 'C:\Users\remote\.ssh\authorized_keys' -Value '@SSH_PUBLIC_KEY@' -NoNewline
-icacls 'C:\Users\remote\.ssh' /inheritance:r /grant 'remote:(OI)(CI)F' | Out-Null
-icacls 'C:\Users\remote\.ssh\authorized_keys' /inheritance:r /grant 'remote:F' | Out-Null
-New-Item -ItemType Directory -Path 'C:\ProgramData\K2s' -Force | Out-Null
-Set-Content -Path 'C:\ProgramData\K2s\windows-worker-bootstrap-ready' -Value 'ready' -NoNewline
-Stop-Computer -Force
-EOF
-  sed -i "s|@SSH_PUBLIC_KEY@|$public_key|" "$stage/bootstrap.ps1"
-  sed -i "s|@KUBESWITCH_PROXY@|$(k2s_windows_worker_gateway):8181|" "$stage/bootstrap.ps1"
-  cat > "$stage/autounattend.xml" <<EOF
-<?xml version="1.0" encoding="utf-8"?>
-<unattend xmlns="urn:schemas-microsoft-com:unattend" xmlns:wcm="http://schemas.microsoft.com/WMIConfig/2002/State"><settings pass="windowsPE"><component name="Microsoft-Windows-Setup" processorArchitecture="amd64" publicKeyToken="31bf3856ad364e35" language="neutral" versionScope="nonSxS"><UserData><AcceptEula>true</AcceptEula><FullName>K2s</FullName><Organization>Siemens Healthineers</Organization></UserData><DiskConfiguration><Disk wcm:action="add" wcm:keyValue="1"><DiskID>0</DiskID><WillWipeDisk>true</WillWipeDisk><CreatePartitions><CreatePartition wcm:action="add"><Order>1</Order><Type>EFI</Type><Size>100</Size></CreatePartition><CreatePartition wcm:action="add"><Order>2</Order><Type>MSR</Type><Size>16</Size></CreatePartition><CreatePartition wcm:action="add"><Order>3</Order><Type>Primary</Type><Extend>true</Extend></CreatePartition></CreatePartitions><ModifyPartitions><ModifyPartition wcm:action="add"><Order>1</Order><PartitionID>1</PartitionID><Format>FAT32</Format><Label>System</Label></ModifyPartition><ModifyPartition wcm:action="add"><Order>2</Order><PartitionID>3</PartitionID><Format>NTFS</Format><Label>Windows</Label><Letter>C</Letter></ModifyPartition></ModifyPartitions></Disk></DiskConfiguration><ImageInstall><OSImage><InstallTo><DiskID>0</DiskID><PartitionID>3</PartitionID></InstallTo><InstallFrom><MetaData wcm:action="add"><Key>/IMAGE/INDEX</Key><Value>1</Value></MetaData></InstallFrom></OSImage></ImageInstall></component></settings><settings pass="oobeSystem"><component name="Microsoft-Windows-Shell-Setup" processorArchitecture="amd64" publicKeyToken="31bf3856ad364e35" language="neutral" versionScope="nonSxS"><ComputerName>$K2S_WINDOWS_WORKER_NAME</ComputerName><AutoLogon><Password><Value>$admin_password</Value><PlainText>true</PlainText></Password><Username>Administrator</Username><Enabled>true</Enabled><LogonCount>1</LogonCount></AutoLogon><UserAccounts><AdministratorPassword><Value>$admin_password</Value><PlainText>true</PlainText></Password></UserAccounts><OOBE><HideEULAPage>true</HideEULAPage><HideLocalAccountScreen>true</HideLocalAccountScreen><ProtectYourPC>3</ProtectYourPC></OOBE><FirstLogonCommands><SynchronousCommand wcm:action="add"><Order>1</Order><CommandLine>powershell.exe -NoProfile -ExecutionPolicy Bypass -Command &quot;&amp; { \$v = Get-Volume | Where-Object { \$_.FileSystemLabel -eq 'K2SBOOT' } | Select-Object -First 1; &amp; &quot;&quot;\$(\$v.DriveLetter):\bootstrap.ps1&quot;&quot; }&quot;</CommandLine><Description>K2s worker bootstrap</Description></SynchronousCommand></FirstLogonCommands></component></settings></unattend>
-EOF
-  xorriso -as mkisofs -quiet -J -R -V K2SBOOT -o "$media" "$stage" || { rm -rf "$stage"; return 1; }
-  chmod 0644 "$media"; rm -rf "$stage"
-}
-
-# The prepared QCOW2 already contains Windows and K2s bootstrap logic. It only
-# needs the per-install public key, delivered as a small read-only config drive.
-k2s_windows_worker_create_bootstrap_media() {
-  local stage media vm_dir public_key
-  vm_dir=$(k2s_windows_worker_vm_dir)
-  install -d -m 0711 "$vm_dir" || return 1
-  stage=$(mktemp -d) || return 1
-  media="$vm_dir/windows-worker-bootstrap.iso"
-  public_key=$(cat "$(k2s_windows_worker_private_key).pub") || { rm -rf "$stage"; return 1; }
-  printf '%s\n' "$public_key" > "$stage/windows-worker.pub"
-  xorriso -as mkisofs -quiet -J -R -V K2SBOOT -o "$media" "$stage" || { rm -rf "$stage"; return 1; }
-  chmod 0644 "$media"
-  rm -rf "$stage"
-  printf '%s\n' "$media"
-}
-
-k2s_windows_worker_wait_for_shutdown() {
-  local deadline=$((SECONDS + 2400))
-  while [[ $(virsh domstate "$K2S_WINDOWS_WORKER_NAME" 2>/dev/null) != 'shut off' ]]; do
-    (( SECONDS < deadline )) || { k2s_log ERROR 'Timed out waiting for Windows worker base-image bootstrap.'; return 1; }
-    sleep 10
-  done
 }
 
 k2s_windows_worker_ssh() {
@@ -337,15 +285,25 @@ k2s_windows_worker_join_cluster() {
   gateway=$(k2s_windows_worker_gateway) || return 1
   join_script=$(mktemp)
   cat > "$join_script" <<EOF
-\$ErrorActionPreference = 'Stop'
-Set-Location 'C:\\k2s'
 Import-Module 'C:\\k2s\\lib\\modules\\windows\\infra\\k2s.infra.module\\k2s.infra.module.psm1' -Force
 Import-Module 'C:\\k2s\\lib\\modules\\windows\\node\\k2s.node.module\\k2s.node.module.psm1' -Force
 Import-Module 'C:\\k2s\\lib\\modules\\windows\\cluster\\k2s.cluster.module\\k2s.cluster.module.psm1' -Force
+
 Initialize-Logging
-\$kubernetesVersion = Get-DefaultK8sVersion
-Initialize-WinNode -KubernetesVersion \$kubernetesVersion -HostGW:\$true -Proxy 'http://$gateway:8181' -PodSubnetworkNumber '1'
-Initialize-KubernetesCluster -PodSubnetworkNumber '1' -JoinCommand '$escaped_join'
+
+# Mirror lib/scripts/windows/worker/windows-host/Install.ps1: the Windows node
+# modules are written and tested against 'Continue'. Forcing 'Stop' here turns
+# their benign non-terminating errors into fatal ones.
+\$ErrorActionPreference = 'Continue'
+
+Set-Location (Get-KubePath)
+
+\$workerNodeParams = @{
+    Proxy               = 'http://$gateway:8181'
+    PodSubnetworkNumber = '1'
+    JoinCommand         = '$escaped_join'
+}
+Add-WindowsWorkerNodeOnWindowsHost @workerNodeParams
 EOF
   scp -i "$(k2s_windows_worker_private_key)" -o BatchMode=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile="$(k2s_windows_worker_known_hosts)" "$join_script" "remote@$(k2s_windows_worker_ip):C:/ProgramData/K2s/JoinWorker.ps1"
   local result=$?; rm -f "$join_script"; (( result == 0 )) || return "$result"
@@ -411,10 +369,10 @@ k2s_windows_worker_stop() { virsh shutdown "$K2S_WINDOWS_WORKER_NAME" 2>/dev/nul
 k2s_windows_worker_remove() {
   local vm_dir
   vm_dir=$(k2s_windows_worker_vm_dir)
-  ip route del "$K2S_WINDOWS_WORKER_POD_SUBNET" 2>/dev/null || true
+  ip route del "$(k2s_windows_worker_pod_subnet)" 2>/dev/null || true
   virsh destroy "$K2S_WINDOWS_WORKER_NAME" 2>/dev/null || true
   virsh undefine "$K2S_WINDOWS_WORKER_NAME" --remove-all-storage --nvram 2>/dev/null || true
-  rm -f "$vm_dir/$K2S_WINDOWS_WORKER_NAME.qcow2" "$vm_dir/${K2S_WINDOWS_WORKER_NAME}_VARS.fd" "$vm_dir/windows-worker-bootstrap.iso"
+  rm -f "$vm_dir/$K2S_WINDOWS_WORKER_NAME.qcow2" "$vm_dir/${K2S_WINDOWS_WORKER_NAME}_VARS.fd"
   virsh net-destroy "$K2S_WINDOWS_WORKER_NETWORK" 2>/dev/null || true
   virsh net-undefine "$K2S_WINDOWS_WORKER_NETWORK" 2>/dev/null || true
   rm -f "$(k2s_windows_worker_state_file)"

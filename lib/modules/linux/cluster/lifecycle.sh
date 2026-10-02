@@ -22,9 +22,9 @@ k2s_load_operation() {
   K2S_SKIP_START=$(jq -r '.skipStart // false' "$2") || return 2
   K2S_SKIP_PURGE=$(jq -r '.skipPurge // false' "$2") || return 2
   K2S_LINUX_ONLY=$(jq -r '.linuxOnly // false' "$2") || return 2
-  K2S_WORKER_CPU_COUNT=$(jq -r '.workerCPUCount // "4"' "$2") || return 2
-  K2S_WORKER_MEMORY=$(jq -r '.workerMemory // "8GB"' "$2") || return 2
-  K2S_WORKER_DISK_SIZE=$(jq -r '.workerDiskSize // "64GB"' "$2") || return 2
+  K2S_WORKER_CPU_COUNT=$(jq -r '.workerCPUCount // empty' "$2") || return 2
+  K2S_WORKER_MEMORY=$(jq -r '.workerMemory // empty' "$2") || return 2
+  K2S_WORKER_DISK_SIZE=$(jq -r '.workerDiskSize // empty' "$2") || return 2
   K2S_WINDOWS_QCOW2_PATH=$(jq -r '.windowsQCOW2Path // empty' "$2") || return 2
   export K2S_INSTALL_DIR K2S_CONFIG_DIR K2S_VERSION K2S_CLUSTER_NAME K2S_CONTROL_PLANE_HOSTNAME K2S_PROXY K2S_NO_PROXY K2S_SKIP_START K2S_SKIP_PURGE K2S_LINUX_ONLY K2S_WORKER_CPU_COUNT K2S_WORKER_MEMORY K2S_WORKER_DISK_SIZE K2S_WINDOWS_QCOW2_PATH
 }

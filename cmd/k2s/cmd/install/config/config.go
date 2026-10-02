@@ -56,13 +56,13 @@ type configOverwriter interface {
 }
 
 type InstallConfig struct {
-	Kind            string         `mapstructure:"kind"`
-	ApiVersion      string         `mapstructure:"apiVersion"`
-	Nodes           []NodeConfig   `mapstructure:"nodes"`
-	Env             EnvConfig      `mapstructure:"env"`
-	Behavior        BehaviorConfig `mapstructure:"installBehavior"`
-	LinuxOnly        bool   `mapstructure:"linuxOnly"`
-	WindowsQCOW2Path string `mapstructure:"windowsQCOW2Path"`
+	Kind             string         `mapstructure:"kind"`
+	ApiVersion       string         `mapstructure:"apiVersion"`
+	Nodes            []NodeConfig   `mapstructure:"nodes"`
+	Env              EnvConfig      `mapstructure:"env"`
+	Behavior         BehaviorConfig `mapstructure:"installBehavior"`
+	LinuxOnly        bool           `mapstructure:"linuxOnly"`
+	WindowsQCOW2Path string         `mapstructure:"windowsQCOW2Path"`
 }
 
 type NodeConfig struct {
@@ -71,12 +71,12 @@ type NodeConfig struct {
 }
 
 type ResourceConfig struct {
-	Cpu          string `mapstructure:"cpu"`
-	Memory       string `mapstructure:"memory"`
-	MemoryMin    string `mapstructure:"memoryMin"`
-	MemoryMax    string `mapstructure:"memoryMax"`
-	DynamicMemory bool  `mapstructure:"dynamicMemory"`
-	Disk         string `mapstructure:"disk"`
+	Cpu           string `mapstructure:"cpu"`
+	Memory        string `mapstructure:"memory"`
+	MemoryMin     string `mapstructure:"memoryMin"`
+	MemoryMax     string `mapstructure:"memoryMax"`
+	DynamicMemory bool   `mapstructure:"dynamicMemory"`
+	Disk          string `mapstructure:"disk"`
 }
 
 type EnvConfig struct {
@@ -115,7 +115,6 @@ const (
 
 	ControlPlaneMemoryMaxFlagName  = "master-memory-max"
 	ControlPlaneMemoryMaxFlagUsage = "Maximum amount of RAM for dynamic memory (format: <number>[<unit>], where unit = KB, MB or GB)"
-
 
 	ControlPlaneDiskSizeFlagName  = "master-disk"
 	ControlPlaneDiskSizeFlagUsage = "Disk size allocated to the master VM (minimum 10GB, format: <number>[<unit>], where unit = KB, MB or GB)"
@@ -232,11 +231,21 @@ func (config *InstallConfig) GetNodeByRole(role string) (*NodeConfig, error) {
 	return result, nil
 }
 
-func (config *InstallConfig) GetOrCreateNodeByRole(role string, defaults ResourceConfig) *NodeConfig {
+// FindNodeByRole reports whether the role is configured. Unlike GetNodeByRole it
+// does not treat a missing node as an error, for roles that are optional.
+func (config *InstallConfig) FindNodeByRole(role string) (*NodeConfig, bool) {
+	return config.findNodeByRole(role)
+}
+
+// GetOrCreateNodeByRole returns the configured node for the role, adding an
+// empty one when the config does not define it. Resource values are left blank
+// on purpose: the defaults live in cfg/config.json and are resolved at the point
+// of use, so they are not duplicated here.
+func (config *InstallConfig) GetOrCreateNodeByRole(role string) *NodeConfig {
 	if node, found := config.findNodeByRole(role); found {
 		return node
 	}
-	config.Nodes = append(config.Nodes, NodeConfig{Role: role, Resources: defaults})
+	config.Nodes = append(config.Nodes, NodeConfig{Role: role})
 	return &config.Nodes[len(config.Nodes)-1]
 }
 
@@ -393,11 +402,11 @@ func overwriteConfigWithCliParam(iConfig *InstallConfig, vConfig *viper.Viper, f
 	case ControlPlaneMemoryMaxFlagName:
 		(iConfig.getNodeByRolePanic(ControlPlaneRoleName)).Resources.MemoryMax = vConfig.GetString(flagName)
 	case WorkerCPUsFlagName:
-		iConfig.GetOrCreateNodeByRole(WorkerRoleName, ResourceConfig{Cpu: "4", Memory: "8GB", Disk: "64GB"}).Resources.Cpu = vConfig.GetString(flagName)
+		iConfig.GetOrCreateNodeByRole(WorkerRoleName).Resources.Cpu = vConfig.GetString(flagName)
 	case WorkerMemoryFlagName:
-		iConfig.GetOrCreateNodeByRole(WorkerRoleName, ResourceConfig{Cpu: "4", Memory: "8GB", Disk: "64GB"}).Resources.Memory = vConfig.GetString(flagName)
+		iConfig.GetOrCreateNodeByRole(WorkerRoleName).Resources.Memory = vConfig.GetString(flagName)
 	case WorkerDiskSizeFlagName:
-		iConfig.GetOrCreateNodeByRole(WorkerRoleName, ResourceConfig{Cpu: "4", Memory: "8GB", Disk: "64GB"}).Resources.Disk = vConfig.GetString(flagName)
+		iConfig.GetOrCreateNodeByRole(WorkerRoleName).Resources.Disk = vConfig.GetString(flagName)
 	case WindowsQCOW2PathFlagName:
 		iConfig.WindowsQCOW2Path = vConfig.GetString(flagName)
 	case ProxyFlagName:
@@ -434,7 +443,6 @@ func autoEnableDynamicMemory(config *InstallConfig) {
 	}
 }
 
-
 func validateMemoryBounds(memoryBytes int64, parameterName string, parameterValue string) error {
 	if memoryBytes < minMemoryBytes {
 		return fmt.Errorf("memory configuration error: %s (%s) must be at least 2GB (Kubernetes requirement)", parameterName, parameterValue)
@@ -444,7 +452,6 @@ func validateMemoryBounds(memoryBytes int64, parameterName string, parameterValu
 	}
 	return nil
 }
-
 
 func validateDynamicMemoryConfiguration(config *InstallConfig) error {
 	for i := range config.Nodes {
@@ -590,4 +597,3 @@ func parseMemorySize(size string) (int64, error) {
 
 	return num, nil
 }
-
