@@ -51,14 +51,21 @@ Param (
     [parameter(Mandatory = $false, HelpMessage = 'If set to true, will encode and send result as structured data to the CLI.')]
     [switch] $EncodeStructuredOutput,
     [parameter(Mandatory = $false, HelpMessage = 'Message type of the encoded structure; applies only if EncodeStructuredOutput was set to $true')]
-    [string] $MessageType
+    [string] $MessageType,
+    [parameter(Mandatory = $false, HelpMessage = 'Return a boolean result to the calling addon import script instead of exiting on failure')]
+    [switch] $ReturnStatus
 )
 $imageCommonModule = "$PSScriptRoot/Image-Common.module.psm1"
 Import-Module $imageCommonModule
 
-if (-not (Initialize-ImageScriptContext -ShowLogs:$ShowLogs -EncodeStructuredOutput:$EncodeStructuredOutput -MessageType $MessageType)) {
+if (-not (Initialize-ImageScriptContext -ShowLogs:$ShowLogs -EncodeStructuredOutput:$EncodeStructuredOutput -ReturnStatus:$ReturnStatus -MessageType $MessageType)) {
+    if ($ReturnStatus) {
+        return $false
+    }
     return
 }
+
+$hasFailures = $false
 
 $images = @()
 if ($ImagePath -ne '') {
@@ -81,28 +88,17 @@ if ($nodeList.Count -eq 0) {
             if ($importSuccess) {
                 Write-Log "$image imported successfully"
             }
+            else {
+                $hasFailures = $true
+            }
         }
     }
     else {
         foreach ($image in $images) {
-            Copy-ToControlPlaneViaSSHKey $image '/tmp/import.tar'
-
-            if (!$?) {
-                Write-Error "Image $image could not be copied to KubeMaster"
+            $nodeInfo = @{ Kind = 'ControlPlane'; Name = 'control-plane' }
+            if (-not (Invoke-LinuxNodeImageImport -ImagePath $image -NodeInfo $nodeInfo -DockerArchive:$DockerArchive)) {
+                $hasFailures = $true
             }
-
-            if (!$DockerArchive) {
-                (Invoke-CmdOnControlPlaneViaSSHKey 'sudo buildah pull oci-archive:/tmp/import.tar 2>&1' -Retries 3 -Timeout 10 -NoLog).Output | Write-Log
-            }
-            else {
-                (Invoke-CmdOnControlPlaneViaSSHKey 'sudo buildah pull docker-archive:/tmp/import.tar 2>&1' -Retries 3 -Timeout 10 -NoLog).Output | Write-Log
-            }
-
-            if ($?) {
-                Write-Log "Image archive $image imported successfully."
-            }
-
-            (Invoke-CmdOnControlPlaneViaSSHKey 'cd /tmp && sudo rm -rf import.tar' -Retries 3 -Timeout 10 -NoLog).Output | Write-Log
         }
     }
 }
@@ -112,12 +108,14 @@ else {
         $nodeInfo = Resolve-ImageNode -NodeName $nodeName
         if ($null -eq $nodeInfo) {
             Write-Log "[Import] Node '$nodeName' could not be resolved, skipping" -Console
+            $hasFailures = $true
             continue
         }
 
         # Check if node is Ready before processing
         if (-not (Test-NodeReady -NodeName $nodeName -Kind $nodeInfo.Kind)) {
             Write-Log "[Import] Node '$nodeName' is not in Ready state - start the node with 'k2s start --node $nodeName' first" -Console
+            $hasFailures = $true
             continue
         }
 
@@ -128,67 +126,56 @@ else {
 
             switch ($nodeInfo.Kind) {
                 'ControlPlane' {
-                    Copy-ToControlPlaneViaSSHKey $image '/tmp/import.tar'
-                    if (!$?) {
-                        Write-Error "Image $image could not be copied to control-plane '$nodeName'"
+                    if (-not (Invoke-LinuxNodeImageImport -ImagePath $image -NodeInfo $nodeInfo -DockerArchive:$DockerArchive)) {
+                        $hasFailures = $true
                     }
-                    $pullCmd = if (!$DockerArchive) { 'sudo buildah pull oci-archive:/tmp/import.tar 2>&1' } else { 'sudo buildah pull docker-archive:/tmp/import.tar 2>&1' }
-                    (Invoke-CmdOnControlPlaneViaSSHKey $pullCmd -Retries 3 -Timeout 10 -NoLog).Output | Write-Log
-                    if ($?) { Write-Log "Image archive $image imported successfully on '$nodeName'." }
-                    (Invoke-CmdOnControlPlaneViaSSHKey 'cd /tmp && sudo rm -rf import.tar' -Retries 3 -Timeout 10 -NoLog).Output | Write-Log
                 }
                 'LinuxWorker' {
-                    Copy-ToRemoteComputerViaSshKey -Source $image -Target '/tmp/import.tar' -UserName $nodeInfo.Username -IpAddress $nodeInfo.IpAddress
-                    if (!$?) {
-                        Write-Error "Image $image could not be copied to Linux worker '$nodeName'"
+                    if (-not (Invoke-LinuxNodeImageImport -ImagePath $image -NodeInfo $nodeInfo -DockerArchive:$DockerArchive)) {
+                        $hasFailures = $true
                     }
-                    $pullCmd = if (!$DockerArchive) { 'sudo buildah pull oci-archive:/tmp/import.tar 2>&1' } else { 'sudo buildah pull docker-archive:/tmp/import.tar 2>&1' }
-                    (Invoke-CmdOnVmViaSSHKey $pullCmd -IpAddress $nodeInfo.IpAddress -UserName $nodeInfo.Username -Retries 3 -Timeout 10 -NoLog).Output | Write-Log
-                    if ($?) { Write-Log "Image archive $image imported successfully on '$nodeName'." }
-                    (Invoke-CmdOnVmViaSSHKey 'cd /tmp && sudo rm -rf import.tar' -IpAddress $nodeInfo.IpAddress -UserName $nodeInfo.Username -Retries 3 -Timeout 10 -NoLog).Output | Write-Log
                 }
                 'LocalWindows' {
                     $importSuccess = Invoke-Ctr -Arguments '-n', 'k8s.io', 'images', 'import', $image
                     if ($importSuccess) {
                         Write-Log "$image imported successfully on local Windows host"
                     }
+                    else {
+                        $hasFailures = $true
+                    }
                 }
                 'WindowsWorker' {
                     Write-Log "[Import] Importing Windows image on VM worker '$nodeName'" -Console
-                    $session = $null
-                    try {
-                        $session = Open-RemoteSession -VmName $nodeName -VmPwd (Get-DefaultTempPwd) -NoLog
-                        $remoteTempPath = 'C:\Windows\Temp\import.tar'
-                        Copy-Item -Path $image -Destination $remoteTempPath -ToSession $session -Force
-                        $importSuccess = Invoke-Command -Session $session -ArgumentList $remoteTempPath -ScriptBlock {
-                            param($remoteImagePath)
-                            $remoteCtrCmd = Get-Command ctr.exe -ErrorAction SilentlyContinue
-                            $remoteCtrPath = if ($remoteCtrCmd) { $remoteCtrCmd.Source } else { 'ctr.exe' }
-                            & $remoteCtrPath -n k8s.io images import $remoteImagePath 2>&1
-                            return ($LASTEXITCODE -eq 0)
-                        }
-                        if ($importSuccess) {
-                            Write-Log "$image imported successfully on Windows worker '$nodeName'"
-                        }
-                        else {
-                            Write-Error "Failed to import $image on Windows worker '$nodeName'"
-                        }
-                        Invoke-Command -Session $session -ArgumentList $remoteTempPath -ScriptBlock {
-                            param($path) Remove-Item -Path $path -Force -ErrorAction SilentlyContinue
-                        }
-                    }
-                    finally {
-                        if ($null -ne $session) { Remove-PSSession -Session $session -ErrorAction SilentlyContinue }
+                    if (-not (Invoke-WindowsWorkerImageImport -ImagePath $image -NodeName $nodeName)) {
+                        $hasFailures = $true
                     }
                 }
                 default {
                     Write-Log "[Import] Unknown node kind '$($nodeInfo.Kind)' for '$nodeName', skipping" -Console
+                    $hasFailures = $true
                 }
             }
         }
     }
 }
 
-if ($EncodeStructuredOutput -eq $true) {
+if ($hasFailures) {
+    $importError = New-Error -Code 'image-import-failed' -Message 'One or more container image imports failed - check the log for details'
+    if ($ReturnStatus) {
+        return $false
+    }
+    if ($EncodeStructuredOutput -eq $true) {
+        Send-ToCli -MessageType $MessageType -Message @{Error = $importError }
+    }
+    else {
+        Write-Log $importError.Message -Error
+        exit 1
+    }
+}
+elseif ($EncodeStructuredOutput -eq $true) {
     Send-ToCli -MessageType $MessageType -Message @{Error = $null }
+}
+
+if ($ReturnStatus) {
+    return $true
 }

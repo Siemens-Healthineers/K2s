@@ -212,6 +212,10 @@ k2s_stop_cluster_for_uninstall() {
       crictl --runtime-endpoint unix:///var/run/crio/crio.sock stop "$container_id" 2>/dev/null || true
       crictl --runtime-endpoint unix:///var/run/crio/crio.sock rm "$container_id" 2>/dev/null || true
     done
+    # Remove any residual pods/containers (etcd, apiserver, etc.) that would otherwise be
+    # resumed on the next start and keep control-plane ports (6443/2379/2380/10257/10259) bound.
+    crictl --runtime-endpoint unix:///var/run/crio/crio.sock rm -fa 2>/dev/null || true
+    crictl --runtime-endpoint unix:///var/run/crio/crio.sock rmp -fa 2>/dev/null || true
   fi
   systemctl disable --now crio 2>/dev/null || true
   systemctl stop k2s-httpproxy k2s-proxy-network 2>/dev/null || true

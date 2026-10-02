@@ -4,11 +4,14 @@
 package image
 
 import (
-	"strings"
-
 	"github.com/spf13/cobra"
 
-	"github.com/siemens-healthineers/k2s/cmd/k2s/utils"
+	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/common"
+)
+
+const (
+	nodeFlagName  = "node"
+	nodesFlagName = "nodes"
 )
 
 func addNodeSelectionFlags(cmd *cobra.Command) {
@@ -17,28 +20,9 @@ func addNodeSelectionFlags(cmd *cobra.Command) {
 }
 
 func parseNodeSelector(cmd *cobra.Command) (string, error) {
-	nodesOption, err := cmd.Flags().GetString(nodesFlagName)
-	if err != nil {
-		return "", err
-	}
-
-	nodeOption, err := cmd.Flags().GetString(nodeFlagName)
-	if err != nil {
-		return "", err
-	}
-
-	nodeSelector := strings.TrimSpace(nodesOption)
-	if nodeSelector == "" {
-		nodeSelector = strings.TrimSpace(nodeOption)
-	}
-
-	return nodeSelector, nil
+	return common.ParseNodeSelector(cmd, nodeFlagName, nodesFlagName)
 }
 
 func appendNodesParam(params []string, nodes string) []string {
-	if strings.TrimSpace(nodes) == "" {
-		return params
-	}
-
-	return append(params, " -Nodes "+utils.EscapeWithSingleQuotes(nodes))
+	return common.AppendNodesParam(params, nodes)
 }
