@@ -6,14 +6,17 @@
 package provider
 
 import (
+	"crypto/tls"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"log/slog"
+	"net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/siemens-healthineers/k2s/internal/definitions"
 	"github.com/siemens-healthineers/k2s/internal/host"
@@ -121,6 +124,10 @@ func (p *linuxImageProvider) Pull(cfg ImagePullConfig) error {
 }
 
 func (p *linuxImageProvider) Remove(cfg ImageRemoveConfig) error {
+	if cfg.FromRegistry {
+		return p.removeFromRegistry(cfg)
+	}
+
 	ref := cfg.ImageId
 	if ref == "" {
 		ref = cfg.ImageName
@@ -803,4 +810,117 @@ func isK8sImage(repo string) bool {
 		}
 	}
 	return false
+}
+
+func (p *linuxImageProvider) getRegistriesFromConfig() []string {
+	configDir := p.configDir
+	if configDir == "" {
+		configDir = host.K2sConfigDir()
+	}
+	configPath := filepath.Join(configDir, definitions.K2sRuntimeConfigFileName)
+	cfgMap, err := kjson.FromFile[map[string]any](configPath)
+	if err != nil {
+		return nil
+	}
+	var res []string
+	if raw, ok := (*cfgMap)["Registries"]; ok && raw != nil {
+		if list, ok := raw.([]any); ok {
+			for _, item := range list {
+				if s, ok := item.(string); ok {
+					res = append(res, s)
+				}
+			}
+		}
+	}
+	return res
+}
+
+func (p *linuxImageProvider) removeFromRegistry(cfg ImageRemoveConfig) error {
+	imageName := cfg.ImageName
+	if imageName == "" {
+		return fmt.Errorf("image name is required to remove image from registry")
+	}
+
+	registryHost := "k2s.registry.local"
+	registries := p.getRegistriesFromConfig()
+	for _, r := range registries {
+		if strings.Contains(r, "k2s.registry") {
+			registryHost = r
+			break
+		}
+	}
+
+	trimmed := imageName
+	if strings.HasPrefix(trimmed, registryHost+"/") {
+		trimmed = strings.TrimPrefix(trimmed, registryHost+"/")
+	} else if idx := strings.Index(trimmed, "/"); idx != -1 && strings.Contains(trimmed[:idx], ".") {
+		trimmed = trimmed[idx+1:]
+	}
+
+	colonIdx := strings.LastIndex(trimmed, ":")
+	if colonIdx == -1 {
+		return fmt.Errorf("tag is required in image name to remove from registry: %s", imageName)
+	}
+	repo := trimmed[:colonIdx]
+	tag := trimmed[colonIdx+1:]
+
+	var urls []string
+	if strings.Contains(registryHost, ":") {
+		urls = append(urls, "http://"+registryHost)
+	} else {
+		urls = append(urls, "https://"+registryHost, "http://"+registryHost)
+	}
+	urls = append(urls, "http://127.0.0.1:30500", "http://k2s.registry.local:30500")
+
+	tr := &http.Transport{
+		TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+	}
+	client := &http.Client{Transport: tr, Timeout: 10 * time.Second}
+
+	var lastErr error
+	for _, baseURL := range urls {
+		manifestURL := fmt.Sprintf("%s/v2/%s/manifests/%s", baseURL, repo, tag)
+		req, err := http.NewRequest("GET", manifestURL, nil)
+		if err != nil {
+			lastErr = err
+			continue
+		}
+		req.Header.Set("Accept", "application/vnd.docker.distribution.manifest.v2+json, application/vnd.oci.image.manifest.v1+json")
+		resp, err := client.Do(req)
+		if err != nil {
+			lastErr = err
+			continue
+		}
+		resp.Body.Close()
+		if resp.StatusCode != http.StatusOK {
+			lastErr = fmt.Errorf("registry %s returned status %d for manifest", baseURL, resp.StatusCode)
+			continue
+		}
+
+		digest := resp.Header.Get("Docker-Content-Digest")
+		deleteRef := digest
+		if deleteRef == "" {
+			deleteRef = tag
+		}
+
+		delURL := fmt.Sprintf("%s/v2/%s/manifests/%s", baseURL, repo, deleteRef)
+		delReq, err := http.NewRequest("DELETE", delURL, nil)
+		if err != nil {
+			lastErr = err
+			continue
+		}
+		delResp, err := client.Do(delReq)
+		if err != nil {
+			lastErr = err
+			continue
+		}
+		delResp.Body.Close()
+		if delResp.StatusCode == http.StatusOK || delResp.StatusCode == http.StatusAccepted || delResp.StatusCode == http.StatusNoContent {
+			slog.Info("[Image] Successfully removed image from registry", "image", imageName, "url", delURL)
+			return nil
+		}
+		lastErr = fmt.Errorf("registry returned status %d when deleting manifest", delResp.StatusCode)
+	}
+
+	return fmt.Errorf("failed to remove image '%s' from registry: %w", imageName, lastErr)
 }
