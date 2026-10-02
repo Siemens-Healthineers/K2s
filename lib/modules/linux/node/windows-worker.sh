@@ -299,6 +299,25 @@ k2s_windows_worker_node_name() {
   k2s_windows_worker_ssh 'powershell.exe -NoProfile -Command "$env:COMPUTERNAME.ToLower()"' | tr -d '[:space:]'
 }
 
+# The generated scripts run over SSH, so only what PowerShell writes to stderr reaches
+# the host log; everything Write-Log produces stays on the worker. Pull that log back
+# on failure, otherwise a worker-side error surfaces here as a bare exception.
+k2s_windows_worker_collect_logs() {
+  local log_dir log
+  log_dir=$(k2s_cfg '.configDir.logs') || return 0
+  log_dir=${log_dir//\\//}
+  log=$(mktemp) || return 0
+  k2s_log ERROR "Retrieving the Windows worker K2s log from $log_dir/k2s.log"
+  if scp -i "$(k2s_windows_worker_private_key)" -o BatchMode=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile="$(k2s_windows_worker_known_hosts)" "remote@$(k2s_windows_worker_ip):$log_dir/k2s.log" "$log" >/dev/null 2>&1; then
+    printf '===== Windows worker K2s log (last 300 lines) =====\n'
+    tail -n 300 "$log" | tr -d '\r'
+    printf '===== end of Windows worker K2s log =====\n'
+  else
+    k2s_log ERROR 'Could not retrieve the Windows worker K2s log.'
+  fi
+  rm -f "$log"
+}
+
 k2s_windows_worker_join_cluster() {
   local join_command join_script escaped_join gateway worker_ip
   join_command=$(kubeadm token create --ttl 30m --print-join-command) || return 1
@@ -349,6 +368,10 @@ Invoke-DeployWinArtifacts -KubernetesVersion (Get-DefaultK8sVersion) -Proxy 'htt
 # Add-K8sContext would, which cannot run yet because it needs kubectl.exe and that is
 # only deployed later by Add-WindowsWorkerNodeOnWindowsHost.
 Set-InstalledClusterName -Value '$K2S_CLUSTER_NAME'
+# Wait-ForNodesReady watches for this node to go Ready so it can stop the kubeadm join,
+# which otherwise blocks on a TLS bootstrap that never completes. Unset, it falls back
+# to 'kubemaster' and never matches the native Debian host.
+Set-ConfigControlPlaneNodeHostname '$K2S_CONTROL_PLANE_HOSTNAME'
 \$kubeConfigDir = Get-ConfiguredKubeConfigDir
 if (!(Test-Path \$kubeConfigDir)) {
     New-Item -ItemType Directory -Path \$kubeConfigDir -Force | Out-Null
@@ -463,9 +486,9 @@ k2s_windows_worker_provision() {
   k2s_windows_worker_wait_for_ssh || return $?
   k2s_windows_worker_copy_runtime || return $?
   k2s_windows_worker_copy_kubeconfig || return $?
-  k2s_windows_worker_join_cluster || return $?
-  k2s_windows_worker_start_node || return $?
-  k2s_windows_worker_wait_for_node || return $?
+  k2s_windows_worker_join_cluster || { k2s_windows_worker_collect_logs; return 1; }
+  k2s_windows_worker_start_node || { k2s_windows_worker_collect_logs; return 1; }
+  k2s_windows_worker_wait_for_node || { k2s_windows_worker_collect_logs; return 1; }
   k2s_log INFO 'Managed Windows worker is reachable through SSH and joined to the Kubernetes cluster.'
 }
 
