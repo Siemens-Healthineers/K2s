@@ -318,6 +318,19 @@ k2s_windows_worker_collect_logs() {
   rm -f "$log"
 }
 
+# Cluster-side view of why the worker is not ready. The worker-side view comes from
+# k2s_windows_worker_collect_logs.
+k2s_windows_worker_diagnose_node() {
+  local node_name
+  node_name=$(k2s_windows_worker_node_name)
+  printf '===== Windows worker node diagnostics =====\n'
+  k2s_kubectl get nodes -o wide || true
+  [[ -z "$node_name" ]] || k2s_kubectl describe "node/$node_name" || true
+  k2s_kubectl -n kube-flannel get pods -o wide || true
+  k2s_windows_worker_ssh 'powershell.exe -NoProfile -Command "Get-Service containerd,kubelet,kubeproxy,flanneld,httpproxy -ErrorAction SilentlyContinue | Format-Table Name,Status,StartType -AutoSize | Out-String"' || true
+  printf '===== end of Windows worker node diagnostics =====\n'
+}
+
 k2s_windows_worker_join_cluster() {
   local join_command join_script escaped_join gateway worker_ip
   join_command=$(kubeadm token create --ttl 30m --print-join-command) || return 1
@@ -330,7 +343,10 @@ Import-Module 'C:\\k2s\\lib\\modules\\windows\\infra\\k2s.infra.module\\k2s.infr
 Import-Module 'C:\\k2s\\lib\\modules\\windows\\node\\k2s.node.module\\k2s.node.module.psm1' -Force
 Import-Module 'C:\\k2s\\lib\\modules\\windows\\cluster\\k2s.cluster.module\\k2s.cluster.module.psm1' -Force
 
-Initialize-Logging
+# -ShowLogs mirrors every Write-Log to the console. The script runs over SSH, so this
+# is what makes the worker's progress visible in the host log as it happens, instead
+# of only in the worker's own log file.
+Initialize-Logging -ShowLogs
 
 # Mirror lib/scripts/windows/worker/windows-host/Install.ps1: the Windows node
 # modules are written and tested against 'Continue'. Forcing 'Stop' here turns
@@ -410,7 +426,10 @@ Import-Module 'C:\\k2s\\lib\\modules\\windows\\infra\\k2s.infra.module\\k2s.infr
 Import-Module 'C:\\k2s\\lib\\modules\\windows\\node\\k2s.node.module\\k2s.node.module.psm1' -Force
 Import-Module 'C:\\k2s\\lib\\modules\\windows\\cluster\\k2s.cluster.module\\k2s.cluster.module.psm1' -Force
 
-Initialize-Logging
+# -ShowLogs mirrors every Write-Log to the console. The script runs over SSH, so this
+# is what makes the worker's progress visible in the host log as it happens, instead
+# of only in the worker's own log file.
+Initialize-Logging -ShowLogs
 
 # Mirror lib/scripts/windows/worker/windows-host/Install.ps1: the Windows node
 # modules are written and tested against 'Continue'. Forcing 'Stop' here turns
@@ -476,19 +495,24 @@ k2s_windows_worker_write_state() {
 k2s_windows_worker_provision() {
   k2s_log INFO 'Preflighting managed KVM Windows worker.'
   k2s_windows_worker_preflight || return $?
+  k2s_log INFO "Creating libvirt network '$K2S_WINDOWS_WORKER_NETWORK' on bridge '$K2S_WINDOWS_WORKER_BRIDGE'."
   k2s_windows_worker_network_create || return 1
   local disk
   disk=$(k2s_windows_worker_prepare_image) || return $?
   k2s_windows_worker_create_ssh_key || return 1
+  k2s_log INFO "Defining libvirt domain '$K2S_WINDOWS_WORKER_NAME' with ${K2S_WORKER_CPU_COUNT} vCPUs."
   k2s_windows_worker_define "$disk" || return 1
   k2s_windows_worker_write_state "$disk" || return 1
+  k2s_log INFO "Starting the Windows worker and waiting for SSH on $(k2s_windows_worker_ip)."
   virsh start "$K2S_WINDOWS_WORKER_NAME" || return 1
   k2s_windows_worker_wait_for_ssh || return $?
   k2s_windows_worker_copy_runtime || return $?
   k2s_windows_worker_copy_kubeconfig || return $?
-  k2s_windows_worker_join_cluster || { k2s_windows_worker_collect_logs; return 1; }
-  k2s_windows_worker_start_node || { k2s_windows_worker_collect_logs; return 1; }
-  k2s_windows_worker_wait_for_node || { k2s_windows_worker_collect_logs; return 1; }
+  k2s_log INFO 'Joining the Windows worker to the cluster. Output below comes from the worker.'
+  k2s_windows_worker_join_cluster || { k2s_log ERROR 'Joining the Windows worker failed.'; k2s_windows_worker_collect_logs; return 1; }
+  k2s_log INFO 'Starting Kubernetes services on the Windows worker. Output below comes from the worker.'
+  k2s_windows_worker_start_node || { k2s_log ERROR 'Starting the Windows worker node failed.'; k2s_windows_worker_collect_logs; return 1; }
+  k2s_windows_worker_wait_for_node || { k2s_log ERROR 'The Windows worker did not become a ready Kubernetes node.'; k2s_windows_worker_diagnose_node; k2s_windows_worker_collect_logs; return 1; }
   k2s_log INFO 'Managed Windows worker is reachable through SSH and joined to the Kubernetes cluster.'
 }
 
