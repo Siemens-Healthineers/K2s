@@ -1041,6 +1041,11 @@ function Enable-SmbShare {
 
     $storageConfig = Get-StorageConfigFromRaw -RawConfig $rawStorageConfig
 
+    if ($SmbHostType -eq 'windows' -and @($storageConfig | Where-Object { $_.EnablePosixExtensions -eq $true }).Count -gt 0) {
+        $err = New-Error -Severity Error -Code 'posix-unsupported-on-windows' -Message "The 'posix' protocol cannot be used with a Windows SMB host. It is only supported on Linux targets (use '-t linux')."
+        return @{Error = $err }
+    }
+
     foreach ($storageEntry in $storageConfig) {
         Restore-SmbShareAndFolder -SmbHostType $SmbHostType -SkipTest -Config $storageEntry        
     }
@@ -1388,8 +1393,21 @@ function Get-StorageConfigFromRaw {
     )
     return @($RawConfig | ForEach-Object {
             $winMountPath = Expand-PathSMB -FilePath $_.winMountPath
-            $linuxShareName = $_.linuxShareName
-            $winShareName = $_.winShareName
+            $storageClassName = $_.storageClassName
+            $linuxShareName = if ($_.linuxShareName) {
+                $_.linuxShareName
+            } elseif ($storageClassName -and $storageClassName -ne 'smb') {
+                "linux-$storageClassName-share"
+            } else {
+                'linux-smb-share'
+            }
+            $winShareName = if ($_.winShareName) {
+                $_.winShareName
+            } elseif ($storageClassName -and $storageClassName -ne 'smb') {
+                "win-$storageClassName-share"
+            } else {
+                'win-smb-share'
+            }
 
             # Normalize optional SMB POSIX extension fields with safe defaults
             $smbDialect = if ($_.smbDialect) { $_.smbDialect } else { 'auto' }
@@ -1409,7 +1427,7 @@ function Get-StorageConfigFromRaw {
             }
 
             [pscustomobject]@{
-                StorageClassName          = $_.storageClassName
+                StorageClassName          = $storageClassName
                 # Default to 'Delete' if no reclaim policy is specified to ensure persistent volumes are cleaned up unless overridden.
                 StorageClassReclaimPolicy = if ($_.storageClassReclaimPolicy) { $_.storageClassReclaimPolicy } else { 'Delete' }
                 LinuxMountPath            = $_.linuxMountPath
