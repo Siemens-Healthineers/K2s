@@ -12,6 +12,16 @@ k2s start
 !!! note
     *K2s* will start automatically after the installation has finished.
 
+### Windows Hyper-V startup failures
+
+If the control-plane VM fails to start during installation or `k2s start`,
+K2s logs the original Hyper-V error, VM identity, and attempt number for each
+of its four start attempts. The final failure includes the last Hyper-V error.
+Memory diagnostic failures are logged separately and do not replace that error.
+Use the reported error and the Hyper-V VMMS/Worker Admin event logs to
+investigate the cause; a failed VM start alone does not establish insufficient
+memory.
+
 ### Windows reboot recovery and SSH
 
 Windows startup recovery uses SSH to inspect and restore control-plane routes.

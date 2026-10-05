@@ -42,6 +42,7 @@ function Start-VirtualMachine {
 
     $maxRetries = 4
     $retryDelay = 20
+    $lastStartError = $null
     
     for ($i = 0; $i -lt $maxRetries; $i++) {
         try {
@@ -50,19 +51,24 @@ function Start-VirtualMachine {
             break
         }
         catch {
-            $Error.Clear()
-            Write-Log "Error starting VM: $($Error[0].Message)"
-            # write to log free RAM memory
-            Write-Log "Free RAM memory: $((Get-WmiObject -Class Win32_OperatingSystem).FreePhysicalMemory)"
-            # write to log standby memory
-            Write-Log "Standby memory: $((Get-WmiObject -Class Win32_OperatingSystem).FreeVirtualMemory)"
+            $lastStartError = $_
+            Write-Log "[VMStart] Failed to start '$VmName' (id: $($private:vm.Id), attempt: $($i + 1)/$maxRetries, error id: $($lastStartError.FullyQualifiedErrorId), category: $($lastStartError.CategoryInfo.Category)): $($lastStartError.Exception.Message)"
+            try {
+                $memory = Get-WmiObject -Class Win32_OperatingSystem -ErrorAction Stop
+                Write-Log "Free RAM memory: $($memory.FreePhysicalMemory)"
+                Write-Log "Free virtual memory: $($memory.FreeVirtualMemory)"
+            }
+            catch {
+                Write-Log "[VMStart] Failed to collect memory diagnostics for '$VmName': $($_.Exception.Message)"
+            }
             Start-Sleep -Seconds $retryDelay
         }
     }
     
     if ($i -eq $maxRetries) {
-        Write-Log "Failed to start VM after $maxRetries retries"
-        throw "Failed to start VM $VmName after $maxRetries retries"
+        $message = "Failed to start VM $VmName after $maxRetries retries. Last Hyper-V error: $($lastStartError.Exception.Message)"
+        Write-Log "[VMStart] $message"
+        throw [System.InvalidOperationException]::new($message, $lastStartError.Exception)
     }
 
     if ($Wait -eq $true) {
