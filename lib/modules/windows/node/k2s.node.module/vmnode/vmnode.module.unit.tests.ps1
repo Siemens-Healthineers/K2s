@@ -10,11 +10,72 @@ BeforeAll {
     foreach ($function in $ast.FindAll({
         param($node)
         $node -is [System.Management.Automation.Language.FunctionDefinitionAst] -and
-        $node.Name -in @('Stop-VirtualMachine', 'Wait-ForDesiredVMState')
+        $node.Name -in @('Start-VirtualMachine', 'Stop-VirtualMachine', 'Wait-ForDesiredVMState')
     }, $true)) {
         Invoke-Expression $function.Extent.Text
     }
     function Write-Log { param($Messages, [switch]$Console, [switch]$Progress) }
+}
+
+Describe 'Hyper-V start error reporting' -Tag 'unit', 'ci', 'vm' {
+    BeforeEach {
+        Mock Write-Log {}
+        Mock Get-VM { [pscustomobject]@{ Name = 'KubeMaster'; Id = 'vm-id'; State = 'Off' } }
+        Mock Get-WmiObject { [pscustomobject]@{ FreePhysicalMemory = 8880144; FreeVirtualMemory = 11627396 } }
+        Mock Start-Sleep {}
+        Mock Wait-ForDesiredVMState {}
+        $script:startAttempts = 0
+    }
+
+    It 'logs each original error and preserves the final exception as the cause' {
+        Mock Start-VM {
+            $script:startAttempts++
+            throw [System.InvalidOperationException]::new("Hyper-V refused attempt $script:startAttempts")
+        }
+        $caught = $null
+        try { Start-VirtualMachine -VmName 'KubeMaster' -Wait }
+        catch { $caught = $_ }
+        $caught | Should -Not -BeNullOrEmpty
+        $caught.Exception.Message | Should -BeLike '*after 4 retries*Hyper-V refused attempt 4*'
+        $caught.Exception.InnerException.Message | Should -Be 'Hyper-V refused attempt 4'
+        foreach ($attempt in 1..4) {
+            Should -Invoke Write-Log -Times 1 -Exactly -ParameterFilter {
+                $Messages -like "*id: vm-id, attempt: $attempt/4*error id:*category:*Hyper-V refused attempt $attempt"
+            }
+        }
+        Should -Invoke Start-VM -Times 4 -Exactly -ParameterFilter { $Name -eq 'KubeMaster' -and $ErrorAction -eq 'Stop' }
+        Should -Invoke Start-Sleep -Times 4 -Exactly -ParameterFilter { $Seconds -eq 20 }
+        Should -Invoke Wait-ForDesiredVMState -Times 0 -Exactly
+    }
+
+    It 'does not let failed memory diagnostics replace the Hyper-V failure' {
+        Mock Start-VM { throw 'Hyper-V worker failed' }
+        Mock Get-WmiObject { throw 'WMI unavailable' }
+        { Start-VirtualMachine -VmName 'KubeMaster' } | Should -Throw '*Last Hyper-V error: Hyper-V worker failed*'
+        Should -Invoke Start-VM -Times 4 -Exactly
+        Should -Invoke Write-Log -Times 4 -Exactly -ParameterFilter { $Messages -like '*Failed to collect memory diagnostics*WMI unavailable*' }
+    }
+
+    It 'still succeeds after a transient failure and confirms the running state' {
+        Mock Start-VM {
+            $script:startAttempts++
+            if ($script:startAttempts -eq 1) { throw 'VMMS temporarily busy' }
+        }
+        Start-VirtualMachine -VmName 'KubeMaster' -Wait
+        Should -Invoke Start-VM -Times 2 -Exactly
+        Should -Invoke Start-Sleep -Times 1 -Exactly
+        Should -Invoke Wait-ForDesiredVMState -Times 1 -Exactly -ParameterFilter { $VmName -eq 'KubeMaster' -and $State -eq 'running' }
+        Should -Invoke Write-Log -Times 1 -Exactly -ParameterFilter { $Messages -like '*VMMS temporarily busy' }
+    }
+
+    It 'does not collect failure diagnostics or wait when startup succeeds without Wait' {
+        Mock Start-VM {}
+        Start-VirtualMachine -VmName 'KubeMaster'
+        Should -Invoke Start-VM -Times 1 -Exactly
+        Should -Invoke Get-WmiObject -Times 0 -Exactly
+        Should -Invoke Start-Sleep -Times 0 -Exactly
+        Should -Invoke Wait-ForDesiredVMState -Times 0 -Exactly
+    }
 }
 
 Describe 'Bounded Hyper-V stop' -Tag 'unit', 'ci', 'vm' {
