@@ -621,19 +621,42 @@ func (p *linuxAddonProvider) enableCertManager(showOutput bool) error {
 	}
 
 	_ = exec.Command("kubectl", "wait", "--for=condition=Available", "deployment/cert-manager", "-n", "cert-manager", "--timeout=120s").Run()
+	_ = exec.Command("kubectl", "wait", "--for=condition=Available", "deployment/cert-manager-cainjector", "-n", "cert-manager", "--timeout=120s").Run()
 	_ = exec.Command("kubectl", "wait", "--for=condition=Available", "deployment/cert-manager-webhook", "-n", "cert-manager", "--timeout=120s").Run()
 
-	caIssuerFile := filepath.Join(p.installDir, "addons", "common", "manifests", "certmanager", "ca-issuer.yaml")
-	cmdIssuer := exec.Command("kubectl", "apply", "-f", caIssuerFile)
-	if showOutput {
-		cmdIssuer.Stdout = os.Stdout
-		cmdIssuer.Stderr = os.Stderr
+	// Wait for cainjector to populate the validating webhook caBundle
+	caDeadline := time.Now().Add(60 * time.Second)
+	for time.Now().Before(caDeadline) {
+		out, err := exec.Command("kubectl", "get", "validatingwebhookconfiguration", "cert-manager-webhook",
+			"-o", "jsonpath={.webhooks[0].clientConfig.caBundle}").Output()
+		if err == nil && len(strings.TrimSpace(string(out))) > 100 {
+			break
+		}
+		time.Sleep(2 * time.Second)
 	}
-	if err := cmdIssuer.Run(); err != nil {
-		slog.Warn("[Addon] applying ca-issuer returned error", "error", err)
+	time.Sleep(3 * time.Second)
+
+	caIssuerFile := filepath.Join(p.installDir, "addons", "common", "manifests", "certmanager", "ca-issuer.yaml")
+	var applyErr error
+	issuerDeadline := time.Now().Add(90 * time.Second)
+	for time.Now().Before(issuerDeadline) {
+		cmdIssuer := exec.Command("kubectl", "apply", "--request-timeout=10s", "-f", caIssuerFile)
+		out, err := cmdIssuer.CombinedOutput()
+		if err == nil {
+			applyErr = nil
+			if showOutput && len(out) > 0 {
+				fmt.Print(string(out))
+			}
+			break
+		}
+		applyErr = fmt.Errorf("%w: %s", err, string(out))
+		time.Sleep(2 * time.Second)
+	}
+	if applyErr != nil {
+		slog.Warn("[Addon] applying ca-issuer returned error", "error", applyErr)
 	}
 
-	deadline := time.Now().Add(30 * time.Second)
+	deadline := time.Now().Add(60 * time.Second)
 	for time.Now().Before(deadline) {
 		out, err := exec.Command("kubectl", "get", "secret", "ca-issuer-root-secret", "-n", "cert-manager", "--ignore-not-found").Output()
 		if err == nil && len(strings.TrimSpace(string(out))) > 0 {
