@@ -302,13 +302,23 @@ func (p *linuxAddonProvider) enableIngress(cfg AddonEnableConfig) error {
 		}
 
 		ngfCrdsDir := filepath.Join(p.installDir, "addons", "ingress", "nginx-gw", "manifests", "crds")
-		cmdCrds := exec.Command("kubectl", "apply", "--server-side", "-f", ngfCrdsDir)
-		if cfg.ShowOutput {
-			cmdCrds.Stdout = os.Stdout
-			cmdCrds.Stderr = os.Stderr
+		var crdErr error
+		for attempt := 0; attempt < 3; attempt++ {
+			cmdCrds := exec.Command("kubectl", "apply", "--server-side", "--force-conflicts", "--request-timeout=30s", "-f", ngfCrdsDir)
+			if cfg.ShowOutput {
+				cmdCrds.Stdout = os.Stdout
+				cmdCrds.Stderr = os.Stderr
+			}
+			if err := cmdCrds.Run(); err == nil {
+				crdErr = nil
+				break
+			} else {
+				crdErr = err
+				time.Sleep(2 * time.Second)
+			}
 		}
-		if err := cmdCrds.Run(); err != nil {
-			return fmt.Errorf("applying nginx-gw crds failed: %w", err)
+		if crdErr != nil {
+			return fmt.Errorf("applying nginx-gw crds failed: %w", crdErr)
 		}
 		_ = exec.Command("kubectl", "wait", "--for=condition=Established", "crd/nginxproxies.gateway.nginx.org", "--timeout=60s").Run()
 
@@ -595,9 +605,19 @@ func ensureTlsSecret(namespace, secretName, commonName string) error {
 
 func (p *linuxAddonProvider) ensureGatewayApiCrds() error {
 	crdFile := filepath.Join(p.installDir, "addons", "common", "manifests", "crds", "gateway-crds", "gateway-api-v1.4.1.yaml")
-	cmd := exec.Command("kubectl", "apply", "--server-side", "-f", crdFile)
-	if err := cmd.Run(); err != nil {
-		return fmt.Errorf("applying gateway-api crds: %w", err)
+	var applyErr error
+	for attempt := 0; attempt < 3; attempt++ {
+		cmd := exec.Command("kubectl", "apply", "--server-side", "--force-conflicts", "--request-timeout=30s", "-f", crdFile)
+		if err := cmd.Run(); err == nil {
+			applyErr = nil
+			break
+		} else {
+			applyErr = err
+			time.Sleep(2 * time.Second)
+		}
+	}
+	if applyErr != nil {
+		return fmt.Errorf("applying gateway-api crds: %w", applyErr)
 	}
 	waitCmd := exec.Command("kubectl", "wait", "--for=condition=Established", "crd/gateways.gateway.networking.k8s.io", "--timeout=60s")
 	_ = waitCmd.Run()
