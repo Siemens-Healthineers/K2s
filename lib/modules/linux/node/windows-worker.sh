@@ -198,8 +198,11 @@ k2s_windows_worker_create_ssh_key() {
   chmod 600 "$key"; chmod 644 "$key.pub"
 }
 
+# ServerAlive* bounds how long a session hangs after the worker's networking drops out
+# from under it, which happens whenever HNS rebinds the NIC. Without it ssh waits for
+# the TCP timeout, roughly 20 minutes.
 k2s_windows_worker_ssh() {
-  ssh -i "$(k2s_windows_worker_private_key)" -o BatchMode=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile="$(k2s_windows_worker_known_hosts)" -o ConnectTimeout=10 "remote@$(k2s_windows_worker_ip)" "$@"
+  ssh -i "$(k2s_windows_worker_private_key)" -o BatchMode=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile="$(k2s_windows_worker_known_hosts)" -o ConnectTimeout=10 -o ServerAliveInterval=15 -o ServerAliveCountMax=4 "remote@$(k2s_windows_worker_ip)" "$@"
 }
 
 k2s_windows_worker_password() { printf '%s' "${K2S_WINDOWS_WORKER_PASSWORD:-admin}"; }
@@ -437,9 +440,12 @@ EOF
 # Mirrors lib/scripts/windows/worker/windows-host/Start.ps1. Installing the worker
 # only registers the services; this is what creates the cbr0 l2 bridge and starts
 # containerd, flanneld, kubelet and kubeproxy, so the node can become Ready.
+k2s_windows_worker_start_result_file() { printf '%s' 'C:\ProgramData\K2s\StartWorker.result'; }
+
 k2s_windows_worker_start_node() {
-  local start_script gateway
+  local start_script gateway result_file
   gateway=$(k2s_windows_worker_gateway) || return 1
+  result_file=$(k2s_windows_worker_start_result_file)
   start_script=$(mktemp)
   cat > "$start_script" <<EOF
 Import-Module 'C:\\k2s\\lib\\modules\\windows\\infra\\k2s.infra.module\\k2s.infra.module.psm1' -Force
@@ -468,11 +474,50 @@ Set-EnvVars
     DnsServers          = '$gateway'
     SkipHeaderDisplay   = \$true
 }
-Start-WindowsWorkerNodeOnWindowsHost @workerNodeStartParams
+
+# Creating the cbr0 l2 bridge rebinds the worker's only NIC and drops the SSH session
+# running this script, while the script itself keeps going. Record the outcome so the
+# host can pick it up after reconnecting instead of depending on the SSH exit status.
+try {
+    Start-WindowsWorkerNodeOnWindowsHost @workerNodeStartParams
+    'OK' | Set-Content -Path '$result_file' -Encoding ascii
+}
+catch {
+    "FAILED: \$_" | Set-Content -Path '$result_file' -Encoding ascii
+    throw
+}
 EOF
   scp -i "$(k2s_windows_worker_private_key)" -o BatchMode=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile="$(k2s_windows_worker_known_hosts)" "$start_script" "remote@$(k2s_windows_worker_ip):C:/ProgramData/K2s/StartWorker.ps1"
   local result=$?; rm -f "$start_script"; (( result == 0 )) || return "$result"
-  k2s_windows_worker_ssh 'powershell.exe -NoProfile -ExecutionPolicy Bypass -File C:\ProgramData\K2s\StartWorker.ps1'
+  k2s_windows_worker_ssh "powershell.exe -NoProfile -Command \"Remove-Item -Path '$result_file' -Force -ErrorAction SilentlyContinue\"" || return 1
+  # The SSH session is expected to die mid-run, so its exit status says nothing.
+  k2s_windows_worker_ssh 'powershell.exe -NoProfile -ExecutionPolicy Bypass -File C:\ProgramData\K2s\StartWorker.ps1' || true
+  k2s_windows_worker_wait_for_start_result
+}
+
+# Polls for the marker StartWorker.ps1 writes, reconnecting as needed while the worker's
+# networking settles after the l2 bridge is created.
+k2s_windows_worker_wait_for_start_result() {
+  local result_file outcome deadline=$((SECONDS + 900))
+  result_file=$(k2s_windows_worker_start_result_file)
+  while :; do
+    outcome=$(k2s_windows_worker_ssh "powershell.exe -NoProfile -Command \"if (Test-Path '$result_file') { Get-Content -Path '$result_file' -Raw }\"" 2>/dev/null | tr -d '\r\n')
+    case "$outcome" in
+      OK)
+        k2s_log INFO 'Kubernetes services started on the Windows worker.'
+        return 0
+        ;;
+      FAILED*)
+        k2s_log ERROR "Starting Kubernetes services on the Windows worker reported: $outcome"
+        return 1
+        ;;
+    esac
+    if (( SECONDS >= deadline )); then
+      k2s_log ERROR 'Timed out waiting for the Windows worker to report the result of its start.'
+      return 1
+    fi
+    sleep 15
+  done
 }
 
 k2s_windows_worker_wait_for_node() {
