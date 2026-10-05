@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"log/slog"
 	"path/filepath"
+	"runtime"
 	"strconv"
 	"strings"
 
@@ -82,8 +83,8 @@ func listRegistries(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	// On Linux-only host, never invoke PowerShell; print registries directly from config
-	if runtimeConfig.InstallConfig().LinuxOnly() {
+	// On Linux host or Linux-only setup, never invoke PowerShell; print registries directly from config
+	if runtime.GOOS == "linux" || runtimeConfig.InstallConfig().LinuxOnly() {
 		return printRegistries(runtimeConfig.ClusterConfig().Registries())
 	}
 

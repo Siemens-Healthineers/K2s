@@ -103,10 +103,8 @@ func removeImage(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	if options.fromRegistry {
-		if err := context.EnsureK2sK8sContext(runtimeConfig.ClusterConfig().Name()); err != nil {
-			return err
-		}
+	if err := context.EnsureK2sK8sContext(runtimeConfig.ClusterConfig().Name()); err != nil {
+		return err
 	}
 
 	if err := context.Providers().Image.Remove(provider.ImageRemoveConfig{

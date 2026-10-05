@@ -612,14 +612,54 @@ func (p *linuxImageProvider) isLinuxOnly() bool {
 // ---------- helpers ----------
 
 func listLinuxImages() ([]ContainerImage, error) {
-	if _, err := exec.LookPath("buildah"); err == nil {
-		images, err := listBuildahImages()
-		if err == nil {
-			return images, nil
+	var combined []ContainerImage
+	seen := make(map[string]bool)
+
+	addImages := func(images []ContainerImage) {
+		for _, img := range images {
+			key := fmt.Sprintf("%s:%s", img.Repository, img.Tag)
+			if key != "<none>:<none>" {
+				if seen[key] {
+					continue
+				}
+				seen[key] = true
+			} else {
+				idKey := fmt.Sprintf("id:%s", img.ImageId)
+				if seen[idKey] {
+					continue
+				}
+				seen[idKey] = true
+			}
+			combined = append(combined, img)
 		}
-		slog.Debug("[Image] buildah images failed, falling back to crictl", "error", err)
 	}
-	return listCrictlImages()
+
+	var buildahErr, crictlErr error
+	if _, err := exec.LookPath("buildah"); err == nil {
+		bImages, err := listBuildahImages()
+		if err == nil {
+			addImages(bImages)
+		} else {
+			buildahErr = err
+			slog.Debug("[Image] listBuildahImages failed", "error", err)
+		}
+	}
+
+	if _, err := exec.LookPath("crictl"); err == nil {
+		cImages, err := listCrictlImages()
+		if err == nil {
+			addImages(cImages)
+		} else {
+			crictlErr = err
+			slog.Debug("[Image] listCrictlImages failed", "error", err)
+		}
+	}
+
+	if len(combined) == 0 && buildahErr != nil && crictlErr != nil {
+		return nil, fmt.Errorf("listing images failed (buildah: %v, crictl: %v)", buildahErr, crictlErr)
+	}
+
+	return combined, nil
 }
 
 func listBuildahImages() ([]ContainerImage, error) {

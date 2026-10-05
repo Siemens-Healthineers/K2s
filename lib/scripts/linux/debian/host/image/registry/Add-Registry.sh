@@ -65,7 +65,7 @@ fi
 k2s_crio_add_registry "$registry" "$insecure"
 
 if [[ -n "$username" && -n "$password" ]]; then
-  k2s_buildah_login "$registry" "$username" "$password" "$skip_verify"
+  k2s_buildah_login "$registry" "$username" "$password" "$insecure"
 fi
 
 k2s_crio_reload
