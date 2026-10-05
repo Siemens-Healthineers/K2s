@@ -610,6 +610,10 @@ func (p *linuxAddonProvider) deleteGatewayApiCrds() error {
 }
 
 func (p *linuxAddonProvider) enableCertManager(showOutput bool) error {
+	if isCertManagerReady() && isCaRootSecretAvailable() {
+		return nil
+	}
+
 	certManagerFile := filepath.Join(p.installDir, "addons", "common", "manifests", "certmanager", "cert-manager.yaml")
 	cmd := exec.Command("kubectl", "apply", "-f", certManagerFile)
 	if showOutput {
@@ -677,10 +681,9 @@ func (p *linuxAddonProvider) disableCertManager() error {
 	}
 
 	caIssuerFile := filepath.Join(p.installDir, "addons", "common", "manifests", "certmanager", "ca-issuer.yaml")
-	_ = exec.Command("kubectl", "delete", "-f", caIssuerFile, "--ignore-not-found").Run()
+	_ = exec.Command("kubectl", "delete", "--ignore-not-found", "--timeout=30s", "-f", caIssuerFile).Run()
 	certManagerFile := filepath.Join(p.installDir, "addons", "common", "manifests", "certmanager", "cert-manager.yaml")
-	_ = exec.Command("kubectl", "delete", "-f", certManagerFile, "--ignore-not-found").Run()
-	_ = exec.Command("kubectl", "delete", "namespace", "cert-manager", "--ignore-not-found").Run()
+	_ = exec.Command("kubectl", "delete", "--ignore-not-found", "--timeout=30s", "-f", certManagerFile).Run()
 	return nil
 }
 
@@ -695,10 +698,10 @@ func isCaRootSecretAvailable() bool {
 }
 
 func configureClusterLocalDns() {
-	_ = exec.Command("sudo", "resolvectl", "dns", "cni0", "172.21.0.10").Run()
-	_ = exec.Command("sudo", "resolvectl", "domain", "cni0", "~cluster.local").Run()
-	_ = exec.Command("resolvectl", "dns", "cni0", "172.21.0.10").Run()
-	_ = exec.Command("resolvectl", "domain", "cni0", "~cluster.local").Run()
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+	_ = exec.CommandContext(ctx, "resolvectl", "dns", "cni0", "172.21.0.10").Run()
+	_ = exec.CommandContext(ctx, "resolvectl", "domain", "cni0", "~cluster.local").Run()
 }
 
 func (p *linuxAddonProvider) List(_ AddonListConfig) (*AddonListResult, error) {
