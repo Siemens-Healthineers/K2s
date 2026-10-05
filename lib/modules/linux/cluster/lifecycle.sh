@@ -80,10 +80,10 @@ EOF
   kubeadm init --config="$cfg" || { rm -f "$cfg"; return 1; }
   rm -f "$cfg"
   systemctl enable kubelet || true
-  local user="${SUDO_USER:-root}" home; home=$(getent passwd "$user" | cut -d: -f6); mkdir -p "$home/.kube"; cp /etc/kubernetes/admin.conf "$home/.kube/config"; chown -R "$user":"$(id -gn "$user")" "$home/.kube"
+  local user="${SUDO_USER:-root}" home; home=$(getent passwd "$user" | cut -d: -f6); mkdir -p "$home/.kube"; cp --remove-destination /etc/kubernetes/admin.conf "$home/.kube/config"; chown -R "$user":"$(id -gn "$user")" "$home/.kube"
   if [[ "$user" != "root" ]]; then
     mkdir -p /root/.kube
-    cp /etc/kubernetes/admin.conf /root/.kube/config
+    cp --remove-destination /etc/kubernetes/admin.conf /root/.kube/config
   fi
 }
 
@@ -172,6 +172,12 @@ k2s_uninstall_cluster() {
     crictl --runtime-endpoint unix:///var/run/crio/crio.sock rm -fa 2>/dev/null || true
     crictl --runtime-endpoint unix:///var/run/crio/crio.sock rmp -fa 2>/dev/null || true
     rm -rf /etc/kubernetes /var/lib/etcd /var/lib/kubelet /etc/cni/net.d/10-flannel.conflist /run/flannel
+    rm -f /root/.kube/config
+    local user="${SUDO_USER:-}"
+    if [[ -n "$user" ]]; then
+      local home; home=$(getent passwd "$user" | cut -d: -f6)
+      rm -f "$home/.kube/config"
+    fi
   fi
   systemctl stop crio k2s-httpproxy k2s-proxy-network 2>/dev/null || true
   ip link delete cni0 2>/dev/null || true
