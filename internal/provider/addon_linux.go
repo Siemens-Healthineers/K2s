@@ -121,14 +121,13 @@ func (p *linuxAddonProvider) enableRegistry(cfg AddonEnableConfig) error {
 	}
 
 	ingressType := cfg.Params["ingress"]
-	if ingressType != "" && ingressType != "nginx" {
-		return fmt.Errorf("ingress implementation '%s' is not supported on Linux hosts", ingressType)
-	}
-
-	if ingressType == "nginx" {
-		if !p.isAddonEnabledInConfig("ingress", "nginx") {
-			if err := p.enableIngress(AddonEnableConfig{Name: "ingress", Implementation: "nginx", ShowOutput: cfg.ShowOutput}); err != nil {
-				slog.Warn("[Addon] Failed to enable ingress nginx for registry", "error", err)
+	if ingressType != "" && ingressType != "none" {
+		if ingressType != "nginx" && ingressType != "traefik" && ingressType != "nginx-gw" {
+			return fmt.Errorf("ingress implementation '%s' is not supported", ingressType)
+		}
+		if !p.isAddonEnabledInConfig("ingress", ingressType) {
+			if err := p.enableIngress(AddonEnableConfig{Name: "ingress", Implementation: ingressType, ShowOutput: cfg.ShowOutput}); err != nil {
+				return fmt.Errorf("auto-enabling ingress %s for registry failed: %w", ingressType, err)
 			}
 		}
 	}
@@ -136,7 +135,7 @@ func (p *linuxAddonProvider) enableRegistry(cfg AddonEnableConfig) error {
 	// 1. Create storage directory on host
 	_ = exec.Command("sudo", "mkdir", "-p", "/registry", "/registry/auth", "/registry/repository").Run()
 
-	// 2. Create registry namespace if not exists
+	// 2. Create registry namespace
 	_ = exec.Command("kubectl", "create", "namespace", "registry").Run()
 
 	// 3. Inject storage node hostname into persistent-volume.yaml
@@ -176,14 +175,6 @@ func (p *linuxAddonProvider) enableRegistry(cfg AddonEnableConfig) error {
 		return fmt.Errorf("registry rollout failed: %w", err)
 	}
 
-	hasIngress := ingressType == "nginx" || p.isAddonEnabledInConfig("ingress")
-	if hasIngress {
-		regIngressDir := filepath.Join(p.installDir, "addons", "registry", "manifests", "ingress-nginx")
-		if _, err := os.Stat(regIngressDir); err == nil {
-			_ = exec.Command("kubectl", "apply", "-k", regIngressDir).Run()
-		}
-	}
-
 	// 6. Ensure /etc/hosts has k2s.registry.local pointing to node IP
 	nodeIP := getNodeIP()
 	if nodeIP != "" && nodeIP != "127.0.0.1" {
@@ -192,29 +183,9 @@ func (p *linuxAddonProvider) enableRegistry(cfg AddonEnableConfig) error {
 		setHostEntry("k2s.registry.local", "127.0.0.1")
 	}
 
-	// 7. Add registry via Add-Registry.sh
-	addRegScript := filepath.Join(p.installDir, "lib", "scripts", "linux", "debian", "host", "image", "registry", "Add-Registry.sh")
-	if _, err := os.Stat(addRegScript); err == nil {
-		addCmd := exec.Command(addRegScript, "--registry", "k2s.registry.local:30500", "--plain-http")
-		if cfg.ShowOutput {
-			addCmd.Stdout = os.Stdout
-			addCmd.Stderr = os.Stderr
-		}
-		if err := addCmd.Run(); err != nil {
-			slog.Warn("[Addon] Add-Registry.sh returned error", "error", err)
-		}
-		if hasIngress {
-			_ = exec.Command(addRegScript, "--registry", "k2s.registry.local", "--plain-http").Run()
-		}
-	}
-
-	// 8. Update setup.json
+	// 7. Update setup.json and configure ingress / nodeport
 	_ = p.addAddonToConfig("registry", "")
-	if hasIngress {
-		_ = p.addRegistryToConfig("k2s.registry.local")
-	} else {
-		_ = p.addRegistryToConfig("k2s.registry.local:30500")
-	}
+	_ = p.updateRegistryIngress()
 
 	return nil
 }
@@ -225,63 +196,169 @@ func (p *linuxAddonProvider) enableIngress(cfg AddonEnableConfig) error {
 		impl = "nginx"
 	}
 
+	// 1. Conflict checks
 	if p.isAddonEnabledInConfig("ingress", impl) {
 		return fmt.Errorf("addon 'ingress %s' is already enabled, nothing to do", impl)
 	}
-
-	if impl != "nginx" {
-		return fmt.Errorf("ingress implementation '%s' is not supported on Linux hosts", impl)
+	for _, other := range []string{"nginx", "traefik", "nginx-gw"} {
+		if other != impl && p.isAddonEnabledInConfig("ingress", other) {
+			return fmt.Errorf("addon 'ingress %s' is enabled. Disable it first to avoid port conflicts", other)
+		}
+	}
+	if p.isAddonEnabledInConfig("gateway-api") {
+		return fmt.Errorf("addon 'gateway-api' is enabled. Disable it first to avoid port conflicts")
 	}
 
-	// 1. Create ingress-nginx namespace
-	_ = exec.Command("kubectl", "create", "namespace", "ingress-nginx").Run()
-
-	// 2. Apply ingress-nginx manifests
-	manifestFile := filepath.Join(p.installDir, "addons", "ingress", "nginx", "manifests", "ingress-nginx.yaml")
-	if _, err := os.Stat(manifestFile); err != nil {
-		return fmt.Errorf("ingress manifest not found: %s", manifestFile)
+	omitCertMgr := cfg.Params != nil && (cfg.Params["omitcertmgr"] == "true" || cfg.Params["omit-cert-mgr"] == "true")
+	if !omitCertMgr {
+		_ = p.enableCertManager(cfg.ShowOutput)
 	}
 
-	cmd := exec.Command("kubectl", "apply", "-f", manifestFile)
-	if cfg.ShowOutput {
-		cmd.Stdout = os.Stdout
-		cmd.Stderr = os.Stderr
-	}
-	if err := cmd.Run(); err != nil {
-		return fmt.Errorf("kubectl apply ingress-nginx failed: %w", err)
-	}
-
-	// 3. Patch externalIPs on service/ingress-nginx-controller
 	nodeIP := getNodeIP()
-	if nodeIP != "" && nodeIP != "127.0.0.1" {
-		patchJson := fmt.Sprintf(`{"spec":{"externalIPs":["%s"]}}`, nodeIP)
-		_ = exec.Command("kubectl", "patch", "svc", "ingress-nginx-controller", "-n", "ingress-nginx", "-p", patchJson).Run()
+	if nodeIP == "" {
+		nodeIP = "127.0.0.1"
 	}
 
-	// 4. Wait for controller rollout
-	rolloutCmd := exec.Command("kubectl", "rollout", "status", "deployment/ingress-nginx-controller", "-n", "ingress-nginx", "--timeout=180s")
-	if cfg.ShowOutput {
-		rolloutCmd.Stdout = os.Stdout
-		rolloutCmd.Stderr = os.Stderr
-	}
-	if err := rolloutCmd.Run(); err != nil {
-		return fmt.Errorf("ingress controller rollout failed: %w", err)
+	switch impl {
+	case "nginx":
+		_ = exec.Command("kubectl", "create", "namespace", "ingress-nginx").Run()
+		manifestFile := filepath.Join(p.installDir, "addons", "ingress", "nginx", "manifests", "ingress-nginx.yaml")
+		cmd := exec.Command("kubectl", "apply", "-f", manifestFile)
+		if cfg.ShowOutput {
+			cmd.Stdout = os.Stdout
+			cmd.Stderr = os.Stderr
+		}
+		if err := cmd.Run(); err != nil {
+			return fmt.Errorf("kubectl apply ingress-nginx failed: %w", err)
+		}
+
+		if nodeIP != "127.0.0.1" {
+			patchJson := fmt.Sprintf(`{"spec":{"externalIPs":["%s"]}}`, nodeIP)
+			_ = exec.Command("kubectl", "patch", "svc", "ingress-nginx-controller", "-n", "ingress-nginx", "-p", patchJson).Run()
+		}
+
+		rolloutCmd := exec.Command("kubectl", "rollout", "status", "deployment/ingress-nginx-controller", "-n", "ingress-nginx", "--timeout=180s")
+		if cfg.ShowOutput {
+			rolloutCmd.Stdout = os.Stdout
+			rolloutCmd.Stderr = os.Stderr
+		}
+		if err := rolloutCmd.Run(); err != nil {
+			return fmt.Errorf("ingress controller rollout failed: %w", err)
+		}
+
+		clusterLocal := filepath.Join(p.installDir, "addons", "ingress", "nginx", "manifests", "cluster-local-ingress.yaml")
+		if _, err := os.Stat(clusterLocal); err == nil {
+			_ = exec.Command("kubectl", "apply", "-f", clusterLocal).Run()
+		}
+
+	case "traefik":
+		if err := p.ensureGatewayApiCrds(); err != nil {
+			slog.Warn("[Addon] ensuring gateway-api crds returned error", "error", err)
+		}
+
+		_ = exec.Command("kubectl", "create", "namespace", "ingress-traefik").Run()
+
+		traefikManifestsDir := filepath.Join(p.installDir, "addons", "ingress", "traefik", "manifests")
+		cmd := exec.Command("kubectl", "apply", "-k", traefikManifestsDir)
+		if cfg.ShowOutput {
+			cmd.Stdout = os.Stdout
+			cmd.Stderr = os.Stderr
+		}
+		if err := cmd.Run(); err != nil {
+			return fmt.Errorf("kubectl apply traefik manifests failed: %w", err)
+		}
+
+		if nodeIP != "127.0.0.1" {
+			patchSvcJson := fmt.Sprintf(`{"spec":{"externalIPs":["%s"]}}`, nodeIP)
+			_ = exec.Command("kubectl", "patch", "svc", "traefik", "-n", "ingress-traefik", "-p", patchSvcJson).Run()
+
+			patchDepJson := fmt.Sprintf(`[{"op":"add","path":"/spec/template/spec/containers/0/args/-","value":"--providers.kubernetesIngress.ingressEndpoint"},{"op":"add","path":"/spec/template/spec/containers/0/args/-","value":"--providers.kubernetesIngress.ingressEndpoint.ip=%s"}]`, nodeIP)
+			_ = exec.Command("kubectl", "patch", "deployment", "traefik", "-n", "ingress-traefik", "--type=json", "-p", patchDepJson).Run()
+		}
+
+		rolloutCmd := exec.Command("kubectl", "rollout", "status", "deployment/traefik", "-n", "ingress-traefik", "--timeout=180s")
+		if cfg.ShowOutput {
+			rolloutCmd.Stdout = os.Stdout
+			rolloutCmd.Stderr = os.Stderr
+		}
+		if err := rolloutCmd.Run(); err != nil {
+			return fmt.Errorf("traefik rollout failed: %w", err)
+		}
+
+		clusterLocal := filepath.Join(p.installDir, "addons", "ingress", "traefik", "manifests", "cluster-local-ingress.yaml")
+		if _, err := os.Stat(clusterLocal); err == nil {
+			_ = exec.Command("kubectl", "apply", "-f", clusterLocal).Run()
+		}
+
+	case "nginx-gw":
+		if err := p.ensureGatewayApiCrds(); err != nil {
+			slog.Warn("[Addon] ensuring gateway-api crds returned error", "error", err)
+		}
+
+		ngfCrdsDir := filepath.Join(p.installDir, "addons", "ingress", "nginx-gw", "manifests", "crds")
+		cmdCrds := exec.Command("kubectl", "apply", "--server-side", "-f", ngfCrdsDir)
+		if cfg.ShowOutput {
+			cmdCrds.Stdout = os.Stdout
+			cmdCrds.Stderr = os.Stderr
+		}
+		if err := cmdCrds.Run(); err != nil {
+			return fmt.Errorf("applying nginx-gw crds failed: %w", err)
+		}
+		_ = exec.Command("kubectl", "wait", "--for=condition=Established", "crd/nginxproxies.gateway.nginx.org", "--timeout=60s").Run()
+
+		_ = exec.Command("kubectl", "create", "namespace", "nginx-gw").Run()
+
+		ngfManifestsDir := filepath.Join(p.installDir, "addons", "ingress", "nginx-gw", "manifests")
+		cmd := exec.Command("kubectl", "apply", "-k", ngfManifestsDir)
+		if cfg.ShowOutput {
+			cmd.Stdout = os.Stdout
+			cmd.Stderr = os.Stderr
+		}
+		if err := cmd.Run(); err != nil {
+			return fmt.Errorf("kubectl apply nginx-gw manifests failed: %w", err)
+		}
+
+		proxyTmpl := filepath.Join(p.installDir, "addons", "ingress", "nginx-gw", "manifests", "nginxproxy.yaml")
+		proxyBytes, err := os.ReadFile(proxyTmpl)
+		if err == nil {
+			renderedProxy := strings.ReplaceAll(string(proxyBytes), "__CONTROL_PLANE_IP__", nodeIP)
+			applyProxyCmd := exec.Command("kubectl", "apply", "--server-side", "--force-conflicts", "-f", "-")
+			applyProxyCmd.Stdin = strings.NewReader(renderedProxy)
+			if err := applyProxyCmd.Run(); err != nil {
+				slog.Warn("[Addon] applying nginxproxy.yaml returned error", "error", err)
+			}
+		}
+
+		rolloutCmd := exec.Command("kubectl", "rollout", "status", "deployment/nginx-gw-controller", "-n", "nginx-gw", "--timeout=180s")
+		if cfg.ShowOutput {
+			rolloutCmd.Stdout = os.Stdout
+			rolloutCmd.Stderr = os.Stderr
+		}
+		if err := rolloutCmd.Run(); err != nil {
+			return fmt.Errorf("nginx-gw rollout failed: %w", err)
+		}
+
+		_ = ensureTlsSecret("nginx-gw", "k2s-cluster-local-tls", "k2s.cluster.local")
+		_ = ensureTlsSecret("nginx-gw", "k2s-registry-local-tls", "k2s.registry.local")
+
+		if !omitCertMgr {
+			certFile := filepath.Join(p.installDir, "addons", "ingress", "nginx-gw", "manifests", "k2s-cluster-local-tls-certificate.yaml")
+			_ = exec.Command("kubectl", "apply", "-f", certFile).Run()
+		}
+
+		clusterLocal := filepath.Join(p.installDir, "addons", "ingress", "nginx-gw", "manifests", "cluster-local-nginx-gw.yaml")
+		if _, err := os.Stat(clusterLocal); err == nil {
+			_ = exec.Command("kubectl", "apply", "--server-side", "--force-conflicts", "-f", clusterLocal).Run()
+		}
+
+	default:
+		return fmt.Errorf("ingress implementation '%s' is not supported", impl)
 	}
 
-	// 5. Apply cluster-local-ingress.yaml
-	clusterLocal := filepath.Join(p.installDir, "addons", "ingress", "nginx", "manifests", "cluster-local-ingress.yaml")
-	if _, err := os.Stat(clusterLocal); err == nil {
-		_ = exec.Command("kubectl", "apply", "-f", clusterLocal).Run()
-	}
-
-	if nodeIP != "" && nodeIP != "127.0.0.1" {
-		setHostEntry("k2s.cluster.local", nodeIP)
-	} else {
-		setHostEntry("k2s.cluster.local", "127.0.0.1")
-	}
-
-	// 6. Update setup.json
+	setHostEntry("k2s.cluster.local", nodeIP)
+	configureClusterLocalDns()
 	_ = p.addAddonToConfig("ingress", impl)
+	_ = p.updateRegistryIngress()
 
 	return nil
 }
@@ -314,19 +391,14 @@ func (p *linuxAddonProvider) disableRegistry(cfg AddonDisableConfig) error {
 		return fmt.Errorf("addon 'registry' is already disabled, nothing to do")
 	}
 
-	regIngressDir := filepath.Join(p.installDir, "addons", "registry", "manifests", "ingress-nginx")
-	if _, err := os.Stat(regIngressDir); err == nil {
-		_ = exec.Command("kubectl", "delete", "-k", regIngressDir, "--ignore-not-found").Run()
-	}
+	// Delete ingress manifests for all 3 controllers + nodeport
+	_ = exec.Command("kubectl", "delete", "-k", filepath.Join(p.installDir, "addons", "registry", "manifests", "ingress-nginx"), "--ignore-not-found").Run()
+	_ = exec.Command("kubectl", "delete", "-k", filepath.Join(p.installDir, "addons", "registry", "manifests", "ingress-traefik"), "--ignore-not-found").Run()
+	_ = exec.Command("kubectl", "delete", "-k", filepath.Join(p.installDir, "addons", "registry", "manifests", "ingress-nginx-gw"), "--ignore-not-found").Run()
+	_ = exec.Command("kubectl", "delete", "-f", filepath.Join(p.installDir, "addons", "registry", "manifests", "registry", "service-nodeport.yaml"), "--ignore-not-found").Run()
 
 	registryManifestsDir := filepath.Join(p.installDir, "addons", "registry", "manifests", "registry")
-	delCmd := exec.Command("kubectl", "delete", "-k", registryManifestsDir, "--ignore-not-found")
-	if cfg.ShowOutput {
-		delCmd.Stdout = os.Stdout
-		delCmd.Stderr = os.Stderr
-	}
-	_ = delCmd.Run()
-
+	_ = exec.Command("kubectl", "delete", "-k", registryManifestsDir, "--ignore-not-found").Run()
 	_ = exec.Command("kubectl", "delete", "namespace", "registry", "--ignore-not-found").Run()
 
 	if cfg.Params != nil && (cfg.Params["deleteimages"] == "true" || cfg.Params["delete-images"] == "true" || cfg.Params["d"] == "true") {
@@ -357,32 +429,253 @@ func (p *linuxAddonProvider) disableIngress(cfg AddonDisableConfig) error {
 		impl = "nginx"
 	}
 
-	if !p.isAddonEnabledInConfig("ingress", impl) && !isAddonDeployed("ingress-nginx") {
+	nsName := "ingress-nginx"
+	switch impl {
+	case "traefik":
+		nsName = "ingress-traefik"
+	case "nginx-gw":
+		nsName = "nginx-gw"
+	}
+
+	if !p.isAddonEnabledInConfig("ingress", impl) && !isAddonDeployed(nsName) {
 		return fmt.Errorf("addon 'ingress %s' is already disabled, nothing to do", impl)
 	}
 
 	removeHostEntry("k2s.cluster.local")
 
-	clusterLocal := filepath.Join(p.installDir, "addons", "ingress", "nginx", "manifests", "cluster-local-ingress.yaml")
-	if _, err := os.Stat(clusterLocal); err == nil {
+	switch impl {
+	case "nginx":
+		clusterLocal := filepath.Join(p.installDir, "addons", "ingress", "nginx", "manifests", "cluster-local-ingress.yaml")
 		_ = exec.Command("kubectl", "delete", "-f", clusterLocal, "--ignore-not-found").Run()
-	}
+		manifestFile := filepath.Join(p.installDir, "addons", "ingress", "nginx", "manifests", "ingress-nginx.yaml")
+		_ = exec.Command("kubectl", "delete", "-f", manifestFile, "--ignore-not-found").Run()
+		_ = exec.Command("kubectl", "delete", "namespace", "ingress-nginx", "--ignore-not-found").Run()
 
-	manifestFile := filepath.Join(p.installDir, "addons", "ingress", "nginx", "manifests", "ingress-nginx.yaml")
-	if _, err := os.Stat(manifestFile); err == nil {
-		delCmd := exec.Command("kubectl", "delete", "-f", manifestFile, "--ignore-not-found")
-		if cfg.ShowOutput {
-			delCmd.Stdout = os.Stdout
-			delCmd.Stderr = os.Stderr
-		}
-		_ = delCmd.Run()
-	}
+	case "traefik":
+		clusterLocal := filepath.Join(p.installDir, "addons", "ingress", "traefik", "manifests", "cluster-local-ingress.yaml")
+		_ = exec.Command("kubectl", "delete", "-f", clusterLocal, "--ignore-not-found").Run()
+		traefikManifestsDir := filepath.Join(p.installDir, "addons", "ingress", "traefik", "manifests")
+		_ = exec.Command("kubectl", "delete", "-k", traefikManifestsDir, "--ignore-not-found").Run()
+		_ = exec.Command("kubectl", "delete", "namespace", "ingress-traefik", "--ignore-not-found").Run()
+		_ = p.deleteGatewayApiCrds()
 
-	_ = exec.Command("kubectl", "delete", "namespace", "ingress-nginx", "--ignore-not-found").Run()
+	case "nginx-gw":
+		clusterLocal := filepath.Join(p.installDir, "addons", "ingress", "nginx-gw", "manifests", "cluster-local-nginx-gw.yaml")
+		_ = exec.Command("kubectl", "delete", "-f", clusterLocal, "--ignore-not-found").Run()
+		certFile := filepath.Join(p.installDir, "addons", "ingress", "nginx-gw", "manifests", "k2s-cluster-local-tls-certificate.yaml")
+		_ = exec.Command("kubectl", "delete", "-f", certFile, "--ignore-not-found").Run()
+		ngfManifestsDir := filepath.Join(p.installDir, "addons", "ingress", "nginx-gw", "manifests")
+		_ = exec.Command("kubectl", "delete", "-k", ngfManifestsDir, "--ignore-not-found").Run()
+		ngfCrdsDir := filepath.Join(p.installDir, "addons", "ingress", "nginx-gw", "manifests", "crds")
+		_ = exec.Command("kubectl", "delete", "-f", ngfCrdsDir, "--ignore-not-found").Run()
+		_ = exec.Command("kubectl", "delete", "namespace", "nginx-gw", "--ignore-not-found").Run()
+		_ = p.deleteGatewayApiCrds()
+	}
 
 	_ = p.removeAddonFromConfig("ingress", impl)
+	_ = p.disableCertManager()
+	_ = p.updateRegistryIngress()
 
 	return nil
+}
+
+func (p *linuxAddonProvider) updateRegistryIngress() error {
+	if !p.isAddonEnabledInConfig("registry") && !isAddonDeployed("registry") {
+		return nil
+	}
+
+	addRegScript := filepath.Join(p.installDir, "lib", "scripts", "linux", "debian", "host", "image", "registry", "Add-Registry.sh")
+	rmRegScript := filepath.Join(p.installDir, "lib", "scripts", "linux", "debian", "host", "image", "registry", "Remove-Registry.sh")
+
+	if p.isAddonEnabledInConfig("ingress", "nginx") {
+		_ = exec.Command("kubectl", "delete", "-k", filepath.Join(p.installDir, "addons", "registry", "manifests", "ingress-traefik"), "--ignore-not-found").Run()
+		_ = exec.Command("kubectl", "delete", "-k", filepath.Join(p.installDir, "addons", "registry", "manifests", "ingress-nginx-gw"), "--ignore-not-found").Run()
+		_ = exec.Command("kubectl", "delete", "-f", filepath.Join(p.installDir, "addons", "registry", "manifests", "registry", "service-nodeport.yaml"), "--ignore-not-found").Run()
+
+		_ = exec.Command("kubectl", "apply", "-k", filepath.Join(p.installDir, "addons", "registry", "manifests", "ingress-nginx")).Run()
+
+		_ = exec.Command(rmRegScript, "--registry", "k2s.registry.local:30500").Run()
+		_ = exec.Command(addRegScript, "--registry", "k2s.registry.local", "--plain-http").Run()
+
+		_ = p.removeRegistryFromConfig("k2s.registry.local:30500")
+		_ = p.addRegistryToConfig("k2s.registry.local")
+	} else if p.isAddonEnabledInConfig("ingress", "traefik") {
+		_ = exec.Command("kubectl", "delete", "-k", filepath.Join(p.installDir, "addons", "registry", "manifests", "ingress-nginx"), "--ignore-not-found").Run()
+		_ = exec.Command("kubectl", "delete", "-k", filepath.Join(p.installDir, "addons", "registry", "manifests", "ingress-nginx-gw"), "--ignore-not-found").Run()
+		_ = exec.Command("kubectl", "delete", "-f", filepath.Join(p.installDir, "addons", "registry", "manifests", "registry", "service-nodeport.yaml"), "--ignore-not-found").Run()
+
+		_ = exec.Command("kubectl", "apply", "-k", filepath.Join(p.installDir, "addons", "registry", "manifests", "ingress-traefik")).Run()
+
+		_ = exec.Command(rmRegScript, "--registry", "k2s.registry.local:30500").Run()
+		_ = exec.Command(addRegScript, "--registry", "k2s.registry.local", "--plain-http").Run()
+
+		_ = p.removeRegistryFromConfig("k2s.registry.local:30500")
+		_ = p.addRegistryToConfig("k2s.registry.local")
+	} else if p.isAddonEnabledInConfig("ingress", "nginx-gw") {
+		_ = exec.Command("kubectl", "delete", "-k", filepath.Join(p.installDir, "addons", "registry", "manifests", "ingress-nginx"), "--ignore-not-found").Run()
+		_ = exec.Command("kubectl", "delete", "-k", filepath.Join(p.installDir, "addons", "registry", "manifests", "ingress-traefik"), "--ignore-not-found").Run()
+		_ = exec.Command("kubectl", "delete", "-f", filepath.Join(p.installDir, "addons", "registry", "manifests", "registry", "service-nodeport.yaml"), "--ignore-not-found").Run()
+
+		_ = ensureTlsSecret("nginx-gw", "k2s-registry-local-tls", "k2s.registry.local")
+		certFile := filepath.Join(p.installDir, "addons", "registry", "manifests", "ingress-nginx-gw", "k2s-registry-local-tls-certificate.yaml")
+		if isCertManagerReady() {
+			_ = exec.Command("kubectl", "apply", "-f", certFile).Run()
+		}
+
+		_ = exec.Command("kubectl", "apply", "-k", filepath.Join(p.installDir, "addons", "registry", "manifests", "ingress-nginx-gw")).Run()
+
+		_ = exec.Command(rmRegScript, "--registry", "k2s.registry.local:30500").Run()
+		_ = exec.Command(addRegScript, "--registry", "k2s.registry.local", "--plain-http").Run()
+
+		_ = p.removeRegistryFromConfig("k2s.registry.local:30500")
+		_ = p.addRegistryToConfig("k2s.registry.local")
+	} else {
+		_ = exec.Command("kubectl", "delete", "-k", filepath.Join(p.installDir, "addons", "registry", "manifests", "ingress-nginx"), "--ignore-not-found").Run()
+		_ = exec.Command("kubectl", "delete", "-k", filepath.Join(p.installDir, "addons", "registry", "manifests", "ingress-traefik"), "--ignore-not-found").Run()
+		_ = exec.Command("kubectl", "delete", "-k", filepath.Join(p.installDir, "addons", "registry", "manifests", "ingress-nginx-gw"), "--ignore-not-found").Run()
+
+		_ = exec.Command("kubectl", "apply", "-f", filepath.Join(p.installDir, "addons", "registry", "manifests", "registry", "service-nodeport.yaml")).Run()
+
+		_ = exec.Command(rmRegScript, "--registry", "k2s.registry.local").Run()
+		_ = exec.Command(addRegScript, "--registry", "k2s.registry.local:30500", "--plain-http").Run()
+
+		_ = p.removeRegistryFromConfig("k2s.registry.local")
+		_ = p.addRegistryToConfig("k2s.registry.local:30500")
+	}
+
+	return nil
+}
+
+func ensureTlsSecret(namespace, secretName, commonName string) error {
+	out, err := exec.Command("kubectl", "get", "secret", secretName, "-n", namespace, "--ignore-not-found").Output()
+	if err == nil && len(strings.TrimSpace(string(out))) > 0 {
+		return nil
+	}
+
+	keyFile, err := os.CreateTemp("", "tls-*.key")
+	if err != nil {
+		return err
+	}
+	keyPath := keyFile.Name()
+	keyFile.Close()
+	defer os.Remove(keyPath)
+
+	certFile, err := os.CreateTemp("", "tls-*.crt")
+	if err != nil {
+		return err
+	}
+	certPath := certFile.Name()
+	certFile.Close()
+	defer os.Remove(certPath)
+
+	genCmd := exec.Command("openssl", "req", "-x509", "-nodes", "-days", "365",
+		"-newkey", "rsa:2048",
+		"-keyout", keyPath,
+		"-out", certPath,
+		"-subj", fmt.Sprintf("/CN=%s", commonName),
+	)
+	if err := genCmd.Run(); err != nil {
+		slog.Warn("[Addon] openssl req failed", "error", err)
+		return err
+	}
+
+	createCmd := exec.Command("kubectl", "create", "secret", "tls", secretName,
+		"-n", namespace,
+		fmt.Sprintf("--cert=%s", certPath),
+		fmt.Sprintf("--key=%s", keyPath),
+	)
+	return createCmd.Run()
+}
+
+func (p *linuxAddonProvider) ensureGatewayApiCrds() error {
+	crdFile := filepath.Join(p.installDir, "addons", "common", "manifests", "crds", "gateway-crds", "gateway-api-v1.4.1.yaml")
+	cmd := exec.Command("kubectl", "apply", "--server-side", "-f", crdFile)
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf("applying gateway-api crds: %w", err)
+	}
+	waitCmd := exec.Command("kubectl", "wait", "--for=condition=Established", "crd/gateways.gateway.networking.k8s.io", "--timeout=60s")
+	_ = waitCmd.Run()
+	return nil
+}
+
+func (p *linuxAddonProvider) deleteGatewayApiCrds() error {
+	if p.isAddonEnabledInConfig("ingress", "traefik") ||
+		p.isAddonEnabledInConfig("ingress", "nginx-gw") ||
+		p.isAddonEnabledInConfig("gateway-api") {
+		return nil
+	}
+	crdFile := filepath.Join(p.installDir, "addons", "common", "manifests", "crds", "gateway-crds", "gateway-api-v1.4.1.yaml")
+	_ = exec.Command("kubectl", "delete", "-f", crdFile, "--ignore-not-found").Run()
+	return nil
+}
+
+func (p *linuxAddonProvider) enableCertManager(showOutput bool) error {
+	certManagerFile := filepath.Join(p.installDir, "addons", "common", "manifests", "certmanager", "cert-manager.yaml")
+	cmd := exec.Command("kubectl", "apply", "-f", certManagerFile)
+	if showOutput {
+		cmd.Stdout = os.Stdout
+		cmd.Stderr = os.Stderr
+	}
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf("applying cert-manager manifests: %w", err)
+	}
+
+	_ = exec.Command("kubectl", "wait", "--for=condition=Available", "deployment/cert-manager", "-n", "cert-manager", "--timeout=120s").Run()
+	_ = exec.Command("kubectl", "wait", "--for=condition=Available", "deployment/cert-manager-webhook", "-n", "cert-manager", "--timeout=120s").Run()
+
+	caIssuerFile := filepath.Join(p.installDir, "addons", "common", "manifests", "certmanager", "ca-issuer.yaml")
+	cmdIssuer := exec.Command("kubectl", "apply", "-f", caIssuerFile)
+	if showOutput {
+		cmdIssuer.Stdout = os.Stdout
+		cmdIssuer.Stderr = os.Stderr
+	}
+	if err := cmdIssuer.Run(); err != nil {
+		slog.Warn("[Addon] applying ca-issuer returned error", "error", err)
+	}
+
+	deadline := time.Now().Add(30 * time.Second)
+	for time.Now().Before(deadline) {
+		out, err := exec.Command("kubectl", "get", "secret", "ca-issuer-root-secret", "-n", "cert-manager", "--ignore-not-found").Output()
+		if err == nil && len(strings.TrimSpace(string(out))) > 0 {
+			break
+		}
+		time.Sleep(2 * time.Second)
+	}
+
+	return nil
+}
+
+func (p *linuxAddonProvider) disableCertManager() error {
+	if p.isAddonEnabledInConfig("security") ||
+		p.isAddonEnabledInConfig("ingress", "nginx") ||
+		p.isAddonEnabledInConfig("ingress", "traefik") ||
+		p.isAddonEnabledInConfig("ingress", "nginx-gw") {
+		return nil
+	}
+
+	caIssuerFile := filepath.Join(p.installDir, "addons", "common", "manifests", "certmanager", "ca-issuer.yaml")
+	_ = exec.Command("kubectl", "delete", "-f", caIssuerFile, "--ignore-not-found").Run()
+	certManagerFile := filepath.Join(p.installDir, "addons", "common", "manifests", "certmanager", "cert-manager.yaml")
+	_ = exec.Command("kubectl", "delete", "-f", certManagerFile, "--ignore-not-found").Run()
+	_ = exec.Command("kubectl", "delete", "namespace", "cert-manager", "--ignore-not-found").Run()
+	return nil
+}
+
+func isCertManagerReady() bool {
+	out, err := exec.Command("kubectl", "get", "deployment", "cert-manager", "-n", "cert-manager", "-o", "jsonpath={.status.readyReplicas}").Output()
+	return err == nil && strings.TrimSpace(string(out)) != "" && strings.TrimSpace(string(out)) != "0"
+}
+
+func isCaRootSecretAvailable() bool {
+	out, err := exec.Command("kubectl", "get", "secret", "ca-issuer-root-secret", "-n", "cert-manager", "--ignore-not-found").Output()
+	return err == nil && len(strings.TrimSpace(string(out))) > 0
+}
+
+func configureClusterLocalDns() {
+	_ = exec.Command("sudo", "resolvectl", "dns", "cni0", "172.21.0.10").Run()
+	_ = exec.Command("sudo", "resolvectl", "domain", "cni0", "~cluster.local").Run()
+	_ = exec.Command("resolvectl", "dns", "cni0", "172.21.0.10").Run()
+	_ = exec.Command("resolvectl", "domain", "cni0", "~cluster.local").Run()
 }
 
 func (p *linuxAddonProvider) List(_ AddonListConfig) (*AddonListResult, error) {
@@ -410,7 +703,6 @@ func (p *linuxAddonProvider) List(_ AddonListConfig) (*AddonListResult, error) {
 			continue
 		}
 
-		// Check if addon has resources in the cluster (simple heuristic)
 		enabled := isAddonDeployed(entry.Name())
 
 		result.Addons = append(result.Addons, AddonInfo{
@@ -424,12 +716,182 @@ func (p *linuxAddonProvider) List(_ AddonListConfig) (*AddonListResult, error) {
 }
 
 func (p *linuxAddonProvider) Status(cfg AddonStatusConfig) (*AddonStatusResult, error) {
+	result := &AddonStatusResult{}
+	nodeIP := getNodeIP()
+
+	targetAddon := cfg.Name
+	impl := ""
+	if cfg.Directory != "" {
+		base := filepath.Base(cfg.Directory)
+		if base == "traefik" || base == "nginx" || base == "nginx-gw" {
+			impl = base
+		}
+	}
+
+	if targetAddon == "registry" {
+		enabled := p.isAddonEnabledInConfig("registry")
+		info := AddonStatusInfo{
+			Name:    "registry",
+			Enabled: enabled,
+		}
+
+		if enabled {
+			podRunning := false
+			out, err := exec.Command("kubectl", "get", "statefulset", "registry", "-n", "registry", "-o", "jsonpath={.status.readyReplicas}").Output()
+			if err == nil && strings.TrimSpace(string(out)) != "" && strings.TrimSpace(string(out)) != "0" {
+				podRunning = true
+			}
+			msgPod := "The registry pod is not working"
+			if podRunning {
+				msgPod = "The registry pod is working"
+			}
+			info.Props = append(info.Props, AddonStatusProp{
+				Name:    "IsRegistryPodRunning",
+				Value:   podRunning,
+				Okay:    &podRunning,
+				Message: &msgPod,
+			})
+
+			reachable := false
+			regHost := "k2s.registry.local:30500"
+			client := &http.Client{
+				Transport: &http.Transport{TLSClientConfig: &tls.Config{InsecureSkipVerify: true}},
+				Timeout:   5 * time.Second,
+			}
+			for _, u := range []string{"https://k2s.registry.local/v2/", "http://k2s.registry.local:30500/v2/", "http://127.0.0.1:30500/v2/"} {
+				resp, err := client.Get(u)
+				if err == nil && (resp.StatusCode == http.StatusOK || resp.StatusCode == http.StatusUnauthorized) {
+					reachable = true
+					regHost = strings.TrimPrefix(strings.TrimPrefix(strings.TrimSuffix(u, "/v2/"), "http://"), "https://")
+					resp.Body.Close()
+					break
+				}
+			}
+			msgReach := "The registry is not reachable"
+			if reachable {
+				msgReach = fmt.Sprintf("The registry '%s' is reachable", regHost)
+			}
+			info.Props = append(info.Props, AddonStatusProp{
+				Name:    "IsRegistryReachable",
+				Value:   reachable,
+				Okay:    &reachable,
+				Message: &msgReach,
+			})
+		}
+		result.Addons = append(result.Addons, info)
+		return result, nil
+	}
+
+	if targetAddon == "ingress" {
+		if impl == "" {
+			impl = "nginx"
+		}
+		enabled := p.isAddonEnabledInConfig("ingress", impl)
+		info := AddonStatusInfo{
+			Name:    "ingress",
+			Enabled: enabled,
+		}
+
+		if enabled {
+			controllerRunning := false
+			extIpMatches := false
+			depName := "ingress-nginx-controller"
+			depNs := "ingress-nginx"
+			svcName := "ingress-nginx-controller"
+			svcNs := "ingress-nginx"
+			propRunningName := "IsIngressNginxRunning"
+			msgRunningTrue := "The nginx ingress controller is working"
+			msgRunningFalse := "The nginx ingress controller is not working"
+			msgExtIpTrue := fmt.Sprintf("The external IP for ingress-nginx service is set to %s", nodeIP)
+			msgExtIpFalse := "The external IP for ingress-nginx service is not set properly"
+
+			switch impl {
+			case "traefik":
+				depName = "traefik"
+				depNs = "ingress-traefik"
+				svcName = "traefik"
+				svcNs = "ingress-traefik"
+				propRunningName = "IsTraefikRunning"
+				msgRunningTrue = "The traefik ingress controller is working"
+				msgRunningFalse = "The traefik ingress controller is not working"
+				msgExtIpTrue = fmt.Sprintf("The external IP for traefik service is set to %s", nodeIP)
+				msgExtIpFalse = "The external IP for traefik service is not set properly"
+			case "nginx-gw":
+				depName = "nginx-gw-controller"
+				depNs = "nginx-gw"
+				svcName = "nginx-cluster-local-nginx-gw"
+				svcNs = "nginx-gw"
+				propRunningName = "IsNginxGatewayRunning"
+				msgRunningTrue = "The nginx gateway fabric controller is working"
+				msgRunningFalse = "The nginx gateway fabric controller is not working"
+				msgExtIpTrue = fmt.Sprintf("The external IP for nginx-gw service is set to %s", nodeIP)
+				msgExtIpFalse = "The external IP for nginx-gw service is not set properly"
+			}
+
+			out, err := exec.Command("kubectl", "get", "deployment", depName, "-n", depNs, "-o", "jsonpath={.status.readyReplicas}").Output()
+			if err == nil && strings.TrimSpace(string(out)) != "" && strings.TrimSpace(string(out)) != "0" {
+				controllerRunning = true
+			}
+			msgRunning := msgRunningFalse
+			if controllerRunning {
+				msgRunning = msgRunningTrue
+			}
+			info.Props = append(info.Props, AddonStatusProp{
+				Name:    propRunningName,
+				Value:   controllerRunning,
+				Okay:    &controllerRunning,
+				Message: &msgRunning,
+			})
+
+			outSvc, err := exec.Command("kubectl", "get", "service", svcName, "-n", svcNs, "-o", "jsonpath={.spec.externalIPs[0]}").Output()
+			if err == nil && strings.Trim(strings.TrimSpace(string(outSvc)), "\"") == nodeIP {
+				extIpMatches = true
+			}
+			msgExtIp := msgExtIpFalse
+			if extIpMatches {
+				msgExtIp = msgExtIpTrue
+			}
+			info.Props = append(info.Props, AddonStatusProp{
+				Name:    "IsExternalIPSet",
+				Value:   extIpMatches,
+				Okay:    &extIpMatches,
+				Message: &msgExtIp,
+			})
+
+			cmReady := isCertManagerReady()
+			msgCm := "The cert-manager is not installed (omitted during addon enablement)."
+			if cmReady {
+				msgCm = "The cert-manager API is ready"
+			}
+			info.Props = append(info.Props, AddonStatusProp{
+				Name:    "IsCertManagerAvailable",
+				Value:   cmReady,
+				Okay:    &cmReady,
+				Message: &msgCm,
+			})
+
+			caReady := isCaRootSecretAvailable()
+			msgCa := "The CA root certificate is not available (cert-manager was omitted)."
+			if caReady {
+				msgCa = "The CA root certificate is available"
+			}
+			info.Props = append(info.Props, AddonStatusProp{
+				Name:    "IsCaRootCertificateAvailable",
+				Value:   caReady,
+				Okay:    &caReady,
+				Message: &msgCa,
+			})
+		}
+
+		result.Addons = append(result.Addons, info)
+		return result, nil
+	}
+
+	// Fallback to List for any other addon
 	list, err := p.List(AddonListConfig{})
 	if err != nil {
 		return nil, err
 	}
-
-	result := &AddonStatusResult{}
 	for _, addon := range list.Addons {
 		if cfg.Name != "" && addon.Name != cfg.Name {
 			continue
@@ -438,96 +900,8 @@ func (p *linuxAddonProvider) Status(cfg AddonStatusConfig) (*AddonStatusResult, 
 			Name:    addon.Name,
 			Enabled: addon.Enabled,
 		}
-
-		if addon.Enabled {
-			if addon.Name == "registry" {
-				podRunning := false
-				out, err := exec.Command("kubectl", "get", "statefulset", "registry", "-n", "registry", "-o", "jsonpath={.status.readyReplicas}").Output()
-				if err == nil && strings.TrimSpace(string(out)) != "" && strings.TrimSpace(string(out)) != "0" {
-					podRunning = true
-				}
-				msgPod := "The registry pod is not working"
-				if podRunning {
-					msgPod = "The registry pod is working"
-				}
-				info.Props = append(info.Props, AddonStatusProp{
-					Name:    "IsRegistryPodRunning",
-					Value:   podRunning,
-					Okay:    &podRunning,
-					Message: &msgPod,
-				})
-
-				reachable := false
-				regHost := "k2s.registry.local:30500"
-				client := &http.Client{
-					Transport: &http.Transport{TLSClientConfig: &tls.Config{InsecureSkipVerify: true}},
-					Timeout:   5 * time.Second,
-				}
-				for _, u := range []string{"http://k2s.registry.local:30500/v2/", "https://k2s.registry.local/v2/", "http://127.0.0.1:30500/v2/"} {
-					resp, err := client.Get(u)
-					if err == nil && (resp.StatusCode == http.StatusOK || resp.StatusCode == http.StatusUnauthorized) {
-						reachable = true
-						regHost = strings.TrimPrefix(strings.TrimPrefix(strings.TrimSuffix(u, "/v2/"), "http://"), "https://")
-						resp.Body.Close()
-						break
-					}
-				}
-				msgReach := "The registry is not reachable"
-				if reachable {
-					msgReach = fmt.Sprintf("The registry '%s' is reachable", regHost)
-				}
-				info.Props = append(info.Props, AddonStatusProp{
-					Name:    "IsRegistryReachable",
-					Value:   reachable,
-					Okay:    &reachable,
-					Message: &msgReach,
-				})
-			} else if addon.Name == "ingress" {
-				controllerRunning := false
-				out, err := exec.Command("kubectl", "get", "deployment", "ingress-nginx-controller", "-n", "ingress-nginx", "-o", "jsonpath={.status.readyReplicas}").Output()
-				if err == nil && strings.TrimSpace(string(out)) != "" && strings.TrimSpace(string(out)) != "0" {
-					controllerRunning = true
-				}
-				msgController := "The nginx ingress controller is not working"
-				if controllerRunning {
-					msgController = "The nginx ingress controller is working"
-				}
-				info.Props = append(info.Props, AddonStatusProp{
-					Name:    "IsIngressNginxRunning",
-					Value:   controllerRunning,
-					Okay:    &controllerRunning,
-					Message: &msgController,
-				})
-			} else {
-				output, err := exec.Command("kubectl", "get", "pods", "-A",
-					"-l", fmt.Sprintf("app.kubernetes.io/name=%s", addon.Name),
-					"-o", "jsonpath={range .items[*]}{.metadata.name}={.status.phase}{','}{end}").Output()
-				if err != nil || len(strings.TrimSpace(string(output))) == 0 {
-					output, _ = exec.Command("kubectl", "get", "pods", "-A",
-						"-l", fmt.Sprintf("app=%s", addon.Name),
-						"-o", "jsonpath={range .items[*]}{.metadata.name}={.status.phase}{','}{end}").Output()
-				}
-				if len(strings.TrimSpace(string(output))) == 0 {
-					output, _ = exec.Command("kubectl", "get", "pods", "-n", addon.Name,
-						"-o", "jsonpath={range .items[*]}{.metadata.name}={.status.phase}{','}{end}").Output()
-				}
-				for _, entry := range strings.Split(string(output), ",") {
-					parts := strings.SplitN(entry, "=", 2)
-					if len(parts) == 2 && parts[0] != "" {
-						isRunning := parts[1] == "Running"
-						info.Props = append(info.Props, AddonStatusProp{
-							Name:  parts[0],
-							Value: parts[1],
-							Okay:  &isRunning,
-						})
-					}
-				}
-			}
-		}
-
 		result.Addons = append(result.Addons, info)
 	}
-
 	return result, nil
 }
 
@@ -883,7 +1257,7 @@ func isAddonDeployed(addonName string) bool {
 
 	namespaces := []string{addonName}
 	if addonName == "ingress" {
-		namespaces = append(namespaces, "ingress-nginx")
+		namespaces = append(namespaces, "ingress-nginx", "ingress-traefik", "nginx-gw")
 	}
 
 	for _, ns := range namespaces {

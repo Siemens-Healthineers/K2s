@@ -191,9 +191,6 @@ var _ = Describe("'registry' addon", Ordered, func() {
 	When("Traefik Ingress", func() {
 		Context("addon is enabled {traefik}", func() {
 			BeforeAll(func(ctx context.Context) {
-				if suite.SetupInfo().RuntimeConfig.InstallConfig().LinuxOnly() {
-					Skip("Traefik ingress is not supported on Linux-only host")
-				}
 				suite.K2sCli().MustExec(ctx, "addons", "enable", "registry", "-o", "--ingress", "traefik")
 			})
 
@@ -225,9 +222,6 @@ var _ = Describe("'registry' addon", Ordered, func() {
 
 		Context("addon is disabled {traefik}", func() {
 			BeforeAll(func(ctx context.Context) {
-				if suite.SetupInfo().RuntimeConfig.InstallConfig().LinuxOnly() {
-					Skip("Traefik ingress is not supported on Linux-only host")
-				}
 				suite.K2sCli().MustExec(ctx, "addons", "disable", "registry", "-o")
 				suite.K2sCli().MustExec(ctx, "addons", "disable", "ingress", "traefik", "-o")
 			})
@@ -252,9 +246,6 @@ var _ = Describe("'registry' addon", Ordered, func() {
 	When("NGINX Gateway Fabric Ingress", func() {
 		Context("addon is enabled {nginx-gw}", func() {
 			BeforeAll(func(ctx context.Context) {
-				if suite.SetupInfo().RuntimeConfig.InstallConfig().LinuxOnly() {
-					Skip("NGINX Gateway Fabric ingress is not supported on Linux-only host")
-				}
 				suite.K2sCli().MustExec(ctx, "addons", "enable", "registry", "-o", "--ingress", "nginx-gw")
 			})
 
@@ -286,9 +277,6 @@ var _ = Describe("'registry' addon", Ordered, func() {
 
 		Context("addon is disabled {nginx-gw}", func() {
 			BeforeAll(func(ctx context.Context) {
-				if suite.SetupInfo().RuntimeConfig.InstallConfig().LinuxOnly() {
-					Skip("NGINX Gateway Fabric ingress is not supported on Linux-only host")
-				}
 				suite.K2sCli().MustExec(ctx, "addons", "disable", "registry", "-o")
 				suite.K2sCli().MustExec(ctx, "addons", "disable", "ingress", "nginx-gw", "-o")
 			})
