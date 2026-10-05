@@ -212,6 +212,12 @@ func (p *linuxAddonProvider) enableIngress(cfg AddonEnableConfig) error {
 	omitCertMgr := cfg.Params != nil && (cfg.Params["omitcertmgr"] == "true" || cfg.Params["omit-cert-mgr"] == "true")
 	if !omitCertMgr {
 		_ = p.enableCertManager(cfg.ShowOutput)
+	} else {
+		if impl == "nginx-gw" {
+			fmt.Println("[ingress nginx-gw] WARNING: cert-manager omitted. TLS certificates must be provided manually for HTTPS to function.")
+		} else {
+			fmt.Printf("[ingress %s] Skipping cert-manager installation (--omitCertMgr)\n", impl)
+		}
 	}
 
 	nodeIP := getNodeIP()
