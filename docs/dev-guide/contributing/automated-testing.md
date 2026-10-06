@@ -14,6 +14,20 @@ The ultimate goal is to automate every test case and type, i.e.:
 !!! info
     Acceptance tests might require a running *K2s* cluster.
 
+### Windows Workload Readiness Diagnostics
+
+If the core acceptance suite exhausts its Windows HTTP readiness retries, it
+collects evidence without changing the readiness criteria. The suite probes
+Service DNS, Service ClusterIPs, and EndpointSlice Pod IPs from both the host
+and the Linux curl pod. It also captures Kubernetes resources, forwarding
+logs, and Windows adapter, route, and HNS state. These observations help
+distinguish DNS, Service forwarding, and direct endpoint failures; they do
+not identify the failing component on their own.
+
+Diagnostic commands have a ten-second timeout and share a four-minute
+collection budget. Query and probe failures are recorded without replacing
+the original readiness failure or preventing independent probes.
+
 ## Prerequisites
 [Install *Pester*](#install-pester) and [Install *Ginkgo*](https://onsi.github.io/ginkgo/#installing-ginkgo){target="_blank"}.
 

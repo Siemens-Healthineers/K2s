@@ -244,9 +244,12 @@ function Export-ChangedImageLayers {
             }
         }
 
-        $result.Success = $true
+        $result.Success = ($result.FailedImages.Count -eq 0)
         $totalSizeMB = [math]::Round($result.TotalSize / 1MB, 2)
         Write-Log "[ImageAcq] Image export complete. Exported: $($result.ExtractedLayers.Count) images, Total size: ${totalSizeMB} MB, Failed: $($result.FailedImages.Count)" -Console
+        if (-not $result.Success) {
+            $result.ErrorMessage = "Failed to export required image(s): $($result.FailedImages -join ', ')"
+        }
 
     } catch {
         $result.ErrorMessage = "Exception during image export: $_"

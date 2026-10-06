@@ -411,14 +411,18 @@ k2s addons import <addon> [flags]
 
 | Flag | Short | Description |
 |------|-------|-------------|
-| `--zip` | `-z` | Path to the OCI artifact tar file |
+| `--file` | `-f` | Path to the OCI artifact tar file |
 | `--node` | | Target node name for addon image import (e.g. `worker-1`); defaults to control-plane and local Windows host when omitted |
+| `--nodes` | | Target node names (comma-separated) for addon image import (e.g. `worker-1,worker-2`) |
 
-By default the addon images are imported onto the control-plane node and the local Windows host. Use `--node` to import them onto a specific worker node instead. The node must exist and be in the `Ready` state; otherwise the command fails without importing anything.
+By default the addon images are imported onto the control-plane node and the local Windows host. Use `--node` to import them onto a specific worker node, control-plane, or local Windows host, or `--nodes` to import them onto multiple nodes. When both `--node` and `--nodes` are provided, `--nodes` takes precedence. Target nodes must exist and be in the `Ready` state; otherwise the command fails without importing anything.
 
 ```console
 # Import an addon and distribute its images to a specific worker node
 k2s addons import registry -f C:\tmp\addons.oci.tar --node worker-1
+
+# Import an addon and distribute its images to multiple worker nodes
+k2s addons import registry -f C:\tmp\addons.oci.tar --nodes worker-1,worker-2
 ```
 
 ### addons backup
@@ -614,6 +618,18 @@ k2s system users add [flags]
 | `--username` | `-u` | Windows user name (mutually exclusive with `--id`) |
 | `--id` | `-i` | Windows user ID (mutually exclusive with `--username`) |
 
+### system reset
+
+Reset the local K2s system state.
+
+```console
+k2s system reset
+```
+
+On Windows this runs the standard host reset flow.
+
+On Linux hosts this runs the native uninstall-style cleanup for the installed Linux-only setup, removing the cluster state, common CNI interfaces, and persisted K2s runtime configuration so a fresh install can be started afterwards. Host-network-only cleanup remains the responsibility of `k2s system reset network`.
+
 ### system reset network
 
 Reset the host network configuration (requires reboot).
@@ -625,6 +641,8 @@ k2s system reset network [flags]
 | Flag | Short | Description |
 |------|-------|-------------|
 | `--force` | `-f` | Force network reset |
+
+When a setup is still installed, uninstall it first or run `k2s system reset` before using the standalone network reset. On Linux hosts, `k2s system reset network` is the host-network cleanup path; `k2s system reset` removes only the installed Linux-only cluster state and persisted K2s runtime state.
 
 ---
 

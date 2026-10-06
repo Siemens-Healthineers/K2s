@@ -327,7 +327,7 @@ function Test-NetworkL2BridgeReady {
         Enable-NetAdapter -Name $endpointInterfaceAlias -Confirm:$false -ErrorAction SilentlyContinue
         $adapter = Get-NetAdapter -Name $endpointInterfaceAlias -IncludeHidden -ErrorAction SilentlyContinue
     }
-    if ($null -eq $adapter -or $adapter.Status -ne 'Up') {
+    if ($null -eq $adapter -or $adapter.Status -notin @('Up', 'Disconnected')) {
         return $false
     }
 

@@ -435,10 +435,10 @@ if ($SpecialSkippedFiles -contains 'Kubemaster-Base.vhdx') {
                                 Write-Log "[ImageAcq] Image export successful: Exported $($layerExtractionResult.ExtractedLayers.Count) image archives, Total size: $([math]::Round($layerExtractionResult.TotalSize / 1MB, 2)) MB" -Console
 
                                 if ($layerExtractionResult.FailedImages.Count -gt 0) {
-                                    Write-Log "[ImageAcq] Warning: $($layerExtractionResult.FailedImages.Count) images failed extraction: $($layerExtractionResult.FailedImages -join ', ')" -Console
+                                    throw "Image export returned success with failed images: $($layerExtractionResult.FailedImages -join ', ')"
                                 }
                             } else {
-                                Write-Log "[ImageAcq] Warning: Image export failed: $($layerExtractionResult.ErrorMessage)" -Console
+                                throw "Required image export failed: $($layerExtractionResult.ErrorMessage)"
                             }
                         }
 
@@ -449,7 +449,8 @@ if ($SpecialSkippedFiles -contains 'Kubemaster-Base.vhdx') {
                     }
 
                 } catch {
-                    Write-Log "[ImageDiff] Warning: Image delta processing failed: $($_.Exception.Message)" -Console
+                    Write-Log "[ImageDiff][Error] Image delta processing failed: $($_.Exception.Message)" -Console
+                    throw
                 } finally {
                     Stop-Phase 'Image Delta' $imagePhase
                 }

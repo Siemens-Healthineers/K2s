@@ -27,8 +27,8 @@ Param(
     [string] $Script
 )
 
-# Detect if running from delta package (delta-manifest.json 4 levels up from base/)
-$possibleDeltaRoot = Split-Path (Split-Path (Split-Path (Split-Path $PSScriptRoot -Parent) -Parent) -Parent) -Parent
+# Detect delta packages above lib\scripts\windows\host\base.
+$possibleDeltaRoot = [System.IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..\..\..\..\..'))
 $deltaManifestPath = Join-Path $possibleDeltaRoot 'delta-manifest.json'
 $runningFromDelta = Test-Path -LiteralPath $deltaManifestPath
 
