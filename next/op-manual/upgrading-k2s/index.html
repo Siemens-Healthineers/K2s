@@ -3163,7 +3163,7 @@ You're not viewing the latest release version.
 
 
 <!--
-SPDX-FileCopyrightText: © 2024 Siemens Healthineers AG
+SPDX-FileCopyrightText: © 2026 Siemens Healthineers AG
 SPDX-License-Identifier: MIT
 -->
 
@@ -3232,7 +3232,14 @@ SPDX-License-Identifier: MIT
 <a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a><span class="go">k2s system upgrade --force</span>
 </code></pre></div></p>
 <h3 id="configuration-override">Configuration Override</h3>
-<p>If you omit <code>-c</code>, the previous cluster's effective settings (memory, <abbr title="Central Processing Unit">CPU</abbr>, storage paths) are reused. To change them during an upgrade, provide a config file as described in <a href="../installing-k2s/#installing-using-config-files">Installing Using Config Files</a>.</p>
+<p>Before uninstalling the current cluster, a full Windows-host upgrade stages the protected effective install configuration linked from <code>setup.json</code>.</p>
+<ul>
+<li>Without <code>-c</code>, the staged configuration is reused, including managed <code>kubeletOverrides</code>.</li>
+<li>With <code>-c</code>, the supplied file is normalized and replaces the effective snapshot only after installation succeeds.</li>
+<li>If installation fails, rollback uses the staged previous configuration rather than the newly requested file.</li>
+<li>A legacy installation without an effective snapshot upgrades without managed kubelet overrides.</li>
+</ul>
+<p>The snapshot is internal, stored next to <code>setup.json</code>, and separate from <code>cfg\config.json</code>. To change settings during an upgrade, provide a config file as described in <a href="../installing-k2s/#installing-using-config-files">Installing Using Config Files</a>.</p>
 <div class="admonition info">
 <p class="admonition-title">Memory Configuration Preservation</p>
 <p>During upgrade, <strong>all memory settings are automatically preserved</strong>, including:</p>
@@ -3256,10 +3263,12 @@ SPDX-License-Identifier: MIT
 7. Verify workload health (basic readiness checks).
 8. Final cluster availability validation.</p>
 <h3 id="rollback-considerations">Rollback Considerations</h3>
-<p>There is no automatic rollback. If an upgrade fails:
-- Review logs under the K2s log directory.
-- Re-run with increased verbosity (if supported) or <code>--force</code> only after assessing the cause.
-- If recovery is not feasible, you can reinstall the previous version then import a backup (if you captured one beforehand) or re-run your deployment manifests.</p>
+<p>If the new installation fails during a full upgrade, K2s attempts to reinstall the previous version with the staged previous effective configuration. If that rollback also fails:</p>
+<ul>
+<li>Review logs under the K2s log directory.</li>
+<li>Re-run with increased verbosity (if supported) or <code>--force</code> only after assessing the cause.</li>
+<li>If recovery is not feasible, reinstall the previous version and import a backup, or re-run deployment manifests.</li>
+</ul>
 <h3 id="backups-recommended">Backups (Recommended)</h3>
 <p>Before upgrading across more than one minor version, back up:
 - Application persistent volumes (if external, ensure snapshots exist).

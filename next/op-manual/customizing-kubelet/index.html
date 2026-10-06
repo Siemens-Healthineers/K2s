@@ -1265,15 +1265,26 @@ You're not viewing the latest release version.
 </li>
       
         <li class="md-nav__item">
-  <a href="#customizing-the-linux-control-plane-node" class="md-nav__link">
+  <a href="#managed-overrides-in-install-configuration" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Customizing the Linux Control-Plane Node
+        Managed Overrides in Install Configuration
       
     </span>
   </a>
   
-    <nav class="md-nav" aria-label="Customizing the Linux Control-Plane Node">
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#manual-overrides-on-the-linux-control-plane-node" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Manual Overrides on the Linux Control-Plane Node
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Manual Overrides on the Linux Control-Plane Node">
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
@@ -2883,15 +2894,26 @@ You're not viewing the latest release version.
 </li>
       
         <li class="md-nav__item">
-  <a href="#customizing-the-linux-control-plane-node" class="md-nav__link">
+  <a href="#managed-overrides-in-install-configuration" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Customizing the Linux Control-Plane Node
+        Managed Overrides in Install Configuration
       
     </span>
   </a>
   
-    <nav class="md-nav" aria-label="Customizing the Linux Control-Plane Node">
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#manual-overrides-on-the-linux-control-plane-node" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Manual Overrides on the Linux Control-Plane Node
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Manual Overrides on the Linux Control-Plane Node">
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
@@ -3068,7 +3090,7 @@ SPDX-License-Identifier: MIT
 -->
 
 <h1 id="customizing-kubelet-configuration">Customizing Kubelet Configuration</h1>
-<p>By default, <em>K2s</em> installs kubelet with standard Kubernetes defaults on both the Linux control-plane node and the Windows worker node. This page describes how to customize kubelet settings using the <strong>kubelet configuration drop-in directory</strong>, a feature that became generally available in Kubernetes 1.30.</p>
+<p>By default, <em>K2s</em> installs kubelet with standard Kubernetes defaults on both the Linux control-plane node and the Windows worker node. This page describes managed role-based overrides in the install configuration and manual customization through the <strong>kubelet configuration drop-in directory</strong>, a feature that became generally available in Kubernetes 1.30.</p>
 <h2 id="overview">Overview</h2>
 <p>Kubelet reads its configuration from a base file (<code>config.yaml</code>, managed by kubeadm) and then merges any partial override files found in a <strong>drop-in directory</strong>:</p>
 <table>
@@ -3095,67 +3117,108 @@ SPDX-License-Identifier: MIT
 <p>Drop-in files are read in <strong>alphabetical order</strong>. Each file is a partial <code>KubeletConfiguration</code> — only include the fields you want to override. Later files override earlier ones, and all override the base config.</p>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
-<p><em>K2s</em> configures the kubelet drop-in directory on both Linux and Windows nodes during installation. You only need to place your override files and restart kubelet.</p>
+<p><em>K2s</em> configures the kubelet drop-in directory on both Linux and Windows nodes during installation. Use managed install configuration for supported settings, or place a separate manual override file and restart kubelet.</p>
 </div>
-<h2 id="customizing-the-linux-control-plane-node">Customizing the Linux Control-Plane Node</h2>
+<h2 id="managed-overrides-in-install-configuration">Managed Overrides in Install Configuration</h2>
+<p>On a Windows host, <code>k2s install -c &lt;file&gt;</code> can manage overrides for the Linux control plane and the optional Windows worker. This works with both Hyper-V and supported <abbr title="Windows Subsystem for Linux">WSL</abbr> control-plane installations. Native Linux-host installation is unchanged.</p>
+<div class="highlight"><span class="filename">YAML</span><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nt">kubeletOverrides</span><span class="p">:</span>
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="w">  </span><span class="nt">linuxControlPlane</span><span class="p">:</span>
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="w">    </span><span class="nt">enabled</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
+<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="w">    </span><span class="nt">config</span><span class="p">:</span>
+<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="w">      </span><span class="nt">maxPods</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">100</span>
+<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="w">      </span><span class="nt">systemReserved</span><span class="p">:</span>
+<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="w">        </span><span class="nt">cpu</span><span class="p">:</span><span class="w"> </span><span class="s">"500m"</span>
+<a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a><span class="w">        </span><span class="nt">memory</span><span class="p">:</span><span class="w"> </span><span class="s">"1Gi"</span>
+<a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a><span class="w">      </span><span class="nt">kubeReserved</span><span class="p">:</span>
+<a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a><span class="w">        </span><span class="nt">cpu</span><span class="p">:</span><span class="w"> </span><span class="s">"250m"</span>
+<a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a><span class="w">        </span><span class="nt">memory</span><span class="p">:</span><span class="w"> </span><span class="s">"512Mi"</span>
+<a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a><span class="w">  </span><span class="nt">windowsWorker</span><span class="p">:</span>
+<a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a><span class="w">    </span><span class="nt">enabled</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
+<a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a><span class="w">    </span><span class="nt">config</span><span class="p">:</span>
+<a id="__codelineno-0-15" name="__codelineno-0-15" href="#__codelineno-0-15"></a><span class="w">      </span><span class="nt">maxPods</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">100</span>
+</code></pre></div>
+<p>Only <code>maxPods</code>, <code>systemReserved.cpu</code>, <code>systemReserved.memory</code>, <code>kubeReserved.cpu</code>, and <code>kubeReserved.memory</code> are accepted. Resource values use Kubernetes quantity syntax. Unknown roles or fields, invalid quantities, and mistyped values fail validation before provisioning starts.</p>
+<p>K2s renders deterministic partial <code>KubeletConfiguration</code> files at these fixed paths:</p>
+<table>
+<thead>
+<tr>
+<th>Role</th>
+<th>Managed file</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Linux control plane</td>
+<td><code>/etc/kubernetes/kubelet.conf.d/20-k2s-install-config.conf</code></td>
+</tr>
+<tr>
+<td>Windows worker</td>
+<td><code>C:\etc\kubernetes\kubelet.conf.d\20-k2s-install-config.conf</code></td>
+</tr>
+</tbody>
+</table>
+<p>The first line is <code># This file is managed by K2s. Do not edit.</code> K2s changes only this fixed file and leaves unrelated drop-ins untouched. If the fixed path already contains an unmarked file, installation fails instead of replacing it. Omitting a role or setting <code>enabled: false</code> removes a previous K2s-managed file for that role. A running kubelet is restarted only when managed content changes.</p>
+<p>For <code>k2s install --linux-only</code> on a Windows host, Linux control-plane overrides are applied and configured Windows worker overrides are skipped with a warning. The optional role does not cause installation to fail when its node is absent.</p>
+<p>The feature requires no network access. The normalized install configuration is passed internally to node provisioning, so the same behavior is available for air-gapped installation.</p>
+<h2 id="manual-overrides-on-the-linux-control-plane-node">Manual Overrides on the Linux Control-Plane Node</h2>
 <p>On the Linux node, kubeadm configures the kubelet systemd unit with <code>--config-dir=/etc/kubernetes/kubelet.conf.d</code> automatically (Kubernetes &gt;= 1.30). Drop-in files placed in this directory are read on kubelet startup without any additional changes.</p>
 <h3 id="1-create-an-override-file">1. Create an override file</h3>
 <p>Create a <abbr title="Yet Another Markup Language">YAML</abbr> file containing only the <code>KubeletConfiguration</code> fields you want to change. For example, to reserve resources for the system and set eviction thresholds:</p>
-<div class="highlight"><span class="filename">YAML</span><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nt">apiVersion</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">kubelet.config.k8s.io/v1beta1</span>
-<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">KubeletConfiguration</span>
-<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="nt">maxPods</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">200</span>
-<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="nt">systemReserved</span><span class="p">:</span>
-<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="w">  </span><span class="nt">cpu</span><span class="p">:</span><span class="w"> </span><span class="s">"500m"</span>
-<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="w">  </span><span class="nt">memory</span><span class="p">:</span><span class="w"> </span><span class="s">"1Gi"</span>
-<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="nt">kubeReserved</span><span class="p">:</span>
-<a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a><span class="w">  </span><span class="nt">cpu</span><span class="p">:</span><span class="w"> </span><span class="s">"250m"</span>
-<a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a><span class="w">  </span><span class="nt">memory</span><span class="p">:</span><span class="w"> </span><span class="s">"512Mi"</span>
-<a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a><span class="nt">evictionHard</span><span class="p">:</span>
-<a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a><span class="w">  </span><span class="nt">memory.available</span><span class="p">:</span><span class="w"> </span><span class="s">"200Mi"</span>
-<a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a><span class="w">  </span><span class="nt">nodefs.available</span><span class="p">:</span><span class="w"> </span><span class="s">"10%"</span>
+<div class="highlight"><span class="filename">YAML</span><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="nt">apiVersion</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">kubelet.config.k8s.io/v1beta1</span>
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">KubeletConfiguration</span>
+<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="nt">maxPods</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">200</span>
+<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="nt">systemReserved</span><span class="p">:</span>
+<a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a><span class="w">  </span><span class="nt">cpu</span><span class="p">:</span><span class="w"> </span><span class="s">"500m"</span>
+<a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a><span class="w">  </span><span class="nt">memory</span><span class="p">:</span><span class="w"> </span><span class="s">"1Gi"</span>
+<a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a><span class="nt">kubeReserved</span><span class="p">:</span>
+<a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a><span class="w">  </span><span class="nt">cpu</span><span class="p">:</span><span class="w"> </span><span class="s">"250m"</span>
+<a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a><span class="w">  </span><span class="nt">memory</span><span class="p">:</span><span class="w"> </span><span class="s">"512Mi"</span>
+<a id="__codelineno-1-10" name="__codelineno-1-10" href="#__codelineno-1-10"></a><span class="nt">evictionHard</span><span class="p">:</span>
+<a id="__codelineno-1-11" name="__codelineno-1-11" href="#__codelineno-1-11"></a><span class="w">  </span><span class="nt">memory.available</span><span class="p">:</span><span class="w"> </span><span class="s">"200Mi"</span>
+<a id="__codelineno-1-12" name="__codelineno-1-12" href="#__codelineno-1-12"></a><span class="w">  </span><span class="nt">nodefs.available</span><span class="p">:</span><span class="w"> </span><span class="s">"10%"</span>
 </code></pre></div>
-<p>Save this file locally, e.g. as <code>C:\temp\20-custom.conf</code>.</p>
+<p>Save this file locally, for example as <code>C:\temp\30-custom.conf</code>.</p>
 <h3 id="2-copy-the-file-to-the-linux-node">2. Copy the file to the Linux node</h3>
-<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="go">k2s node copy -i 172.19.1.100 -u remote -s C:\temp\20-custom.conf -t /tmp/20-custom.conf</span>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="go">k2s node copy -i 172.19.1.100 -u remote -s C:\temp\30-custom.conf -t /tmp/30-custom.conf</span>
 </code></pre></div>
 <h3 id="3-place-it-in-the-drop-in-directory">3. Place it in the drop-in directory</h3>
-<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="go">k2s node exec -i 172.19.1.100 -u remote -c "sudo mkdir -p /etc/kubernetes/kubelet.conf.d &amp;&amp; sudo cp /tmp/20-custom.conf /etc/kubernetes/kubelet.conf.d/20-custom.conf"</span>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="go">k2s node exec -i 172.19.1.100 -u remote -c "sudo mkdir -p /etc/kubernetes/kubelet.conf.d &amp;&amp; sudo cp /tmp/30-custom.conf /etc/kubernetes/kubelet.conf.d/30-custom.conf"</span>
 </code></pre></div>
 <h3 id="4-restart-kubelet">4. Restart kubelet</h3>
-<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="go">k2s node exec -i 172.19.1.100 -u remote -c "sudo systemctl restart kubelet"</span>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="go">k2s node exec -i 172.19.1.100 -u remote -c "sudo systemctl restart kubelet"</span>
 </code></pre></div>
 <h3 id="5-verify">5. Verify</h3>
-<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="go">k2s node exec -i 172.19.1.100 -u remote -c "cat /var/lib/kubelet/config.yaml" -r</span>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="go">k2s node exec -i 172.19.1.100 -u remote -c "cat /var/lib/kubelet/config.yaml" -r</span>
 </code></pre></div>
 <p>Check that the node reflects the new settings:</p>
-<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="go">kubectl describe node kubemaster</span>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="go">kubectl describe node kubemaster</span>
 </code></pre></div>
 <p>Look for <code>Allocatable</code> and <code>Capacity</code> in the output.</p>
 <h2 id="customizing-the-windows-worker-node">Customizing the Windows Worker Node</h2>
 <p><em>K2s</em> configures the Windows kubelet with <code>--config-dir=C:\etc\kubernetes\kubelet.conf.d</code> and deploys a default drop-in file (<code>00-k2s-defaults.conf</code>) that sets <code>enforceNodeAllocatable: []</code>. To add custom overrides, create additional <code>.conf</code> files in the same directory.</p>
 <h3 id="1-create-an-override-file_1">1. Create an override file</h3>
 <p>Open an <strong>elevated PowerShell</strong> prompt on the Windows host:</p>
-<div class="highlight"><span class="filename">PowerShell</span><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="sh">@"</span>
-<a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a><span class="sh">apiVersion: kubelet.config.k8s.io/v1beta1</span>
-<a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a><span class="sh">kind: KubeletConfiguration</span>
-<a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a><span class="sh">maxPods: 100</span>
-<a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a><span class="sh">systemReserved:</span>
-<a id="__codelineno-6-6" name="__codelineno-6-6" href="#__codelineno-6-6"></a><span class="sh">  cpu: "500m"</span>
-<a id="__codelineno-6-7" name="__codelineno-6-7" href="#__codelineno-6-7"></a><span class="sh">  memory: "1Gi"</span>
-<a id="__codelineno-6-8" name="__codelineno-6-8" href="#__codelineno-6-8"></a><span class="sh">"@</span> <span class="p">|</span> <span class="nb">Set-Content</span> <span class="n">-Path</span> <span class="s2">"C:\etc\kubernetes\kubelet.conf.d\20-custom.conf"</span> <span class="n">-Encoding</span> <span class="n">UTF8</span>
+<div class="highlight"><span class="filename">PowerShell</span><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="sh">@"</span>
+<a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a><span class="sh">apiVersion: kubelet.config.k8s.io/v1beta1</span>
+<a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a><span class="sh">kind: KubeletConfiguration</span>
+<a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a><span class="sh">maxPods: 100</span>
+<a id="__codelineno-7-5" name="__codelineno-7-5" href="#__codelineno-7-5"></a><span class="sh">systemReserved:</span>
+<a id="__codelineno-7-6" name="__codelineno-7-6" href="#__codelineno-7-6"></a><span class="sh">  cpu: "500m"</span>
+<a id="__codelineno-7-7" name="__codelineno-7-7" href="#__codelineno-7-7"></a><span class="sh">  memory: "1Gi"</span>
+<a id="__codelineno-7-8" name="__codelineno-7-8" href="#__codelineno-7-8"></a><span class="sh">"@</span> <span class="p">|</span> <span class="nb">Set-Content</span> <span class="n">-Path</span> <span class="s2">"C:\etc\kubernetes\kubelet.conf.d\30-custom.conf"</span> <span class="n">-Encoding</span> <span class="n">UTF8</span>
 </code></pre></div>
 <h3 id="2-restart-the-cluster">2. Restart the cluster</h3>
-<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="go">k2s stop</span>
-<a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a><span class="go">k2s start</span>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="go">k2s stop</span>
+<a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a><span class="go">k2s start</span>
 </code></pre></div>
 <p>Alternatively, restart only the kubelet service (please consider dependencies):</p>
-<div class="highlight"><span class="filename">PowerShell</span><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="n">nssm</span> <span class="n">restart</span> <span class="n">kubelet</span>
+<div class="highlight"><span class="filename">PowerShell</span><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="n">nssm</span> <span class="n">restart</span> <span class="n">kubelet</span>
 </code></pre></div>
 <h3 id="3-verify">3. Verify</h3>
-<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="go">kubectl describe node %COMPUTERNAME%</span>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a><span class="go">kubectl describe node %COMPUTERNAME%</span>
 </code></pre></div>
 <p>Check kubelet logs for any configuration errors:</p>
-<div class="highlight"><span class="filename">PowerShell</span><pre><span></span><code><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a><span class="nb">Get-Content</span> <span class="s2">"C:\var\log\kubelet\kubelet_stderr.log"</span> <span class="n">-Tail</span> <span class="n">50</span>
+<div class="highlight"><span class="filename">PowerShell</span><pre><span></span><code><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a><span class="nb">Get-Content</span> <span class="s2">"C:\var\log\kubelet\kubelet_stderr.log"</span> <span class="n">-Tail</span> <span class="n">50</span>
 </code></pre></div>
 <h2 id="common-kubelet-settings">Common Kubelet Settings</h2>
 <p>The table below lists commonly customized <code>KubeletConfiguration</code> fields. For the full reference, see the <a href="https://kubernetes.io/docs/reference/config-api/kubelet-config.v1beta1/">Kubernetes KubeletConfiguration <abbr title="Application Programming Interface">API</abbr></a>.</p>
@@ -3237,50 +3300,51 @@ SPDX-License-Identifier: MIT
 </table>
 <h2 id="example-resource-reservation">Example: Resource Reservation</h2>
 <p>A practical example that prevents kubelet from advertising all system resources as available capacity:</p>
-<div class="highlight"><span class="filename">YAML</span><pre><span></span><code><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a><span class="nt">apiVersion</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">kubelet.config.k8s.io/v1beta1</span>
-<a id="__codelineno-11-2" name="__codelineno-11-2" href="#__codelineno-11-2"></a><span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">KubeletConfiguration</span>
-<a id="__codelineno-11-3" name="__codelineno-11-3" href="#__codelineno-11-3"></a><span class="nt">systemReserved</span><span class="p">:</span>
-<a id="__codelineno-11-4" name="__codelineno-11-4" href="#__codelineno-11-4"></a><span class="w">  </span><span class="nt">cpu</span><span class="p">:</span><span class="w"> </span><span class="s">"500m"</span>
-<a id="__codelineno-11-5" name="__codelineno-11-5" href="#__codelineno-11-5"></a><span class="w">  </span><span class="nt">memory</span><span class="p">:</span><span class="w"> </span><span class="s">"1Gi"</span>
-<a id="__codelineno-11-6" name="__codelineno-11-6" href="#__codelineno-11-6"></a><span class="w">  </span><span class="nt">ephemeral-storage</span><span class="p">:</span><span class="w"> </span><span class="s">"1Gi"</span>
-<a id="__codelineno-11-7" name="__codelineno-11-7" href="#__codelineno-11-7"></a><span class="nt">kubeReserved</span><span class="p">:</span>
-<a id="__codelineno-11-8" name="__codelineno-11-8" href="#__codelineno-11-8"></a><span class="w">  </span><span class="nt">cpu</span><span class="p">:</span><span class="w"> </span><span class="s">"250m"</span>
-<a id="__codelineno-11-9" name="__codelineno-11-9" href="#__codelineno-11-9"></a><span class="w">  </span><span class="nt">memory</span><span class="p">:</span><span class="w"> </span><span class="s">"512Mi"</span>
-<a id="__codelineno-11-10" name="__codelineno-11-10" href="#__codelineno-11-10"></a><span class="nt">evictionHard</span><span class="p">:</span>
-<a id="__codelineno-11-11" name="__codelineno-11-11" href="#__codelineno-11-11"></a><span class="w">  </span><span class="nt">memory.available</span><span class="p">:</span><span class="w"> </span><span class="s">"200Mi"</span>
-<a id="__codelineno-11-12" name="__codelineno-11-12" href="#__codelineno-11-12"></a><span class="w">  </span><span class="nt">nodefs.available</span><span class="p">:</span><span class="w"> </span><span class="s">"10%"</span>
-<a id="__codelineno-11-13" name="__codelineno-11-13" href="#__codelineno-11-13"></a><span class="w">  </span><span class="nt">imagefs.available</span><span class="p">:</span><span class="w"> </span><span class="s">"15%"</span>
+<div class="highlight"><span class="filename">YAML</span><pre><span></span><code><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a><span class="nt">apiVersion</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">kubelet.config.k8s.io/v1beta1</span>
+<a id="__codelineno-12-2" name="__codelineno-12-2" href="#__codelineno-12-2"></a><span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">KubeletConfiguration</span>
+<a id="__codelineno-12-3" name="__codelineno-12-3" href="#__codelineno-12-3"></a><span class="nt">systemReserved</span><span class="p">:</span>
+<a id="__codelineno-12-4" name="__codelineno-12-4" href="#__codelineno-12-4"></a><span class="w">  </span><span class="nt">cpu</span><span class="p">:</span><span class="w"> </span><span class="s">"500m"</span>
+<a id="__codelineno-12-5" name="__codelineno-12-5" href="#__codelineno-12-5"></a><span class="w">  </span><span class="nt">memory</span><span class="p">:</span><span class="w"> </span><span class="s">"1Gi"</span>
+<a id="__codelineno-12-6" name="__codelineno-12-6" href="#__codelineno-12-6"></a><span class="w">  </span><span class="nt">ephemeral-storage</span><span class="p">:</span><span class="w"> </span><span class="s">"1Gi"</span>
+<a id="__codelineno-12-7" name="__codelineno-12-7" href="#__codelineno-12-7"></a><span class="nt">kubeReserved</span><span class="p">:</span>
+<a id="__codelineno-12-8" name="__codelineno-12-8" href="#__codelineno-12-8"></a><span class="w">  </span><span class="nt">cpu</span><span class="p">:</span><span class="w"> </span><span class="s">"250m"</span>
+<a id="__codelineno-12-9" name="__codelineno-12-9" href="#__codelineno-12-9"></a><span class="w">  </span><span class="nt">memory</span><span class="p">:</span><span class="w"> </span><span class="s">"512Mi"</span>
+<a id="__codelineno-12-10" name="__codelineno-12-10" href="#__codelineno-12-10"></a><span class="nt">evictionHard</span><span class="p">:</span>
+<a id="__codelineno-12-11" name="__codelineno-12-11" href="#__codelineno-12-11"></a><span class="w">  </span><span class="nt">memory.available</span><span class="p">:</span><span class="w"> </span><span class="s">"200Mi"</span>
+<a id="__codelineno-12-12" name="__codelineno-12-12" href="#__codelineno-12-12"></a><span class="w">  </span><span class="nt">nodefs.available</span><span class="p">:</span><span class="w"> </span><span class="s">"10%"</span>
+<a id="__codelineno-12-13" name="__codelineno-12-13" href="#__codelineno-12-13"></a><span class="w">  </span><span class="nt">imagefs.available</span><span class="p">:</span><span class="w"> </span><span class="s">"15%"</span>
 </code></pre></div>
 <p>With these settings, the Kubernetes scheduler sees reduced <code>Allocatable</code> resources, preventing workloads from consuming all node capacity.</p>
 <h2 id="important-notes">Important Notes</h2>
 <div class="admonition warning">
-<p class="admonition-title">Custom settings are lost on install and upgrade</p>
-<p>Drop-in files <strong>persist</strong> across <code>k2s stop</code> / <code>k2s start</code> cycles — kubelet re-reads them on every startup.</p>
-<p>However, <strong>custom drop-in files are lost</strong> when running <code>k2s install</code> or <code>k2s system upgrade</code>, because both perform a full reinstall:</p>
+<p class="admonition-title">Manual drop-ins are lost on install and upgrade</p>
+<p>Drop-in files persist across <code>k2s stop</code> / <code>k2s start</code> cycles because kubelet re-reads them on every startup.</p>
+<p>Managed <code>kubeletOverrides</code> are recreated automatically during installation and full upgrade. When <code>k2s system upgrade</code> is run without <code>-c</code>, K2s reuses the previous effective install configuration. Supplying <code>-c</code> replaces it, and rollback uses the staged previous configuration.</p>
+<p>Separate user-created drop-ins are still lost during a full reinstall:</p>
 <ul>
 <li><strong>Windows</strong>: The entire <code>C:\etc\</code> directory tree is deleted and recreated</li>
 <li><strong>Linux</strong>: The <abbr title="Virtual Machine">VM</abbr> is destroyed and provisioned from scratch</li>
 </ul>
-<p>The K2s default drop-in (<code>00-k2s-defaults.conf</code>) is re-deployed automatically, but any user-created files (e.g. <code>20-custom.conf</code>) must be re-applied manually.</p>
-<p><strong>You must re-apply your custom kubelet configuration after every install or upgrade.</strong></p>
-<p>Recommended workflow:</p>
+<p>The K2s default drop-in (<code>00-k2s-defaults.conf</code>) and managed <code>20-k2s-install-config.conf</code> are re-deployed automatically. Other user-created files (for example, <code>30-custom.conf</code>) must be re-applied manually.</p>
+<p>For settings outside the managed allowlist, re-apply the manual drop-in after every install or full upgrade.</p>
+<p>Recommended manual workflow:</p>
 <ol>
-<li>Store your custom drop-in files in a version-controlled location outside K2s (e.g. a Git repository or a shared drive)</li>
+<li>Store manual drop-in files in a version-controlled location outside K2s (for example, a Git repository or shared drive).</li>
 <li>After <code>k2s install</code> or <code>k2s system upgrade</code> completes, re-apply them:</li>
 </ol>
-<div class="highlight"><span class="filename">PowerShell</span><pre><span></span><code><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a><span class="c"># Windows worker node</span>
-<a id="__codelineno-12-2" name="__codelineno-12-2" href="#__codelineno-12-2"></a><span class="nb">Copy-Item</span> <span class="s2">".\my-kubelet-overrides\20-custom.conf"</span> <span class="s2">"C:\etc\kubernetes\kubelet.conf.d\"</span>
-<a id="__codelineno-12-3" name="__codelineno-12-3" href="#__codelineno-12-3"></a><span class="n">nssm</span> <span class="n">restart</span> <span class="n">kubelet</span>
+<div class="highlight"><span class="filename">PowerShell</span><pre><span></span><code><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a><span class="c"># Windows worker node</span>
+<a id="__codelineno-13-2" name="__codelineno-13-2" href="#__codelineno-13-2"></a><span class="nb">Copy-Item</span> <span class="s2">".\my-kubelet-overrides\30-custom.conf"</span> <span class="s2">"C:\etc\kubernetes\kubelet.conf.d\"</span>
+<a id="__codelineno-13-3" name="__codelineno-13-3" href="#__codelineno-13-3"></a><span class="n">nssm</span> <span class="n">restart</span> <span class="n">kubelet</span>
 </code></pre></div>
-<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a><span class="gp"># </span>Linux<span class="w"> </span>control-plane<span class="w"> </span>node
-<a id="__codelineno-13-2" name="__codelineno-13-2" href="#__codelineno-13-2"></a><span class="go">k2s node copy -i 172.19.1.100 -u remote -s .\my-kubelet-overrides\20-custom.conf -t /tmp/20-custom.conf</span>
-<a id="__codelineno-13-3" name="__codelineno-13-3" href="#__codelineno-13-3"></a><span class="go">k2s node exec -i 172.19.1.100 -u remote -c "sudo cp /tmp/20-custom.conf /etc/kubernetes/kubelet.conf.d/20-custom.conf &amp;&amp; sudo systemctl restart kubelet"</span>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a><span class="gp"># </span>Linux<span class="w"> </span>control-plane<span class="w"> </span>node
+<a id="__codelineno-14-2" name="__codelineno-14-2" href="#__codelineno-14-2"></a><span class="go">k2s node copy -i 172.19.1.100 -u remote -s .\my-kubelet-overrides\30-custom.conf -t /tmp/30-custom.conf</span>
+<a id="__codelineno-14-3" name="__codelineno-14-3" href="#__codelineno-14-3"></a><span class="go">k2s node exec -i 172.19.1.100 -u remote -c "sudo cp /tmp/30-custom.conf /etc/kubernetes/kubelet.conf.d/30-custom.conf &amp;&amp; sudo systemctl restart kubelet"</span>
 </code></pre></div>
 <p>Alternatively, use the <a href="../hook-system/">Hook System</a> to automate re-application via a post-install hook script.</p>
 </div>
 <div class="admonition info">
 <p class="admonition-title">K2s defaults</p>
-<p><em>K2s</em> ships a <code>00-k2s-defaults.conf</code> drop-in file on the Windows worker node that sets <code>enforceNodeAllocatable: []</code>. Your custom files (e.g. <code>20-custom.conf</code>) are merged after it and can override any of its settings.</p>
+<p><em>K2s</em> ships a <code>00-k2s-defaults.conf</code> drop-in file on the Windows worker node that sets <code>enforceNodeAllocatable: []</code>. The managed <code>20-k2s-install-config.conf</code> is merged after it. Name separate manual files later in lexical order, for example <code>30-custom.conf</code>, when they must override managed values.</p>
 </div>
 <div class="admonition info">
 <p class="admonition-title">Validation</p>

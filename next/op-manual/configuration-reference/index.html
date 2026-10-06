@@ -3307,7 +3307,7 @@ You're not viewing the latest release version.
 
 
 <!--
-SPDX-FileCopyrightText: © 2025 Siemens Healthineers AG
+SPDX-FileCopyrightText: © 2026 Siemens Healthineers AG
 SPDX-License-Identifier: MIT
 -->
 
@@ -3336,6 +3336,21 @@ SPDX-License-Identifier: MIT
 <a id="__codelineno-0-18" name="__codelineno-0-18" href="#__codelineno-0-18"></a><span class="w">  </span><span class="nt">wsl</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">false</span><span class="w">                  </span><span class="c1"># Use WSL 2 instead of Hyper-V for the Linux VM</span>
 <a id="__codelineno-0-19" name="__codelineno-0-19" href="#__codelineno-0-19"></a><span class="w">  </span><span class="nt">appendLog</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">false</span><span class="w">            </span><span class="c1"># Append to existing log file instead of truncating</span>
 <a id="__codelineno-0-20" name="__codelineno-0-20" href="#__codelineno-0-20"></a><span class="w">  </span><span class="nt">skipStart</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">false</span><span class="w">            </span><span class="c1"># Do not start the cluster after installation</span>
+<a id="__codelineno-0-21" name="__codelineno-0-21" href="#__codelineno-0-21"></a><span class="nt">kubeletOverrides</span><span class="p">:</span><span class="w">             </span><span class="c1"># Optional; supported on Windows-host installations</span>
+<a id="__codelineno-0-22" name="__codelineno-0-22" href="#__codelineno-0-22"></a><span class="w">  </span><span class="nt">linuxControlPlane</span><span class="p">:</span>
+<a id="__codelineno-0-23" name="__codelineno-0-23" href="#__codelineno-0-23"></a><span class="w">    </span><span class="nt">enabled</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
+<a id="__codelineno-0-24" name="__codelineno-0-24" href="#__codelineno-0-24"></a><span class="w">    </span><span class="nt">config</span><span class="p">:</span>
+<a id="__codelineno-0-25" name="__codelineno-0-25" href="#__codelineno-0-25"></a><span class="w">      </span><span class="nt">maxPods</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">100</span>
+<a id="__codelineno-0-26" name="__codelineno-0-26" href="#__codelineno-0-26"></a><span class="w">      </span><span class="nt">systemReserved</span><span class="p">:</span>
+<a id="__codelineno-0-27" name="__codelineno-0-27" href="#__codelineno-0-27"></a><span class="w">        </span><span class="nt">cpu</span><span class="p">:</span><span class="w"> </span><span class="s">"500m"</span>
+<a id="__codelineno-0-28" name="__codelineno-0-28" href="#__codelineno-0-28"></a><span class="w">        </span><span class="nt">memory</span><span class="p">:</span><span class="w"> </span><span class="s">"1Gi"</span>
+<a id="__codelineno-0-29" name="__codelineno-0-29" href="#__codelineno-0-29"></a><span class="w">      </span><span class="nt">kubeReserved</span><span class="p">:</span>
+<a id="__codelineno-0-30" name="__codelineno-0-30" href="#__codelineno-0-30"></a><span class="w">        </span><span class="nt">cpu</span><span class="p">:</span><span class="w"> </span><span class="s">"250m"</span>
+<a id="__codelineno-0-31" name="__codelineno-0-31" href="#__codelineno-0-31"></a><span class="w">        </span><span class="nt">memory</span><span class="p">:</span><span class="w"> </span><span class="s">"512Mi"</span>
+<a id="__codelineno-0-32" name="__codelineno-0-32" href="#__codelineno-0-32"></a><span class="w">  </span><span class="nt">windowsWorker</span><span class="p">:</span>
+<a id="__codelineno-0-33" name="__codelineno-0-33" href="#__codelineno-0-33"></a><span class="w">    </span><span class="nt">enabled</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
+<a id="__codelineno-0-34" name="__codelineno-0-34" href="#__codelineno-0-34"></a><span class="w">    </span><span class="nt">config</span><span class="p">:</span>
+<a id="__codelineno-0-35" name="__codelineno-0-35" href="#__codelineno-0-35"></a><span class="w">      </span><span class="nt">maxPods</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">100</span>
 </code></pre></div>
 <h3 id="buildonlyconfigyaml-development-only">buildonly.config.yaml (Development-Only)</h3>
 <div class="highlight"><span class="filename">YAML</span><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">buildonly</span><span class="w">       </span><span class="c1"># Development-only setup (no K8s cluster)</span>
@@ -3419,8 +3434,44 @@ SPDX-License-Identifier: MIT
 <td>boolean</td>
 <td>Install without starting the cluster</td>
 </tr>
+<tr>
+<td><code>kubeletOverrides.linuxControlPlane.enabled</code></td>
+<td>boolean</td>
+<td>Manage the Linux control-plane kubelet drop-in</td>
+</tr>
+<tr>
+<td><code>kubeletOverrides.windowsWorker.enabled</code></td>
+<td>boolean</td>
+<td>Manage the Windows worker kubelet drop-in when that role exists</td>
+</tr>
+<tr>
+<td><code>kubeletOverrides.&lt;role&gt;.config.maxPods</code></td>
+<td>positive integer</td>
+<td>Maximum pods for the role</td>
+</tr>
+<tr>
+<td><code>kubeletOverrides.&lt;role&gt;.config.systemReserved.cpu</code></td>
+<td>quantity string</td>
+<td><abbr title="Central Processing Unit">CPU</abbr> reserved for operating-system processes</td>
+</tr>
+<tr>
+<td><code>kubeletOverrides.&lt;role&gt;.config.systemReserved.memory</code></td>
+<td>quantity string</td>
+<td>Memory reserved for operating-system processes</td>
+</tr>
+<tr>
+<td><code>kubeletOverrides.&lt;role&gt;.config.kubeReserved.cpu</code></td>
+<td>quantity string</td>
+<td><abbr title="Central Processing Unit">CPU</abbr> reserved for Kubernetes processes</td>
+</tr>
+<tr>
+<td><code>kubeletOverrides.&lt;role&gt;.config.kubeReserved.memory</code></td>
+<td>quantity string</td>
+<td>Memory reserved for Kubernetes processes</td>
+</tr>
 </tbody>
 </table>
+<p>Unknown roles, fields, invalid quantity strings, and mistyped values are rejected before installation starts. Omitting <code>kubeletOverrides</code> preserves previous behavior. See <a href="../customizing-kubelet/">Customizing Kubelet Configuration</a> for topology and lifecycle details.</p>
 <hr />
 <h2 id="runtime-configuration-setupjson">Runtime Configuration (setup.json)</h2>
 <p>After installation, <em>K2s</em> persists cluster state in <code>setup.json</code>, located in the directory configured via <code>configDir.k2s</code> (default: <code>C:\ProgramData\K2s</code>). This file is managed automatically — do not edit it manually.</p>
@@ -3498,8 +3549,14 @@ SPDX-License-Identifier: MIT
 <td>string</td>
 <td>Drive letter used for local storage</td>
 </tr>
+<tr>
+<td><code>EffectiveInstallConfigPath</code></td>
+<td>string</td>
+<td>Internal link to the protected normalized install configuration snapshot</td>
+</tr>
 </tbody>
 </table>
+<p>The effective snapshot is stored next to <code>setup.json</code> as <code>effective-install-config.json</code>. It contains the resolved embedded defaults, user configuration, and <abbr title="Command-Line Interface">CLI</abbr> overrides. K2s writes it atomically with restricted access, does not log its contents, and keeps it separate from <code>cfg\config.json</code>.</p>
 <hr />
 <h2 id="cluster-configuration-clusterjson">Cluster Configuration (cluster.json)</h2>
 <p>Multi-node cluster topology is stored in <code>C:\ProgramData\K2s\cluster.json</code>. This file tracks every node in the cluster.</p>
