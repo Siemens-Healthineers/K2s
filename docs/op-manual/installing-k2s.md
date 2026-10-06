@@ -249,8 +249,8 @@ and creates a disposable QCOW2 overlay from that cache for the worker. For
 repeatable offline use, preserve the cached image under
 `/var/lib/libvirt/images/k2s/` for later installations.
 
-Prepare the image with the K2s startup task that imports the generated worker
-SSH key from the attached config drive. See [Preparing a Windows Worker
+Prepare the image with the temporary `remote` password bootstrap used to install
+the generated worker SSH key. See [Preparing a Windows Worker
 QCOW2](preparing-windows-worker-qcow2.md).
 
 The worker automatically selects legacy BIOS for an MBR partition table and

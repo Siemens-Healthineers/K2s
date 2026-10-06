@@ -69,7 +69,7 @@ k2s_windows_worker_disk_gb() {
 }
 
 k2s_windows_worker_preflight() {
-  local command memory_mb available_mb total_mb disk_gb available_gb
+  local command memory_mb available_mb total_mb disk_gb available_gb vm_dir
   [[ -r /dev/kvm && -c /dev/kvm ]] || { k2s_log ERROR 'KVM is unavailable. Enable nested virtualization and expose /dev/kvm to the Debian host.'; return 3; }
   for command in virsh qemu-img sfdisk ssh scp ssh-keyscan ssh-keygen sshpass tar; do k2s_require_command "$command" || return 4; done
   getent passwd libvirt-qemu >/dev/null || { k2s_log ERROR 'The libvirt-qemu service account is missing. Reinstall libvirt-daemon-system.'; return 3; }
@@ -82,7 +82,9 @@ k2s_windows_worker_preflight() {
   total_mb=$(awk '/MemTotal:/ {print int($2 / 1024)}' /proc/meminfo)
   (( memory_mb * 4 <= total_mb * 3 )) || { k2s_log ERROR 'Windows worker memory must not exceed 75% of host memory.'; return 3; }
   (( available_mb >= memory_mb + 2048 )) || { k2s_log ERROR 'Windows worker would leave less than 2GB of host memory available.'; return 3; }
-  available_gb=$(df -BG --output=avail "$K2S_CONFIG_DIR" | tail -1 | tr -dc '0-9')
+  vm_dir=$(k2s_windows_worker_vm_dir)
+  install -d -m 0711 "$vm_dir" || return 1
+  available_gb=$(df -BG --output=avail "$vm_dir" | tail -1 | tr -dc '0-9')
   (( available_gb - disk_gb >= 20 )) || { k2s_log ERROR 'Windows worker would leave less than 20GB of host disk space available.'; return 3; }
 }
 
@@ -128,7 +130,7 @@ k2s_windows_worker_prepare_image() {
   [[ ! -e "$disk" ]] || { printf '%s\n' "$disk"; return 0; }
   local cache="$vm_dir/WindowsWorker-Base.qcow2"
   [[ -f "$cache" ]] || k2s_windows_worker_import_qcow2 "$cache" >&2 || return $?
-  k2s_windows_worker_create_overlay "$cache" "$disk" "$disk_gb" || return $?
+  k2s_windows_worker_create_overlay "$cache" "$disk" "$disk_gb" >&2 || return $?
   printf '%s\n' "$disk"
 }
 
@@ -143,7 +145,7 @@ k2s_windows_worker_create_overlay() {
     (( disk_gb == backing_gb )) || k2s_log WARN "--worker-disk ${disk_gb}GB is smaller than the prepared base image (${backing_gb}GB); using ${backing_gb}GB."
     qemu-img create -f qcow2 -F qcow2 -b "$cache" "$disk" >&2
   else
-    k2s_log INFO "Growing the Windows worker disk from the ${backing_gb}GB base image to ${disk_gb}GB."
+    k2s_log INFO "Growing the Windows worker disk from the ${backing_gb}GB base image to ${disk_gb}GB." >&2
     qemu-img create -f qcow2 -F qcow2 -b "$cache" "$disk" "${disk_gb}G" >&2
   fi
 }
@@ -172,11 +174,11 @@ k2s_windows_worker_detect_boot_mode() {
   rm -f "$boot_sector"
   case "$partition_table" in
     dos)
-      k2s_log INFO 'Detected MBR partition table; booting the Windows worker with BIOS.'
+      k2s_log INFO 'Detected MBR partition table; booting the Windows worker with BIOS.' >&2
       printf '%s\n' bios
       ;;
     gpt)
-      k2s_log INFO 'Detected GPT partition table; booting the Windows worker with UEFI.'
+      k2s_log INFO 'Detected GPT partition table; booting the Windows worker with UEFI.' >&2
       printf '%s\n' uefi
       ;;
     *)

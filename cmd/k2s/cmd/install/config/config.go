@@ -123,10 +123,10 @@ const (
 	WorkerCPUsFlagUsage = "Number of CPUs allocated to the managed Windows worker VM"
 
 	WorkerMemoryFlagName  = "worker-memory"
-	WorkerMemoryFlagUsage = "Amount of RAM to allocate to the managed Windows worker VM (minimum 2GB, format: <number>[<unit>], where unit = KB, MB or GB)"
+	WorkerMemoryFlagUsage = "Amount of RAM to allocate to the managed Windows worker VM (minimum 2GB, format: <number>GB)"
 
 	WorkerDiskSizeFlagName  = "worker-disk"
-	WorkerDiskSizeFlagUsage = "Disk size allocated to the managed Windows worker VM (minimum 20GB, format: <number>[<unit>], where unit = KB, MB or GB)"
+	WorkerDiskSizeFlagUsage = "Disk size allocated to the managed Windows worker VM (minimum 20GB, format: <number>GB)"
 
 	WindowsQCOW2PathFlagName  = "windows-qcow2-path"
 	WindowsQCOW2PathFlagUsage = "Path to a prepared Windows QCOW2 image for the managed Windows worker VM"

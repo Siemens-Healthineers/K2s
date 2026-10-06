@@ -107,8 +107,12 @@ k2s_install_control_plane_tools() {
 }
 
 k2s_enable_host_ssh() {
+  if ! systemctl cat ssh.service >/dev/null 2>&1; then
+    k2s_log WARN 'OpenSSH Server is not installed; inbound SSH access to the native Debian host is unavailable.'
+    return 0
+  fi
   k2s_log INFO 'Enabling SSH access on the native Debian host.'
-  systemctl enable --now ssh || return 1
+  systemctl enable --now ssh || { k2s_log WARN 'Could not enable the native Debian host SSH service.'; return 0; }
 }
 
 k2s_install_cluster() {
