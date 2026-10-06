@@ -768,7 +768,7 @@ parameters:
   $allReady = $true
   $csiReadinessStopwatch = [System.Diagnostics.Stopwatch]::StartNew()
   Write-Log "[Ceph] Waiting for Ceph operator pod readiness" -Console
-  $operatorReady = Wait-ForPodCondition -Condition Ready -Label 'control-plane=ceph-csi-op-controller-manager' -Namespace $cephOperatorNamespace -TimeoutSeconds 300
+  $operatorReady = Wait-ForPodCondition -Condition Ready -Label 'control-plane=ceph-csi-op-controller-manager' -Namespace $cephOperatorNamespace -TimeoutSeconds 600
   $allReady = ($allReady -and $operatorReady)
 
   Write-Log "[Ceph] Waiting for CephFS CSI controller deployment to be created by operator" -Console
@@ -799,12 +799,12 @@ parameters:
   }
   else {
     Write-Log "[Ceph] Waiting for CephFS CSI controller deployment availability" -Console
-    & kubectl wait deployment/$cephfsCtrlDeploymentName -n $cephOperatorNamespace --for=condition=Available --timeout=300s 2>&1 | Write-Log
+    & kubectl wait deployment/$cephfsCtrlDeploymentName -n $cephOperatorNamespace --for=condition=Available --timeout=600s 2>&1 | Write-Log
     $allReady = ($allReady -and ($LASTEXITCODE -eq 0))
   }
 
   Write-Log "[Ceph] Waiting for CephFS CSI nodeplugin pod readiness" -Console
-  $cephfsNodeReady = Wait-ForPodCondition -Condition Ready -Label 'app.kubernetes.io/component=cephfs-nodeplugin,app.kubernetes.io/part-of=k2s-ceph-csi' -Namespace $cephOperatorNamespace -TimeoutSeconds 300
+  $cephfsNodeReady = Wait-ForPodCondition -Condition Ready -Label 'app.kubernetes.io/component=cephfs-nodeplugin,app.kubernetes.io/part-of=k2s-ceph-csi' -Namespace $cephOperatorNamespace -TimeoutSeconds 600
   $allReady = ($allReady -and $cephfsNodeReady)
 
   $csiReadinessStopwatch.Stop()
@@ -898,9 +898,9 @@ if ($SetupWindowsNode -eq $true) {
     }
 
     Write-Log '[CephSMB] Waiting for SMB CSI controller and node pods to become Ready' -Console
-    Wait-ForPodCondition -Condition Ready -Label 'app=csi-smb-controller' -Namespace $smbNamespace -TimeoutSeconds 300 | Out-Null
-    Wait-ForPodCondition -Condition Ready -Label 'app=csi-smb-node'       -Namespace $smbNamespace -TimeoutSeconds 300 | Out-Null
-    Wait-ForPodCondition -Condition Ready -Label 'app=csi-smb-node-win'   -Namespace $smbNamespace -TimeoutSeconds 300 | Out-Null
+    Wait-ForPodCondition -Condition Ready -Label 'app=csi-smb-controller' -Namespace $smbNamespace -TimeoutSeconds 600 | Out-Null
+    Wait-ForPodCondition -Condition Ready -Label 'app=csi-smb-node'       -Namespace $smbNamespace -TimeoutSeconds 600 | Out-Null
+    Wait-ForPodCondition -Condition Ready -Label 'app=csi-smb-node-win'   -Namespace $smbNamespace -TimeoutSeconds 600 | Out-Null
     Write-Log '[CephSMB] SMB CSI driver is Ready' -Console
 
     # ---- Part 2: Configure the Ceph mgr/smb cluster + share on the existing Ceph cluster ----
