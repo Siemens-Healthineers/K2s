@@ -59,6 +59,7 @@ Initializes image script runtime (logging + system availability check).
 - Initializes logging with optional console output.
 - Checks system availability.
 - On structured mode, forwards system error to CLI and returns $false.
+- On return-status mode, returns $false instead of exiting the caller.
 - On non-structured mode, logs error and exits with code 1.
 #>
 function Initialize-ImageScriptContext {
@@ -67,6 +68,8 @@ function Initialize-ImageScriptContext {
         [switch]$ShowLogs = $false,
         [Parameter(Mandatory = $false)]
         [switch]$EncodeStructuredOutput,
+        [Parameter(Mandatory = $false)]
+        [switch]$ReturnStatus,
         [Parameter(Mandatory = $false)]
         [string]$MessageType
     )
@@ -81,6 +84,9 @@ function Initialize-ImageScriptContext {
         }
 
         Write-Log $systemError.Message -Error
+        if ($ReturnStatus) {
+            return $false
+        }
         exit 1
     }
 
@@ -472,4 +478,136 @@ function Get-LinuxTransparentProxyPrefix {
     return "HTTP_PROXY=$proxyAddr HTTPS_PROXY=$proxyAddr NO_PROXY=k2s.registry.local,localhost,127.0.0.1 "
 }
 
-Export-ModuleMember -Function Initialize-ImageScriptContext, Resolve-ImageNode, Get-DefaultNodeInfoList, Get-ImagesOnNode, Resolve-NodeList, Get-ImagesByNodeSelection, Test-NodeReady, Get-RegistryHostIp, Get-LinuxTransparentProxyPrefix
+function Test-ImageImportSuccess {
+    param(
+        [Parameter(Mandatory = $false)]
+        [AllowNull()]
+        [object]$Result
+    )
+
+    if ($null -eq $Result -or $Result -is [array]) {
+        return $false
+    }
+
+    return ($Result.Success -is [bool] -and $Result.Success)
+}
+
+function Invoke-LinuxNodeImageImport {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$ImagePath,
+        [Parameter(Mandatory = $true)]
+        [object]$NodeInfo,
+        [Parameter(Mandatory = $false)]
+        [switch]$DockerArchive
+    )
+
+    $remoteImagePath = '/tmp/import.tar'
+    $importSuccess = $false
+    $pullCommand = if ($DockerArchive) { 'sudo buildah pull docker-archive:/tmp/import.tar 2>&1' } else { 'sudo buildah pull oci-archive:/tmp/import.tar 2>&1' }
+
+    try {
+        if ($NodeInfo.Kind -eq 'ControlPlane') {
+            Copy-ToControlPlaneViaSSHKey $ImagePath $remoteImagePath
+            $importResult = Invoke-CmdOnControlPlaneViaSSHKey $pullCommand -Retries 3 -Timeout 10 -NoLog
+        }
+        else {
+            Copy-ToRemoteComputerViaSshKey -Source $ImagePath -Target $remoteImagePath -UserName $NodeInfo.Username -IpAddress $NodeInfo.IpAddress
+            $importResult = Invoke-CmdOnVmViaSSHKey $pullCommand -IpAddress $NodeInfo.IpAddress -UserName $NodeInfo.Username -Retries 3 -Timeout 10 -NoLog
+        }
+
+        if ($importResult.Output) {
+            $importResult.Output | Write-Log
+        }
+        $importSuccess = Test-ImageImportSuccess -Result $importResult
+        if (-not $importSuccess) {
+            Write-Log "[Import] Image import failed on '$($NodeInfo.Name)'" -Error
+        }
+    }
+    catch {
+        Write-Log "[Import] Image import failed on '$($NodeInfo.Name)': $_" -Error
+    }
+    finally {
+        try {
+            if ($NodeInfo.Kind -eq 'ControlPlane') {
+                $cleanupResult = Invoke-CmdOnControlPlaneViaSSHKey 'sudo rm -f /tmp/import.tar' -Retries 3 -Timeout 10 -NoLog
+            }
+            else {
+                $cleanupResult = Invoke-CmdOnVmViaSSHKey 'sudo rm -f /tmp/import.tar' -IpAddress $NodeInfo.IpAddress -UserName $NodeInfo.Username -Retries 3 -Timeout 10 -NoLog
+            }
+
+            if ($cleanupResult.Output) {
+                $cleanupResult.Output | Write-Log
+            }
+            if (-not (Test-ImageImportSuccess -Result $cleanupResult)) {
+                Write-Log "[Import] Could not remove temporary image archive from '$($NodeInfo.Name)'" -Error
+                $importSuccess = $false
+            }
+        }
+        catch {
+            Write-Log "[Import] Could not remove temporary image archive from '$($NodeInfo.Name)': $_" -Error
+            $importSuccess = $false
+        }
+    }
+
+    return $importSuccess
+}
+
+function Invoke-WindowsWorkerImageImport {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$ImagePath,
+        [Parameter(Mandatory = $true)]
+        [string]$NodeName
+    )
+
+    $session = $null
+    $remoteImagePath = 'C:\Windows\Temp\import.tar'
+    $importSuccess = $false
+
+    try {
+        $session = Open-RemoteSession -VmName $NodeName -VmPwd (Get-DefaultTempPwd) -NoLog
+        Copy-Item -Path $ImagePath -Destination $remoteImagePath -ToSession $session -Force -ErrorAction Stop
+        $importResult = Invoke-Command -Session $session -ArgumentList $remoteImagePath -ScriptBlock {
+            param($path)
+            $remoteCtrCmd = Get-Command ctr.exe -ErrorAction SilentlyContinue
+            $remoteCtrPath = if ($remoteCtrCmd) { $remoteCtrCmd.Source } else { 'ctr.exe' }
+            $global:LASTEXITCODE = 1
+            $output = @(& $remoteCtrPath -n k8s.io images import $path 2>&1)
+            $exitCode = $LASTEXITCODE
+            [PSCustomObject]@{
+                Success = ($exitCode -eq 0)
+                Output  = ($output -join [Environment]::NewLine)
+            }
+        }
+
+        if ($importResult.Output) {
+            $importResult.Output | Write-Log
+        }
+        $importSuccess = Test-ImageImportSuccess -Result $importResult
+        if (-not $importSuccess) {
+            Write-Log "[Import] Image import failed on Windows worker '$NodeName'" -Error
+        }
+    }
+    catch {
+        Write-Log "[Import] Image import failed on Windows worker '$NodeName': $_" -Error
+    }
+    finally {
+        if ($null -ne $session) {
+            try {
+                Invoke-Command -Session $session -ArgumentList $remoteImagePath -ScriptBlock {
+                    param($path) Remove-Item -Path $path -Force -ErrorAction SilentlyContinue
+                } -ErrorAction Stop | Out-Null
+            }
+            catch {
+                Write-Log "[Import] Could not remove temporary image archive from Windows worker '$NodeName': $_" -Error
+                $importSuccess = $false
+            }
+            Remove-PSSession -Session $session -ErrorAction SilentlyContinue
+        }
+    }
+
+    return $importSuccess
+}
+
+Export-ModuleMember -Function Initialize-ImageScriptContext, Resolve-ImageNode, Get-DefaultNodeInfoList, Get-ImagesOnNode, Resolve-NodeList, Get-ImagesByNodeSelection, Test-NodeReady, Get-RegistryHostIp, Get-LinuxTransparentProxyPrefix, Test-ImageImportSuccess, Invoke-LinuxNodeImageImport, Invoke-WindowsWorkerImageImport
