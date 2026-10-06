@@ -1240,7 +1240,12 @@ function Set-K2sLinuxKubeletOverride {
 
     if ([string]::IsNullOrEmpty($content)) {
         $removeCommand = "set -e; sudo mkdir -p /etc/kubernetes/kubelet.conf.d; target='$targetPath'; if sudo test -e `$target || sudo test -L `$target; then if ! sudo test -f `$target || sudo test -L `$target; then echo 'Refusing to remove non-regular kubelet drop-in collision' >&2; exit 42; fi; firstLineEncoded=`$(sudo head -n 1 `$target | tr -d '\r\n' | base64 -w0); if [ x`$firstLineEncoded != x$managedHeaderEncoded ]; then echo 'Refusing to remove unmanaged kubelet drop-in' >&2; exit 42; fi; sudo rm -f -- `$target; if sudo systemctl is-active --quiet kubelet; then sudo systemctl restart kubelet; fi; fi"
-        $removeResult = Invoke-CmdOnVmViaSSHKey -CmdToExecute $removeCommand -UserName $UserName -IpAddress $IpAddress -NoLog
+        if ([string]::IsNullOrWhiteSpace($UserPwd)) {
+            $removeResult = Invoke-CmdOnVmViaSSHKey -CmdToExecute $removeCommand -UserName $UserName -IpAddress $IpAddress -NoLog
+        }
+        else {
+            $removeResult = Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute $removeCommand -RemoteUser "$UserName@$IpAddress" -RemoteUserPwd $UserPwd -NoLog
+        }
         if (-not $removeResult.Success) {
             throw "Failed to remove Linux control-plane kubelet override at '$targetPath': $($removeResult.Output)"
         }
@@ -1259,7 +1264,12 @@ function Set-K2sLinuxKubeletOverride {
         }
 
         $applyCommand = "set -e; source='$remotePath'; target='$targetPath'; targetTemp='${targetPath}.tmp'; trap 'sudo rm -f -- `"`$source`" `"`$targetTemp`"' EXIT; if sudo test -e `$target || sudo test -L `$target; then if ! sudo test -f `$target || sudo test -L `$target; then echo 'Refusing to replace non-regular kubelet drop-in collision' >&2; exit 42; fi; firstLineEncoded=`$(sudo head -n 1 `$target | tr -d '\r\n' | base64 -w0); if [ x`$firstLineEncoded != x$managedHeaderEncoded ]; then echo 'Refusing to replace unmanaged kubelet drop-in' >&2; exit 42; fi; if sudo cmp -s `$source `$target; then exit 0; fi; fi; sudo mkdir -p /etc/kubernetes/kubelet.conf.d; sudo cp `$source `$targetTemp; sudo chmod 0644 `$targetTemp; sudo mv -f `$targetTemp `$target; if sudo systemctl is-active --quiet kubelet; then sudo systemctl restart kubelet; fi"
-        $applyResult = Invoke-CmdOnVmViaSSHKey -CmdToExecute $applyCommand -UserName $UserName -IpAddress $IpAddress -NoLog
+        if ([string]::IsNullOrWhiteSpace($UserPwd)) {
+            $applyResult = Invoke-CmdOnVmViaSSHKey -CmdToExecute $applyCommand -UserName $UserName -IpAddress $IpAddress -NoLog
+        }
+        else {
+            $applyResult = Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute $applyCommand -RemoteUser "$UserName@$IpAddress" -RemoteUserPwd $UserPwd -NoLog
+        }
         if (-not $applyResult.Success) {
             throw "Failed to apply Linux control-plane kubelet override at '$targetPath': $($applyResult.Output)"
         }

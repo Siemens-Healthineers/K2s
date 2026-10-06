@@ -91,21 +91,82 @@ Describe 'Set-K2sLinuxKubeletOverride' -Tag 'unit', 'ci', 'kubelet-overrides' {
         }
     }
 
-    It 'uses the password copy path when credentials are supplied' {
+    It 'uses password authentication for both copy and apply when credentials are supplied' {
         InModuleScope $moduleName {
             function Get-K2sKubeletOverrideContent { param([Parameter(ValueFromRemainingArguments)]$Rest) }
             function Copy-ToRemoteComputerViaUserAndPwd { param([string]$Source, [string]$Target, [string]$UserName, [string]$UserPwd, [string]$IpAddress) }
             function Invoke-CmdOnVmViaSSHKey { param([string]$CmdToExecute, [string]$UserName, [string]$IpAddress, [switch]$NoLog) }
+            function Invoke-CmdOnControlPlaneViaUserAndPwd { param([string]$CmdToExecute, [string]$RemoteUser, [string]$RemoteUserPwd, [switch]$NoLog) }
 
             Mock Get-K2sKubeletOverrideContent { "# This file is managed by K2s. Do not edit.`nmaxPods: 42`n" }
             Mock Copy-ToRemoteComputerViaUserAndPwd {}
-            Mock Invoke-CmdOnVmViaSSHKey { [pscustomobject]@{ Success = $true; Output = '' } }
+            Mock Invoke-CmdOnVmViaSSHKey { throw 'SSH-key execution must not be used with a password' }
+            Mock Invoke-CmdOnControlPlaneViaUserAndPwd { [pscustomobject]@{ Success = $true; Output = '' } }
 
             Set-K2sLinuxKubeletOverride -EffectiveInstallConfigPath 'C:\config\effective.json' -UserName 'remote' -UserPwd 'pwd' -IpAddress '172.19.1.100'
 
             Should -Invoke Copy-ToRemoteComputerViaUserAndPwd -Exactly 1 -ParameterFilter {
                 $UserName -eq 'remote' -and $UserPwd -eq 'pwd' -and $IpAddress -eq '172.19.1.100'
             }
+            Should -Invoke Invoke-CmdOnControlPlaneViaUserAndPwd -Exactly 1 -ParameterFilter {
+                $RemoteUser -eq 'remote@172.19.1.100' -and $RemoteUserPwd -eq 'pwd' -and $NoLog -and
+                $CmdToExecute -match 'sudo mv -f \$targetTemp \$target'
+            }
+            Should -Invoke Invoke-CmdOnVmViaSSHKey -Exactly 0
+        }
+    }
+
+    It 'uses password authentication to remove overrides when credentials are supplied' {
+        InModuleScope $moduleName {
+            function Get-K2sKubeletOverrideContent { param([Parameter(ValueFromRemainingArguments)]$Rest) }
+            function Invoke-CmdOnVmViaSSHKey { param([string]$CmdToExecute, [string]$UserName, [string]$IpAddress, [switch]$NoLog) }
+            function Invoke-CmdOnControlPlaneViaUserAndPwd { param([string]$CmdToExecute, [string]$RemoteUser, [string]$RemoteUserPwd, [switch]$NoLog) }
+
+            Mock Get-K2sKubeletOverrideContent { $null }
+            Mock Invoke-CmdOnVmViaSSHKey { throw 'SSH-key execution must not be used with a password' }
+            Mock Invoke-CmdOnControlPlaneViaUserAndPwd { [pscustomobject]@{ Success = $true; Output = '' } }
+
+            Set-K2sLinuxKubeletOverride -EffectiveInstallConfigPath 'C:\config\effective.json' -UserName 'remote' -UserPwd 'pwd' -IpAddress '172.19.1.100'
+
+            Should -Invoke Invoke-CmdOnControlPlaneViaUserAndPwd -Exactly 1 -ParameterFilter {
+                $RemoteUser -eq 'remote@172.19.1.100' -and $RemoteUserPwd -eq 'pwd' -and $NoLog -and
+                $CmdToExecute -match 'sudo rm -f -- \$target'
+            }
+            Should -Invoke Invoke-CmdOnVmViaSSHKey -Exactly 0
+        }
+    }
+
+    It 'propagates password-authenticated <Operation> failures' -TestCases @(
+        @{ Operation = 'apply'; Apply = $true }
+        @{ Operation = 'removal'; Apply = $false }
+    ) {
+        param($Operation, $Apply)
+
+        InModuleScope $moduleName -Parameters @{ Apply = $Apply } {
+            param($Apply)
+
+            function Get-K2sKubeletOverrideContent { param([Parameter(ValueFromRemainingArguments)]$Rest) }
+            function Copy-ToRemoteComputerViaUserAndPwd { param([string]$Source, [string]$Target, [string]$UserName, [string]$UserPwd, [string]$IpAddress) }
+            function Invoke-CmdOnVmViaSSHKey { param([string]$CmdToExecute, [string]$UserName, [string]$IpAddress, [switch]$NoLog) }
+            function Invoke-CmdOnControlPlaneViaUserAndPwd { param([string]$CmdToExecute, [string]$RemoteUser, [string]$RemoteUserPwd, [switch]$NoLog) }
+
+            if ($Apply) {
+                Mock Get-K2sKubeletOverrideContent { "# This file is managed by K2s. Do not edit.`nmaxPods: 42`n" }
+                $expectedMessage = '*Failed to apply Linux control-plane kubelet override*remote transaction failed*'
+            }
+            else {
+                Mock Get-K2sKubeletOverrideContent { $null }
+                $expectedMessage = '*Failed to remove Linux control-plane kubelet override*remote transaction failed*'
+            }
+            Mock Copy-ToRemoteComputerViaUserAndPwd {}
+            Mock Invoke-CmdOnVmViaSSHKey { throw 'SSH-key execution must not be used with a password' }
+            Mock Invoke-CmdOnControlPlaneViaUserAndPwd { [pscustomobject]@{ Success = $false; Output = 'remote transaction failed' } }
+
+            { Set-K2sLinuxKubeletOverride -EffectiveInstallConfigPath 'C:\config\effective.json' -UserName 'remote' -UserPwd 'pwd' -IpAddress '172.19.1.100' } |
+                Should -Throw $expectedMessage
+
+            Should -Invoke Invoke-CmdOnControlPlaneViaUserAndPwd -Exactly 1
+            Should -Invoke Invoke-CmdOnVmViaSSHKey -Exactly 0
         }
     }
 
