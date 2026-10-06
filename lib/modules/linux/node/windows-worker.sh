@@ -46,8 +46,24 @@ k2s_windows_worker_start_libvirt() {
     k2s_run systemctl enable --now libvirtd || return 1
   elif systemctl cat virtqemud.socket >/dev/null 2>&1; then
     k2s_run systemctl enable --now virtqemud.socket || return 1
+    if systemctl cat virtnetworkd.socket >/dev/null 2>&1; then
+      k2s_run systemctl enable --now virtnetworkd.socket || return 1
+    elif systemctl cat virtnetworkd.service >/dev/null 2>&1; then
+      k2s_run systemctl enable --now virtnetworkd || return 1
+    else
+      k2s_log ERROR 'Modular libvirt is installed but virtnetworkd is unavailable.'
+      return 1
+    fi
   elif systemctl cat virtqemud.service >/dev/null 2>&1; then
     k2s_run systemctl enable --now virtqemud || return 1
+    if systemctl cat virtnetworkd.service >/dev/null 2>&1; then
+      k2s_run systemctl enable --now virtnetworkd || return 1
+    elif systemctl cat virtnetworkd.socket >/dev/null 2>&1; then
+      k2s_run systemctl enable --now virtnetworkd.socket || return 1
+    else
+      k2s_log ERROR 'Modular libvirt is installed but virtnetworkd is unavailable.'
+      return 1
+    fi
   else
     k2s_log ERROR 'Neither libvirtd.service, virtqemud.socket, nor virtqemud.service is available after libvirt installation.'
     return 1
@@ -600,7 +616,7 @@ k2s_windows_worker_remove() {
   ip route del "$(k2s_windows_worker_pod_subnet)" 2>/dev/null || true
   virsh destroy "$K2S_WINDOWS_WORKER_NAME" 2>/dev/null || true
   virsh undefine "$K2S_WINDOWS_WORKER_NAME" --remove-all-storage --nvram 2>/dev/null || true
-  rm -f "$vm_dir/$K2S_WINDOWS_WORKER_NAME.qcow2" "$vm_dir/${K2S_WINDOWS_WORKER_NAME}_VARS.fd"
+  rm -f "$vm_dir/$K2S_WINDOWS_WORKER_NAME.qcow2" "/var/lib/libvirt/qemu/nvram/${K2S_WINDOWS_WORKER_NAME}_VARS.fd"
   virsh net-destroy "$K2S_WINDOWS_WORKER_NETWORK" 2>/dev/null || true
   virsh net-undefine "$K2S_WINDOWS_WORKER_NETWORK" 2>/dev/null || true
   rm -f "$(k2s_windows_worker_state_file)"

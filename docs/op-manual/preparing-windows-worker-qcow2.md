@@ -27,6 +27,10 @@ if (-not (Get-LocalGroupMember -Group 'Administrators' | Where-Object Name -Matc
     Add-LocalGroupMember -Group 'Administrators' -Member remote
 }
 
+# Required by the Windows Kubernetes worker: HNS and Host Compute Service.
+$features = @('Containers', 'Microsoft-Hyper-V-All', 'VirtualMachinePlatform')
+Enable-WindowsOptionalFeature -Online -FeatureName $features -All -NoRestart | Out-Null
+
 $openSshCapability = Get-WindowsCapability -Online -Name OpenSSH.Server~~~~0.0.1.0
 if ($openSshCapability.State -ne 'Installed') {
     Add-WindowsCapability -Online -Name OpenSSH.Server~~~~0.0.1.0 | Out-Null
@@ -66,6 +70,9 @@ Set-Service -Name wuauserv -StartupType Disabled
 
 ```
 
+Restart the source VM once after enabling the Windows features, then rerun the
+verification commands below before converting its VHDX.
+
 Shut down the VM. Preserve its partition style: K2s automatically boots an MBR
 image with BIOS and a GPT image with UEFI. Do not generalize the image after
 configuring OpenSSH, because its service and the `remote` account must remain in
@@ -90,6 +97,7 @@ verify the image source VM has the required components:
 Get-Service sshd
 Get-LocalUser remote
 Get-LocalGroupMember -Group 'Administrators' | Where-Object Name -Match '(^|\\)remote$'
+Get-Service hns, vmcompute
 ```
 
 ## Temporary Password Bootstrap

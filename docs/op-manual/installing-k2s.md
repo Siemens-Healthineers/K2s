@@ -211,8 +211,8 @@ Run the Linux binary with elevated privileges:
 ```console
 sudo ./k2s install --linux-only --proxy http://proxy.example:8080 --no-proxy localhost,127.0.0.1
 
-# Install the native control plane and a managed Windows worker from the packaged base image.
-sudo ./k2s install --worker-cpus 4 --worker-memory 8GB --worker-disk 64GB
+# Install the native control plane and a managed Windows worker from a prepared QCOW2 image.
+sudo ./k2s install --worker-cpus 4 --worker-memory 8GB --worker-disk 64GB --windows-qcow2-path /path/to/WindowsWorker-Base.qcow2
 ```
 
 The equivalent platform-first lifecycle entry point is
