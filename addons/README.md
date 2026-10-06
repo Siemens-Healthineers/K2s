@@ -29,7 +29,7 @@ The following addons will be deployed with **K2s**:
 | [monitoring](./monitoring/README.md) | Dashboard for cluster resource monitoring and logging | 
 | [registry](./registry/README.md) | Private image registry running in the Kubernetes cluster exposed on k2s.registry.local | 
 | [rollout argocd](./rollout/argocd/README.md) | Automating the deployment/updating of applications using ArgoCD | 
-| [rollout fluxcd](./rollout/fluxcd/README.md) | Automating the deployment/updating of applications using Flux CD | 
+| [rollout fluxcd](./rollout/fluxcd/README.md) | Automating the deployment/updating of applications using FluxCD | 
 | [security](./security/README.md) | Enables secure communication into and inside the cluster | 
 | [storage smb](./storage/smb/README.md) | StorageClass provisioning based on SMB share between K8s nodes (Windows/Linux) | 
 | [viewer](./viewer/README.md) | Private clinical image viewer running in the Kubernetes cluster | 

@@ -15,6 +15,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/siemens-healthineers/k2s/internal/contracts/config"
 	"github.com/siemens-healthineers/k2s/internal/providers/kubeconfig"
+	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v2"
 )
 
@@ -28,6 +29,36 @@ var _ = BeforeSuite(func() {
 })
 
 var _ = Describe("common", func() {
+	Describe("NodeSelector", Label("unit"), func() {
+		It("prefers a non-empty nodes flag and trims surrounding whitespace", func() {
+			cmd := &cobra.Command{}
+			cmd.Flags().String("node", "worker-1", "")
+			cmd.Flags().String("nodes", "  worker-2,worker-3  ", "")
+
+			selector, err := ParseNodeSelector(cmd, "node", "nodes")
+
+			Expect(err).ToNot(HaveOccurred())
+			Expect(selector).To(Equal("worker-2,worker-3"))
+		})
+
+		It("treats comma-only selectors as empty and falls back to node", func() {
+			cmd := &cobra.Command{}
+			cmd.Flags().String("node", "worker-1", "")
+			cmd.Flags().String("nodes", " , , ", "")
+
+			selector, err := ParseNodeSelector(cmd, "node", "nodes")
+
+			Expect(err).ToNot(HaveOccurred())
+			Expect(selector).To(Equal("worker-1"))
+		})
+
+		It("does not append an empty node selector", func() {
+			params := AppendNodesParam([]string{" -ImagePath 'image.tar'"}, " , , ")
+
+			Expect(params).To(Equal([]string{" -ImagePath 'image.tar'"}))
+		})
+	})
+
 	Describe("CmdFailure", Label("unit"), func() {
 		Describe("Error", func() {
 			It("implements the error interface", func() {
