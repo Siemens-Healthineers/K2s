@@ -42,6 +42,7 @@ function Start-VirtualMachine {
 
     $maxRetries = 4
     $retryDelay = 20
+    $lastStartError = $null
     
     for ($i = 0; $i -lt $maxRetries; $i++) {
         try {
@@ -50,19 +51,24 @@ function Start-VirtualMachine {
             break
         }
         catch {
-            $Error.Clear()
-            Write-Log "Error starting VM: $($Error[0].Message)"
-            # write to log free RAM memory
-            Write-Log "Free RAM memory: $((Get-WmiObject -Class Win32_OperatingSystem).FreePhysicalMemory)"
-            # write to log standby memory
-            Write-Log "Standby memory: $((Get-WmiObject -Class Win32_OperatingSystem).FreeVirtualMemory)"
+            $lastStartError = $_
+            Write-Log "[VMStart] Failed to start '$VmName' (id: $($private:vm.Id), attempt: $($i + 1)/$maxRetries, error id: $($lastStartError.FullyQualifiedErrorId), category: $($lastStartError.CategoryInfo.Category)): $($lastStartError.Exception.Message)"
+            try {
+                $memory = Get-WmiObject -Class Win32_OperatingSystem -ErrorAction Stop
+                Write-Log "Free RAM memory: $($memory.FreePhysicalMemory)"
+                Write-Log "Free virtual memory: $($memory.FreeVirtualMemory)"
+            }
+            catch {
+                Write-Log "[VMStart] Failed to collect memory diagnostics for '$VmName': $($_.Exception.Message)"
+            }
             Start-Sleep -Seconds $retryDelay
         }
     }
     
     if ($i -eq $maxRetries) {
-        Write-Log "Failed to start VM after $maxRetries retries"
-        throw "Failed to start VM $VmName after $maxRetries retries"
+        $message = "Failed to start VM $VmName after $maxRetries retries. Last Hyper-V error: $($lastStartError.Exception.Message)"
+        Write-Log "[VMStart] $message"
+        throw [System.InvalidOperationException]::new($message, $lastStartError.Exception)
     }
 
     if ($Wait -eq $true) {
@@ -81,6 +87,8 @@ function Start-VirtualMachine {
     Name of the VM to stop
 .PARAMETER Wait
     If set to TRUE, the function waits for the VM to reach the 'off' state.
+.PARAMETER TimeoutInSeconds
+    Maximum time to wait for the stop operation and optional state check. Default is 360.
 .EXAMPLE
     Stop-VirtualMachine -VmName "Test-VM"
 .EXAMPLE
@@ -95,25 +103,68 @@ function Stop-VirtualMachine {
         [ValidateNotNullOrEmpty()]
         [string] $VmName = $(throw 'Please specify the VM you want to stop.'),
         [Parameter(Mandatory = $false)]
-        [Switch]$Wait = $false
+        [Switch]$Wait = $false,
+        [ValidateRange(1, 3600)]
+        [int]$TimeoutInSeconds = 360
     )
 
     $private:vm = Get-VM | Where-Object Name -eq $VmName
 
     if (($private:vm | Measure-Object).Count -ne 1) {
-        Write-Log "None or more than one VMs found for name '$VmName', aborting stop."
+        $message = "[VMStop] None or more than one VMs found for name '$VmName', aborting stop."
+        Write-Log $message -Console
+        throw $message
+    }
+
+    if ($private:vm.State -eq 'Off') {
+        Write-Log "[VMStop] VM '$VmName' is already off."
         return
     }
 
-    Write-Log "Stopping VM '$VmName' ..."
+    $timer = [System.Diagnostics.Stopwatch]::StartNew()
+    $stopJob = $null
+    Write-Log "[VMStop] Stopping VM '$VmName' (id: $($private:vm.Id), initial state: $($private:vm.State), status: $($private:vm.Status), timeout: ${TimeoutInSeconds}s)."
+    try {
+        # -Force retains the existing shutdown policy; -AsJob prevents its internal wait from hiding our timeout.
+        $stopJob = Stop-VM -Name $VmName -Force -AsJob -WarningAction SilentlyContinue -ErrorAction Stop
+        if ($null -eq $stopJob) {
+            throw "Hyper-V returned no stop job for VM '$VmName'."
+        }
+        $remainingSeconds = [int][Math]::Ceiling($TimeoutInSeconds - $timer.Elapsed.TotalSeconds)
+        if ($remainingSeconds -le 0 -or $null -eq (Wait-Job -Job $stopJob -Timeout $remainingSeconds -ErrorAction Stop)) {
+            throw "VM '$VmName' stop operation exceeded ${TimeoutInSeconds}s. Hyper-V may still be processing the shutdown; no additional TurnOff operation was requested."
+        }
+        Receive-Job -Job $stopJob -ErrorAction Stop | Out-Null
+        if ($stopJob.State -ne 'Completed') {
+            throw "VM '$VmName' stop job ended with state '$($stopJob.State)': $($stopJob.JobStateInfo.Reason)"
+        }
 
-    Stop-VM -Name $VmName -Force -WarningAction SilentlyContinue
+        if ($Wait -eq $true) {
+            $remainingSeconds = [int][Math]::Max(0, [Math]::Floor($TimeoutInSeconds - $timer.Elapsed.TotalSeconds))
+            Wait-ForDesiredVMState -VmName $VmName -State 'off' -TimeoutInSeconds $remainingSeconds
+        }
 
-    if ($Wait -eq $true) {
-        Wait-ForDesiredVMState -VmName $VmName -State 'off'
+        Write-Log "[VMStop] VM '$VmName' stopped after $([Math]::Round($timer.Elapsed.TotalSeconds, 1))s."
     }
-
-    Write-Log "VM '$VmName' stopped."
+    catch {
+        $jobState = if ($null -ne $stopJob) { $stopJob.State } else { 'NotCreated' }
+        Write-Log "[VMStop] Failed to stop '$VmName' (id: $($private:vm.Id), initial state: $($private:vm.State), job state: $jobState, elapsed: $([Math]::Round($timer.Elapsed.TotalSeconds, 1))s): $($_.Exception.Message)" -Console
+        throw
+    }
+    finally {
+        if ($null -ne $stopJob -and $stopJob.State -in @('Completed', 'Failed', 'Stopped')) {
+            try {
+                Remove-Job -Job $stopJob -ErrorAction Stop
+            }
+            catch {
+                Write-Log "[VMStop] Failed to remove stop job for '$VmName': $($_.Exception.Message)" -Console
+            }
+        }
+        elseif ($null -ne $stopJob) {
+            # Removing an unfinished Hyper-V job with -Force can call its blocking StopJob implementation.
+            Write-Log "[VMStop] Retaining unfinished stop job $($stopJob.Id) for '$VmName' (state: $($stopJob.State)); Hyper-V may still be processing shutdown." -Console
+        }
+    }
 }
 
 <#
@@ -237,11 +288,12 @@ function Wait-ForDesiredVMState {
         [ValidateNotNullOrEmpty()]
         [string] $State = $(throw 'Please specify the desired VM state.'),
         [Parameter(Mandatory = $false)]
+        [ValidateRange(0, 3600)]
         [int]$TimeoutInSeconds = 360
     )
 
     $secondsIncrement = 1
-    $elapsedSeconds = 0
+    $timer = [System.Diagnostics.Stopwatch]::StartNew()
 
     if ([System.Enum]::GetValues([Microsoft.HyperV.PowerShell.VMState]) -notcontains $State) {
         throw "'$State' is an invalid VM state!"
@@ -255,20 +307,22 @@ function Wait-ForDesiredVMState {
         throw "None or more than one VMs found for name '$VmName', aborting!"
     }
 
-    while (($private:vm.State -ne $State) -and ($elapsedSeconds -lt $TimeoutInSeconds)) {
+    while (($private:vm.State -ne $State) -and ($timer.Elapsed.TotalSeconds -lt $TimeoutInSeconds)) {
         Start-Sleep -Seconds $secondsIncrement
 
-        $elapsedSeconds += $secondsIncrement
-
-        Write-Log "$($elapsedSeconds)s.." -Progress
+        $private:vm = Get-VM | Where-Object Name -eq $VmName
+        if (($private:vm | Measure-Object).Count -ne 1) {
+            throw "None or more than one VMs found for name '$VmName' while waiting for state '$State'."
+        }
+        Write-Log "$([int]$timer.Elapsed.TotalSeconds)s.." -Progress
     }
 
-    if ( $elapsedSeconds -gt 0) {
+    if ($timer.Elapsed.TotalSeconds -gt 0) {
         Write-Log '.' -Progress
     }
 
-    if ($elapsedSeconds -ge $TimeoutInSeconds) {
-        throw "VM '$VmName' did'nt reach the desired state '$State' within the time frame of $($TimeoutInSeconds)s!"
+    if ($private:vm.State -ne $State) {
+        throw "VM '$VmName' did not reach the desired state '$State' within $($TimeoutInSeconds)s (last state: '$($private:vm.State)', status: '$($private:vm.Status)')."
     }
 }
 

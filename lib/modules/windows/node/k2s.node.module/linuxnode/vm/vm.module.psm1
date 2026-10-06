@@ -69,8 +69,15 @@ function Invoke-SSHOnce {
             }
         }
         else {
-            $rawOutput = &$SshExePath $Params 2>&1
-            $sshExitCode = $LASTEXITCODE
+            $savedErrorActionPreference = $ErrorActionPreference
+            try {
+                $ErrorActionPreference = 'Continue'
+                $rawOutput = &$SshExePath $Params 2>&1
+                $sshExitCode = $LASTEXITCODE
+            }
+            finally {
+                $ErrorActionPreference = $savedErrorActionPreference
+            }
         }
     } catch {
         if ($_.Exception.Message -match '^\[SSH\] Command timed out') {
@@ -116,6 +123,59 @@ function Invoke-SSHOnce {
     }
 }
 
+function Set-SshPrivateKeyPermissions {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$Path
+    )
+
+    # A shared administrator-owned key must also pass OpenSSH checks under LOCAL SYSTEM.
+    $administrators = [System.Security.Principal.SecurityIdentifier]::new('S-1-5-32-544')
+    $system = [System.Security.Principal.SecurityIdentifier]::new('S-1-5-18')
+    $acl = [System.Security.AccessControl.FileSecurity]::new()
+    $acl.SetOwner($administrators)
+    $acl.SetAccessRuleProtection($true, $false)
+    foreach ($identity in @($administrators, $system)) {
+        $acl.AddAccessRule([System.Security.AccessControl.FileSystemAccessRule]::new(
+                $identity, [System.Security.AccessControl.FileSystemRights]::FullControl,
+                [System.Security.AccessControl.AccessControlType]::Allow))
+    }
+
+    try {
+        $existingAcl = Get-Acl -LiteralPath $Path -ErrorAction Stop
+        $rules = @($existingAcl.GetAccessRules($true, $true, [System.Security.Principal.SecurityIdentifier]))
+        $hasExpectedPermissions = $existingAcl.AreAccessRulesProtected -and $rules.Count -eq 2 -and
+            $existingAcl.GetOwner([System.Security.Principal.SecurityIdentifier]).Value -eq $administrators.Value
+        foreach ($identity in @($administrators, $system)) {
+            $matchingRules = @($rules | Where-Object {
+                    $_.IdentityReference.Value -eq $identity.Value -and
+                    $_.AccessControlType -eq [System.Security.AccessControl.AccessControlType]::Allow -and
+                    $_.FileSystemRights -eq [System.Security.AccessControl.FileSystemRights]::FullControl -and
+                    -not $_.IsInherited -and
+                    $_.InheritanceFlags -eq [System.Security.AccessControl.InheritanceFlags]::None -and
+                    $_.PropagationFlags -eq [System.Security.AccessControl.PropagationFlags]::None
+                })
+            $hasExpectedPermissions = $hasExpectedPermissions -and $matchingRules.Count -eq 1
+        }
+        if (-not $hasExpectedPermissions) {
+            Write-Log "[SSH] Restricting private key '$Path' to Administrators and SYSTEM."
+            Set-Acl -LiteralPath $Path -AclObject $acl -ErrorAction Stop
+        }
+    }
+    catch {
+        $message = "[SSH] Cannot secure private key '$Path': $($_.Exception.Message)"
+        Write-Log $message -Console
+        throw $message
+    }
+}
+
+function Test-SshAuthenticationFailure {
+    param($Output)
+
+    return (($Output | Out-String) -match '(?im)^\s*(?:WARNING:\s+UNPROTECTED PRIVATE KEY FILE!|Bad permissions(?:\.|\s*$)|Load key\s+.+:|(?:[^\s]+@[^\s]+:\s*)?Permission denied\s*\((?:publickey|password|keyboard-interactive)|Host key verification failed)')
+}
+
 function Invoke-SSHWithKey {
     param (
         [Parameter(Mandatory = $false)]
@@ -130,6 +190,7 @@ function Invoke-SSHWithKey {
         [Parameter(Mandatory = $false)]
         [uint16]$ExecutionTimeoutSeconds = 0
     )
+    Set-SshPrivateKeyPermissions -Path $key
     $userOnRemoteMachine = "$UserName@$IpAddress"
     $params = '-n', '-o', 'BatchMode=yes', '-o', 'StrictHostKeyChecking=no', '-i', $key, $userOnRemoteMachine, $Command
 
@@ -148,7 +209,7 @@ function Invoke-SSHWithKey {
     # Windows SSH can return various non-zero exit codes (255, 3221226356, etc.)
     # when the socket cleanup warning happens, even if the command succeeded.
     # If we have actual output and a socket warning, treat the command as successful.
-    if ($hadSocketWarning) {
+    if ($hadSocketWarning -and -not (Test-SshAuthenticationFailure -Output $outputLines)) {
         if ($outputLines.Count -gt 0) {
             # We have real output - the command likely succeeded despite the socket warning
             Write-Log "[SSH] Socket warning detected but command produced output - treating as success"
@@ -166,7 +227,10 @@ function Invoke-SSHWithKey {
             $retryResult = Invoke-SSHOnce -SshExePath $sshExe -Params $params -ExecutionTimeoutSeconds $ExecutionTimeoutSeconds -IpAddress $IpAddress -Command $Command
 
             $outputLines = $retryResult.OutputLines
-            if ($retryResult.ExitCode -eq 0 -or $retryResult.OutputLines.Count -gt 0 -or $retryResult.HadSocketWarning) {
+            if (Test-SshAuthenticationFailure -Output $retryResult.OutputLines) {
+                $global:LASTEXITCODE = $retryResult.ExitCode
+            }
+            elseif ($retryResult.ExitCode -eq 0 -or $retryResult.OutputLines.Count -gt 0 -or $retryResult.HadSocketWarning) {
                 # Retry succeeded, or produced output, or hit the same socket warning again.
                 # In all cases the remote command is almost certainly fine — the socket
                 # warning is definitive evidence of a Windows SSH client bug.
@@ -251,13 +315,14 @@ function Invoke-SCPWithKey {
         [uint16]$RetryDelay = 2
     )
 
+    Set-SshPrivateKeyPermissions -Path $key
     $params = @('-o', 'BatchMode=yes', '-o', 'StrictHostKeyChecking=no', '-i', $key)
     if ($Recursive) { $params += '-r' }
     $params += $Source, $Target
 
     $attempt = 0
     $lastOutput = $null
-    $lastExitCode = 0
+    $lastScpExitCode = 0
 
     do {
         $attempt++
@@ -265,12 +330,17 @@ function Invoke-SCPWithKey {
         # Capture all output first, then filter SSH connection warnings
         $rawOutput = $null
         $scpExitCode = 0
+        $savedErrorActionPreference = $ErrorActionPreference
         try {
+            $ErrorActionPreference = 'Continue'
             $rawOutput = &scp.exe $params 2>&1
             $scpExitCode = $LASTEXITCODE
         } catch {
             Write-Log "[SCP] Unexpected error during SCP execution: $_"
             throw
+        }
+        finally {
+            $ErrorActionPreference = $savedErrorActionPreference
         }
 
         # Convert to array of strings, handling both regular output and ErrorRecord objects
@@ -303,7 +373,8 @@ function Invoke-SCPWithKey {
         }
 
         # Correct exit code if socket warning detected with SSH-level error codes
-        if ($hadSocketWarning) {
+        $authenticationFailed = Test-SshAuthenticationFailure -Output $outputLines
+        if ($hadSocketWarning -and -not $authenticationFailed) {
             if ($scpExitCode -eq 255 -or $scpExitCode -eq -1 -or $scpExitCode -gt 255) {
                 Write-Log "[SCP] Ignoring transient socket warning with exit code $scpExitCode - transfer likely succeeded"
                 $global:LASTEXITCODE = 0
@@ -315,20 +386,20 @@ function Invoke-SCPWithKey {
         }
 
         $lastOutput = if ($outputLines.Count -eq 0) { '' } elseif ($outputLines.Count -eq 1) { $outputLines[0] } else { $outputLines -join "`n" }
-        $lastExitCode = $LASTEXITCODE
+        $lastScpExitCode = $LASTEXITCODE
 
-        if ($lastExitCode -eq 0) {
+        if ($lastScpExitCode -eq 0 -or $authenticationFailed) {
             return $lastOutput
         }
 
         if ($attempt -le $Retries) {
-            Write-Log "[SCP] Attempt $attempt failed with exit code $lastExitCode, retrying in $RetryDelay seconds..."
+            Write-Log "[SCP] Attempt $attempt failed with exit code $lastScpExitCode, retrying in $RetryDelay seconds..."
             Start-Sleep -Seconds $RetryDelay
         }
     } while ($attempt -le $Retries)
 
     # Return the output even on failure - caller decides how to handle
-    $global:LASTEXITCODE = $lastExitCode
+    $global:LASTEXITCODE = $lastScpExitCode
     return $lastOutput
 }
 
@@ -407,9 +478,13 @@ function Invoke-CmdOnVmViaSSHKey(
     $Stoploop = $false
     [uint16]$Retrycount = 1
     do {
+        $success = $false
+        $output = $null
+        $exitCode = $null
         try {
             $output = Invoke-SSHWithKey -Command $CmdToExecute -Nested:$Nested -UserName $UserName -IpAddress $IpAddress -ExecutionTimeoutSeconds $ExecutionTimeoutSeconds
-            $success = ($LASTEXITCODE -eq 0)
+            $exitCode = $LASTEXITCODE
+            $success = ($exitCode -eq 0)
 
             if (!$success -and !$IgnoreErrors) {
                 throw "Error occurred while executing command '$CmdToExecute' in control plane (exit code: '$LASTEXITCODE')"
@@ -418,7 +493,11 @@ function Invoke-CmdOnVmViaSSHKey(
         }
         catch {
             Write-Log $_
-            if ($Retrycount -gt $Retries) {
+            if ($null -eq $output) {
+                $output = $_.Exception.Message
+            }
+            if ($Retrycount -gt $Retries -or (Test-SshAuthenticationFailure -Output $output) -or
+                ($output -match '^\[SSH\] Cannot secure private key')) {
                 $Stoploop = $true
             }
             else {
@@ -437,7 +516,7 @@ function Invoke-CmdOnVmViaSSHKey(
     }
     While ($Stoploop -eq $false)
 
-    return [pscustomobject]@{ Success = $success; Output = $output }
+    return [pscustomobject]@{ Success = $success; Output = $output; ExitCode = $exitCode }
 }
 
 function Invoke-CmdOnControlPlaneViaUserAndPwd(
@@ -927,32 +1006,52 @@ function Wait-ForSshPossible {
     $baseDelay = 3       # Base delay in seconds
     $maxDelay = 15       # Maximum delay between attempts
     $startTime = Get-Date
+    if ($SshKey -ne '') {
+        Set-SshPrivateKeyPermissions -Path $SshKey
+    }
     Write-Log "Performing SSH login into VM with $($User)..."
     while ($true) {
         $iteration++
         $rawResult = ''
 
         if ($SshKey -ne '') {
-            if ($Nested) {
-                $rawResult = ssh.exe -o BatchMode=yes -o StrictHostKeyChecking=no -o ConnectTimeout=10 -i $SshKey $User "$($SshTestCommand)" 2>&1
+            $savedErrorActionPreference = $ErrorActionPreference
+            try {
+                $ErrorActionPreference = 'Continue'
+                if ($Nested) {
+                    $rawResult = ssh.exe -o BatchMode=yes -o StrictHostKeyChecking=no -o ConnectTimeout=10 -i $SshKey $User "$($SshTestCommand)" 2>&1
+                }
+                else {
+                    $rawResult = ssh.exe -n -o BatchMode=yes -o StrictHostKeyChecking=no -o ConnectTimeout=10 -i $SshKey $User "$($SshTestCommand)" 2>&1
+                }
+                $sshExitCode = $LASTEXITCODE
             }
-            else {
-                $rawResult = ssh.exe -n -o BatchMode=yes -o StrictHostKeyChecking=no -o ConnectTimeout=10 -i $SshKey $User "$($SshTestCommand)" 2>&1
+            finally {
+                $ErrorActionPreference = $savedErrorActionPreference
             }
             # Filter out SSH socket warnings that can interfere with result matching
             $result = Get-FilteredSSHOutput -RawOutput $rawResult
+            if (Test-SshAuthenticationFailure -Output $result) {
+                $message = "[SSH] Authentication or private-key failure for '$User' using '$SshKey': $result"
+                Write-Log $message -Console
+                throw $message
+            }
+            if ($sshExitCode -ne 0) {
+                $result = "SSH failed (exit code $sshExitCode): $result"
+            }
         }
         else {
             $plinkArgs = @('-ssh', '-4', '-legacy-stdio-prompts', $User, '-pw', $UserPwd, '-no-antispoof', "$($SshTestCommand)")
             $result = Invoke-ExeWithAsciiEncoding -ExePath $plinkExe -Arguments $plinkArgs -PipeInput 'y'
         }
 
-        if ($StrictEqualityCheck -eq $true) {
+        $commandSucceeded = ($SshKey -eq '' -or $sshExitCode -eq 0)
+        if ($commandSucceeded -and $StrictEqualityCheck -eq $true) {
             if ($result -eq $ExpectedSshTestCommandResult) {
                 break
             }
         }
-        else {
+        elseif ($commandSucceeded) {
             if ($result -match $ExpectedSshTestCommandResult) {
                 break
             }
@@ -1124,6 +1223,7 @@ function Get-ControlPlaneRemoteUser {
 }
 
 Export-ModuleMember -Function Invoke-CmdOnControlPlaneViaSSHKey,
+Set-SshPrivateKeyPermissions,
 Invoke-CmdOnVmViaSSHKey,
 Invoke-SCPWithKey,
 Invoke-CmdOnControlPlaneViaUserAndPwd,
