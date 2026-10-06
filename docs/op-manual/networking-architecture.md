@@ -21,7 +21,7 @@ The commitment to a simple and performant networking foundation provides strateg
 
 <b>Enhanced Developer and Operator Experience</b>: The intuitive networking model empowers development teams to deploy and manage their applications without needing to become experts in complex network virtualization. This clarity fosters a stronger sense of ownership and accelerates the development lifecycle, as teams can reason about network communication in a straightforward manner.
 
-<div align="center">
+<div align="center" markdown="1">
 
 ![Overview](assets/networksimplicity.png)
 </div>

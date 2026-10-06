@@ -7,7 +7,6 @@ import (
 	"errors"
 	"fmt"
 	"strconv"
-	"strings"
 
 	"github.com/spf13/cobra"
 
@@ -55,8 +54,6 @@ type pushedImage struct {
 
 const (
 	includeK8sImages = "include-k8s-images"
-	nodeFlagName     = "node"
-	nodesFlagName    = "nodes"
 	outputFlagName   = "output"
 	jsonOption       = "json"
 
@@ -120,19 +117,9 @@ func listImages(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	nodesOption, err := cmd.Flags().GetString(nodesFlagName)
+	nodeSelector, err := parseNodeSelector(cmd)
 	if err != nil {
 		return err
-	}
-
-	nodeOption, err := cmd.Flags().GetString(nodeFlagName)
-	if err != nil {
-		return err
-	}
-
-	nodeSelector := strings.TrimSpace(nodesOption)
-	if nodeSelector == "" {
-		nodeSelector = strings.TrimSpace(nodeOption)
 	}
 
 	terminalPrinter := terminal.NewTerminalPrinter()
