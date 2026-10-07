@@ -41,6 +41,7 @@ function New-SshKey {
     if (!(Test-Path $sshKeyControlPlane)) {
         throw "unable to generate SSH keys ($sshKeyControlPlane)"
     }
+    Set-SshPrivateKeyPermissions -Path $sshKeyControlPlane
     return "$sshKeyControlPlane.pub"
 }
 

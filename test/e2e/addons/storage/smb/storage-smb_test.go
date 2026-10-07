@@ -196,6 +196,15 @@ var _ = Describe(fmt.Sprintf("%s Addon, %s Implementation", addonName, implement
 		})
 	})
 
+	Describe("negative flows", func() {
+		It("fails enable when ceph is requested while smb is already enabled", func(ctx context.Context) {
+			suite.K2sCli().MustExec(ctx, "addons", "enable", addonName, implementationName, "-o")
+			output, _ := suite.K2sCli().ExpectedExitCode(cli.ExitCodeFailure).Exec(ctx, "addons", "enable", addonName, "ceph")
+			Expect(output).To(ContainSubstring("Cannot enable"))
+			suite.K2sCli().MustExec(ctx, "addons", "disable", addonName, implementationName, "-f", "-o")
+		})
+	})
+
 	Describe("enable command", func() {
 		When("SMB host type is Windows", func() {
 			It("enables the addon", func(ctx context.Context) {

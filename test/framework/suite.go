@@ -8,6 +8,7 @@ import (
 	"context"
 	"crypto/tls"
 	"fmt"
+	stdos "os"
 	"path/filepath"
 	"reflect"
 	"runtime"
@@ -114,7 +115,11 @@ func Setup(ctx context.Context, args ...any) *K2sTestSuite {
 
 	k2sCliFunc := func() *os.CliExecutor {
 		if runtime.GOOS == "linux" {
-			return newCliFunc(filepath.Join(rootDir, "k2s.linux"))
+			k2sLinuxPath := filepath.Join(rootDir, "k2s.linux")
+			if _, err := stdos.Stat(k2sLinuxPath); err == nil {
+				return newCliFunc(k2sLinuxPath)
+			}
+			return newCliFunc(filepath.Join(rootDir, "k2s"))
 		}
 		return newCliFunc(filepath.Join(rootDir, "k2s.exe"))
 	}

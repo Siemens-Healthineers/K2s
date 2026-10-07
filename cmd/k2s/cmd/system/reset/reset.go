@@ -30,15 +30,11 @@ func resetSystem(cmd *cobra.Command, args []string) error {
 	cmdSession := common.StartCmdSession(cmd.CommandPath())
 
 	context := cmd.Context().Value(common.ContextKeyCmdContext).(*common.CmdContext)
-	runtimeConfig, err := config.ReadRuntimeConfig(context.Config().Host().K2sSetupConfigDir())
+	_, err := config.ReadRuntimeConfig(context.Config().Host().K2sSetupConfigDir())
 	if err != nil {
 		if !errors.Is(err, cconfig.ErrSystemInCorruptedState) && !errors.Is(err, cconfig.ErrSystemNotInstalled) {
 			return err
 		}
-	}
-
-	if runtimeConfig.InstallConfig().LinuxOnly() {
-		return common.CreateFuncUnavailableForLinuxOnlyCmdFailure()
 	}
 
 	if err := context.Providers().System.Reset(provider.SystemResetConfig{}); err != nil {

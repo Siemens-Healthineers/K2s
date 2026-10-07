@@ -3,7 +3,10 @@
 
 site_name: K2s - Kubernetes distribution for Windows & Linux workloads
 site_url: https://Siemens-Healthineers.github.io/K2s
-copyright: Copyright &copy; 2024 Siemens Healthineers AG
+copyright: >-
+  Copyright k2s a Series of LF Projects, LLC<br><br>
+  For website terms of use, trademark policy and other project policies please see
+  <a href="https://lfprojects.org/policies/">lfprojects.org/policies/</a>.
 repo_url: https://github.com/Siemens-Healthineers/K2s/
 edit_uri: edit/main/docs/
 strict: true
@@ -115,6 +118,10 @@ nav:
       - Hook System: op-manual/hook-system.md
       - Backing Up and Restoring the System: op-manual/backing-up-restoring-system.md
       - Backing Up and Restoring Addons: op-manual/backing-up-restoring-addons.md
+      - Ceph Storage:
+          - Overview: op-manual/ceph-storage.md
+          - Linux Workloads: op-manual/ceph-storage-linux.md
+          - Cross-OS Shared Workloads: op-manual/ceph-storage-cross-os.md
       - GitOps Addon Delivery: op-manual/gitops-addon-delivery.md
       - External DNS: op-manual/external-dns.md
       - Native Linux Host DNS: op-manual/native-linux-host-dns.md

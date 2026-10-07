@@ -51,7 +51,7 @@ spec:
           script:
             subPath: argocd/Disable.ps1
     - name: fluxcd
-      description: Automating the deployment/updating of applications using Flux CD
+      description: Automating the deployment/updating of applications using FluxCD
       offline_usage:
         linux:
           repos: []
@@ -60,7 +60,7 @@ spec:
           additionalImages: []
         windows:
           curl:
-            - url: https://github.com/fluxcd/flux2/releases/download/v2.9.5/flux_2.9.5_windows_amd64.zip
+            - url: https://github.com/fluxcd/flux2/releases/download/v2.9.6/flux_2.9.6_windows_amd64.zip
               destination: bin\flux.exe
       commands:
         enable:

@@ -9,7 +9,6 @@ import (
 	"log/slog"
 	"path/filepath"
 	"strconv"
-	"strings"
 
 	"github.com/siemens-healthineers/k2s/internal/providers/powershell"
 
@@ -37,12 +36,19 @@ var importCommandExample = `
 
   # Scope an omit option to one addon or one implementation
   k2s addons import -f C:\tmp\addons.oci.tar --omit security:omitKeycloak --omit ingress/nginx:omitCertMgr
+
+  # Import addons targeting a specific node
+  k2s addons import registry -f C:\tmp\addons.oci.tar --node worker-1
+
+  # Import addons targeting multiple nodes
+  k2s addons import registry -f C:\tmp\addons.oci.tar --nodes worker-1,worker-2
 `
 
 const (
 	fileLabel     = "file"
 	defaultFile   = ""
 	nodeFlagName  = "node"
+	nodesFlagName = "nodes"
 	omitFlagName  = "omit"
 	omitFlagUsage = "Skip the images of an omitted addon functionality, e.g. 'omitCertMgr' or 'ingress/nginx:omitCertMgr'. Repeatable. An image is only skipped when no imported addon still requires it."
 )
@@ -70,6 +76,7 @@ not available locally (for example, in an air-gapped environment).`,
 
 	cmd.Flags().StringP(fileLabel, "f", defaultFile, "OCI artifact tar file of exported addon")
 	cmd.Flags().String(nodeFlagName, "", "Target node name for addon image import (e.g. worker-1); defaults to control-plane and local Windows host when omitted")
+	cmd.Flags().String(nodesFlagName, "", "Target node names (comma-separated) for addon image import (e.g. worker-1,worker-2)")
 	cmd.Flags().StringArray(omitFlagName, []string{}, omitFlagUsage)
 	cmd.Flags().SortFlags = false
 	cmd.Flags().PrintDefaults()
@@ -79,22 +86,30 @@ not available locally (for example, in an air-gapped environment).`,
 
 func runImport(cmd *cobra.Command, args []string) error {
 	cmdSession := common.StartCmdSession(cmd.CommandPath())
+
+	effectiveFlag := ""
+	if cmd.Flags().Changed(nodesFlagName) {
+		effectiveFlag = nodesFlagName
+	} else if cmd.Flags().Changed(nodeFlagName) {
+		effectiveFlag = nodeFlagName
+	}
+
+	if effectiveFlag != "" {
+		nodeOption, nodeErr := cmd.Flags().GetString(effectiveFlag)
+		if nodeErr != nil {
+			return nodeErr
+		}
+		if common.IsNodeSelectorEmpty(nodeOption) {
+			return fmt.Errorf("the --%s flag was provided but is empty - specify a valid node name (run 'kubectl get nodes' to list available nodes)", effectiveFlag)
+		}
+	}
+
 	allAddons, err := addons.LoadAddons(utils.InstallDir())
 	if err != nil {
 		return err
 	}
 
 	ac.LogAddons(allAddons)
-
-	if cmd.Flags().Changed(nodeFlagName) {
-		nodeOption, nodeErr := cmd.Flags().GetString(nodeFlagName)
-		if nodeErr != nil {
-			return nodeErr
-		}
-		if strings.TrimSpace(nodeOption) == "" {
-			return fmt.Errorf("the --node flag was provided but is empty - specify a valid node name (run 'kubectl get nodes' to list available nodes)")
-		}
-	}
 
 	psCmd, params, err := buildPsCmd(cmd, args...)
 	if err != nil {
@@ -174,7 +189,7 @@ func buildPsCmd(cmd *cobra.Command, addons ...string) (psCmd string, params []st
 	if err != nil {
 		return "", nil, err
 	}
-	params = appendNodesParam(params, nodeSelector)
+	params = common.AppendNodesParam(params, nodeSelector)
 
 	omitOptions, err := parseOmitOptions(cmd)
 	if err != nil {
@@ -184,7 +199,6 @@ func buildPsCmd(cmd *cobra.Command, addons ...string) (psCmd string, params []st
 
 	return
 }
-
 // parseOmitOptions reads the repeatable --omit flag and returns the trimmed, non-empty tokens.
 // A token is either a bare flag name ('omitCertMgr') or an addon-scoped one
 // ('security:omitKeycloak', 'ingress/nginx:omitCertMgr'). Validation against the addons
@@ -223,24 +237,10 @@ func appendOmitParam(params []string, options []string) []string {
 	return append(params, " -Omit "+strings.Join(quoted, ","))
 }
 
-// parseNodeSelector reads the --node flag and returns the trimmed node name (empty when not set).
-// An explicitly-provided blank/whitespace value is rejected earlier in runImport with an error,
+// parseNodeSelector reads the --nodes (or fallback --node) flag and returns the trimmed node name(s) (empty when not set).
+// When both flags are specified, --nodes takes precedence over --node.
+// An explicitly-provided blank/whitespace/comma-only value is rejected earlier in runImport with an error,
 // so here we simply trim; an empty result yields the default targets (control-plane + Windows host).
 func parseNodeSelector(cmd *cobra.Command) (string, error) {
-	nodeOption, err := cmd.Flags().GetString(nodeFlagName)
-	if err != nil {
-		return "", err
-	}
-
-	return strings.TrimSpace(nodeOption), nil
-}
-
-// appendNodesParam appends the -Nodes parameter to the PS call only when a node selector is provided,
-// preserving the existing default behavior (control-plane + local Windows host) when omitted.
-func appendNodesParam(params []string, nodes string) []string {
-	if strings.TrimSpace(nodes) == "" {
-		return params
-	}
-
-	return append(params, " -Nodes "+utils.EscapeWithSingleQuotes(nodes))
+	return common.ParseNodeSelector(cmd, nodeFlagName, nodesFlagName)
 }
