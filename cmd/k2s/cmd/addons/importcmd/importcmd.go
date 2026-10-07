@@ -9,6 +9,7 @@ import (
 	"log/slog"
 	"path/filepath"
 	"strconv"
+	"strings"
 
 	"github.com/siemens-healthineers/k2s/internal/providers/powershell"
 
@@ -199,6 +200,7 @@ func buildPsCmd(cmd *cobra.Command, addons ...string) (psCmd string, params []st
 
 	return
 }
+
 // parseOmitOptions reads the repeatable --omit flag and returns the trimmed, non-empty tokens.
 // A token is either a bare flag name ('omitCertMgr') or an addon-scoped one
 // ('security:omitKeycloak', 'ingress/nginx:omitCertMgr'). Validation against the addons
