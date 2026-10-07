@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText:  © 2025 Siemens Healthineers AG
+// SPDX-FileCopyrightText:  © 2026 Siemens Healthineers AG
 // SPDX-License-Identifier:   MIT
 
 package definitions
@@ -15,11 +15,13 @@ const (
 
 	KubeconfigName = "config"
 
-	SetupNameK2s             = "k2s"
-	SetupNameBuildOnlyEnv    = "BuildOnlyEnv"
-	K2sRuntimeConfigFileName = "setup.json"
-	SetupCorruptedKey        = "Corrupted"
-	LegacyClusterName        = "kubernetes"
+	SetupNameK2s                   = "k2s"
+	SetupNameBuildOnlyEnv          = "BuildOnlyEnv"
+	K2sRuntimeConfigFileName       = "setup.json"
+	EffectiveInstallConfigFileName = "effective-install-config.json"
+	EffectiveInstallConfigPathKey  = "EffectiveInstallConfigPath"
+	SetupCorruptedKey              = "Corrupted"
+	LegacyClusterName              = "kubernetes"
 
 	// SetupConfigDirEnvVar overrides the K2s setup config directory ('configDir.k2s')
 	// for child processes (e.g. the PowerShell upgrade scripts). When set, it takes

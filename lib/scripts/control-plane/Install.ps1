@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: © 2024 Siemens Healthineers AG
+# SPDX-FileCopyrightText: © 2026 Siemens Healthineers AG
 #
 # SPDX-License-Identifier: MIT
 
@@ -29,14 +29,16 @@ Param(
     [switch] $DeleteFilesForOfflineInstallation = $false,
     [parameter(Mandatory = $false, HelpMessage = 'Force the installation online. This option is needed if the files for an offline installation are available but you want to recreate them.')]
     [switch] $ForceOnlineInstallation = $false,
-    
+
     # These are specific developer options
     [parameter(Mandatory = $false, HelpMessage = 'Exit after initial checks')]
     [switch] $CheckOnly = $false,
     [parameter(Mandatory = $false, HelpMessage = 'Show all logs in terminal')]
     [switch] $ShowLogs = $false,
     [parameter(Mandatory = $false, HelpMessage = 'Use WSL2 for hosting KubeMaster VM')]
-    [switch] $WSL = $false
+    [switch] $WSL = $false,
+    [parameter(Mandatory = $true, HelpMessage = 'Internal normalized effective install configuration path')]
+    [string] $EffectiveInstallConfigPath
 )
 
 $installStopwatch = [system.diagnostics.stopwatch]::StartNew()
@@ -96,6 +98,7 @@ $controlPlaneNodeParams = @{
     CheckOnly = $CheckOnly
     WSL = $WSL
     DnsServers = $DnsAddresses
+    EffectiveInstallConfigPath = $EffectiveInstallConfigPath
 }
 # Install transparent proxy on Windows host before VM setup so that
 # kubeadm init inside the VM can pull images through it.
@@ -120,4 +123,3 @@ Install-WinDnsProxy -ListenIpAddresses @($windowsHostIpAddress) -UpstreamIpAddre
 Write-Log '---------------------------------------------------------------'
 Write-Log "K2s control plane node setup finished.   Total duration: $('{0:hh\:mm\:ss}' -f $installStopwatch.Elapsed )"
 Write-Log '---------------------------------------------------------------'
-

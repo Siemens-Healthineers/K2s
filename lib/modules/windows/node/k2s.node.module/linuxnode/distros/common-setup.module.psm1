@@ -1222,6 +1222,63 @@ Function Deploy-ClusterIPWebhook {
     Write-Log '[ClusterIP-Webhook] ClusterIP webhook deployed successfully' -Console
 }
 
+function Set-K2sLinuxKubeletOverride {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string] $EffectiveInstallConfigPath,
+        [Parameter(Mandatory = $true)]
+        [string] $UserName,
+        [string] $UserPwd = '',
+        [Parameter(Mandatory = $true)]
+        [string] $IpAddress
+    )
+
+    $content = Get-K2sKubeletOverrideContent -EffectiveInstallConfigPath $EffectiveInstallConfigPath -Role 'linuxControlPlane'
+    $targetPath = '/etc/kubernetes/kubelet.conf.d/20-k2s-install-config.conf'
+    $managedHeader = '# This file is managed by K2s. Do not edit.'
+    $managedHeaderEncoded = [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($managedHeader))
+
+    if ([string]::IsNullOrEmpty($content)) {
+        $removeCommand = "set -e; sudo mkdir -p /etc/kubernetes/kubelet.conf.d; target='$targetPath'; if sudo test -e `$target || sudo test -L `$target; then if ! sudo test -f `$target || sudo test -L `$target; then echo 'Refusing to remove non-regular kubelet drop-in collision' >&2; exit 42; fi; firstLineEncoded=`$(sudo head -n 1 `$target | tr -d '\r\n' | base64 -w0); if [ x`$firstLineEncoded != x$managedHeaderEncoded ]; then echo 'Refusing to remove unmanaged kubelet drop-in' >&2; exit 42; fi; sudo rm -f -- `$target; if sudo systemctl is-active --quiet kubelet; then sudo systemctl restart kubelet; fi; fi"
+        if ([string]::IsNullOrWhiteSpace($UserPwd)) {
+            $removeResult = Invoke-CmdOnVmViaSSHKey -CmdToExecute $removeCommand -UserName $UserName -IpAddress $IpAddress -NoLog
+        }
+        else {
+            $removeResult = Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute $removeCommand -RemoteUser "$UserName@$IpAddress" -RemoteUserPwd $UserPwd -NoLog
+        }
+        if (-not $removeResult.Success) {
+            throw "Failed to remove Linux control-plane kubelet override at '$targetPath': $($removeResult.Output)"
+        }
+        return
+    }
+
+    $localPath = Join-Path $env:TEMP ('20-k2s-install-config.' + [guid]::NewGuid().ToString('N') + '.conf')
+    $remotePath = '/tmp/' + [System.IO.Path]::GetFileName($localPath)
+    try {
+        [System.IO.File]::WriteAllText($localPath, $content, [System.Text.UTF8Encoding]::new($false))
+        if ([string]::IsNullOrWhiteSpace($UserPwd)) {
+            Copy-ToRemoteComputerViaSshKey -Source $localPath -Target $remotePath -UserName $UserName -IpAddress $IpAddress
+        }
+        else {
+            Copy-ToRemoteComputerViaUserAndPwd -Source $localPath -Target $remotePath -UserName $UserName -UserPwd $UserPwd -IpAddress $IpAddress
+        }
+
+        $applyCommand = "set -e; source='$remotePath'; target='$targetPath'; targetTemp='${targetPath}.tmp'; trap 'sudo rm -f -- `"`$source`" `"`$targetTemp`"' EXIT; if sudo test -e `$target || sudo test -L `$target; then if ! sudo test -f `$target || sudo test -L `$target; then echo 'Refusing to replace non-regular kubelet drop-in collision' >&2; exit 42; fi; firstLineEncoded=`$(sudo head -n 1 `$target | tr -d '\r\n' | base64 -w0); if [ x`$firstLineEncoded != x$managedHeaderEncoded ]; then echo 'Refusing to replace unmanaged kubelet drop-in' >&2; exit 42; fi; if sudo cmp -s `$source `$target; then exit 0; fi; fi; sudo mkdir -p /etc/kubernetes/kubelet.conf.d; sudo cp `$source `$targetTemp; sudo chmod 0644 `$targetTemp; sudo mv -f `$targetTemp `$target; if sudo systemctl is-active --quiet kubelet; then sudo systemctl restart kubelet; fi"
+        if ([string]::IsNullOrWhiteSpace($UserPwd)) {
+            $applyResult = Invoke-CmdOnVmViaSSHKey -CmdToExecute $applyCommand -UserName $UserName -IpAddress $IpAddress -NoLog
+        }
+        else {
+            $applyResult = Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute $applyCommand -RemoteUser "$UserName@$IpAddress" -RemoteUserPwd $UserPwd -NoLog
+        }
+        if (-not $applyResult.Success) {
+            throw "Failed to apply Linux control-plane kubelet override at '$targetPath': $($applyResult.Output)"
+        }
+    }
+    finally {
+        Remove-Item -LiteralPath $localPath -Force -ErrorAction SilentlyContinue
+    }
+}
+
 Function Set-UpMasterNode {
     param (
         [ValidateScript({ !([string]::IsNullOrWhiteSpace($_)) })]
@@ -1246,7 +1303,9 @@ Function Set-UpMasterNode {
         [ScriptBlock] $Hook = $(throw 'Argument missing: Hook'),
         [ValidateScript({ !([string]::IsNullOrWhiteSpace($_)) })]
         [string] $ClusterName = $(throw 'Argument missing: ClusterName'),
-        [switch] $ForceOnlineInstallation = $false
+        [switch] $ForceOnlineInstallation = $false,
+        [Parameter(Mandatory = $true)]
+        [string] $EffectiveInstallConfigPath
     )
 
     $remoteUser = "$UserName@$IpAddress"
@@ -1275,6 +1334,10 @@ apiVersion: kubeadm.k8s.io/v1beta4
 kind: InitConfiguration
 localAPIEndpoint:
   advertiseAddress: "$IpAddress"
+nodeRegistration:
+  kubeletExtraArgs:
+    - name: "config-dir"
+      value: "/etc/kubernetes/kubelet.conf.d"
 ---
 apiVersion: kubeadm.k8s.io/v1beta4
 kind: ClusterConfiguration
@@ -1318,6 +1381,8 @@ failCgroupV1: false
     else {
         Write-Log "[KubeInit] Skipping image pre-pull (offline install - images already included in base image)" -Console
     }
+
+    Set-K2sLinuxKubeletOverride -EffectiveInstallConfigPath $EffectiveInstallConfigPath -UserName $UserName -UserPwd $UserPwd -IpAddress $IpAddress
 
     &$executeRemoteCommand 'mkdir -p ~/tmp/kubeadm-init'
     &$executeRemoteCommand "echo '$initConfig' | sudo tee ~/tmp/kubeadm-init/kubeadm-init.yaml"    
@@ -2321,7 +2386,12 @@ function Invoke-RemoteScript {
         
         [switch]$CleanupAfterExecution,
         
-        [uint16]$Retries = 3
+        [uint16]$Retries = 3,
+
+        # Opt-in flag (currently used by the Ceph storage addon) that adds a start marker,
+        # per-line output logging and an execution-duration line. Left off by default so all
+        # other callers keep their original single 'Script output:' log line behavior.
+        [switch]$DetailedLogging
     )
     
     # Generate remote script path (always /tmp), using the original script filename
@@ -2354,21 +2424,65 @@ function Invoke-RemoteScript {
     $remoteUser = "$UserName@$IpAddress"
     $executeRemoteCommand = {
         param($Command)
+
+        $execution = $null
         if ([string]::IsNullOrWhiteSpace($UserPwd)) {
-            (Invoke-CmdOnVmViaSSHKey -CmdToExecute $Command -UserName $UserName -IpAddress $IpAddress -Retries $Retries).Output
+            $execution = Invoke-CmdOnVmViaSSHKey -CmdToExecute $Command -UserName $UserName -IpAddress $IpAddress -Retries $Retries
         }
         else {
-            (Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute $Command -RemoteUser "$remoteUser" -RemoteUserPwd "$UserPwd" -Retries $Retries).Output
+            $execution = Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute $Command -RemoteUser "$remoteUser" -RemoteUserPwd "$UserPwd" -Retries $Retries
         }
+
+        if (-not $execution.Success) {
+            $executionOutput = ($execution.Output | Out-String).Trim()
+            if ([string]::IsNullOrWhiteSpace($executionOutput)) {
+                throw "Remote command failed: $Command"
+            }
+
+            throw "Remote command failed: $Command`n$executionOutput"
+        }
+
+        return $execution.Output
     }
     
     # Strip Windows CRLF line endings (\r) before executing - scripts copied from Windows
     # may have \r\n endings which cause bash to fail finding the interpreter in the shebang line.
     &$executeRemoteCommand "sed -i 's/\r//' $RemoteScriptPath" | Out-Null
 
-    $result = &$executeRemoteCommand "chmod +x $RemoteScriptPath && $RemoteScriptPath $argumentString"
-    
-    Write-Log "Script output: $result"
+    if ($DetailedLogging) {
+        $scriptLeafName = Split-Path -Leaf $RemoteScriptPath
+        Write-Log "[RemoteScript:$scriptLeafName] Execution started"
+        $remoteExecStopwatch = [System.Diagnostics.Stopwatch]::StartNew()
+
+        $result = &$executeRemoteCommand "chmod +x $RemoteScriptPath && $RemoteScriptPath $argumentString"
+
+        $remoteExecStopwatch.Stop()
+
+        # Log the captured remote output line-by-line so each line becomes its own timestamped log
+        # entry (far easier to read and correlate than the single bulk 'Script output:' line).
+        # NOTE: the remote command's stdout is only available after the script returns, so these
+        # timestamps reflect log-write time on the Windows host, not the instant each line was produced
+        # on the remote node. The '[RemoteScript:<name>] completed in <n>s' line below is therefore the
+        # authoritative measure of how long the remote step actually took.
+        $remoteOutputLines = ($result | Out-String) -split "`n" | ForEach-Object { $_.TrimEnd("`r") }
+        $hasRemoteOutput = $false
+        foreach ($remoteLine in $remoteOutputLines) {
+            if (-not [string]::IsNullOrWhiteSpace($remoteLine)) {
+                Write-Log "[RemoteScript:$scriptLeafName] $remoteLine"
+                $hasRemoteOutput = $true
+            }
+        }
+        if (-not $hasRemoteOutput) {
+            Write-Log "[RemoteScript:$scriptLeafName] (no output)"
+        }
+
+        Write-Log "[RemoteScript:$scriptLeafName] completed in $([math]::Round($remoteExecStopwatch.Elapsed.TotalSeconds, 1))s"
+    }
+    else {
+        $result = &$executeRemoteCommand "chmod +x $RemoteScriptPath && $RemoteScriptPath $argumentString"
+
+        Write-Log "Script output: $result"
+    }
     
     # Cleanup
     if ($CleanupAfterExecution) {
@@ -2434,6 +2548,7 @@ Get-DirectoryOfLinuxNodeArtifactsOnWindowsHost,
 Get-PathOfLinuxNodeArtifactsPackageOnWindowsHost,
 Copy-KubernetesImagesFromControlPlaneNodeToWindowsHost,
 Update-CoreDNSConfigurationviaSSH,
+Set-K2sLinuxKubeletOverride,
 Set-UpMasterNode,
 Set-HypervDynamicMemory,
 Get-LinuxScriptPath,

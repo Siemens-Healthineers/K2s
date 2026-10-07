@@ -39,7 +39,7 @@ $storageClassReclaimPlaceholder = 'SC_RECLAIM_POLICY'
 $kustomizeResourcesPlaceholder = 'SC_RESOURCES'
 $generatedPrefix = 'generated_'
 
-$storageClassTimeoutSeconds = 600
+$storageClassTimeoutSeconds = 900
 $namespace = 'storage-smb'
 
 $configFilePath = "$PSScriptRoot\..\config\SmbStorage.json"
