@@ -1,5 +1,5 @@
 <!--
-SPDX-FileCopyrightText: © 2024 Siemens Healthineers AG
+SPDX-FileCopyrightText: © 2026 Siemens Healthineers AG
 SPDX-License-Identifier: MIT
 -->
 
@@ -59,7 +59,14 @@ k2s system upgrade --force
 ```
 
 ### Configuration Override
-If you omit `-c`, the previous cluster's effective settings (memory, CPU, storage paths) are reused. To change them during an upgrade, provide a config file as described in [Installing Using Config Files](installing-k2s.md#installing-using-config-files).
+Before uninstalling the current cluster, a full Windows-host upgrade stages the protected effective install configuration linked from `setup.json`.
+
+- Without `-c`, the staged configuration is reused, including managed `kubeletOverrides`.
+- With `-c`, the supplied file is normalized and replaces the effective snapshot only after installation succeeds.
+- If installation fails, rollback uses the staged previous configuration rather than the newly requested file.
+- A legacy installation without an effective snapshot upgrades without managed kubelet overrides.
+
+The snapshot is internal, stored next to `setup.json`, and separate from `cfg\config.json`. To change settings during an upgrade, provide a config file as described in [Installing Using Config Files](installing-k2s.md#installing-using-config-files).
 
 !!! info "Memory Configuration Preservation"
     During upgrade, **all memory settings are automatically preserved**, including:
@@ -86,10 +93,11 @@ Internally the following high‑level steps are performed:
 8. Final cluster availability validation.
 
 ### Rollback Considerations
-There is no automatic rollback. If an upgrade fails:
+If the new installation fails during a full upgrade, K2s attempts to reinstall the previous version with the staged previous effective configuration. If that rollback also fails:
+
 - Review logs under the K2s log directory.
 - Re-run with increased verbosity (if supported) or `--force` only after assessing the cause.
-- If recovery is not feasible, you can reinstall the previous version then import a backup (if you captured one beforehand) or re-run your deployment manifests.
+- If recovery is not feasible, reinstall the previous version and import a backup, or re-run deployment manifests.
 
 ### Backups (Recommended)
 Before upgrading across more than one minor version, back up:

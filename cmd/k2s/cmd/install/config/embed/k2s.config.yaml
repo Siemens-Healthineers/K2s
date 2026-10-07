@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: © 2024 Siemens Healthineers AG
+# SPDX-FileCopyrightText: © 2026 Siemens Healthineers AG
 #
 # SPDX-License-Identifier: MIT
 
@@ -23,3 +23,25 @@ installBehavior:
   wsl: false # default
   appendLog: false # default
   skipStart: false # default
+# Optional role-based kubelet overrides:
+# kubeletOverrides:
+#   linuxControlPlane:
+#     enabled: true
+#     config:
+#       maxPods: 100
+#       systemReserved:
+#         cpu: "500m"
+#         memory: "1Gi"
+#       kubeReserved:
+#         cpu: "250m"
+#         memory: "512Mi"
+#   windowsWorker:
+#     enabled: true
+#     config:
+#       maxPods: 100
+#       systemReserved:
+#         cpu: "500m"
+#         memory: "1Gi"
+#       kubeReserved:
+#         cpu: "250m"
+#         memory: "512Mi"

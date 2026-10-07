@@ -495,6 +495,26 @@ var _ = Describe("config", func() {
 				Expect(actual.Kind).To(Equal(kind))
 				Expect(actual.ApiVersion).To(Equal(apiVersion))
 			})
+
+			It("converts user-facing environment keys for snapshot reuse", func() {
+				config := viper.New()
+				config.Set("env.httpProxy", "http://proxy")
+				config.Set("env.noProxy", []string{"localhost"})
+				config.Set("env.additionalHooksDir", "C:\\hooks")
+				config.Set("env.restartPostInstallCount", "2")
+				config.Set("env.k8sBins", "C:\\bins")
+
+				actual, err := (&viperConfigConverter{}).convert(config)
+
+				Expect(err).ToNot(HaveOccurred())
+				Expect(actual.Env).To(Equal(EnvConfig{
+					Proxy:              "http://proxy",
+					NoProxy:            []string{"localhost"},
+					AdditionalHooksDir: "C:\\hooks",
+					RestartPostInstall: "2",
+					K8sBins:            "C:\\bins",
+				}))
+			})
 		})
 	})
 
