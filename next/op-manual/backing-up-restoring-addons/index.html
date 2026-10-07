@@ -19,7 +19,7 @@ SPDX-License-Identifier: MIT
         <link rel="prev" href="../backing-up-restoring-system/">
       
       
-        <link rel="next" href="../gitops-addon-delivery/">
+        <link rel="next" href="../ceph-storage/">
       
       
         
@@ -973,6 +973,8 @@ You're not viewing the latest release version.
       
         
       
+        
+      
     
     
     
@@ -1816,6 +1818,17 @@ You're not viewing the latest release version.
 </li>
         
           <li class="md-nav__item">
+  <a href="#storage-ceph" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        storage ceph
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#viewer" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1856,6 +1869,156 @@ You're not viewing the latest release version.
     </ul>
   
 </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4_17" >
+        
+          
+          <label class="md-nav__link" for="__nav_4_17" id="__nav_4_17_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Ceph Storage
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_4_17_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4_17">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Ceph Storage
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../ceph-storage/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../ceph-storage-linux/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Linux Workloads
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../ceph-storage-cross-os/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Cross-OS Shared Workloads
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
       
     </li>
   
@@ -3364,6 +3527,17 @@ You're not viewing the latest release version.
 </li>
         
           <li class="md-nav__item">
+  <a href="#storage-ceph" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        storage ceph
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#viewer" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -3654,6 +3828,12 @@ SPDX-License-Identifier: MIT
 <td>Disable/enable cycle with <code>-Keep</code>; works offline</td>
 </tr>
 <tr>
+<td><strong>storage ceph</strong></td>
+<td>Config</td>
+<td>Ceph connection configuration (<code>clusterHostNode</code>, <code>cephfsPool</code>, <code>cephfsFilesystem</code>)</td>
+<td>No user data copied — a fresh Ceph cluster is provisioned on re-enable</td>
+</tr>
+<tr>
 <td><strong>viewer</strong></td>
 <td>Config</td>
 <td>ConfigMap, Service, ingress resources, Traefik middleware</td>
@@ -3728,6 +3908,9 @@ SPDX-License-Identifier: MIT
 <h3 id="storage-smb">storage smb</h3>
 <p><strong>Backup:</strong> Copies the <code>SmbStorage.json</code> configuration file, an addon config snapshot from <code>setup.json</code>, and the <abbr title="Server Message Block">SMB</abbr> share data from the Windows mount path. Works even when the cluster is not running (local data only).</p>
 <p><strong>Restore:</strong> Restores the config snapshot, determines the <abbr title="Server Message Block">SMB</abbr> host type from addon configuration, performs a disable/enable cycle with the <code>-Keep</code> flag, then restores the share data.</p>
+<h3 id="storage-ceph">storage ceph</h3>
+<p><strong>Backup:</strong> Snapshots the Ceph connection configuration (<code>clusterHostNode</code>, plus the <code>cephfsPool</code> / <code>cephfsFilesystem</code> names from <code>config/ceph-config.json</code>) into a zip archive. It also records whether the addon had been enabled with Windows <abbr title="Server Message Block">SMB</abbr> support (<code>-w</code>) so restore can replay the same enable mode. No user data is copied — it resides in the provisioned Ceph cluster.</p>
+<p><strong>Restore:</strong> Re-applies the configuration snapshot and re-enables the addon, which provisions a fresh single-node Ceph cluster on the configured Debian 13 node. If the original backup was taken from a <code>storage ceph -w</code> deployment, restore re-enables the Ceph <abbr title="Server Message Block">SMB</abbr> Windows path as well. The same configuration is preserved automatically across <code>k2s system backup</code>/<code>restore</code>/<code>upgrade</code> via backup/restore hooks registered while the addon is enabled.</p>
 <h3 id="viewer">viewer</h3>
 <p><strong>Backup:</strong> Exports the <code>config-json</code> ConfigMap, the <code>viewerwebapp</code> Service, and ingress resources for all three ingress types, plus the Traefik <code>oauth2-proxy-auth</code> Middleware.</p>
 <p><strong>Restore:</strong> Detects the active ingress controller, waits for the viewer deployment, applies resources with ingress-aware filtering (skips non-matching), handles missing CRDs gracefully. Runs <code>Update.ps1</code>.</p>
@@ -3875,13 +4058,13 @@ SPDX-License-Identifier: MIT
         
         
           
-          <a href="../gitops-addon-delivery/" class="md-footer__link md-footer__link--next" aria-label="Next: GitOps Addon Delivery">
+          <a href="../ceph-storage/" class="md-footer__link md-footer__link--next" aria-label="Next: Overview">
             <div class="md-footer__title">
               <span class="md-footer__direction">
                 Next
               </span>
               <div class="md-ellipsis">
-                GitOps Addon Delivery
+                Overview
               </div>
             </div>
             <div class="md-footer__button md-icon">

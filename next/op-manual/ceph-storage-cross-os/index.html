@@ -13,13 +13,13 @@ SPDX-License-Identifier: MIT
       
       
       
-        <link rel="canonical" href="https://Siemens-Healthineers.github.io/K2s/next/user-guide/proxy-configuration/">
+        <link rel="canonical" href="https://Siemens-Healthineers.github.io/K2s/next/op-manual/ceph-storage-cross-os/">
       
       
-        <link rel="prev" href="../certificate-management/">
+        <link rel="prev" href="../ceph-storage-linux/">
       
       
-        <link rel="next" href="../adding-container-registry/">
+        <link rel="next" href="../gitops-addon-delivery/">
       
       
         
@@ -30,7 +30,7 @@ SPDX-License-Identifier: MIT
     
     
       
-        <title>Proxy Configuration - K2s - Kubernetes distribution for Windows & Linux workloads</title>
+        <title>Cross-OS Shared Workloads - K2s - Kubernetes distribution for Windows & Linux workloads</title>
       
     
     
@@ -83,7 +83,7 @@ SPDX-License-Identifier: MIT
     <div data-md-component="skip">
       
         
-        <a href="#proxy-configuration" class="md-skip">
+        <a href="#ceph-storage-for-cross-os-shared-workloads" class="md-skip">
           Skip to content
         </a>
       
@@ -134,7 +134,7 @@ You're not viewing the latest release version.
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              Proxy Configuration
+              Cross-OS Shared Workloads
             
           </span>
         </div>
@@ -285,13 +285,11 @@ You're not viewing the latest release version.
   
   
   
-    
-  
   
     
     
-      <li class="md-tabs__item md-tabs__item--active">
-        <a href="../hosting-variants/" class="md-tabs__link">
+      <li class="md-tabs__item">
+        <a href="../../user-guide/hosting-variants/" class="md-tabs__link">
           
   
   
@@ -309,11 +307,13 @@ You're not viewing the latest release version.
   
   
   
+    
+  
   
     
     
-      <li class="md-tabs__item">
-        <a href="../../op-manual/os-support/" class="md-tabs__link">
+      <li class="md-tabs__item md-tabs__item--active">
+        <a href="../os-support/" class="md-tabs__link">
           
   
   
@@ -551,12 +551,409 @@ You're not viewing the latest release version.
       
   
   
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    User Guide
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    User Guide
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../user-guide/hosting-variants/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Hosting Variants
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../user-guide/k2s-cli/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    k2s CLI
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../user-guide/cli-shortcuts/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    CLI Shortcuts
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../user-guide/addons/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Addons
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../user-guide/gpu-node/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    GPU Node
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../user-guide/cluster-ip-addresses/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Assignment of Cluster IP Addresses for Services
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../user-guide/certificate-management/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Certificate Management
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../user-guide/proxy-configuration/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Proxy Configuration
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../user-guide/adding-container-registry/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Adding a Container Registry
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../user-guide/building-container-image/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Building a Container Image
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
     
   
   
   
     
     
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
       
         
       
@@ -592,17 +989,17 @@ You're not viewing the latest release version.
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" checked>
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" checked>
         
           
-          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="">
+          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="">
             
   
   
   <span class="md-ellipsis">
     
   
-    User Guide
+    Operator Manual
   
 
     
@@ -613,12 +1010,12 @@ You're not viewing the latest release version.
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="true">
-          <label class="md-nav__title" for="__nav_3">
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_4">
             <span class="md-nav__icon md-icon"></span>
             
   
-    User Guide
+    Operator Manual
   
 
           </label>
@@ -631,14 +1028,14 @@ You're not viewing the latest release version.
   
   
     <li class="md-nav__item">
-      <a href="../hosting-variants/" class="md-nav__link">
+      <a href="../os-support/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    Hosting Variants
+    Supported OS Versions
   
 
     
@@ -659,14 +1056,14 @@ You're not viewing the latest release version.
   
   
     <li class="md-nav__item">
-      <a href="../k2s-cli/" class="md-nav__link">
+      <a href="../getting-k2s/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    k2s CLI
+    Getting K2s
   
 
     
@@ -687,14 +1084,14 @@ You're not viewing the latest release version.
   
   
     <li class="md-nav__item">
-      <a href="../cli-shortcuts/" class="md-nav__link">
+      <a href="../creating-offline-package/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    CLI Shortcuts
+    Creating Offline Package
   
 
     
@@ -715,14 +1112,14 @@ You're not viewing the latest release version.
   
   
     <li class="md-nav__item">
-      <a href="../addons/" class="md-nav__link">
+      <a href="../delta-packages/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    Addons
+    Delta Packages
   
 
     
@@ -743,14 +1140,14 @@ You're not viewing the latest release version.
   
   
     <li class="md-nav__item">
-      <a href="../gpu-node/" class="md-nav__link">
+      <a href="../installing-k2s/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    GPU Node
+    Installing K2s
   
 
     
@@ -771,14 +1168,14 @@ You're not viewing the latest release version.
   
   
     <li class="md-nav__item">
-      <a href="../cluster-ip-addresses/" class="md-nav__link">
+      <a href="../configuration-reference/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    Assignment of Cluster IP Addresses for Services
+    Configuration Reference
   
 
     
@@ -799,14 +1196,382 @@ You're not viewing the latest release version.
   
   
     <li class="md-nav__item">
-      <a href="../certificate-management/" class="md-nav__link">
+      <a href="../customizing-kubelet/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    Certificate Management
+    Customizing Kubelet Configuration
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../starting-k2s/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Starting K2s
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../checking-k2s-status/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Checking K2s Status
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../adding-k2s-users/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Adding K2s Users
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../stopping-k2s/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Stopping K2s
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../upgrading-k2s/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Upgrading K2s
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../compacting-vhdx-storage/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Compacting VHDX Storage
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../hook-system/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Hook System
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../backing-up-restoring-system/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Backing Up and Restoring the System
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../backing-up-restoring-addons/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Backing Up and Restoring Addons
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4_17" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_4_17" id="__nav_4_17_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Ceph Storage
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_4_17_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_4_17">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Ceph Storage
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../ceph-storage/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../ceph-storage-linux/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Linux Workloads
   
 
     
@@ -843,7 +1608,7 @@ You're not viewing the latest release version.
   <span class="md-ellipsis">
     
   
-    Proxy Configuration
+    Cross-OS Shared Workloads
   
 
     
@@ -861,7 +1626,7 @@ You're not viewing the latest release version.
   <span class="md-ellipsis">
     
   
-    Proxy Configuration
+    Cross-OS Shared Workloads
   
 
     
@@ -887,10 +1652,10 @@ You're not viewing the latest release version.
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#how-it-works" class="md-nav__link">
+  <a href="#scope-and-constraints" class="md-nav__link">
     <span class="md-ellipsis">
       
-        How It Works
+        Scope and constraints
       
     </span>
   </a>
@@ -898,121 +1663,10 @@ You're not viewing the latest release version.
 </li>
       
         <li class="md-nav__item">
-  <a href="#commands" class="md-nav__link">
+  <a href="#performance-recommendation" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Commands
-      
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="Commands">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#set-proxy" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Set proxy
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#get-proxy" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Get proxy
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#show-proxy-details" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Show proxy details
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#reset-proxy" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Reset proxy
-      
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#proxy-overrides-no-proxy" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Proxy Overrides (No-Proxy)
-      
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="Proxy Overrides (No-Proxy)">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#add-overrides" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Add overrides
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#delete-overrides" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Delete overrides
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#list-overrides" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        List overrides
-      
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#typical-workflow" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Typical Workflow
+        Performance recommendation
       
     </span>
   </a>
@@ -1020,10 +1674,54 @@ You're not viewing the latest release version.
 </li>
       
         <li class="md-nav__item">
-  <a href="#see-also" class="md-nav__link">
+  <a href="#ceph-references" class="md-nav__link">
     <span class="md-ellipsis">
       
-        See Also
+        Ceph references
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#prerequisites" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Prerequisites
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#offline-setup-using-addon-exportimport" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Offline setup using addon export/import
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#verify-smb-path" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Verify SMB path
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#example-cross-os-readwrite-validation-with-ceph-smb" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Example: Cross-OS read/write validation with Ceph SMB
       
     </span>
   </a>
@@ -1039,769 +1737,6 @@ You're not viewing the latest release version.
 
               
             
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../adding-container-registry/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Adding a Container Registry
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../building-container-image/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Building a Container Image
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-          </ul>
-        </nav>
-      
-    </li>
-  
-
-    
-      
-      
-  
-  
-  
-  
-    
-    
-      
-        
-      
-        
-      
-        
-      
-        
-      
-        
-      
-        
-      
-        
-      
-        
-      
-        
-      
-        
-      
-        
-      
-        
-      
-        
-      
-        
-      
-        
-      
-        
-      
-        
-      
-        
-      
-        
-      
-        
-      
-        
-      
-        
-      
-        
-      
-        
-      
-        
-      
-        
-      
-        
-      
-        
-      
-        
-      
-    
-    
-    
-      
-      
-    
-    
-    <li class="md-nav__item md-nav__item--nested">
-      
-        
-        
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" >
-        
-          
-          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="0">
-            
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Operator Manual
-  
-
-    
-  </span>
-  
-  
-
-            <span class="md-nav__icon md-icon"></span>
-          </label>
-        
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_4">
-            <span class="md-nav__icon md-icon"></span>
-            
-  
-    Operator Manual
-  
-
-          </label>
-          <ul class="md-nav__list" data-md-scrollfix>
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../op-manual/os-support/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Supported OS Versions
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../op-manual/getting-k2s/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Getting K2s
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../op-manual/creating-offline-package/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Creating Offline Package
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../op-manual/delta-packages/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Delta Packages
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../op-manual/installing-k2s/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Installing K2s
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../op-manual/configuration-reference/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Configuration Reference
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../op-manual/customizing-kubelet/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Customizing Kubelet Configuration
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../op-manual/starting-k2s/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Starting K2s
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../op-manual/checking-k2s-status/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Checking K2s Status
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../op-manual/adding-k2s-users/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Adding K2s Users
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../op-manual/stopping-k2s/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Stopping K2s
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../op-manual/upgrading-k2s/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Upgrading K2s
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../op-manual/compacting-vhdx-storage/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Compacting VHDX Storage
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../op-manual/hook-system/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Hook System
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../op-manual/backing-up-restoring-system/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Backing Up and Restoring the System
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../op-manual/backing-up-restoring-addons/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Backing Up and Restoring Addons
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    
-    
-      
-        
-      
-        
-      
-        
-      
-    
-    
-    
-      
-      
-    
-    
-    <li class="md-nav__item md-nav__item--nested">
-      
-        
-        
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4_17" >
-        
-          
-          <label class="md-nav__link" for="__nav_4_17" id="__nav_4_17_label" tabindex="0">
-            
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Ceph Storage
-  
-
-    
-  </span>
-  
-  
-
-            <span class="md-nav__icon md-icon"></span>
-          </label>
-        
-        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_4_17_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_4_17">
-            <span class="md-nav__icon md-icon"></span>
-            
-  
-    Ceph Storage
-  
-
-          </label>
-          <ul class="md-nav__list" data-md-scrollfix>
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../op-manual/ceph-storage/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Overview
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../op-manual/ceph-storage-linux/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Linux Workloads
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../op-manual/ceph-storage-cross-os/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Cross-OS Shared Workloads
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
           </ul>
         </nav>
       
@@ -1817,7 +1752,7 @@ You're not viewing the latest release version.
   
   
     <li class="md-nav__item">
-      <a href="../../op-manual/gitops-addon-delivery/" class="md-nav__link">
+      <a href="../gitops-addon-delivery/" class="md-nav__link">
         
   
   
@@ -1845,7 +1780,7 @@ You're not viewing the latest release version.
   
   
     <li class="md-nav__item">
-      <a href="../../op-manual/external-dns/" class="md-nav__link">
+      <a href="../external-dns/" class="md-nav__link">
         
   
   
@@ -1873,7 +1808,7 @@ You're not viewing the latest release version.
   
   
     <li class="md-nav__item">
-      <a href="../../op-manual/native-linux-host-dns/" class="md-nav__link">
+      <a href="../native-linux-host-dns/" class="md-nav__link">
         
   
   
@@ -1901,7 +1836,7 @@ You're not viewing the latest release version.
   
   
     <li class="md-nav__item">
-      <a href="../../op-manual/extending-k2s-cluster/" class="md-nav__link">
+      <a href="../extending-k2s-cluster/" class="md-nav__link">
         
   
   
@@ -1929,7 +1864,7 @@ You're not viewing the latest release version.
   
   
     <li class="md-nav__item">
-      <a href="../../op-manual/secure-host-access/" class="md-nav__link">
+      <a href="../secure-host-access/" class="md-nav__link">
         
   
   
@@ -1957,7 +1892,7 @@ You're not viewing the latest release version.
   
   
     <li class="md-nav__item">
-      <a href="../../op-manual/networking-architecture/" class="md-nav__link">
+      <a href="../networking-architecture/" class="md-nav__link">
         
   
   
@@ -1985,7 +1920,7 @@ You're not viewing the latest release version.
   
   
     <li class="md-nav__item">
-      <a href="../../op-manual/running-apps-as-hostprocess/" class="md-nav__link">
+      <a href="../running-apps-as-hostprocess/" class="md-nav__link">
         
   
   
@@ -2013,7 +1948,7 @@ You're not viewing the latest release version.
   
   
     <li class="md-nav__item">
-      <a href="../../op-manual/integrating-native-processes/" class="md-nav__link">
+      <a href="../integrating-native-processes/" class="md-nav__link">
         
   
   
@@ -2041,7 +1976,7 @@ You're not viewing the latest release version.
   
   
     <li class="md-nav__item">
-      <a href="../../op-manual/uninstalling-k2s/" class="md-nav__link">
+      <a href="../uninstalling-k2s/" class="md-nav__link">
         
   
   
@@ -2069,7 +2004,7 @@ You're not viewing the latest release version.
   
   
     <li class="md-nav__item">
-      <a href="../../op-manual/log-folder/" class="md-nav__link">
+      <a href="../log-folder/" class="md-nav__link">
         
   
   
@@ -2097,7 +2032,7 @@ You're not viewing the latest release version.
   
   
     <li class="md-nav__item">
-      <a href="../../op-manual/signcatalog-k2s/" class="md-nav__link">
+      <a href="../signcatalog-k2s/" class="md-nav__link">
         
   
   
@@ -2125,7 +2060,7 @@ You're not viewing the latest release version.
   
   
     <li class="md-nav__item">
-      <a href="../../op-manual/code-signing/" class="md-nav__link">
+      <a href="../code-signing/" class="md-nav__link">
         
   
   
@@ -3002,10 +2937,10 @@ You're not viewing the latest release version.
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#how-it-works" class="md-nav__link">
+  <a href="#scope-and-constraints" class="md-nav__link">
     <span class="md-ellipsis">
       
-        How It Works
+        Scope and constraints
       
     </span>
   </a>
@@ -3013,121 +2948,10 @@ You're not viewing the latest release version.
 </li>
       
         <li class="md-nav__item">
-  <a href="#commands" class="md-nav__link">
+  <a href="#performance-recommendation" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Commands
-      
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="Commands">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#set-proxy" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Set proxy
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#get-proxy" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Get proxy
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#show-proxy-details" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Show proxy details
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#reset-proxy" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Reset proxy
-      
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#proxy-overrides-no-proxy" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Proxy Overrides (No-Proxy)
-      
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="Proxy Overrides (No-Proxy)">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#add-overrides" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Add overrides
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#delete-overrides" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Delete overrides
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#list-overrides" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        List overrides
-      
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#typical-workflow" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Typical Workflow
+        Performance recommendation
       
     </span>
   </a>
@@ -3135,10 +2959,54 @@ You're not viewing the latest release version.
 </li>
       
         <li class="md-nav__item">
-  <a href="#see-also" class="md-nav__link">
+  <a href="#ceph-references" class="md-nav__link">
     <span class="md-ellipsis">
       
-        See Also
+        Ceph references
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#prerequisites" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Prerequisites
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#offline-setup-using-addon-exportimport" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Offline setup using addon export/import
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#verify-smb-path" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Verify SMB path
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#example-cross-os-readwrite-validation-with-ceph-smb" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Example: Cross-OS read/write validation with Ceph SMB
       
     </span>
   </a>
@@ -3162,7 +3030,7 @@ You're not viewing the latest release version.
 
 
   
-    <a href="https://github.com/Siemens-Healthineers/K2s/edit/main/docs/user-guide/proxy-configuration.md" title="Edit this page" class="md-content__button md-icon" rel="edit">
+    <a href="https://github.com/Siemens-Healthineers/K2s/edit/main/docs/op-manual/ceph-storage-cross-os.md" title="Edit this page" class="md-content__button md-icon" rel="edit">
       
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M10 20H6V4h7v5h5v3.1l2-2V8l-6-6H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h4zm10.2-7c.1 0 .3.1.4.2l1.3 1.3c.2.2.2.6 0 .8l-1 1-2.1-2.1 1-1c.1-.1.2-.2.4-.2m0 3.9L14.1 23H12v-2.1l6.1-6.1z"/></svg>
     </a>
@@ -3172,144 +3040,187 @@ You're not viewing the latest release version.
 
 <!--
 SPDX-FileCopyrightText: © 2026 Siemens Healthineers AG
+
 SPDX-License-Identifier: MIT
 -->
 
-<h1 id="proxy-configuration">Proxy Configuration</h1>
-<p>If your environment requires an <abbr title="Hypertext Transfer Protocol">HTTP</abbr> proxy to access external networks (e.g., corporate firewalls), <em>K2s</em> can route all outbound traffic from both the Windows host and the Linux <abbr title="Virtual Machine">VM</abbr> through a proxy server.</p>
-<p>This page covers configuring the proxy <strong>after</strong> installation. To set a proxy <strong>during</strong> installation, use the <code>--proxy</code> flag — see <a href="../k2s-cli/#install">k2s <abbr title="Command-Line Interface">CLI</abbr> – install</a>.</p>
-<h2 id="how-it-works">How It Works</h2>
-<p><em>K2s</em> runs a transparent <abbr title="Hypertext Transfer Protocol">HTTP</abbr> proxy service (<code>httpproxy</code>) on the Windows host. When you configure a proxy, the following happens:</p>
+<h1 id="ceph-storage-for-cross-os-shared-workloads">Ceph Storage for Cross-<abbr title="Operating System">OS</abbr> Shared Workloads</h1>
+<p>Windows pods cannot use the native CephFS CSI node plugin directly. In K2s, Windows consumes CephFS through <abbr title="Server Message Block">SMB</abbr>.</p>
+<p>Use this guide when both Linux and Windows containers need to communicate through the same shared storage.</p>
+<h2 id="scope-and-constraints">Scope and constraints</h2>
+<ul>
+<li>This path uses the Ceph <abbr title="Server Message Block">SMB</abbr> provisioner <code>smb.csi.k8s.io</code> via StorageClass <code>ceph-smb</code>.</li>
+<li><code>storage ceph</code> and <code>storage smb</code> cannot be enabled together.</li>
+<li>Disabling Ceph removes the full Ceph cluster created by the addon, including OSD resources and Ceph-backed PVs from this setup.</li>
+</ul>
+<p>For mixed Linux and Windows workloads, use Ceph with <code>-w</code>: Linux workloads consume <code>ceph-cephfs</code>, while Windows workloads consume <code>ceph-smb</code>.</p>
+<h2 id="performance-recommendation">Performance recommendation</h2>
+<p>For maximum Ceph performance in mixed <abbr title="Operating System">OS</abbr> environments, prefer:</p>
+<ul>
+<li>multiple OSDs with larger capacity,</li>
+<li>multiple dedicated OSD nodes,</li>
+<li>OSD placement not limited to the master/control-plane node.</li>
+</ul>
+<h2 id="ceph-references">Ceph references</h2>
+<ul>
+<li><a href="https://docs.ceph.com/en/latest/cephfs/fs-volumes/">CephFS volumes and subvolumes</a></li>
+<li><a href="https://docs.ceph.com/en/latest/architecture/#object-storage-daemon-osd">Ceph OSD architecture overview</a></li>
+<li><a href="https://docs.ceph.com/en/latest/start/hardware-recommendations/">Ceph hardware recommendations</a></li>
+</ul>
+<h2 id="prerequisites">Prerequisites</h2>
+<p>Enable Ceph with Windows <abbr title="Server Message Block">SMB</abbr> integration:</p>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="go">k2s addons enable storage ceph -w</span>
+</code></pre></div>
+<p>This creates:</p>
+<ul>
+<li><code>ceph-smb</code> StorageClass (provisioner <code>smb.csi.k8s.io</code>)</li>
+<li><abbr title="Server Message Block">SMB</abbr> CSI controller and node plugins in <code>smb.namespace</code> (default <code>storage-smb-ceph</code>)</li>
+<li>A Ceph <code>mgr/smb</code> share backed by a CephFS subvolume</li>
+</ul>
+<p>The Windows <abbr title="Server Message Block">SMB</abbr> user is created automatically by the Ceph <code>mgr/smb</code> setup. If no custom <code>smb.userName</code> is configured in <code>config/ceph-config.json</code>, the default user name is <code>smbuser</code>. K2s then generates a random password and stores it in the Kubernetes Secret <code>smbcreds</code> in the same namespace used for the <abbr title="Server Message Block">SMB</abbr> CSI manifests (default <code>storage-smb-ceph</code>). The Secret contains <code>username</code> and <code>password</code>, and the <code>ceph-smb</code> StorageClass uses those credentials.</p>
+<h2 id="offline-setup-using-addon-exportimport">Offline setup using addon export/import</h2>
+<p>Use this when the target environment is air-gapped.</p>
 <ol>
-<li>The <code>httpproxy</code> service on the Windows host is configured to forward requests through your upstream proxy.</li>
-<li>Inside the Linux <abbr title="Virtual Machine">VM</abbr> (KubeMaster), the proxy settings are applied to:<ul>
-<li><strong>APT</strong> (package manager) — <code>/etc/apt/apt.conf.d/proxy.conf</code></li>
-<li><strong><abbr title="Container Runtime Interface">CRI</abbr>-O</strong> (container runtime) — systemd environment override</li>
-<li><strong>Buildah/Podman</strong> (container engine) — <code>/etc/containers/containers.conf</code></li>
-</ul>
-</li>
-<li>Proxy overrides (no-proxy entries) define hosts that should be reached <strong>directly</strong>, bypassing the proxy. <em>K2s</em> automatically includes internal cluster addresses in the no-proxy list.</li>
+<li>On a connected K2s environment, export the Ceph addon artifact:</li>
 </ol>
-<pre class="mermaid"><code>flowchart LR
-    A[Windows Host] --&gt;|httpproxy service| B[Upstream Proxy]
-    C[Linux VM] --&gt;|apt / crio / buildah| B
-    B --&gt; D[External Network]
-    A -.-&gt;|no-proxy| E[Direct Access]
-    C -.-&gt;|no-proxy| E</code></pre>
-<h2 id="commands">Commands</h2>
-<p>All proxy commands require a running <em>K2s</em> installation.</p>
-<h3 id="set-proxy">Set proxy</h3>
-<p>Configure the <abbr title="Hypertext Transfer Protocol">HTTP</abbr> proxy for the cluster.</p>
-<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="go">k2s system proxy set &lt;proxy-uri&gt;</span>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="go">k2s addons export "storage ceph" -d C:\exports</span>
 </code></pre></div>
-<p><strong>Example:</strong></p>
-<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="go">k2s system proxy set http://proxy.example.com:8080</span>
+<ol>
+<li>
+<p>Transfer the exported OCI artifact to the offline environment.</p>
+</li>
+<li>
+<p>Import it before enable:</p>
+</li>
+</ol>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="go">k2s addons import "storage ceph" --zip C:\transfer\addons.oci.tar</span>
 </code></pre></div>
-<p>This updates the proxy on both the Windows host and the Linux <abbr title="Virtual Machine">VM</abbr>. The <code>httpproxy</code> service is restarted with the new configuration.</p>
-<h3 id="get-proxy">Get proxy</h3>
-<p>Print the currently configured proxy URI.</p>
-<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="go">k2s system proxy get</span>
+<ol>
+<li>If <code>clusterHost.node</code> is a Linux worker node, use <code>--node</code> so Ceph bootstrap prerequisites are staged on the actual Ceph host:</li>
+</ol>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="go">k2s addons import "storage ceph"  -f C:\transfer\addons.oci.tar --node cephosdnode1</span>
 </code></pre></div>
-<p>Returns only the proxy URI (useful for scripting). If no proxy is configured, the output is empty.</p>
-<h3 id="show-proxy-details">Show proxy details</h3>
-<p>Display the proxy URI together with the overrides stored in the proxy configuration.</p>
-<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="go">k2s system proxy show</span>
+<ol>
+<li>Enable Ceph with Windows integration:</li>
+</ol>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="go">k2s addons enable storage ceph -w</span>
 </code></pre></div>
-<p><strong>Example output:</strong></p>
-<div class="highlight"><span class="filename">Text Only</span><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>Proxy: http://proxy.example.com:8080
-<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>Proxy Overrides:
-<a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a>  - .example.com
-<a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a>  - 10.0.0.0/8
-<a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a>  - 172.19.1.0/24
+<h2 id="verify-smb-path">Verify <abbr title="Server Message Block">SMB</abbr> path</h2>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="go">kubectl get pods -n storage-smb-ceph</span>
+<a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="go">kubectl get storageclass ceph-smb</span>
 </code></pre></div>
-<h3 id="reset-proxy">Reset proxy</h3>
-<p>Remove all proxy configuration from the cluster.</p>
-<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="go">k2s system proxy reset</span>
-</code></pre></div>
-<p>This clears the proxy on both the Windows host and the Linux <abbr title="Virtual Machine">VM</abbr>:</p>
+<p>Expected pods include <code>csi-smb-controller</code>, <code>csi-smb-node</code>, and <code>csi-smb-node-win</code>.</p>
+<h2 id="example-cross-os-readwrite-validation-with-ceph-smb">Example: Cross-<abbr title="Operating System">OS</abbr> read/write validation with Ceph <abbr title="Server Message Block">SMB</abbr></h2>
+<p>This example validates real shared-volume behavior by mounting the same <code>ceph-smb</code> PVC from:</p>
 <ul>
-<li>The <code>httpproxy</code> service is restarted without an upstream proxy.</li>
-<li>APT, <abbr title="Container Runtime Interface">CRI</abbr>-O, and container engine proxy settings are removed from the Linux <abbr title="Virtual Machine">VM</abbr>.</li>
+<li>one Linux pod that writes and reads files,</li>
+<li>one Windows pod that writes and reads files.</li>
 </ul>
-<p>After resetting, the cluster accesses external networks directly (or via <abbr title="Network Address Translation">NAT</abbr>, depending on the hosting variant).</p>
-<hr />
-<h2 id="proxy-overrides-no-proxy">Proxy Overrides (No-Proxy)</h2>
-<p>Proxy overrides define destinations that should bypass the proxy and be reached directly.</p>
-<p><em>K2s</em> internally manages additional bypass entries (e.g., the control-plane <abbr title="Internet Protocol">IP</abbr>, pod/service CIDRs) to ensure cluster components can communicate without going through the proxy. These internal entries are applied automatically and do not appear in the <code>override</code> commands.</p>
-<p>Use overrides for additional hosts or domains that should not go through the proxy, such as internal registries, artifact servers, or local services.</p>
-<h3 id="add-overrides">Add overrides</h3>
-<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="go">k2s system proxy override add &lt;hosts...&gt;</span>
+<p>Windows workloads in K2s must include both a Windows node selector and the <code>OS=Windows:NoSchedule</code> toleration.</p>
+<div class="highlight"><span class="filename">YAML</span><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="nt">apiVersion</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">v1</span>
+<a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a><span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Namespace</span>
+<a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a><span class="nt">metadata</span><span class="p">:</span>
+<a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a><span class="w">  </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">ceph-crossos-test</span>
+<a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a><span class="nn">---</span>
+<a id="__codelineno-6-6" name="__codelineno-6-6" href="#__codelineno-6-6"></a><span class="nt">apiVersion</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">v1</span>
+<a id="__codelineno-6-7" name="__codelineno-6-7" href="#__codelineno-6-7"></a><span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">PersistentVolumeClaim</span>
+<a id="__codelineno-6-8" name="__codelineno-6-8" href="#__codelineno-6-8"></a><span class="nt">metadata</span><span class="p">:</span>
+<a id="__codelineno-6-9" name="__codelineno-6-9" href="#__codelineno-6-9"></a><span class="w">  </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">ceph-crossos-pvc</span>
+<a id="__codelineno-6-10" name="__codelineno-6-10" href="#__codelineno-6-10"></a><span class="w">  </span><span class="nt">namespace</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">ceph-crossos-test</span>
+<a id="__codelineno-6-11" name="__codelineno-6-11" href="#__codelineno-6-11"></a><span class="nt">spec</span><span class="p">:</span>
+<a id="__codelineno-6-12" name="__codelineno-6-12" href="#__codelineno-6-12"></a><span class="w">  </span><span class="nt">accessModes</span><span class="p">:</span>
+<a id="__codelineno-6-13" name="__codelineno-6-13" href="#__codelineno-6-13"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">ReadWriteMany</span>
+<a id="__codelineno-6-14" name="__codelineno-6-14" href="#__codelineno-6-14"></a><span class="w">  </span><span class="nt">storageClassName</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">ceph-smb</span>
+<a id="__codelineno-6-15" name="__codelineno-6-15" href="#__codelineno-6-15"></a><span class="w">  </span><span class="nt">resources</span><span class="p">:</span>
+<a id="__codelineno-6-16" name="__codelineno-6-16" href="#__codelineno-6-16"></a><span class="w">    </span><span class="nt">requests</span><span class="p">:</span>
+<a id="__codelineno-6-17" name="__codelineno-6-17" href="#__codelineno-6-17"></a><span class="w">      </span><span class="nt">storage</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">1Gi</span>
+<a id="__codelineno-6-18" name="__codelineno-6-18" href="#__codelineno-6-18"></a><span class="nn">---</span>
+<a id="__codelineno-6-19" name="__codelineno-6-19" href="#__codelineno-6-19"></a><span class="nt">apiVersion</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">v1</span>
+<a id="__codelineno-6-20" name="__codelineno-6-20" href="#__codelineno-6-20"></a><span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Pod</span>
+<a id="__codelineno-6-21" name="__codelineno-6-21" href="#__codelineno-6-21"></a><span class="nt">metadata</span><span class="p">:</span>
+<a id="__codelineno-6-22" name="__codelineno-6-22" href="#__codelineno-6-22"></a><span class="w">  </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">ceph-crossos-linux</span>
+<a id="__codelineno-6-23" name="__codelineno-6-23" href="#__codelineno-6-23"></a><span class="w">  </span><span class="nt">namespace</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">ceph-crossos-test</span>
+<a id="__codelineno-6-24" name="__codelineno-6-24" href="#__codelineno-6-24"></a><span class="nt">spec</span><span class="p">:</span>
+<a id="__codelineno-6-25" name="__codelineno-6-25" href="#__codelineno-6-25"></a><span class="w">  </span><span class="nt">nodeSelector</span><span class="p">:</span>
+<a id="__codelineno-6-26" name="__codelineno-6-26" href="#__codelineno-6-26"></a><span class="w">    </span><span class="nt">kubernetes.io/os</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">linux</span>
+<a id="__codelineno-6-27" name="__codelineno-6-27" href="#__codelineno-6-27"></a><span class="w">  </span><span class="nt">containers</span><span class="p">:</span>
+<a id="__codelineno-6-28" name="__codelineno-6-28" href="#__codelineno-6-28"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">writer-reader</span>
+<a id="__codelineno-6-29" name="__codelineno-6-29" href="#__codelineno-6-29"></a><span class="w">    </span><span class="nt">image</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">docker.io/alpine:3.20</span>
+<a id="__codelineno-6-30" name="__codelineno-6-30" href="#__codelineno-6-30"></a><span class="w">    </span><span class="nt">command</span><span class="p">:</span>
+<a id="__codelineno-6-31" name="__codelineno-6-31" href="#__codelineno-6-31"></a><span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">/bin/sh</span>
+<a id="__codelineno-6-32" name="__codelineno-6-32" href="#__codelineno-6-32"></a><span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">-c</span>
+<a id="__codelineno-6-33" name="__codelineno-6-33" href="#__codelineno-6-33"></a><span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="p p-Indicator">|</span>
+<a id="__codelineno-6-34" name="__codelineno-6-34" href="#__codelineno-6-34"></a><span class="w">      </span><span class="no">set -eu</span>
+<a id="__codelineno-6-35" name="__codelineno-6-35" href="#__codelineno-6-35"></a><span class="w">      </span><span class="no">echo "hello-from-linux" &gt; /data/linux.txt</span>
+<a id="__codelineno-6-36" name="__codelineno-6-36" href="#__codelineno-6-36"></a><span class="w">      </span><span class="no">while true; do</span>
+<a id="__codelineno-6-37" name="__codelineno-6-37" href="#__codelineno-6-37"></a><span class="w">        </span><span class="no">date -Iseconds &gt;&gt; /data/linux-heartbeat.log</span>
+<a id="__codelineno-6-38" name="__codelineno-6-38" href="#__codelineno-6-38"></a><span class="w">        </span><span class="no">if [ -f /data/windows.txt ]; then</span>
+<a id="__codelineno-6-39" name="__codelineno-6-39" href="#__codelineno-6-39"></a><span class="w">          </span><span class="no">echo "linux sees windows.txt:"</span>
+<a id="__codelineno-6-40" name="__codelineno-6-40" href="#__codelineno-6-40"></a><span class="w">          </span><span class="no">cat /data/windows.txt</span>
+<a id="__codelineno-6-41" name="__codelineno-6-41" href="#__codelineno-6-41"></a><span class="w">        </span><span class="no">fi</span>
+<a id="__codelineno-6-42" name="__codelineno-6-42" href="#__codelineno-6-42"></a><span class="w">        </span><span class="no">sleep 5</span>
+<a id="__codelineno-6-43" name="__codelineno-6-43" href="#__codelineno-6-43"></a><span class="w">      </span><span class="no">done</span>
+<a id="__codelineno-6-44" name="__codelineno-6-44" href="#__codelineno-6-44"></a><span class="w">    </span><span class="nt">volumeMounts</span><span class="p">:</span>
+<a id="__codelineno-6-45" name="__codelineno-6-45" href="#__codelineno-6-45"></a><span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">shared</span>
+<a id="__codelineno-6-46" name="__codelineno-6-46" href="#__codelineno-6-46"></a><span class="w">      </span><span class="nt">mountPath</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">/data</span>
+<a id="__codelineno-6-47" name="__codelineno-6-47" href="#__codelineno-6-47"></a><span class="w">  </span><span class="nt">volumes</span><span class="p">:</span>
+<a id="__codelineno-6-48" name="__codelineno-6-48" href="#__codelineno-6-48"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">shared</span>
+<a id="__codelineno-6-49" name="__codelineno-6-49" href="#__codelineno-6-49"></a><span class="w">    </span><span class="nt">persistentVolumeClaim</span><span class="p">:</span>
+<a id="__codelineno-6-50" name="__codelineno-6-50" href="#__codelineno-6-50"></a><span class="w">      </span><span class="nt">claimName</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">ceph-crossos-pvc</span>
+<a id="__codelineno-6-51" name="__codelineno-6-51" href="#__codelineno-6-51"></a><span class="nn">---</span>
+<a id="__codelineno-6-52" name="__codelineno-6-52" href="#__codelineno-6-52"></a><span class="nt">apiVersion</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">v1</span>
+<a id="__codelineno-6-53" name="__codelineno-6-53" href="#__codelineno-6-53"></a><span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Pod</span>
+<a id="__codelineno-6-54" name="__codelineno-6-54" href="#__codelineno-6-54"></a><span class="nt">metadata</span><span class="p">:</span>
+<a id="__codelineno-6-55" name="__codelineno-6-55" href="#__codelineno-6-55"></a><span class="w">  </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">ceph-crossos-windows</span>
+<a id="__codelineno-6-56" name="__codelineno-6-56" href="#__codelineno-6-56"></a><span class="w">  </span><span class="nt">namespace</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">ceph-crossos-test</span>
+<a id="__codelineno-6-57" name="__codelineno-6-57" href="#__codelineno-6-57"></a><span class="nt">spec</span><span class="p">:</span>
+<a id="__codelineno-6-58" name="__codelineno-6-58" href="#__codelineno-6-58"></a><span class="w">  </span><span class="nt">nodeSelector</span><span class="p">:</span>
+<a id="__codelineno-6-59" name="__codelineno-6-59" href="#__codelineno-6-59"></a><span class="w">    </span><span class="nt">kubernetes.io/os</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">windows</span>
+<a id="__codelineno-6-60" name="__codelineno-6-60" href="#__codelineno-6-60"></a><span class="w">  </span><span class="nt">tolerations</span><span class="p">:</span>
+<a id="__codelineno-6-61" name="__codelineno-6-61" href="#__codelineno-6-61"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">key</span><span class="p">:</span><span class="w"> </span><span class="s">"OS"</span>
+<a id="__codelineno-6-62" name="__codelineno-6-62" href="#__codelineno-6-62"></a><span class="w">    </span><span class="nt">operator</span><span class="p">:</span><span class="w"> </span><span class="s">"Equal"</span>
+<a id="__codelineno-6-63" name="__codelineno-6-63" href="#__codelineno-6-63"></a><span class="w">    </span><span class="nt">value</span><span class="p">:</span><span class="w"> </span><span class="s">"Windows"</span>
+<a id="__codelineno-6-64" name="__codelineno-6-64" href="#__codelineno-6-64"></a><span class="w">    </span><span class="nt">effect</span><span class="p">:</span><span class="w"> </span><span class="s">"NoSchedule"</span>
+<a id="__codelineno-6-65" name="__codelineno-6-65" href="#__codelineno-6-65"></a><span class="w">  </span><span class="nt">containers</span><span class="p">:</span>
+<a id="__codelineno-6-66" name="__codelineno-6-66" href="#__codelineno-6-66"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">writer-reader</span>
+<a id="__codelineno-6-67" name="__codelineno-6-67" href="#__codelineno-6-67"></a><span class="w">    </span><span class="nt">image</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">mcr.microsoft.com/windows/servercore:ltsc2025</span>
+<a id="__codelineno-6-68" name="__codelineno-6-68" href="#__codelineno-6-68"></a><span class="w">    </span><span class="nt">command</span><span class="p">:</span>
+<a id="__codelineno-6-69" name="__codelineno-6-69" href="#__codelineno-6-69"></a><span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">powershell.exe</span>
+<a id="__codelineno-6-70" name="__codelineno-6-70" href="#__codelineno-6-70"></a><span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">-Command</span>
+<a id="__codelineno-6-71" name="__codelineno-6-71" href="#__codelineno-6-71"></a><span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="p p-Indicator">|</span>
+<a id="__codelineno-6-72" name="__codelineno-6-72" href="#__codelineno-6-72"></a><span class="w">      </span><span class="no">New-Item -ItemType Directory -Path C:\data -Force | Out-Null</span>
+<a id="__codelineno-6-73" name="__codelineno-6-73" href="#__codelineno-6-73"></a><span class="w">      </span><span class="no">'hello-from-windows' | Set-Content -Path C:\data\windows.txt</span>
+<a id="__codelineno-6-74" name="__codelineno-6-74" href="#__codelineno-6-74"></a><span class="w">      </span><span class="no">while ($true) {</span>
+<a id="__codelineno-6-75" name="__codelineno-6-75" href="#__codelineno-6-75"></a><span class="w">        </span><span class="no">(Get-Date).ToString('o') | Add-Content -Path C:\data\windows-heartbeat.log</span>
+<a id="__codelineno-6-76" name="__codelineno-6-76" href="#__codelineno-6-76"></a><span class="w">        </span><span class="no">if (Test-Path C:\data\linux.txt) {</span>
+<a id="__codelineno-6-77" name="__codelineno-6-77" href="#__codelineno-6-77"></a><span class="w">          </span><span class="no">Write-Output 'windows sees linux.txt:'</span>
+<a id="__codelineno-6-78" name="__codelineno-6-78" href="#__codelineno-6-78"></a><span class="w">          </span><span class="no">Get-Content C:\data\linux.txt</span>
+<a id="__codelineno-6-79" name="__codelineno-6-79" href="#__codelineno-6-79"></a><span class="w">        </span><span class="no">}</span>
+<a id="__codelineno-6-80" name="__codelineno-6-80" href="#__codelineno-6-80"></a><span class="w">        </span><span class="no">Start-Sleep -Seconds 5</span>
+<a id="__codelineno-6-81" name="__codelineno-6-81" href="#__codelineno-6-81"></a><span class="w">      </span><span class="no">}</span>
+<a id="__codelineno-6-82" name="__codelineno-6-82" href="#__codelineno-6-82"></a><span class="w">    </span><span class="nt">volumeMounts</span><span class="p">:</span>
+<a id="__codelineno-6-83" name="__codelineno-6-83" href="#__codelineno-6-83"></a><span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">shared</span>
+<a id="__codelineno-6-84" name="__codelineno-6-84" href="#__codelineno-6-84"></a><span class="w">      </span><span class="nt">mountPath</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">C:\\data</span>
+<a id="__codelineno-6-85" name="__codelineno-6-85" href="#__codelineno-6-85"></a><span class="w">  </span><span class="nt">volumes</span><span class="p">:</span>
+<a id="__codelineno-6-86" name="__codelineno-6-86" href="#__codelineno-6-86"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">shared</span>
+<a id="__codelineno-6-87" name="__codelineno-6-87" href="#__codelineno-6-87"></a><span class="w">    </span><span class="nt">persistentVolumeClaim</span><span class="p">:</span>
+<a id="__codelineno-6-88" name="__codelineno-6-88" href="#__codelineno-6-88"></a><span class="w">      </span><span class="nt">claimName</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">ceph-crossos-pvc</span>
 </code></pre></div>
-<p><strong>Example:</strong></p>
-<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="go">k2s system proxy override add registry.internal.example.com .local 10.20.0.0/16</span>
+<p>Apply and verify:</p>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="go">kubectl apply -f ceph-crossos-test.yaml</span>
+<a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a><span class="go">kubectl get pvc -n ceph-crossos-test ceph-crossos-pvc</span>
+<a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a><span class="go">kubectl get pods -n ceph-crossos-test -o wide</span>
+<a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a><span class="go">kubectl logs -n ceph-crossos-test ceph-crossos-linux --tail=40</span>
+<a id="__codelineno-7-5" name="__codelineno-7-5" href="#__codelineno-7-5"></a><span class="go">kubectl logs -n ceph-crossos-test ceph-crossos-windows --tail=40</span>
+<a id="__codelineno-7-6" name="__codelineno-7-6" href="#__codelineno-7-6"></a><span class="go">kubectl exec -n ceph-crossos-test ceph-crossos-linux -- ls -la /data</span>
 </code></pre></div>
-<p>You can specify multiple entries separated by spaces. Supported formats:</p>
-<table>
-<thead>
-<tr>
-<th>Format</th>
-<th>Example</th>
-<th>Matches</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>Hostname</td>
-<td><code>registry.example.com</code></td>
-<td>Exact host</td>
-</tr>
-<tr>
-<td>Domain wildcard</td>
-<td><code>.example.com</code></td>
-<td>All subdomains of <code>example.com</code></td>
-</tr>
-<tr>
-<td><abbr title="Internet Protocol">IP</abbr> address</td>
-<td><code>10.0.0.5</code></td>
-<td>Single <abbr title="Internet Protocol">IP</abbr></td>
-</tr>
-<tr>
-<td><abbr title="Classless Inter-Domain Routing">CIDR</abbr> range</td>
-<td><code>10.20.0.0/16</code></td>
-<td>All IPs in the subnet</td>
-</tr>
-</tbody>
-</table>
-<h3 id="delete-overrides">Delete overrides</h3>
-<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="go">k2s system proxy override delete &lt;hosts...&gt;</span>
+<p>The pod-created files can be seen in the below path:</p>
+<div class="highlight"><span class="filename">PowerShell</span><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="n">C</span><span class="p">:\</span><span class="n">k8s-ceph-share</span><span class="p">\</span><span class="n">pvc-cedc059c</span><span class="p">-</span><span class="n">94f2</span><span class="p">-</span><span class="n">443b</span><span class="p">-</span><span class="n">9a7c-a39d80f96269</span>
 </code></pre></div>
-<p><strong>Example:</strong></p>
-<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="go">k2s system proxy override delete registry.internal.example.com</span>
+<p>Cleanup:</p>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="go">kubectl delete namespace ceph-crossos-test</span>
 </code></pre></div>
-<h3 id="list-overrides">List overrides</h3>
-<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a><span class="go">k2s system proxy override ls</span>
-</code></pre></div>
-<p>Lists the proxy overrides currently stored in the proxy configuration.</p>
-<hr />
-<h2 id="typical-workflow">Typical Workflow</h2>
-<p>A common workflow for configuring proxy access in a corporate environment:</p>
-<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a><span class="gp"># </span><span class="m">1</span>.<span class="w"> </span>Set<span class="w"> </span>the<span class="w"> </span>proxy
-<a id="__codelineno-11-2" name="__codelineno-11-2" href="#__codelineno-11-2"></a><span class="go">k2s system proxy set http://proxy.corp.example.com:3128</span>
-<a id="__codelineno-11-3" name="__codelineno-11-3" href="#__codelineno-11-3"></a>
-<a id="__codelineno-11-4" name="__codelineno-11-4" href="#__codelineno-11-4"></a><span class="gp"># </span><span class="m">2</span>.<span class="w"> </span>Add<span class="w"> </span>internal<span class="w"> </span>hosts<span class="w"> </span>that<span class="w"> </span>should<span class="w"> </span>bypass<span class="w"> </span>the<span class="w"> </span>proxy
-<a id="__codelineno-11-5" name="__codelineno-11-5" href="#__codelineno-11-5"></a><span class="go">k2s system proxy override add .corp.example.com registry.internal.corp.example.com</span>
-<a id="__codelineno-11-6" name="__codelineno-11-6" href="#__codelineno-11-6"></a>
-<a id="__codelineno-11-7" name="__codelineno-11-7" href="#__codelineno-11-7"></a><span class="gp"># </span><span class="m">3</span>.<span class="w"> </span>Verify<span class="w"> </span>the<span class="w"> </span>configuration
-<a id="__codelineno-11-8" name="__codelineno-11-8" href="#__codelineno-11-8"></a><span class="go">k2s system proxy show</span>
-<a id="__codelineno-11-9" name="__codelineno-11-9" href="#__codelineno-11-9"></a>
-<a id="__codelineno-11-10" name="__codelineno-11-10" href="#__codelineno-11-10"></a><span class="gp"># </span><span class="m">4</span>.<span class="w"> </span>Later,<span class="w"> </span><span class="k">if</span><span class="w"> </span>the<span class="w"> </span>proxy<span class="w"> </span>is<span class="w"> </span>no<span class="w"> </span>longer<span class="w"> </span>needed
-<a id="__codelineno-11-11" name="__codelineno-11-11" href="#__codelineno-11-11"></a><span class="go">k2s system proxy reset</span>
-</code></pre></div>
-<div class="admonition tip">
-<p class="admonition-title">Tip</p>
-<p>If you are creating an offline package with <code>k2s system package</code> while behind a proxy, run <code>k2s system proxy reset</code> <strong>before</strong> packaging. This ensures the package does not contain references to your proxy server.</p>
-</div>
-<h2 id="see-also">See Also</h2>
-<ul>
-<li><a href="../k2s-cli/#install">k2s <abbr title="Command-Line Interface">CLI</abbr> – install <code>--proxy</code> flag</a> — set a proxy during installation</li>
-<li><a href="../k2s-cli/#system-proxy">k2s <abbr title="Command-Line Interface">CLI</abbr> – system proxy</a> — command reference</li>
-<li><a href="../../dev-guide/hosting-variants-features-matrix/">Hosting Variants Features Matrix</a> — which variants use the HttpProxy service</li>
-</ul>
+<p>For <abbr title="Server Message Block">SMB</abbr> addon-specific behavior and non-Ceph <abbr title="Server Message Block">SMB</abbr> examples, see the <abbr title="Server Message Block">SMB</abbr> addon README at <code>addons/storage/smb/README.md</code>.</p>
 <!--
 SPDX-FileCopyrightText: © 2024 Siemens Healthineers AG
 SPDX-License-Identifier: MIT
@@ -3349,7 +3260,7 @@ SPDX-License-Identifier: MIT
       <nav class="md-footer__inner md-grid" aria-label="Footer" >
         
           
-          <a href="../certificate-management/" class="md-footer__link md-footer__link--prev" aria-label="Previous: Certificate Management">
+          <a href="../ceph-storage-linux/" class="md-footer__link md-footer__link--prev" aria-label="Previous: Linux Workloads">
             <div class="md-footer__button md-icon">
               
               <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
@@ -3359,20 +3270,20 @@ SPDX-License-Identifier: MIT
                 Previous
               </span>
               <div class="md-ellipsis">
-                Certificate Management
+                Linux Workloads
               </div>
             </div>
           </a>
         
         
           
-          <a href="../adding-container-registry/" class="md-footer__link md-footer__link--next" aria-label="Next: Adding a Container Registry">
+          <a href="../gitops-addon-delivery/" class="md-footer__link md-footer__link--next" aria-label="Next: GitOps Addon Delivery">
             <div class="md-footer__title">
               <span class="md-footer__direction">
                 Next
               </span>
               <div class="md-ellipsis">
-                Adding a Container Registry
+                GitOps Addon Delivery
               </div>
             </div>
             <div class="md-footer__button md-icon">
