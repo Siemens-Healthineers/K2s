@@ -113,6 +113,11 @@ else {
             }
         }
 
+        # Default implementation when none is specified, mirroring 'k2s addons enable storage' (-> smb)
+        if ($null -eq $implementationName -and $addonName -eq 'storage') {
+            $implementationName = 'smb'
+        }
+
         foreach ($manifest in $allManifests) {
             if ($manifest.metadata.name -eq $addonName) {
                 # Clone to prevent mutations when exporting multiple implementations

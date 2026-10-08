@@ -180,13 +180,15 @@ $extractionFolder = $tmpDir
 # Import targets are node-specific. When the user imports to a Linux worker,
 # only the Linux image layer should be applied there; Windows-only images must stay
 # on the Windows target(s). The same rule applies in reverse for Windows workers.
-$targetNodeKind = if ($null -ne $targetNode) { $targetNode.Kind } else { '' }
+# Base the decision on the full set of resolved target nodes (not a single node),
+# so a mixed '--nodes' list (e.g. control-plane + Linux workers + Windows host) imports
+# both layers to their matching targets.
 $shouldImportLinuxImages = $true
 $shouldImportWindowsImages = $true
 
 if (-not [string]::IsNullOrWhiteSpace($Nodes)) {
-    $shouldImportLinuxImages = @('ControlPlane', 'LinuxWorker') -contains $targetNodeKind
-    $shouldImportWindowsImages = @('WindowsWorker', 'LocalWindows') -contains $targetNodeKind
+    $shouldImportLinuxImages = $linuxNodes.Count -gt 0
+    $shouldImportWindowsImages = $windowsNodes.Count -gt 0
 }
 elseif ($setupInfo.LinuxOnly) {
     $shouldImportWindowsImages = $false
