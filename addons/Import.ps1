@@ -68,8 +68,16 @@ function Import-AddonImageLayer {
         [Parameter(Mandatory = $true)]
         [string] $ImportImageScript,
         [Parameter(Mandatory = $false)]
-        [switch] $ShowLogs
+        [switch] $ShowLogs,
+        [Parameter(Mandatory = $false)]
+        [string[]] $SkipTarNames = @(),
+        [Parameter(Mandatory = $false)]
+        [string] $AddonKey = ''
     )
+
+    if ([string]::IsNullOrWhiteSpace($AddonKey)) {
+        $AddonKey = $AddonName
+    }
 
     $osLabel = if ($Windows) { 'Windows' } else { 'Linux' }
     Write-Log "[Import] Importing $osLabel images layer from blob" -Console
@@ -81,6 +89,7 @@ function Import-AddonImageLayer {
     }
 
     # Extract the tar file
+    $extractFailed = $false
     $currentLocation = Get-Location
     try {
         Set-Location $tempImagesDir
@@ -88,10 +97,22 @@ function Import-AddonImageLayer {
         if ($LASTEXITCODE -ne 0) {
             Write-Log "[Import] Warning: Failed to extract $osLabel images tar: $extractResult" -Console
             $script:hasImportFailures = $true
+            $extractFailed = $true
         }
     }
     finally {
         Set-Location $currentLocation
+    }
+
+    # Drop the images that no imported addon requires (see prune plan)
+    $skippedTarCount = 0
+    foreach ($tarToSkip in @($SkipTarNames)) {
+        $skipPath = Join-Path $tempImagesDir $tarToSkip
+        if (Test-Path $skipPath) {
+            Remove-Item -Path $skipPath -Force -ErrorAction SilentlyContinue
+            Write-Log "[Prune] Not importing '$tarToSkip' for '$AddonKey'" -Console
+            $skippedTarCount++
+        }
     }
 
     # Check if we extracted individual image tars or a single image
@@ -117,6 +138,8 @@ function Import-AddonImageLayer {
         } else {
             Write-Log "[Import] $osLabel images imported successfully for $AddonName" -Console
         }
+    } elseif (-not $extractFailed -and $skippedTarCount -gt 0) {
+        Write-Log "All $osLabel images of '$AddonKey' were skipped due to the requested omit options" -Console
     } else {
         Write-Log "[Import] Warning: No $osLabel image files found after extraction" -Console
         Write-Log "[Import] Warning: $osLabel images import failed for $AddonName with exit code 1" -Console
@@ -877,7 +900,9 @@ foreach ($planEntry in $importPlan) {
                 -TargetNodes $linuxNodes `
                 -AddonName $addon.name `
                 -ImportImageScript $importImageScript `
-                -ShowLogs:$ShowLogs
+                -ShowLogs:$ShowLogs `
+                -SkipTarNames @($skipForAddon.Linux) `
+                -AddonKey $addonKey
         }
         else {
             Write-Log "[Import] Skipping Linux images import: no Linux target nodes specified in '$Nodes'" -Console
@@ -901,7 +926,9 @@ foreach ($planEntry in $importPlan) {
                 -Windows `
                 -AddonName $addon.name `
                 -ImportImageScript $importImageScript `
-                -ShowLogs:$ShowLogs
+                -ShowLogs:$ShowLogs `
+                -SkipTarNames @($skipForAddon.Windows) `
+                -AddonKey $addonKey
         }
         else {
             Write-Log "[Import] Skipping Windows images import: no Windows target nodes specified in '$Nodes'" -Console
