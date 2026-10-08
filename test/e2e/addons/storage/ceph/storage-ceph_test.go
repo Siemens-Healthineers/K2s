@@ -52,6 +52,7 @@ const (
 	addonEnableMaxAttempts = 2
 	addonEnableRetryDelay  = 10 * time.Second
 	windowsPodReadyTimeout = 10 * time.Minute
+	windowsPVCBoundTimeout = 10 * time.Minute
 )
 
 var (
@@ -239,7 +240,7 @@ var _ = Describe("storage ceph addon", Ordered, func() {
 				"--for=jsonpath={.status.phase}=Bound",
 				"pvc/"+winPVCName,
 				"-n", namespace,
-				"--timeout=300s",
+				"--timeout="+windowsPVCBoundTimeout.String(),
 			)
 		})
 
@@ -481,46 +482,4 @@ func readJSONAsMap(path string) (map[string]any, error) {
 	}
 
 	return decoded, nil
-}
-
-type cephOSDMapResult struct {
-	Acting []int `json:"acting"`
-	Up     []int `json:"up"`
-}
-
-func runSSHOnCephHost(ctx context.Context, hostIP, command string) string {
-	homeDir, err := bos.UserHomeDir()
-	Expect(err).ToNot(HaveOccurred())
-
-	keyPath := filepath.Join(homeDir, ".ssh", "k2s", "id_rsa")
-	_, err = bos.Stat(keyPath)
-	Expect(err).ToNot(HaveOccurred(), "expected SSH key for k2s test user at '%s'", keyPath)
-
-	remoteTarget := "remote@" + hostIP
-	return suite.Cli("ssh.exe").MustExec(ctx,
-		"-n",
-		"-o", "StrictHostKeyChecking=no",
-		"-i", keyPath,
-		remoteTarget,
-		command,
-	)
-}
-
-func extractJSONBlob(output string) (string, error) {
-	start := strings.Index(output, "{")
-	end := strings.LastIndex(output, "}")
-	if start < 0 || end < 0 || end < start {
-		return "", fmt.Errorf("no JSON object found in output")
-	}
-
-	return output[start : end+1], nil
-}
-
-func countDistinctInts(values []int) int {
-	seen := map[int]struct{}{}
-	for _, v := range values {
-		seen[v] = struct{}{}
-	}
-
-	return len(seen)
 }
