@@ -3308,6 +3308,18 @@ Also make sure you have built the Go binaries (<code>.\bin\bgow</code> on <em>Wi
 <p class="admonition-title">Note</p>
 <p><em>K2s</em> will start automatically after the installation has finished.</p>
 </div>
+<div class="admonition note">
+<p class="admonition-title">Windows loopback adapter discovery</p>
+<p>During <code>k2s install</code>, Windows worker setup checks the device installer's exit
+code and logs its output. It waits for the loopback adapter to become visible
+using up to 31 queries, two seconds apart, rather than failing immediately
+after device creation. Existing loopback devices removed during setup must
+disappear before another device is installed; the same polling limit applies.
+Device-command failures, discovery timeouts and multiple adapters remain
+explicit installation errors. For diagnosis, inspect <code>k2s.log</code> in the configured
+log directory (normally <code>C:\var\log</code>) and <code>C:\Windows\INF\setupapi.dev.log</code>.
+This behavior applies to packages containing the fix, not older release packages.</p>
+</div>
 <h3 id="installing-using-config-files">Installing Using Config Files</h3>
 <p>Instead of assembling many command-line parameters/flags to customize the installation, you can also pass a <abbr title="Yet Another Markup Language">YAML</abbr> file to the <code>k2s install</code> command configuring install parameters like node resource definitions (e.g. <abbr title="Central Processing Unit">CPU</abbr>, <abbr title="Random-Access Memory">RAM</abbr> or size of the hard drive):
 <div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="go">&lt;repo&gt;\k2s.exe install [-c|--config] &lt;path-to-config-file&gt;</span>
