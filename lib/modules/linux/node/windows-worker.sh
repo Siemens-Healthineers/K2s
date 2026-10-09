@@ -609,7 +609,21 @@ k2s_windows_worker_start() {
   k2s_windows_worker_wait_for_ssh || return $?
   k2s_windows_worker_start_node
 }
-k2s_windows_worker_stop() { virsh shutdown "$K2S_WINDOWS_WORKER_NAME" 2>/dev/null || true; }
+k2s_windows_worker_stop() {
+  local deadline=$((SECONDS + 120)) state
+  virsh domstate "$K2S_WINDOWS_WORKER_NAME" >/dev/null 2>&1 || return 0
+  virsh shutdown "$K2S_WINDOWS_WORKER_NAME" 2>/dev/null || true
+  while :; do
+    state=$(virsh domstate "$K2S_WINDOWS_WORKER_NAME" 2>/dev/null || true)
+    [[ "$state" == 'shut off' ]] && return 0
+    if (( SECONDS >= deadline )); then
+      k2s_log WARN 'Windows worker did not shut down within 120 seconds; forcing termination.'
+      virsh destroy "$K2S_WINDOWS_WORKER_NAME" 2>/dev/null || return 1
+      return 0
+    fi
+    sleep 2
+  done
+}
 k2s_windows_worker_remove() {
   local vm_dir
   vm_dir=$(k2s_windows_worker_vm_dir)
