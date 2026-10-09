@@ -62,74 +62,79 @@ fi
 
 mkdir -p "$(dirname "$tar_path")"
 
-# Ensure image_name and tag are resolved so the archive stores the reference name
-if [[ -z "$image_name" && -n "$ref" ]]; then
-  if command -v buildah >/dev/null 2>&1; then
-    resolved_name="$(buildah images --json "$ref" 2>/dev/null | jq -r '.[0].names[]? // empty' 2>/dev/null | grep -v '<none>' | head -n 1 || true)"
-    if [[ -n "$resolved_name" ]]; then
-      image_name="$resolved_name"
-    fi
-  fi
-  if [[ -z "$image_name" ]] && command -v crictl >/dev/null 2>&1; then
-    resolved_name="$(crictl inspecti "$ref" 2>/dev/null | jq -r '.status.repoTags[]? // empty' 2>/dev/null | grep -v '<none>' | head -n 1 || true)"
-    if [[ -n "$resolved_name" ]]; then
-      image_name="$resolved_name"
-    fi
-  fi
-fi
-
-if [[ -z "$image_name" ]]; then
-  image_name="${ref}:latest"
-fi
-
-if [[ "$image_name" != *":"* ]]; then
-  image_name="${image_name}:latest"
-fi
-
+archive_format="oci-archive"
 if [[ "$docker_archive" == true ]]; then
-  k2s_log INFO "Exporting image $ref as Docker archive to $tar_path ($image_name)"
-  if command -v buildah >/dev/null 2>&1; then
-    archive_spec="docker-archive:$tar_path:$image_name"
-    if [[ "$ref" != localhost/* ]] && ! buildah inspect "$ref" >/dev/null 2>&1 && buildah inspect "localhost/$ref" >/dev/null 2>&1; then
-      ref="localhost/$ref"
+  archive_format="docker-archive"
+fi
+
+resolved_id=""
+resolved_full_name=""
+
+# 1. Resolve via buildah (matching PowerShell's 'sudo buildah images' resolution)
+if command -v buildah >/dev/null 2>&1; then
+  if [[ -n "$image_id" ]]; then
+    match="$(buildah images --json 2>/dev/null | jq -c --arg id "$image_id" '
+      [.[] | select(.id | startswith($id))] |
+      (map(select(.names[]? // "" | test("^<none>") | not)) + .)[0] // empty
+    ' 2>/dev/null || true)"
+    if [[ -n "$match" && "$match" != "null" ]]; then
+      resolved_id="$(echo "$match" | jq -r '.id')"
+      resolved_full_name="$(echo "$match" | jq -r '(.names[]? // empty) | select(. != "<none>")' | head -n 1 || true)"
     fi
-    if ! k2s_run buildah push "$ref" "$archive_spec"; then
-      if [[ "$ref" != localhost/* ]]; then
-        k2s_run buildah push "localhost/$ref" "$archive_spec"
-      else
-        exit 1
+  elif [[ -n "$image_name" ]]; then
+    search_name="$image_name"
+    match="$(buildah images --json 2>/dev/null | jq -c --arg name "$search_name" '
+      [.[] | select(
+        .names[]? as $n |
+        $n == $name or
+        $n == "localhost/" + $name or
+        $n == $name + ":latest" or
+        $n == "localhost/" + $name + ":latest" or
+        ($n | split(":")[0]) == $name
+      )][0] // empty
+    ' 2>/dev/null || true)"
+    if [[ -n "$match" && "$match" != "null" ]]; then
+      resolved_id="$(echo "$match" | jq -r '.id')"
+      resolved_full_name="$(echo "$match" | jq -r '(.names[]? // empty) | select(. != "<none>")' | head -n 1 || true)"
+      if [[ -z "$resolved_full_name" ]]; then
+        resolved_full_name="$image_name"
       fi
     fi
-  elif command -v nerdctl >/dev/null 2>&1; then
-    k2s_run nerdctl -n k8s.io save -o "$tar_path" "$ref"
-  else
-    k2s_log ERROR "No container tool found to export image as Docker archive. Please install buildah or nerdctl."
-    exit 127
   fi
+fi
+
+# 2. If not found in buildah, try crictl inspecti
+if [[ -z "$resolved_id" ]] && command -v crictl >/dev/null 2>&1; then
+  query="${image_id:-$image_name}"
+  inspect_json="$(crictl inspecti "$query" 2>/dev/null || true)"
+  if [[ -n "$inspect_json" ]]; then
+    resolved_id="$(echo "$inspect_json" | jq -r '.status.id // empty')"
+    resolved_full_name="$(echo "$inspect_json" | jq -r '.status.repoTags[0] // empty')"
+  fi
+fi
+
+# Fallback defaults if resolution couldn't find metadata
+if [[ -z "$resolved_id" ]]; then
+  resolved_id="${image_id:-$image_name}"
+fi
+if [[ -z "$resolved_full_name" ]]; then
+  resolved_full_name="${image_name:-$image_id}"
+fi
+if [[ "$resolved_full_name" != *":"* && "$resolved_full_name" != *"<none>"* ]]; then
+  resolved_full_name="${resolved_full_name}:latest"
+fi
+
+k2s_log INFO "Exporting image $resolved_id as $archive_format to $tar_path ($resolved_full_name)"
+
+if command -v buildah >/dev/null 2>&1; then
+  # Exact bash command executed by PowerShell over SSH:
+  # sudo buildah push ${imageId} ${archiveFormat}:${remoteTarPath}:${imageFullName} 2>&1
+  k2s_run buildah push "$resolved_id" "${archive_format}:${tar_path}:${resolved_full_name}"
+elif command -v ctr >/dev/null 2>&1; then
+  k2s_run ctr -n k8s.io images export "$tar_path" "$resolved_full_name"
+elif command -v nerdctl >/dev/null 2>&1; then
+  k2s_run nerdctl -n k8s.io save -o "$tar_path" "$resolved_full_name"
 else
-  k2s_log INFO "Exporting image $ref as OCI archive to $tar_path ($image_name)"
-  if command -v buildah >/dev/null 2>&1; then
-    archive_spec="oci-archive:$tar_path:$image_name"
-    if [[ "$ref" != localhost/* ]] && ! buildah inspect "$ref" >/dev/null 2>&1 && buildah inspect "localhost/$ref" >/dev/null 2>&1; then
-      ref="localhost/$ref"
-    fi
-    if ! k2s_run buildah push "$ref" "$archive_spec"; then
-      if [[ "$ref" != localhost/* ]]; then
-        k2s_run buildah push "localhost/$ref" "$archive_spec"
-      else
-        exit 1
-      fi
-    fi
-  elif command -v ctr >/dev/null 2>&1; then
-    export_ref="$ref"
-    if [[ -n "$image_name" ]]; then
-      export_ref="$image_name"
-    fi
-    k2s_run ctr -n k8s.io images export "$tar_path" "$export_ref"
-  elif command -v nerdctl >/dev/null 2>&1; then
-    k2s_run nerdctl -n k8s.io save -o "$tar_path" "$ref"
-  else
-    k2s_log ERROR "No container tool found to export image as OCI archive. Please install buildah or containerd (ctr)."
-    exit 127
-  fi
+  k2s_log ERROR "No container tool found to export image. Please install buildah or containerd."
+  exit 127
 fi
