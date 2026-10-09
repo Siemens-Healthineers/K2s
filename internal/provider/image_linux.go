@@ -296,16 +296,26 @@ func (p *linuxImageProvider) Import(cfg ImageImportConfig) error {
 		if cfg.ShowOutput {
 			cmd.Stdout = os.Stdout
 			cmd.Stderr = os.Stderr
+			return cmd.Run()
 		}
-		return cmd.Run()
+		out, err := cmd.CombinedOutput()
+		if err != nil {
+			return fmt.Errorf("%s: %w", strings.TrimSpace(string(out)), err)
+		}
+		return nil
 	}
 
 	cmd := exec.Command("ctr", "-n", "k8s.io", "images", "import", path)
 	if cfg.ShowOutput {
 		cmd.Stdout = os.Stdout
 		cmd.Stderr = os.Stderr
+		return cmd.Run()
 	}
-	return cmd.Run()
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("%s: %w", strings.TrimSpace(string(out)), err)
+	}
+	return nil
 }
 
 func (p *linuxImageProvider) Export(cfg ImageExportConfig) error {
@@ -334,8 +344,13 @@ func (p *linuxImageProvider) Export(cfg ImageExportConfig) error {
 		if cfg.ShowOutput {
 			cmd.Stdout = os.Stdout
 			cmd.Stderr = os.Stderr
+			return cmd.Run()
 		}
-		return cmd.Run()
+		out, err := cmd.CombinedOutput()
+		if err != nil {
+			return fmt.Errorf("%s: %w", strings.TrimSpace(string(out)), err)
+		}
+		return nil
 	}
 
 	if cfg.DockerArchive {
@@ -343,16 +358,26 @@ func (p *linuxImageProvider) Export(cfg ImageExportConfig) error {
 		if cfg.ShowOutput {
 			cmd.Stdout = os.Stdout
 			cmd.Stderr = os.Stderr
+			return cmd.Run()
 		}
-		return cmd.Run()
+		out, err := cmd.CombinedOutput()
+		if err != nil {
+			return fmt.Errorf("%s: %w", strings.TrimSpace(string(out)), err)
+		}
+		return nil
 	}
 
 	cmd := exec.Command("ctr", "-n", "k8s.io", "images", "export", cfg.OutputPath, ref)
 	if cfg.ShowOutput {
 		cmd.Stdout = os.Stdout
 		cmd.Stderr = os.Stderr
+		return cmd.Run()
 	}
-	return cmd.Run()
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("%s: %w", strings.TrimSpace(string(out)), err)
+	}
+	return nil
 }
 
 func (p *linuxImageProvider) Tag(cfg ImageTagConfig) error {
@@ -659,7 +684,23 @@ func listLinuxImages() ([]ContainerImage, error) {
 		return nil, fmt.Errorf("listing images failed (buildah: %v, crictl: %v)", buildahErr, crictlErr)
 	}
 
-	return combined, nil
+	// Filter out <none> entries for image IDs that have real tags
+	hasRealTag := make(map[string]bool)
+	for _, img := range combined {
+		if img.Repository != "<none>" && img.Tag != "<none>" {
+			hasRealTag[img.ImageId] = true
+		}
+	}
+
+	var deduplicated []ContainerImage
+	for _, img := range combined {
+		if (img.Repository == "<none>" || img.Tag == "<none>") && hasRealTag[img.ImageId] {
+			continue
+		}
+		deduplicated = append(deduplicated, img)
+	}
+
+	return deduplicated, nil
 }
 
 func listBuildahImages() ([]ContainerImage, error) {

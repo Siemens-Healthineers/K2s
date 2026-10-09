@@ -123,11 +123,15 @@ func resetWinStorage(cmd *cobra.Command, args []string) error {
 
 	setupConfigProvider := getSetupConfigProvider()
 	context := cmd.Context().Value(common.ContextKeyCmdContext).(*common.CmdContext)
-	_, err = setupConfigProvider.ReadConfig(context.Config().Host().K2sSetupConfigDir())
+	runtimeConfig, err := setupConfigProvider.ReadConfig(context.Config().Host().K2sSetupConfigDir())
 	if err != nil {
 		if !(errors.Is(err, cconfig.ErrSystemNotInstalled) || errors.Is(err, cconfig.ErrSystemInCorruptedState)) {
 			return err
 		}
+	}
+
+	if runtimeConfig != nil && runtimeConfig.InstallConfig().LinuxOnly() {
+		return errors.New("Resetting WinContainerStorage for Linux-only setup is not supported.")
 	}
 
 	powershellExecutor := getPowershellExecutor()

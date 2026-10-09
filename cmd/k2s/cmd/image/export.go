@@ -38,7 +38,7 @@ var (
 )
 
 func init() {
-	exportCmd.Flags().String(imageIdFlagName, "", "Image ID of the container image")
+	exportCmd.Flags().StringP(imageIdFlagName, "i", "", "Image ID of the container image")
 	exportCmd.Flags().StringP(removeImgNameFlagName, "n", "", "Name of the container image including tag")
 	addNodeSelectionFlags(exportCmd)
 	exportCmd.Flags().StringP(tarFlag, "t", "", "Export tar file path")
@@ -60,13 +60,20 @@ func exportImage(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("unable to parse flag '%s': %w", removeImgNameFlagName, err)
 	}
 
-	if imageId == "" && imageName == "" {
-		return errors.New("no image id or image name provided")
-	}
-
 	exportPath, err := cmd.Flags().GetString(tarFlag)
 	if err != nil {
 		return fmt.Errorf("unable to parse flag '%s': %w", tarFlag, err)
+	}
+
+	if imageId == "" && imageName == "" && len(args) > 0 {
+		imageName = args[0]
+	}
+	if exportPath == "" && len(args) > 1 {
+		exportPath = args[1]
+	}
+
+	if imageId == "" && imageName == "" {
+		return errors.New("no image id or image name provided")
 	}
 
 	if exportPath == "" {

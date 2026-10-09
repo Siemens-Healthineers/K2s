@@ -110,7 +110,7 @@ func pullImage(cmd *cobra.Command, args []string) error {
 	}
 
 	if runtimeConfig.InstallConfig().LinuxOnly() && pullForWindows {
-		return common.CreateFuncUnavailableForLinuxOnlyCmdFailure()
+		return fmt.Errorf("pulling Windows container images is not supported on a Linux-only installation")
 	}
 
 	if err := validateNodeSelector(nodeSelector, runtimeConfig); err != nil {

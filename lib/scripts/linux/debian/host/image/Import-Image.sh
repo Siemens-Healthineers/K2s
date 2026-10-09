@@ -15,6 +15,8 @@ source "$K2S_INSTALL_DIR/lib/modules/linux/common/validation.sh"
 tar_path=""
 dir_path=""
 
+image_name=""
+
 while [[ $# -gt 0 ]]; do
   case "$1" in
     -t|--tar|--image-path)
@@ -25,8 +27,12 @@ while [[ $# -gt 0 ]]; do
       dir_path="$2"
       shift 2
       ;;
+    -n|--name|--image-name)
+      image_name="$2"
+      shift 2
+      ;;
     -h|--help)
-      echo "Usage: Import-Image.sh [-t <tar-path>] [-d <dir-path>]"
+      echo "Usage: Import-Image.sh [-t <tar-path>] [-d <dir-path>] [-n <image-name>]"
       exit 0
       ;;
     *)
@@ -43,10 +49,62 @@ fi
 
 import_single_tar() {
   local file="$1"
+  local explicit_name="${2:-$image_name}"
   k2s_log INFO "Importing container image from $file"
   if command -v buildah >/dev/null 2>&1; then
-    if ! buildah pull "oci-archive:$file" 2>/dev/null; then
-      k2s_run buildah pull "docker-archive:$file"
+    local pull_out=""
+    if pull_out="$(buildah pull "oci-archive:$file" 2>&1)"; then
+      k2s_log INFO "Successfully imported OCI archive: $file"
+    elif pull_out="$(buildah pull "docker-archive:$file" 2>&1)"; then
+      k2s_log INFO "Successfully imported Docker archive: $file"
+    else
+      k2s_log ERROR "Failed to import image from $file: $pull_out"
+      return 1
+    fi
+
+    local imported_id=""
+    imported_id="$(echo "$pull_out" | grep -oE '[0-9a-f]{12,64}' | tail -n 1 || true)"
+    if [[ -z "$imported_id" ]]; then
+      imported_id="$(echo "$pull_out" | tail -n 1 | tr -d '\r\n' || true)"
+    fi
+
+    # Check if the imported image has any non-<none> names in buildah
+    local current_names=""
+    if [[ -n "$imported_id" ]]; then
+      current_names="$(buildah images --json "$imported_id" 2>/dev/null | jq -r '.[0].names[]? // empty' 2>/dev/null | grep -v '<none>' || true)"
+    fi
+
+    # If the image was imported without tags (names appears as <none>), resolve and apply the tag
+    if [[ -z "$current_names" && -n "$imported_id" ]]; then
+      local tag_to_apply="$explicit_name"
+
+      if [[ -z "$tag_to_apply" ]]; then
+        # 1. Try reading OCI archive index.json annotation
+        tag_to_apply="$(tar -xOf "$file" index.json 2>/dev/null | jq -r '.manifests[0].annotations["org.opencontainers.image.ref.name"] // empty' 2>/dev/null || true)"
+      fi
+
+      if [[ -z "$tag_to_apply" || "$tag_to_apply" == "null" ]]; then
+        # 2. Try reading Docker manifest.json RepoTags
+        tag_to_apply="$(tar -xOf "$file" manifest.json 2>/dev/null | jq -r '.[0].RepoTags[0] // empty' 2>/dev/null || true)"
+      fi
+
+      if [[ -z "$tag_to_apply" || "$tag_to_apply" == "null" ]]; then
+        # 3. Derive from archive filename if it is not a hexadecimal hash
+        local base_name="$(basename "$file" .tar)"
+        base_name="${base_name%_linux}"
+        if [[ ! "$base_name" =~ ^[0-9a-f]{12,64}$ ]]; then
+          if [[ "$base_name" == *":"* ]]; then
+            tag_to_apply="$base_name"
+          else
+            tag_to_apply="${base_name}:latest"
+          fi
+        fi
+      fi
+
+      if [[ -n "$tag_to_apply" && "$tag_to_apply" != "<none>" && "$tag_to_apply" != "null" ]]; then
+        k2s_log INFO "Tagging imported image $imported_id as $tag_to_apply"
+        buildah tag "$imported_id" "$tag_to_apply" || true
+      fi
     fi
   elif command -v ctr >/dev/null 2>&1; then
     k2s_run ctr -n k8s.io images import "$file"
