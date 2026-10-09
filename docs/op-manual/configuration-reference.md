@@ -1,5 +1,5 @@
 <!--
-SPDX-FileCopyrightText: © 2025 Siemens Healthineers AG
+SPDX-FileCopyrightText: © 2026 Siemens Healthineers AG
 SPDX-License-Identifier: MIT
 -->
 
@@ -34,6 +34,21 @@ installBehavior:
   wsl: false                  # Use WSL 2 instead of Hyper-V for the Linux VM
   appendLog: false            # Append to existing log file instead of truncating
   skipStart: false            # Do not start the cluster after installation
+kubeletOverrides:             # Optional; supported on Windows-host installations
+  linuxControlPlane:
+    enabled: true
+    config:
+      maxPods: 100
+      systemReserved:
+        cpu: "500m"
+        memory: "1Gi"
+      kubeReserved:
+        cpu: "250m"
+        memory: "512Mi"
+  windowsWorker:
+    enabled: true
+    config:
+      maxPods: 100
 ```
 
 ### buildonly.config.yaml (Development-Only)
@@ -74,6 +89,15 @@ installBehavior:
 | `env.k8sBins` | string | Path to locally-built K8s binaries (kubelet, kubeadm, kubectl) |
 | `installBehavior.wsl` | boolean | Host Linux VM in WSL 2 instead of Hyper-V |
 | `installBehavior.skipStart` | boolean | Install without starting the cluster |
+| `kubeletOverrides.linuxControlPlane.enabled` | boolean | Manage the Linux control-plane kubelet drop-in |
+| `kubeletOverrides.windowsWorker.enabled` | boolean | Manage the Windows worker kubelet drop-in when that role exists |
+| `kubeletOverrides.<role>.config.maxPods` | positive integer | Maximum pods for the role |
+| `kubeletOverrides.<role>.config.systemReserved.cpu` | quantity string | CPU reserved for operating-system processes |
+| `kubeletOverrides.<role>.config.systemReserved.memory` | quantity string | Memory reserved for operating-system processes |
+| `kubeletOverrides.<role>.config.kubeReserved.cpu` | quantity string | CPU reserved for Kubernetes processes |
+| `kubeletOverrides.<role>.config.kubeReserved.memory` | quantity string | Memory reserved for Kubernetes processes |
+
+Unknown roles, fields, invalid quantity strings, and mistyped values are rejected before installation starts. Omitting `kubeletOverrides` preserves previous behavior. See [Customizing Kubelet Configuration](customizing-kubelet.md) for topology and lifecycle details.
 
 ---
 
@@ -96,6 +120,9 @@ After installation, *K2s* persists cluster state in `setup.json`, located in the
 | `EnabledAddons` | array | List of enabled addons with implementation names |
 | `Corrupted` | boolean | Whether the system is in a corrupted state |
 | `UsedStorageLocalDriveLetter` | string | Drive letter used for local storage |
+| `EffectiveInstallConfigPath` | string | Internal link to the protected normalized install configuration snapshot |
+
+The effective snapshot is stored next to `setup.json` as `effective-install-config.json`. It contains the resolved embedded defaults, user configuration, and CLI overrides. K2s writes it atomically with restricted access, does not log its contents, and keeps it separate from `cfg\config.json`.
 
 ---
 
