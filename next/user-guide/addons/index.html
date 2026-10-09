@@ -1091,6 +1091,100 @@ You're not viewing the latest release version.
 </li>
         
           <li class="md-nav__item">
+  <a href="#omitting-images-during-import" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Omitting Images During Import
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Omitting Images During Import">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#basic-usage" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Basic usage
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#multiple-omit-options" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Multiple omit options
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#multiple-addons-and-scoping" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Multiple addons and scoping
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#shared-images" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Shared images
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#the-artifact-remains-unchanged" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The artifact remains unchanged
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#re-import" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Re-import
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#air-gapped-environments" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Air-gapped environments
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#typical-offline-workflow" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -3617,6 +3711,100 @@ You're not viewing the latest release version.
 </li>
         
           <li class="md-nav__item">
+  <a href="#omitting-images-during-import" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Omitting Images During Import
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Omitting Images During Import">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#basic-usage" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Basic usage
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#multiple-omit-options" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Multiple omit options
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#multiple-addons-and-scoping" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Multiple addons and scoping
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#shared-images" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Shared images
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#the-artifact-remains-unchanged" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The artifact remains unchanged
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#re-import" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Re-import
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#air-gapped-environments" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Air-gapped environments
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#typical-offline-workflow" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -4153,6 +4341,11 @@ SPDX-License-Identifier: MIT
 <a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a><span class="go">k2s addons enable security --type enhanced --omitKeycloak</span>
 </code></pre></div>
 <p>See <a href="../../security/security-features/">Security Features</a> for details on the zero-trust architecture.</p>
+<div class="admonition tip">
+<p class="admonition-title">Tip</p>
+<p>In offline scenarios the container images of an omitted part do not have to be imported at all —
+see <a href="#omitting-images-during-import">Omitting Images During Import</a>.</p>
+</div>
 <h3 id="rollout">rollout</h3>
 <p>Two mutually exclusive GitOps implementations:</p>
 <p><strong>ArgoCD:</strong></p>
@@ -4481,43 +4674,129 @@ SPDX-License-Identifier: MIT
 <h3 id="importing-addons">Importing Addons</h3>
 <p>On the target system (which may be offline), import the previously exported archive:</p>
 <div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-15-1" name="__codelineno-15-1" href="#__codelineno-15-1"></a><span class="gp"># </span>Import<span class="w"> </span>all<span class="w"> </span>addons<span class="w"> </span>from<span class="w"> </span>archive
-<a id="__codelineno-15-2" name="__codelineno-15-2" href="#__codelineno-15-2"></a><span class="go">k2s addons import -z C:\transfer\addons.oci.tar</span>
+<a id="__codelineno-15-2" name="__codelineno-15-2" href="#__codelineno-15-2"></a><span class="go">k2s addons import -f C:\transfer\addons.oci.tar</span>
 <a id="__codelineno-15-3" name="__codelineno-15-3" href="#__codelineno-15-3"></a>
 <a id="__codelineno-15-4" name="__codelineno-15-4" href="#__codelineno-15-4"></a><span class="gp"># </span>Import<span class="w"> </span>a<span class="w"> </span>specific<span class="w"> </span>addon
-<a id="__codelineno-15-5" name="__codelineno-15-5" href="#__codelineno-15-5"></a><span class="go">k2s addons import registry -z C:\transfer\addons.oci.tar</span>
+<a id="__codelineno-15-5" name="__codelineno-15-5" href="#__codelineno-15-5"></a><span class="go">k2s addons import registry -f C:\transfer\addons.oci.tar</span>
 <a id="__codelineno-15-6" name="__codelineno-15-6" href="#__codelineno-15-6"></a>
 <a id="__codelineno-15-7" name="__codelineno-15-7" href="#__codelineno-15-7"></a><span class="gp"># </span>Import<span class="w"> </span>a<span class="w"> </span>specific<span class="w"> </span>implementation
-<a id="__codelineno-15-8" name="__codelineno-15-8" href="#__codelineno-15-8"></a><span class="go">k2s addons import "ingress nginx" -z C:\transfer\addons.oci.tar</span>
+<a id="__codelineno-15-8" name="__codelineno-15-8" href="#__codelineno-15-8"></a><span class="go">k2s addons import ingress nginx -f C:\transfer\addons.oci.tar</span>
+<a id="__codelineno-15-9" name="__codelineno-15-9" href="#__codelineno-15-9"></a>
+<a id="__codelineno-15-10" name="__codelineno-15-10" href="#__codelineno-15-10"></a><span class="gp"># </span>Import<span class="w"> </span>several<span class="w"> </span>addons/implementations<span class="w"> </span>at<span class="w"> </span>once
+<a id="__codelineno-15-11" name="__codelineno-15-11" href="#__codelineno-15-11"></a><span class="go">k2s addons import ingress nginx registry -f C:\transfer\addons.oci.tar</span>
 </code></pre></div>
 <p>After import, the addon images are loaded into the cluster's container runtime and the addon can be enabled normally.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>If you name addons on the command line, only those addons take part in the import. If you name
+none, all addons contained in the artifact are selected. An addon that is present in the artifact
+but not selected is skipped entirely — its images are not imported.</p>
+</div>
+<h3 id="omitting-images-during-import">Omitting Images During Import</h3>
+<p>Some addons can be enabled without parts of their functionality, e.g. <code>k2s addons enable security --omitKeycloak</code>.
+The container images of those parts are still contained in the artifact, but they do not have to be
+loaded into the container runtime. <code>k2s addons import --omit</code> skips them and thereby reduces the
+disk footprint of an offline installation.</p>
+<h4 id="basic-usage">Basic usage</h4>
+<p>Pass the name of the <code>enable</code> flag whose functionality you do not intend to use:</p>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-16-1" name="__codelineno-16-1" href="#__codelineno-16-1"></a><span class="go">k2s addons import security -f C:\transfer\addons.oci.tar --omit omitKeycloak</span>
+</code></pre></div>
+<p>The images belonging to Keycloak are not imported; everything else is imported as usual.</p>
+<h4 id="multiple-omit-options">Multiple omit options</h4>
+<p><code>--omit</code> is repeatable:</p>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-17-1" name="__codelineno-17-1" href="#__codelineno-17-1"></a><span class="go">k2s addons import security -f C:\transfer\addons.oci.tar --omit omitKeycloak --omit omitOAuth2Proxy</span>
+</code></pre></div>
+<h4 id="multiple-addons-and-scoping">Multiple addons and scoping</h4>
+<p>An import can select several addons and implementations. Omit processing only applies to the
+implementations that were selected for <strong>this</strong> import:</p>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-18-1" name="__codelineno-18-1" href="#__codelineno-18-1"></a><span class="go">k2s addons import ingress nginx security -f C:\transfer\addons.oci.tar --omit omitCertMgr</span>
+</code></pre></div>
+<p>An omit option can be scoped so that it only applies to one addon or one implementation:</p>
+<table>
+<thead>
+<tr>
+<th>Token</th>
+<th>Applies to</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>omitCertMgr</code></td>
+<td>every selected implementation declaring that flag</td>
+</tr>
+<tr>
+<td><code>ingress:omitCertMgr</code></td>
+<td>all selected implementations of the <code>ingress</code> addon</td>
+</tr>
+<tr>
+<td><code>ingress/nginx:omitCertMgr</code></td>
+<td>the <code>ingress nginx</code> implementation only</td>
+</tr>
+</tbody>
+</table>
+<p>Unknown or wrongly scoped options are ignored with a warning and never cause additional images to be
+skipped.</p>
+<h4 id="shared-images">Shared images</h4>
+<p>Addons can share images. An image is only skipped when <strong>no selected implementation still requires it</strong>.</p>
+<p>For example, <code>ingress nginx</code> can omit cert-manager, but the <code>security</code> addon always requires it:</p>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-19-1" name="__codelineno-19-1" href="#__codelineno-19-1"></a><span class="go">k2s addons import ingress nginx security -f C:\transfer\addons.oci.tar --omit omitCertMgr</span>
+</code></pre></div>
+<p>Result: the cert-manager images <strong>are imported</strong>, because <code>security</code> — which is part of the same
+import — still needs them. Importing <code>ingress nginx</code> alone with the same option does skip them.</p>
+<h4 id="the-artifact-remains-unchanged">The artifact remains unchanged</h4>
+<p><code>--omit</code> does <strong>not</strong> modify, shrink or repack the OCI artifact. It only controls which images are
+loaded into the local container runtime. Importing with <code>--omit</code> also never deletes images that are
+already present locally.</p>
+<h4 id="re-import">Re-import</h4>
+<p>Because the artifact is untouched, importing it again later without <code>--omit</code> adds the previously
+skipped images:</p>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-20-1" name="__codelineno-20-1" href="#__codelineno-20-1"></a><span class="gp"># </span>initially<span class="w"> </span>imported<span class="w"> </span>without<span class="w"> </span>the<span class="w"> </span>Keycloak<span class="w"> </span>images
+<a id="__codelineno-20-2" name="__codelineno-20-2" href="#__codelineno-20-2"></a><span class="go">k2s addons import security -f C:\transfer\addons.oci.tar --omit omitKeycloak</span>
+<a id="__codelineno-20-3" name="__codelineno-20-3" href="#__codelineno-20-3"></a>
+<a id="__codelineno-20-4" name="__codelineno-20-4" href="#__codelineno-20-4"></a><span class="gp"># </span>later<span class="w"> </span>on:<span class="w"> </span>add<span class="w"> </span>the<span class="w"> </span>missing<span class="w"> </span>images<span class="w"> </span>from<span class="w"> </span>the<span class="w"> </span>very<span class="w"> </span>same<span class="w"> </span>artifact
+<a id="__codelineno-20-5" name="__codelineno-20-5" href="#__codelineno-20-5"></a><span class="go">k2s addons import security -f C:\transfer\addons.oci.tar</span>
+</code></pre></div>
+<p>No re-export is required.</p>
+<h4 id="air-gapped-environments">Air-gapped environments</h4>
+<p>If an image is omitted during import and the corresponding functionality is enabled later, that image
+must be available locally — an air-gapped cluster cannot pull it from a registry. Either keep the
+artifact available for a re-import, or enable the addon with the matching omit flag.</p>
+<div class="admonition warning">
+<p class="admonition-title">Enable-time limitation</p>
+<p>The <code>--omit</code> choice made during import is <strong>not</strong> persisted as addon enable state. Running</p>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-21-1" name="__codelineno-21-1" href="#__codelineno-21-1"></a><span class="go">k2s addons import security -f C:\transfer\addons.oci.tar --omit omitKeycloak</span>
+</code></pre></div>
+<p>does <strong>not</strong> make a later <code>k2s addons enable security</code> behave like <code>k2s addons enable security --omitKeycloak</code>.
+Enable the addon with the matching flag, or re-import the artifact without <code>--omit</code> beforehand.</p>
+</div>
 <h3 id="typical-offline-workflow">Typical Offline Workflow</h3>
 <ol>
 <li><strong>On an online machine</strong> with K2s installed, export the addons you need:
-   <div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-16-1" name="__codelineno-16-1" href="#__codelineno-16-1"></a><span class="go">k2s addons export "ingress nginx" registry monitoring -d C:\export</span>
+   <div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-22-1" name="__codelineno-22-1" href="#__codelineno-22-1"></a><span class="go">k2s addons export ingress nginx registry monitoring -d C:\export</span>
 </code></pre></div></li>
-<li><strong>Transfer</strong> the <code>addons.oci.tar</code> file to the air-gapped environment (USB drive, secure file transfer, etc.)</li>
+<li><strong>Transfer</strong> the <code>.oci.tar</code> file to the air-gapped environment (USB drive, secure file transfer, etc.)</li>
 <li><strong>On the offline machine</strong>, import and enable:
-   <div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-17-1" name="__codelineno-17-1" href="#__codelineno-17-1"></a><span class="go">k2s addons import -z D:\transfer\addons.oci.tar</span>
-<a id="__codelineno-17-2" name="__codelineno-17-2" href="#__codelineno-17-2"></a><span class="go">k2s addons enable ingress nginx</span>
-<a id="__codelineno-17-3" name="__codelineno-17-3" href="#__codelineno-17-3"></a><span class="go">k2s addons enable registry</span>
-<a id="__codelineno-17-4" name="__codelineno-17-4" href="#__codelineno-17-4"></a><span class="go">k2s addons enable monitoring</span>
+   <div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-23-1" name="__codelineno-23-1" href="#__codelineno-23-1"></a><span class="go">k2s addons import -f D:\transfer\addons.oci.tar</span>
+<a id="__codelineno-23-2" name="__codelineno-23-2" href="#__codelineno-23-2"></a><span class="go">k2s addons enable ingress nginx</span>
+<a id="__codelineno-23-3" name="__codelineno-23-3" href="#__codelineno-23-3"></a><span class="go">k2s addons enable registry</span>
+<a id="__codelineno-23-4" name="__codelineno-23-4" href="#__codelineno-23-4"></a><span class="go">k2s addons enable monitoring</span>
 </code></pre></div></li>
 </ol>
 <h2 id="backup-restore">Backup &amp; Restore</h2>
 <p>Addons support data backup and restore for disaster recovery or migration scenarios.</p>
 <h3 id="backing-up-addon-data">Backing Up Addon Data</h3>
-<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-18-1" name="__codelineno-18-1" href="#__codelineno-18-1"></a><span class="gp"># </span>Backup<span class="w"> </span>to<span class="w"> </span>a<span class="w"> </span>specific<span class="w"> </span>file
-<a id="__codelineno-18-2" name="__codelineno-18-2" href="#__codelineno-18-2"></a><span class="go">k2s addons backup registry -f C:\backups\registry-backup.zip</span>
-<a id="__codelineno-18-3" name="__codelineno-18-3" href="#__codelineno-18-3"></a>
-<a id="__codelineno-18-4" name="__codelineno-18-4" href="#__codelineno-18-4"></a><span class="gp"># </span>Backup<span class="w"> </span>to<span class="w"> </span>default<span class="w"> </span>location<span class="w"> </span><span class="o">(</span>C:<span class="se">\T</span>emp<span class="se">\k</span>2s<span class="se">\A</span>ddons<span class="o">)</span>
-<a id="__codelineno-18-5" name="__codelineno-18-5" href="#__codelineno-18-5"></a><span class="go">k2s addons backup registry</span>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-24-1" name="__codelineno-24-1" href="#__codelineno-24-1"></a><span class="gp"># </span>Backup<span class="w"> </span>to<span class="w"> </span>a<span class="w"> </span>specific<span class="w"> </span>file
+<a id="__codelineno-24-2" name="__codelineno-24-2" href="#__codelineno-24-2"></a><span class="go">k2s addons backup registry -f C:\backups\registry-backup.zip</span>
+<a id="__codelineno-24-3" name="__codelineno-24-3" href="#__codelineno-24-3"></a>
+<a id="__codelineno-24-4" name="__codelineno-24-4" href="#__codelineno-24-4"></a><span class="gp"># </span>Backup<span class="w"> </span>to<span class="w"> </span>default<span class="w"> </span>location<span class="w"> </span><span class="o">(</span>C:<span class="se">\T</span>emp<span class="se">\k</span>2s<span class="se">\A</span>ddons<span class="o">)</span>
+<a id="__codelineno-24-5" name="__codelineno-24-5" href="#__codelineno-24-5"></a><span class="go">k2s addons backup registry</span>
 </code></pre></div>
 <h3 id="restoring-addon-data">Restoring Addon Data</h3>
-<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-19-1" name="__codelineno-19-1" href="#__codelineno-19-1"></a><span class="gp"># </span>Restore<span class="w"> </span>from<span class="w"> </span>a<span class="w"> </span>specific<span class="w"> </span>file
-<a id="__codelineno-19-2" name="__codelineno-19-2" href="#__codelineno-19-2"></a><span class="go">k2s addons restore registry -f C:\backups\registry-backup.zip</span>
-<a id="__codelineno-19-3" name="__codelineno-19-3" href="#__codelineno-19-3"></a>
-<a id="__codelineno-19-4" name="__codelineno-19-4" href="#__codelineno-19-4"></a><span class="gp"># </span>Restore<span class="w"> </span>newest<span class="w"> </span>backup<span class="w"> </span>from<span class="w"> </span>default<span class="w"> </span>location
-<a id="__codelineno-19-5" name="__codelineno-19-5" href="#__codelineno-19-5"></a><span class="go">k2s addons restore registry</span>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-25-1" name="__codelineno-25-1" href="#__codelineno-25-1"></a><span class="gp"># </span>Restore<span class="w"> </span>from<span class="w"> </span>a<span class="w"> </span>specific<span class="w"> </span>file
+<a id="__codelineno-25-2" name="__codelineno-25-2" href="#__codelineno-25-2"></a><span class="go">k2s addons restore registry -f C:\backups\registry-backup.zip</span>
+<a id="__codelineno-25-3" name="__codelineno-25-3" href="#__codelineno-25-3"></a>
+<a id="__codelineno-25-4" name="__codelineno-25-4" href="#__codelineno-25-4"></a><span class="gp"># </span>Restore<span class="w"> </span>newest<span class="w"> </span>backup<span class="w"> </span>from<span class="w"> </span>default<span class="w"> </span>location
+<a id="__codelineno-25-5" name="__codelineno-25-5" href="#__codelineno-25-5"></a><span class="go">k2s addons restore registry</span>
 </code></pre></div>
 <h2 id="gitops-with-the-rollout-addon">GitOps with the Rollout Addon</h2>
 <p>The <strong>rollout</strong> addon provides GitOps-based continuous deployment using either <strong>ArgoCD</strong> or <strong>Flux <abbr title="Continuous Delivery/Deployment (even though delivery and deployment might be different activities)">CD</abbr></strong>. This is especially powerful when combined with addon OCI export/import for offline environments.</p>
@@ -4529,7 +4808,7 @@ SPDX-License-Identifier: MIT
 <li><strong>Reproducible environments</strong> — same Git repo produces identical deployments</li>
 </ul>
 <h3 id="argocd-implementation">ArgoCD Implementation</h3>
-<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-20-1" name="__codelineno-20-1" href="#__codelineno-20-1"></a><span class="go">k2s addons enable rollout argocd</span>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-26-1" name="__codelineno-26-1" href="#__codelineno-26-1"></a><span class="go">k2s addons enable rollout argocd</span>
 </code></pre></div>
 <p>ArgoCD provides a web dashboard at <code>https://k2s.cluster.local/rollout</code> (when ingress is configured) for visual deployment management. It supports:</p>
 <ul>
@@ -4539,10 +4818,10 @@ SPDX-License-Identifier: MIT
 <li>Multi-application management</li>
 </ul>
 <p>Optional ingress integration:
-<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-21-1" name="__codelineno-21-1" href="#__codelineno-21-1"></a><span class="go">k2s addons enable rollout argocd --ingress nginx</span>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-27-1" name="__codelineno-27-1" href="#__codelineno-27-1"></a><span class="go">k2s addons enable rollout argocd --ingress nginx</span>
 </code></pre></div></p>
 <h3 id="flux-cd-implementation">Flux <abbr title="Continuous Delivery/Deployment (even though delivery and deployment might be different activities)">CD</abbr> Implementation</h3>
-<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-22-1" name="__codelineno-22-1" href="#__codelineno-22-1"></a><span class="go">k2s addons enable rollout fluxcd</span>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-28-1" name="__codelineno-28-1" href="#__codelineno-28-1"></a><span class="go">k2s addons enable rollout fluxcd</span>
 </code></pre></div>
 <p>Flux <abbr title="Continuous Delivery/Deployment (even though delivery and deployment might be different activities)">CD</abbr> provides a <abbr title="Command-Line Interface">CLI</abbr>/<abbr title="Yet Another Markup Language">YAML</abbr>-only GitOps experience with:</p>
 <ul>
@@ -4551,17 +4830,17 @@ SPDX-License-Identifier: MIT
 <li>Optional webhook ingress for push-based notifications</li>
 </ul>
 <p>Optional ingress integration:
-<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-23-1" name="__codelineno-23-1" href="#__codelineno-23-1"></a><span class="go">k2s addons enable rollout fluxcd --ingress traefik</span>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-29-1" name="__codelineno-29-1" href="#__codelineno-29-1"></a><span class="go">k2s addons enable rollout fluxcd --ingress traefik</span>
 </code></pre></div></p>
 <h3 id="offline-gitops-workflow">Offline GitOps Workflow</h3>
 <p>Combining OCI export/import with the rollout addon enables GitOps in air-gapped environments:</p>
 <ol>
 <li><strong>Export</strong> the rollout addon (and any other addons your applications depend on):
-   <div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-24-1" name="__codelineno-24-1" href="#__codelineno-24-1"></a><span class="go">k2s addons export rollout "ingress nginx" registry -d C:\export</span>
+   <div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-30-1" name="__codelineno-30-1" href="#__codelineno-30-1"></a><span class="go">k2s addons export rollout ingress nginx registry -d C:\export</span>
 </code></pre></div></li>
 <li><strong>Transfer</strong> and <strong>import</strong> on the offline cluster:
-   <div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-25-1" name="__codelineno-25-1" href="#__codelineno-25-1"></a><span class="go">k2s addons import -z D:\transfer\addons.oci.tar</span>
-<a id="__codelineno-25-2" name="__codelineno-25-2" href="#__codelineno-25-2"></a><span class="go">k2s addons enable rollout argocd --ingress nginx</span>
+   <div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-31-1" name="__codelineno-31-1" href="#__codelineno-31-1"></a><span class="go">k2s addons import -f D:\transfer\addons.oci.tar</span>
+<a id="__codelineno-31-2" name="__codelineno-31-2" href="#__codelineno-31-2"></a><span class="go">k2s addons enable rollout argocd --ingress nginx</span>
 </code></pre></div></li>
 <li><strong>Configure ArgoCD/Flux</strong> to point to a local Git server (also deployed in the cluster or available on the local network) containing your application manifests.</li>
 </ol>
