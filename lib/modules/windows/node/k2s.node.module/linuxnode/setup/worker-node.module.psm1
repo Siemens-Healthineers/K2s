@@ -31,6 +31,52 @@ function Repair-LinuxWorkerNodeRegistriesConfig {
     (Invoke-CmdOnVmViaSSHKey -CmdToExecute 'sudo systemctl restart crio' -UserName $UserName -IpAddress $IpAddress -IgnoreErrors).Output | Write-Log
 }
 
+function Add-LinuxWorkerNodeRegistryMirrors {
+    <#
+    .SYNOPSIS
+        Configures CRI-O registry mirrors on an external Linux worker node.
+    .DESCRIPTION
+        External (bare-metal / existing-VM) worker nodes are not built from the K2s node
+        base image, so 'AddRegistryMirrors' (which runs during New-VmImageForKubernetesNode)
+        never configures their CRI-O. Without the mirror entries, CRI-O resolves images such
+        as quay.io/* and registry.k8s.io/* against the public internet instead of the local
+        K2s mirror, causing offline enablement (e.g. Ceph CSI) to attempt network pulls.
+
+        This writes the same /etc/containers/registries.conf.d/*.conf mirror entries that the
+        managed node receives, using the mirrorRegistries block from cfg/config.json, and
+        restarts crio. Idempotent: re-running overwrites the per-registry drop-in files.
+    #>
+    Param(
+        [string] $UserName = $(throw 'Argument missing: UserName'),
+        [string] $IpAddress = $(throw 'Argument missing: IpAddress')
+    )
+
+    $mirrorRegistries = Get-MirrorRegistries
+    if ($null -eq $mirrorRegistries -or @($mirrorRegistries).Count -eq 0) {
+        Write-Log "[RegistryMirror] No mirrorRegistries configured in config.json, skipping mirror setup on node $IpAddress."
+        return
+    }
+
+    Write-Log "[RegistryMirror] Configuring CRI-O registry mirrors on node $IpAddress" -Console
+
+    $executeRemoteCommand = { param($Command = $(throw 'Argument missing: Command'))
+        (Invoke-CmdOnVmViaSSHKey -CmdToExecute $Command -UserName $UserName -IpAddress $IpAddress -IgnoreErrors).Output | Write-Log
+    }
+
+    &$executeRemoteCommand 'sudo mkdir -p /etc/containers/registries.conf.d'
+    foreach ($registry in $mirrorRegistries) {
+        $Name = $registry.registry
+        $Mirror = $registry.mirror
+        $fileName = $Name -replace ':', ''
+        Write-Log "[RegistryMirror] Mapping registry '$Name' to mirror '$Mirror' on node $IpAddress."
+        &$executeRemoteCommand "echo -e `'[[registry]]\nlocation=\""$Name\""\ninsecure=true`' | sudo tee /etc/containers/registries.conf.d/$fileName.conf"
+        &$executeRemoteCommand "echo -e `'[[registry.mirror]]\nlocation=\""$Mirror\""\ninsecure=true`' | sudo tee -a /etc/containers/registries.conf.d/$fileName.conf"
+    }
+    &$executeRemoteCommand 'sudo systemctl daemon-reload'
+    Write-Log "[RegistryMirror] Restarting crio after mirror configuration on node $IpAddress."
+    &$executeRemoteCommand 'sudo systemctl restart crio'
+}
+
 function Clear-LinuxWorkerNodeRoutes {
     <#
     .SYNOPSIS
@@ -281,6 +327,12 @@ function Add-LinuxWorkerNode {
         Install-LinuxPackagesAndAddContainerImagesIntoRemoteComputer -UserName $UserName -IpAddress $IpAddress -Proxy $Proxy -InstalledDistribution $installedDistributionOnRemoteComputer -NodePackagePath $NodePackagePath -SkipGpuPackages:(!$gpuDetected)
 
         Repair-LinuxWorkerNodeRegistriesConfig -UserName $UserName -IpAddress $IpAddress
+
+        # Configure CRI-O registry mirrors so this external node resolves images (e.g.
+        # quay.io/*, registry.k8s.io/*) against the local K2s mirror instead of the
+        # public internet. Managed nodes get this via AddRegistryMirrors during base
+        # image build; external nodes must have it applied here during join.
+        Add-LinuxWorkerNodeRegistryMirrors -UserName $UserName -IpAddress $IpAddress
 
         # Cleanup Kubernetes-related routes before add/join flow
         Clear-LinuxWorkerNodeRoutes -UserName $UserName -IpAddress $IpAddress
@@ -743,6 +795,7 @@ function Test-SupportedWorkerOS {
 }
 
 Export-ModuleMember -Function Add-LinuxWorkerNode,
+Add-LinuxWorkerNodeRegistryMirrors,
 Remove-LinuxWorkerNode,
 Clear-LinuxWorkerNodeRoutes,
 Restore-LinuxWorkerNodeRoutes,

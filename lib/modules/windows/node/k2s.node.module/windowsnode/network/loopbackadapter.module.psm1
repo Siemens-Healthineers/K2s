@@ -114,6 +114,65 @@ function Get-DevgonExePath {
     return $devgonPath
 }
 
+function Invoke-LoopbackDeviceCommand {
+    param(
+        [string]$DevConExe,
+        [string[]]$Parameters
+    )
+
+    $command = Get-Command -Name $DevConExe -CommandType Application -ErrorAction Stop
+    $previousErrorActionPreference = $ErrorActionPreference
+    try {
+        # Preserve native stderr as diagnostic output instead of terminating before exit-code capture.
+        $ErrorActionPreference = 'Continue'
+        $output = & $command.Source @Parameters 2>&1
+        $exitCode = $LASTEXITCODE
+    }
+    finally {
+        $ErrorActionPreference = $previousErrorActionPreference
+    }
+    foreach ($line in $output) {
+        Write-Log "[LoopbackAdapter] Device installer: $line"
+    }
+    Write-Log "[LoopbackAdapter] Device command '$($Parameters[0])' exited with code $exitCode"
+    if ($exitCode -ne 0) {
+        throw "Loopback device command '$($Parameters[0])' failed with exit code ${exitCode}: $($output -join ' ')"
+    }
+}
+
+function Wait-LoopbackAdapterCount {
+    param(
+        [ValidateSet(0, 1)]
+        [int]$ExpectedCount,
+        [ValidateRange(1, 61)]
+        [int]$MaxAttempts = 31,
+        [ValidateRange(1, 10)]
+        [int]$DelaySeconds = 2
+    )
+
+    for ($attempt = 1; $attempt -le $MaxAttempts; $attempt++) {
+        $adapters = @(Get-NetAdapter -ErrorAction Stop |
+            Where-Object InterfaceDescription -like 'Microsoft KM-TEST Loopback Adapter*')
+        if ($adapters.Count -eq $ExpectedCount) {
+            if ($ExpectedCount -eq 1) {
+                Write-Log "[LoopbackAdapter] Discovered adapter '$($adapters[0].Name)' ($($adapters[0].PnPDeviceID)) on attempt $attempt/$MaxAttempts"
+                return $adapters[0]
+            }
+            return
+        }
+        if ($ExpectedCount -eq 1 -and $adapters.Count -gt 1) {
+            throw "More than one Loopback Adapter was found, this is an inconsistency on the system: $($adapters.Name -join ', ')"
+        }
+        Write-Log "[LoopbackAdapter] Waiting for adapter count $ExpectedCount; found $($adapters.Count) on attempt $attempt/$MaxAttempts"
+        if ($attempt -lt $MaxAttempts) {
+            Start-Sleep -Seconds $DelaySeconds
+        }
+    }
+    $message = "Loopback adapter discovery timed out after $MaxAttempts queries (poll delay ${DelaySeconds}s): expected $ExpectedCount, found $($adapters.Count). Devices: $($adapters.Name -join ', '). See device installer output in k2s.log and C:\Windows\INF\setupapi.dev.log."
+    Write-Log "[LoopbackAdapter] $message" -Console
+    throw $message
+}
+
 function New-LoopbackAdapter {
     [OutputType([Microsoft.Management.Infrastructure.CimInstance])]
     [CmdLetBinding()]
@@ -142,21 +201,16 @@ function New-LoopbackAdapter {
     } # if
 
     Write-Log 'First remove all existing LoopbackAdapters'
-    Get-NetAdapter | Where-Object -Property InterfaceDescription -like 'Microsoft KM-TEST Loopback Adapter*' | ForEach-Object { Remove-LoopbackAdapter -Name $_.Name -DevConExe $DevconExe }
+    $existingAdapters = @(Get-NetAdapter -ErrorAction Stop | Where-Object -Property InterfaceDescription -like 'Microsoft KM-TEST Loopback Adapter*')
+    foreach ($existingAdapter in $existingAdapters) {
+        Remove-LoopbackAdapter -Name $existingAdapter.Name -DevConExe $DevConExe
+    }
+    if ($existingAdapters.Count -gt 0) {
+        Wait-LoopbackAdapterCount -ExpectedCount 0
+    }
 
-    # Use Devcon.exe to install the Microsoft Loopback adapter
-    # Requires local Admin privs.
-    $null = & $DevConExe @('install', '-p', "$($ENV:SystemRoot)\inf\netloop.inf", '-i', '*MSLOOP')
-
-    # Find the newly added Loopback Adapter
-    $Adapter = Get-NetAdapter  | Where-Object { ($_.InterfaceDescription -like 'Microsoft KM-TEST Loopback Adapter*') }
-    # check for zero or multiple entries
-    if (!$Adapter) {
-        Throw 'The new Loopback Adapter was not found.'
-    } # if
-    if ($Adapter.Count -gt 1) {
-        Throw 'More than one Loopback Adapter was found, this is an inconsistency on the system.'
-    } # if
+    Invoke-LoopbackDeviceCommand -DevConExe $DevConExe -Parameters @('install', '-p', "$($ENV:SystemRoot)\inf\netloop.inf", '-i', '*MSLOOP')
+    $Adapter = Wait-LoopbackAdapterCount -ExpectedCount 1
 
     # Rename the new Loopback adapter
     Set-NewNameForLoopbackAdapter -Adapter $Adapter
@@ -212,9 +266,7 @@ function Remove-LoopbackAdapter {
         Throw "Network Adapter $Name is not a Microsoft KM-TEST Loopback Adapter."
     } # if
 
-    # Use Devcon.exe to remove the Microsoft Loopback adapter using the PnPDeviceID.
-    # Requires local Admin privs.
-    $null = & $DevConExe @('remove', '-i', "$($Adapter.PnPDeviceID)")
+    Invoke-LoopbackDeviceCommand -DevConExe $DevConExe -Parameters @('remove', '-i', "$($Adapter.PnPDeviceID)")
 } # function Remove-LoopbackAdapter
 
 function Test-LoopbackAdapterIPAddress {

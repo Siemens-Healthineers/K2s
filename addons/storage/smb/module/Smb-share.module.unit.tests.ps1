@@ -1291,6 +1291,39 @@ Describe 'Enable-SmbShare' -Tag 'unit', 'ci', 'addon', 'storage smb' {
                 Mock -ModuleName $moduleName Get-StorageConfigFromRaw { return @{Prop = 'val1'; EnhancedProp = 'val-a' }, @{Prop = 'val2'; EnhancedProp = 'val-b' } }
             }
 
+            Context 'POSIX storage with Windows host' {
+                BeforeAll {
+                    Mock -ModuleName $moduleName Get-StorageConfigFromRaw {
+                        return [pscustomobject]@{ EnablePosixExtensions = $true; StorageClassName = 'smb-posix' }
+                    }
+                }
+
+                It 'returns a clear unsupported host error before provisioning' {
+                    InModuleScope -ModuleName $moduleName {
+                        $err = (Enable-SmbShare -SmbHostType 'windows').Error
+
+                        $err.Code | Should -Be 'posix-unsupported-on-windows'
+                        $err.Message | Should -Be "The 'posix' protocol cannot be used with a Windows SMB host. It is only supported on Linux targets (use '-t linux')."
+                        Should -Invoke Restore-SmbShareAndFolder -Times 0 -Scope It
+                    }
+                }
+            }
+
+            Context 'POSIX storage with Linux host' {
+                BeforeAll {
+                    Mock -ModuleName $moduleName Get-StorageConfigFromRaw {
+                        return [pscustomobject]@{ EnablePosixExtensions = $true; StorageClassName = 'smb-posix' }
+                    }
+                }
+
+                It 'continues with Linux host provisioning' {
+                    InModuleScope -ModuleName $moduleName {
+                        (Enable-SmbShare -SmbHostType 'linux').Error | Should -BeNullOrEmpty
+                        Should -Invoke Restore-SmbShareAndFolder -Times 1 -Scope It
+                    }
+                }
+            }
+
             It 'enables the addon passing the correct params' {
                 InModuleScope -ModuleName $moduleName {
                     $smbHostType = 'Linux'
@@ -1982,6 +2015,8 @@ Describe 'Get-StorageConfigFromRaw' -Tag 'unit', 'ci', 'addon', 'storage smb' {
 
                 $actual = Get-StorageConfigFromRaw -RawConfig $config
 
+                $actual[0].LinuxShareName | Should -Be 'linux-sc1-share'
+                $actual[0].WinShareName | Should -Be 'win-sc1-share'
                 $actual[0].SmbDialect | Should -Be 'auto'
                 $actual[0].EnablePosixExtensions | Should -BeFalse
                 $actual[0].UseServerInode | Should -BeFalse
