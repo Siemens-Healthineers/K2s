@@ -275,6 +275,41 @@
                                     "exclusionGroup": {
                                         "description": "flag group for mutually exclusive flags",
                                         "type": "string"
+                                    },
+                                    "omittedImages": {
+                                        "description": "Container images that are no longer needed when this flag selects the omitting value. Consumed by 'k2s addons import --omit' to skip images. Prefer 'fromFiles' so image tags stay declared in exactly one place.",
+                                        "type": "object",
+                                        "properties": {
+                                            "fromFiles": {
+                                                "description": "Kubernetes manifest files whose images belong to the omitted functionality. Paths are relative to the addon implementation directory.",
+                                                "type": "array",
+                                                "items": {
+                                                    "type": "string"
+                                                },
+                                                "uniqueItems": true
+                                            },
+                                            "explicit": {
+                                                "description": "Explicit image references. Escape hatch for images that cannot be discovered statically, e.g. images embedded in a Helm chart archive.",
+                                                "type": "array",
+                                                "items": {
+                                                    "type": "string"
+                                                },
+                                                "uniqueItems": true
+                                            }
+                                        },
+                                        "anyOf": [
+                                            {
+                                                "required": [
+                                                    "fromFiles"
+                                                ]
+                                            },
+                                            {
+                                                "required": [
+                                                    "explicit"
+                                                ]
+                                            }
+                                        ],
+                                        "additionalProperties": false
                                     }
                                 },
                                 "required": [

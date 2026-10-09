@@ -61,6 +61,13 @@ k2s addons import -f d:\addons.oci.tar                    - imports all addons f
 k2s addons import "ingress nginx" -f d:\addons.oci.tar    - imports implementation 'nginx' of addon 'ingress' from a specific archive
 k2s addons import ingress -f d:\addons.oci.tar            - imports all implementations of addon 'ingress' from a specific archive
 ```
+Importing without the images of a functionality that will not be enabled (repeatable, optionally scoped;
+an image is only skipped when no selected addon still requires it, the archive itself stays unchanged):
+```
+k2s addons import security -f d:\addons.oci.tar --omit omitKeycloak                          - skips the Keycloak images
+k2s addons import security -f d:\addons.oci.tar --omit omitKeycloak --omit omitOAuth2Proxy   - skips the Keycloak and OAuth2-Proxy images
+k2s addons import -f d:\addons.oci.tar --omit ingress/nginx:omitCertMgr                      - scopes the omit option to one implementation
+```
 Backing up addon data:
 ```
 k2s addons backup registry -f d:\registry-backup.zip           - creates a backup zip for addon 'registry'

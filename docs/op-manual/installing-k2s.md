@@ -82,6 +82,17 @@ To inspect the different install options, run:
 !!! note
     *K2s* will start automatically after the installation has finished.
 
+!!! note "Windows loopback adapter discovery"
+    During `k2s install`, Windows worker setup checks the device installer's exit
+    code and logs its output. It waits for the loopback adapter to become visible
+    using up to 31 queries, two seconds apart, rather than failing immediately
+    after device creation. Existing loopback devices removed during setup must
+    disappear before another device is installed; the same polling limit applies.
+    Device-command failures, discovery timeouts and multiple adapters remain
+    explicit installation errors. For diagnosis, inspect `k2s.log` in the configured
+    log directory (normally `C:\var\log`) and `C:\Windows\INF\setupapi.dev.log`.
+    This behavior applies to packages containing the fix, not older release packages.
+
 ### Installing Using Config Files
 Instead of assembling many command-line parameters/flags to customize the installation, you can also pass a YAML file to the `k2s install` command configuring install parameters like node resource definitions (e.g. CPU, RAM or size of the hard drive):
 ```console

@@ -123,6 +123,10 @@ func newAddonCmd(addon addons.Addon, cmdName string) (*cobra.Command, error) {
 		}
 	}
 
+	if addonHasOmitFlags(addon, cmdName) {
+		addOmitNote(cmd)
+	}
+
 	return cmd, nil
 }
 
@@ -162,9 +166,12 @@ func newImplementationCmd(addon addons.Addon, cmdName string, implementation add
 	cmd.Flags().SortFlags = false
 	cmd.Flags().PrintDefaults()
 
+	if cmdConfigHasOmitFlags(cmdConfig) {
+		addOmitNote(cmd)
+	}
+
 	return cmd, nil
 }
-
 func implementationCommandLongDescription(addon addons.Addon, cmdName string, implementation addons.Implementation, implementationDisplayName string) string {
 	if addon.Metadata.Name == "storage" && implementation.Name == "ceph" {
 		return fmt.Sprintf("Runs '%s' for '%s' implementation of '%s' addon\n\nNote: This implementation is experimental.", cmdName, implementationDisplayName, addon.Metadata.Name)
@@ -180,6 +187,45 @@ func isExperimentalImplementation(addon addons.Addon, implementation addons.Impl
 
 	return strings.Contains(strings.ToLower(implementation.Description), "experimental")
 }
+
+// omitEnableNote informs users that an addon imported without the images of an omitted
+// functionality has to be enabled with the same omit option, since the import-time omit
+// selection is not persisted.
+const omitEnableNote = "Note: When using an addon imported with omitted images, use the same omit option when enabling the addon."
+
+// addonHasOmitFlags reports whether any implementation of the addon declares a CLI flag
+// with omittable images for the given command.
+func addonHasOmitFlags(addon addons.Addon, cmdName string) bool {
+	for _, implementation := range addon.Spec.Implementations {
+		if implementation.Commands == nil {
+			continue
+		}
+		if cmdConfigHasOmitFlags((*implementation.Commands)[cmdName]) {
+			return true
+		}
+	}
+
+	return false
+}
+
+func cmdConfigHasOmitFlags(cmdConfig addons.AddonCmd) bool {
+	if cmdConfig.Cli == nil {
+		return false
+	}
+
+	return lo.SomeBy(cmdConfig.Cli.Flags, func(flag addons.CliFlag) bool {
+		return flag.OmittedImages != nil
+	})
+}
+
+func addOmitNote(cmd *cobra.Command) {
+	if cmd.Long == "" {
+		cmd.Long = cmd.Short
+	}
+
+	cmd.Long += "\n\n" + omitEnableNote
+}
+
 
 func addFlags(flags []addons.CliFlag, cmd *cobra.Command) error {
 	exclusionGroups := map[string][]string{}
