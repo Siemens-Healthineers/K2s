@@ -15,8 +15,6 @@ source "$K2S_INSTALL_DIR/lib/modules/linux/common/validation.sh"
 tar_path=""
 dir_path=""
 
-image_name=""
-
 while [[ $# -gt 0 ]]; do
   case "$1" in
     -t|--tar|--image-path)
@@ -27,12 +25,8 @@ while [[ $# -gt 0 ]]; do
       dir_path="$2"
       shift 2
       ;;
-    -n|--name|--image-name)
-      image_name="$2"
-      shift 2
-      ;;
     -h|--help)
-      echo "Usage: Import-Image.sh [-t <tar-path>] [-d <dir-path>] [-n <image-name>]"
+      echo "Usage: Import-Image.sh [-t <tar-path>] [-d <dir-path>]"
       exit 0
       ;;
     *)
@@ -49,7 +43,6 @@ fi
 
 import_single_tar() {
   local file="$1"
-  local explicit_name="${2:-$image_name}"
   k2s_log INFO "Importing container image from $file"
   if command -v buildah >/dev/null 2>&1; then
     local pull_out=""
@@ -76,12 +69,10 @@ import_single_tar() {
 
     # If the image was imported without tags (names appears as <none>), resolve and apply the tag
     if [[ -z "$current_names" && -n "$imported_id" ]]; then
-      local tag_to_apply="$explicit_name"
+      local tag_to_apply=""
 
-      if [[ -z "$tag_to_apply" ]]; then
-        # 1. Try reading OCI archive index.json annotation
-        tag_to_apply="$(tar -xOf "$file" index.json 2>/dev/null | jq -r '.manifests[0].annotations["org.opencontainers.image.ref.name"] // empty' 2>/dev/null || true)"
-      fi
+      # 1. Try reading OCI archive index.json annotation
+      tag_to_apply="$(tar -xOf "$file" index.json 2>/dev/null | jq -r '.manifests[0].annotations["org.opencontainers.image.ref.name"] // empty' 2>/dev/null || true)"
 
       if [[ -z "$tag_to_apply" || "$tag_to_apply" == "null" ]]; then
         # 2. Try reading Docker manifest.json RepoTags
