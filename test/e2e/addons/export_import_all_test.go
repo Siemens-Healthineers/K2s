@@ -41,6 +41,9 @@ const testClusterTimeout = time.Minute * 60
 // testAddonNames defines the representative subset of addons for bulk export/import testing.
 var testAddonNames = []string{"ingress", "storage"}
 
+// "ceph" is excluded: "k2s addons export storage" defaults to the smb implementation.
+var excludedImplementationNames = []string{"ceph"}
+
 var (
 	suite                   *framework.K2sTestSuite
 	linuxOnly               bool
@@ -86,9 +89,17 @@ var _ = BeforeSuite(func(ctx context.Context) {
 
 	allAddons := suite.AddonsAdditionalInfo().AllAddons()
 	for _, a := range allAddons {
-		if slices.Contains(testAddonNames, a.Metadata.Name) {
-			testAddons = append(testAddons, a)
+		if !slices.Contains(testAddonNames, a.Metadata.Name) {
+			continue
 		}
+		filtered := make([]addons.Implementation, 0, len(a.Spec.Implementations))
+		for _, impl := range a.Spec.Implementations {
+			if !slices.Contains(excludedImplementationNames, impl.Name) {
+				filtered = append(filtered, impl)
+			}
+		}
+		a.Spec.Implementations = filtered
+		testAddons = append(testAddons, a)
 	}
 	Expect(len(testAddons)).To(Equal(len(testAddonNames)), "all test addons should be found")
 
