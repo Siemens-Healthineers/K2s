@@ -123,4 +123,3 @@ type SystemCertAutoRotationConfig struct {
 	ShowStatus bool
 	ShowOutput bool
 }
-

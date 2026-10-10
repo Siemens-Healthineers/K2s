@@ -7,7 +7,9 @@ import (
 	"context"
 	"fmt"
 	"path/filepath"
+	"runtime"
 	"strconv"
+	"strings"
 	"testing"
 	"time"
 
@@ -20,7 +22,6 @@ import (
 
 const (
 	registryName    = "k2s.registry.local"
-	clusterIp       = "172.19.1.100"
 	linuxSrcDirName = "weather"
 	winSrcDirName   = "weather-win"
 	namespace       = "default"
@@ -29,13 +30,14 @@ const (
 	weatherLinuxDeploymentName = "weather-linux"
 	weatherWinDeploymentName   = "weather-win"
 
-	weatherLinuxUrl = "http://" + clusterIp + "/weather-linux"
-	weatherWinUrl   = "http://" + clusterIp + "/weather-win"
-
 	buildAttempts = 3
 )
 
 var (
+	clusterIp       = "172.19.1.100"
+	weatherLinuxUrl = "http://" + clusterIp + "/weather-linux"
+	weatherWinUrl   = "http://" + clusterIp + "/weather-win"
+
 	randomImageTag string
 	suite          *framework.K2sTestSuite
 	k2s            *dsl.K2s
@@ -54,6 +56,16 @@ var _ = BeforeSuite(func(ctx context.Context) {
 		framework.ClusterTestStepPollInterval(time.Millisecond*200),
 		framework.ClusterTestStepTimeout(time.Minute*10))
 	k2s = dsl.NewK2s(suite)
+
+	if suite.SetupInfo().RuntimeConfig.InstallConfig().LinuxOnly() {
+		nodeIP, exitCode := suite.Kubectl().Exec(ctx, "get", "nodes", "-o", "jsonpath={.items[0].status.addresses[?(@.type==\"InternalIP\")].address}")
+		if exitCode == 0 && len(strings.TrimSpace(nodeIP)) > 0 {
+			clusterIp = strings.TrimSpace(nodeIP)
+		} else {
+			clusterIp = "127.0.0.1"
+		}
+		weatherLinuxUrl = "http://" + clusterIp + "/weather-linux"
+	}
 
 	randomImageTag = strconv.FormatInt(GinkgoRandomSeed(), 10)
 
@@ -104,7 +116,7 @@ var _ = Describe("build container image", Ordered, func() {
 
 				suite.K2sCli().MustExec(ctx, "image", "build",
 					"--input-folder", linuxSrcDirName,
-					"--dockerfile", linuxSrcDirName+"\\Dockerfile",
+					"--dockerfile", filepath.Join(linuxSrcDirName, "Dockerfile"),
 					"--image-name", imageName,
 					"--image-tag", randomImageTag, "-o", "--push")
 			})
@@ -247,6 +259,10 @@ var _ = Describe("build container image", Ordered, func() {
 		var fullName string
 
 		BeforeAll(func() {
+			if suite.SetupInfo().RuntimeConfig.InstallConfig().LinuxOnly() {
+				Skip("Building Windows container images is not supported on Linux hosts")
+			}
+
 			fullName = imageName + ":" + randomImageTag
 
 			DeferCleanup(func(ctx context.Context) {
@@ -262,7 +278,7 @@ var _ = Describe("build container image", Ordered, func() {
 
 			suite.K2sCli().MustExec(ctx, "image", "build",
 				"--input-folder", winSrcDirName,
-				"--dockerfile", winSrcDirName+"\\Dockerfile.PreCompile",
+				"--dockerfile", filepath.Join(winSrcDirName, "Dockerfile.PreCompile"),
 				"--image-name", imageName,
 				"--image-tag", randomImageTag, "-o", "--push", "--windows")
 		})
@@ -368,5 +384,9 @@ func removeImageFromLocalRegistry(ctx context.Context, name string) {
 }
 
 func verifyDeploymentAccessibility(ctx context.Context, url string) {
-	suite.Cli("curl.exe").MustExec(ctx, url, "--fail", "-v", "-ipv4", "--retry", "10", "--retry-all-errors", "--retry-connrefused", "--retry-delay", "30")
+	curlCmd := "curl"
+	if runtime.GOOS == "windows" {
+		curlCmd = "curl.exe"
+	}
+	suite.Cli(curlCmd).MustExec(ctx, url, "--fail", "-v", "-ipv4", "--retry", "10", "--retry-all-errors", "--retry-connrefused", "--retry-delay", "30")
 }

@@ -7,7 +7,6 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
-	"path/filepath"
 	"strconv"
 	"strings"
 
@@ -15,8 +14,6 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/common"
-
-	"github.com/siemens-healthineers/k2s/cmd/k2s/utils"
 
 	cconfig "github.com/siemens-healthineers/k2s/internal/contracts/config"
 	"github.com/siemens-healthineers/k2s/internal/core/config"
@@ -146,8 +143,8 @@ func buildImage(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	if runtimeConfig.InstallConfig().LinuxOnly() {
-		return common.CreateFuncUnavailableForLinuxOnlyCmdFailure()
+	if runtimeConfig.InstallConfig().LinuxOnly() && buildOptions.Windows {
+		return fmt.Errorf("building Windows container images is not supported on a Linux-only installation")
 	}
 
 	if err := context.Providers().Image.Build(provider.ImageBuildConfig{
@@ -240,43 +237,4 @@ func parseBuildArguments(arguments []string) (map[string]string, error) {
 		buildArgsMap[parts[0]] = parts[1]
 	}
 	return buildArgsMap, nil
-}
-
-func buildPsCmd(buildOptions *buildOptions) (psCmd string, params []string) {
-	psCmd = utils.FormatScriptFilePath(filepath.Join(utils.InstallDir(), "lib", "scripts", "windows", "host", "image", "Build-Image.ps1"))
-	params = append(params, " -InputFolder "+buildOptions.InputFolder)
-
-	if buildOptions.Dockerfile != "" {
-		params = append(params, " -Dockerfile "+buildOptions.Dockerfile)
-	}
-
-	if buildOptions.Windows {
-		params = append(params, " -Windows")
-	}
-
-	if buildOptions.ImageName != "" {
-		params = append(params, " -ImageName "+buildOptions.ImageName)
-	}
-
-	if buildOptions.ImageTag != "" {
-		params = append(params, " -ImageTag "+buildOptions.ImageTag)
-	}
-
-	if buildOptions.Output {
-		params = append(params, " -ShowLogs")
-	}
-
-	if buildOptions.Push {
-		params = append(params, " -Push")
-	}
-
-	if len(buildOptions.BuildArgs) > 0 {
-		buildArgList := make([]string, 0)
-		for buildArgName, buildArgValue := range buildOptions.BuildArgs {
-			buildArgList = append(buildArgList, fmt.Sprintf("%s=%s", buildArgName, buildArgValue))
-		}
-		params = append(params, " -BuildArgs "+strings.Join(buildArgList, ","))
-	}
-
-	return
 }

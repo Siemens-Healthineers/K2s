@@ -34,15 +34,18 @@ type AddonProvider interface {
 
 // AddonEnableConfig holds parameters for enabling an addon.
 type AddonEnableConfig struct {
-	Name       string
-	Params     map[string]string // Dynamic parameters from addon.manifest.yaml flags
-	ShowOutput bool
+	Name           string
+	Implementation string
+	Params         map[string]string // Dynamic parameters from addon.manifest.yaml flags
+	ShowOutput     bool
 }
 
 // AddonDisableConfig holds parameters for disabling an addon.
 type AddonDisableConfig struct {
-	Name       string
-	ShowOutput bool
+	Name           string
+	Implementation string
+	Params         map[string]string
+	ShowOutput     bool
 }
 
 // AddonListConfig holds parameters for listing addons.
@@ -110,6 +113,7 @@ type AddonImportConfig struct {
 // passes through to PS, and the Linux provider ignores for native operations.
 type AddonRunCommandConfig struct {
 	AddonName      string   // Addon metadata name (e.g., "dashboard")
+	Implementation string   // Addon implementation name (e.g., "nginx")
 	CommandName    string   // Command name from manifest (e.g., "enable", "disable", "update")
 	AddonDirectory string   // Full path to addon directory
 	ScriptSubPath  string   // Script path relative to addon directory (e.g., "Enable.ps1")

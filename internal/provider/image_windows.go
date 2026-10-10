@@ -287,3 +287,41 @@ func (p *windowsImageProvider) Clean(cfg ImageCleanConfig) error {
 
 	return p.execPS(psCmd, params...)
 }
+
+func (p *windowsImageProvider) RegistryAdd(cfg ImageRegistryAddConfig) error {
+	psCmd := p.scriptPath(filepath.Join("registry", "Add-Registry.ps1"))
+	var params []string
+	params = append(params, " -RegistryName "+utils.EscapeWithSingleQuotes(cfg.RegistryName))
+	if cfg.Username != "" {
+		params = append(params, " -Username "+utils.EscapeWithSingleQuotes(cfg.Username))
+	}
+	if cfg.Password != "" {
+		params = append(params, " -Password "+utils.EscapeWithSingleQuotes(cfg.Password))
+	}
+	if cfg.SkipVerify {
+		params = append(params, " -SkipVerify")
+	}
+	if cfg.PlainHttp {
+		params = append(params, " -PlainHttp")
+	}
+	if cfg.Nodes != "" {
+		params = append(params, " -Nodes "+utils.EscapeWithSingleQuotes(cfg.Nodes))
+	}
+	if cfg.ShowOutput {
+		params = append(params, " -ShowLogs")
+	}
+	return p.execPS(psCmd, params...)
+}
+
+func (p *windowsImageProvider) RegistryRemove(cfg ImageRegistryRemoveConfig) error {
+	psCmd := p.scriptPath(filepath.Join("registry", "Remove-Registry.ps1"))
+	var params []string
+	params = append(params, " -RegistryName "+utils.EscapeWithSingleQuotes(cfg.RegistryName))
+	if cfg.Nodes != "" {
+		params = append(params, " -Nodes "+utils.EscapeWithSingleQuotes(cfg.Nodes))
+	}
+	if cfg.ShowOutput {
+		params = append(params, " -ShowLogs")
+	}
+	return p.execPS(psCmd, params...)
+}

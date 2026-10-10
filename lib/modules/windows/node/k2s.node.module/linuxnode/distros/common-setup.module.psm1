@@ -729,13 +729,7 @@ Function Install-Tools {
     &$executeRemoteCommand 'sudo mv /tmp/auth.json /root/.config/containers/auth.json'
 
     Write-Log 'Need to update registry conf file which is added as part of buildah installation'
-    #&$executeRemoteCommand "sudo sed -i '/.*unqualified-search-registries.*/cunqualified-search-registries = [\\\""docker.io\\\"", \\\""quay.io\\\""]' /etc/containers/registries.conf"
-    if ($PSVersionTable.PSVersion.Major -gt 5) {
-        &$executeRemoteCommand 'sudo echo unqualified-search-registries = [\"docker.io\", \"quay.io\"] | sudo tee -a /etc/containers/registries.conf'
-    }
-    else {
-        &$executeRemoteCommand 'sudo echo unqualified-search-registries = [\\\"docker.io\\\", \\\"quay.io\\\"] | sudo tee -a /etc/containers/registries.conf'
-    }
+    &$executeRemoteCommand 'if ! grep -q "^[[:space:]]*unqualified-search-registries[[:space:]]*=" /etc/containers/registries.conf 2>/dev/null; then echo ''unqualified-search-registries = ["docker.io", "quay.io"]'' | sudo tee -a /etc/containers/registries.conf; fi'
     # restart crio after updating registry.conf
     &$executeRemoteCommand 'sudo systemctl daemon-reload'
     &$executeRemoteCommand 'sudo systemctl restart crio'

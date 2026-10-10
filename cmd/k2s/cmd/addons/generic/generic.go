@@ -333,6 +333,7 @@ func runCmd(cmd *cobra.Command, addon addons.Addon, cmdName string, implementati
 
 	err = context.Providers().Addon.RunCommand(provider.AddonRunCommandConfig{
 		AddonName:      addon.Metadata.Name,
+		Implementation: implementation.Name,
 		CommandName:    cmdName,
 		AddonDirectory: addon.Directory,
 		ScriptSubPath:  cmdConfig.Script.SubPath,

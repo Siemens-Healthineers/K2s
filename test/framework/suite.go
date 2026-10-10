@@ -9,9 +9,11 @@ import (
 	"crypto/tls"
 	"fmt"
 	stdos "os"
+	"os/exec"
 	"path/filepath"
 	"reflect"
 	"runtime"
+	"strings"
 	"time"
 
 	"github.com/siemens-healthineers/k2s/internal/definitions"
@@ -104,6 +106,14 @@ func Setup(ctx context.Context, args ...any) *K2sTestSuite {
 	}
 
 	newCliFunc := func(cliPath string) *os.CliExecutor {
+		if runtime.GOOS == "linux" && strings.HasSuffix(cliPath, ".exe") {
+			baseName := strings.TrimSuffix(filepath.Base(cliPath), ".exe")
+			if p, err := exec.LookPath(baseName); err == nil {
+				cliPath = p
+			} else {
+				cliPath = strings.TrimSuffix(cliPath, ".exe")
+			}
+		}
 		return os.NewCli(cliPath, proxy, clusterTestStepTimeout, clusterTestStepPollInterval)
 	}
 
@@ -115,11 +125,11 @@ func Setup(ctx context.Context, args ...any) *K2sTestSuite {
 
 	k2sCliFunc := func() *os.CliExecutor {
 		if runtime.GOOS == "linux" {
-			k2sLinuxPath := filepath.Join(rootDir, "k2s.linux")
-			if _, err := stdos.Stat(k2sLinuxPath); err == nil {
-				return newCliFunc(k2sLinuxPath)
+			cliPath := filepath.Join(rootDir, "k2s")
+			if _, err := stdos.Stat(cliPath); err != nil {
+				cliPath = filepath.Join(rootDir, "k2s.linux")
 			}
-			return newCliFunc(filepath.Join(rootDir, "k2s"))
+			return newCliFunc(cliPath)
 		}
 		return newCliFunc(filepath.Join(rootDir, "k2s.exe"))
 	}
