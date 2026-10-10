@@ -13,13 +13,9 @@ SPDX-License-Identifier: MIT
       
       
       
-        <link rel="canonical" href="https://Siemens-Healthineers.github.io/K2s/next/op-manual/installing-k2s/">
+        <link rel="canonical" href="https://Siemens-Healthineers.github.io/K2s/next/op-manual/preparing-windows-worker-qcow2/">
       
       
-        <link rel="prev" href="../delta-packages/">
-      
-      
-        <link rel="next" href="../configuration-reference/">
       
       
         
@@ -30,7 +26,7 @@ SPDX-License-Identifier: MIT
     
     
       
-        <title>Installing K2s - K2s - Kubernetes distribution for Windows & Linux workloads</title>
+        <title>Preparing windows worker qcow2 - K2s - Kubernetes distribution for Windows & Linux workloads</title>
       
     
     
@@ -83,7 +79,7 @@ SPDX-License-Identifier: MIT
     <div data-md-component="skip">
       
         
-        <a href="#installing-k2s" class="md-skip">
+        <a href="#preparing-a-windows-worker-qcow2" class="md-skip">
           Skip to content
         </a>
       
@@ -134,7 +130,7 @@ You're not viewing the latest release version.
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              Installing K2s
+              Preparing windows worker qcow2
             
           </span>
         </div>
@@ -307,12 +303,10 @@ You're not viewing the latest release version.
   
   
   
-    
-  
   
     
     
-      <li class="md-tabs__item md-tabs__item--active">
+      <li class="md-tabs__item">
         <a href="../os-support/" class="md-tabs__link">
           
   
@@ -910,10 +904,8 @@ You're not viewing the latest release version.
       
   
   
-    
   
   
-  
     
     
       
@@ -979,20 +971,17 @@ You're not viewing the latest release version.
     
     
       
-        
-        
-      
       
     
     
-    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--nested">
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" checked>
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" >
         
           
-          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="">
+          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="0">
             
   
   
@@ -1010,7 +999,7 @@ You're not viewing the latest release version.
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="true">
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="false">
           <label class="md-nav__title" for="__nav_4">
             <span class="md-nav__icon md-icon"></span>
             
@@ -1137,37 +1126,10 @@ You're not viewing the latest release version.
                 
   
   
-    
   
   
-  
-    <li class="md-nav__item md-nav__item--active">
-      
-      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
-      
-      
-        
-      
-      
-        <label class="md-nav__link md-nav__link--active" for="__toc">
-          
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Installing K2s
-  
-
-    
-  </span>
-  
-  
-
-          <span class="md-nav__icon md-icon"></span>
-        </label>
-      
-      <a href="./" class="md-nav__link md-nav__link--active">
+    <li class="md-nav__item">
+      <a href="../installing-k2s/" class="md-nav__link">
         
   
   
@@ -1183,198 +1145,6 @@ You're not viewing the latest release version.
   
 
       </a>
-      
-        
-
-<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
-  
-  
-  
-    
-  
-  
-    <label class="md-nav__title" for="__toc">
-      <span class="md-nav__icon md-icon"></span>
-      Table of contents
-    </label>
-    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
-      
-        <li class="md-nav__item">
-  <a href="#prerequisites" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Prerequisites
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#installation-via-k2s-cli" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Installation via k2s CLI
-      
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="Installation via k2s CLI">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#installing-using-config-files" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Installing Using Config Files
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#online-vs-offline" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Online vs. Offline
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#option-1-host-default" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        [Option 1] Host (Default)
-      
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="[Option 1] Host (Default)">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#wsl" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        WSL
-      
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#option-2-development-only" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        [Option 2] Development-Only
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#experimental-linux-host" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        [Experimental] Linux Host
-      
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#wsl-2-vs-hyper-v" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        WSL 2 vs. Hyper-V
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#advanced-installation-options" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Advanced Installation Options
-      
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="Advanced Installation Options">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#install-without-starting" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Install Without Starting
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#using-locally-built-kubernetes-binaries" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Using Locally-Built Kubernetes Binaries
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#post-install-restarts" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Post-Install Restarts
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#configuration-reference" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Configuration Reference
-      
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-      
-    </ul>
-  
-</nav>
-      
     </li>
   
 
@@ -3030,10 +2800,10 @@ You're not viewing the latest release version.
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#prerequisites" class="md-nav__link">
+  <a href="#prepare-the-hyper-v-vm" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Prerequisites
+        Prepare the Hyper-V VM
       
     </span>
   </a>
@@ -3041,99 +2811,10 @@ You're not viewing the latest release version.
 </li>
       
         <li class="md-nav__item">
-  <a href="#installation-via-k2s-cli" class="md-nav__link">
+  <a href="#convert-to-qcow2" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Installation via k2s CLI
-      
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="Installation via k2s CLI">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#installing-using-config-files" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Installing Using Config Files
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#online-vs-offline" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Online vs. Offline
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#option-1-host-default" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        [Option 1] Host (Default)
-      
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="[Option 1] Host (Default)">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#wsl" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        WSL
-      
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#option-2-development-only" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        [Option 2] Development-Only
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#experimental-linux-host" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        [Experimental] Linux Host
-      
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#wsl-2-vs-hyper-v" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        WSL 2 vs. Hyper-V
+        Convert to QCOW2
       
     </span>
   </a>
@@ -3141,63 +2822,13 @@ You're not viewing the latest release version.
 </li>
       
         <li class="md-nav__item">
-  <a href="#advanced-installation-options" class="md-nav__link">
+  <a href="#temporary-password-bootstrap" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Advanced Installation Options
+        Temporary Password Bootstrap
       
     </span>
   </a>
-  
-    <nav class="md-nav" aria-label="Advanced Installation Options">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#install-without-starting" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Install Without Starting
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#using-locally-built-kubernetes-binaries" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Using Locally-Built Kubernetes Binaries
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#post-install-restarts" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Post-Install Restarts
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#configuration-reference" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Configuration Reference
-      
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
   
 </li>
       
@@ -3218,7 +2849,7 @@ You're not viewing the latest release version.
 
 
   
-    <a href="https://github.com/Siemens-Healthineers/K2s/edit/main/docs/op-manual/installing-k2s.md" title="Edit this page" class="md-content__button md-icon" rel="edit">
+    <a href="https://github.com/Siemens-Healthineers/K2s/edit/main/docs/op-manual/preparing-windows-worker-qcow2.md" title="Edit this page" class="md-content__button md-icon" rel="edit">
       
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M10 20H6V4h7v5h5v3.1l2-2V8l-6-6H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h4zm10.2-7c.1 0 .3.1.4.2l1.3 1.3c.2.2.2.6 0 .8l-1 1-2.1-2.1 1-1c.1-.1.2-.2.4-.2m0 3.9L14.1 23H12v-2.1l6.1-6.1z"/></svg>
     </a>
@@ -3227,370 +2858,113 @@ You're not viewing the latest release version.
 
 
 <!--
-SPDX-FileCopyrightText: © 2024 Siemens Healthineers AG
+SPDX-FileCopyrightText: © 2026 Siemens Healthineers AG
 SPDX-License-Identifier: MIT
 -->
 
-<h1 id="installing-k2s">Installing <em>K2s</em></h1>
-<h2 id="prerequisites">Prerequisites</h2>
-<ul>
-<li><em>K2s</em> folder being available locally, see <a href="../getting-k2s/">Getting <em>K2s</em></a></li>
-<li>The <em>Windows</em> host must match one of the <a href="../os-support/">Supported <abbr title="Operating System">OS</abbr> Versions</a></li>
-<li>Local admin permissions are currently needed in order to be able to create virtual switches, VMs, etc.</li>
-<li>Please try to install from an folder which is available on <code>C:\</code> drive, since most open-source components assume this. We are testing the solution also on other drives, but cannot guarantee that the cluster will work fully.</li>
-<li>Hardware: The system should offer at least 2GB <abbr title="Random-Access Memory">RAM</abbr> free, as well as 10GB disk space free. Recommended are at least 6 <abbr title="Central Processing Unit">CPU</abbr> cores, but less are possible.</li>
-<li><abbr title="Central Processing Unit">CPU</abbr> virtualization must be enabled in the <abbr title="Basic Input/Output System">BIOS</abbr>. To verify, open the <em>Task Manager</em> and check the <em>Virtualization</em> property on the <em>Performance</em> tab:<br/>
- <img alt="Check Virtualization" src="../assets/check_virtualization.png" />
- <br/>If you run the setup inside a <abbr title="Virtual Machine">VM</abbr>, enable nested virtualization (e.g. when using <em>Hyper-V</em>:<br/>
- <div class="highlight"><span class="filename">PowerShell</span><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nb">Set-VMProcessor</span> <span class="n">-VMName</span> <span class="nv">$Name</span> <span class="n">-ExposeVirtualizationExtensions</span> <span class="nv">$true</span>
+<h1 id="preparing-a-windows-worker-qcow2">Preparing a Windows Worker QCOW2</h1>
+<p>The native Linux K2s host creates a new <abbr title="Secure Shell">SSH</abbr> key for every managed Windows
+worker. During temporary password-bootstrap operation, K2s authenticates once
+as <code>remote</code>, installs that generated public key, then continues with key-only
+<abbr title="Secure Shell">SSH</abbr> authentication. No config-drive <abbr title="Continuous Delivery/Deployment (even though delivery and deployment might be different activities)">CD</abbr>-ROM is attached to the worker.</p>
+<h2 id="prepare-the-hyper-v-vm">Prepare the Hyper-V <abbr title="Virtual Machine">VM</abbr></h2>
+<p>Create and fully update a Windows 11 Hyper-V <abbr title="Virtual Machine">VM</abbr>. Open an elevated PowerShell
+session inside the guest and run the following script once:</p>
+<div class="highlight"><span class="filename">PowerShell</span><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nv">$ErrorActionPreference</span> <span class="p">=</span> <span class="s1">'Stop'</span>
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="nv">$password</span> <span class="p">=</span> <span class="nb">ConvertTo-SecureString</span> <span class="n">-String</span> <span class="s1">'admin'</span> <span class="n">-AsPlainText</span> <span class="n">-Force</span>
+<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="k">if</span> <span class="p">(</span><span class="o">-not</span> <span class="p">(</span><span class="nb">Get-LocalUser</span> <span class="n">-Name</span> <span class="n">remote</span> <span class="n">-ErrorAction</span> <span class="n">SilentlyContinue</span><span class="p">))</span> <span class="p">{</span>
+<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>    <span class="nb">New-LocalUser</span> <span class="n">-Name</span> <span class="n">remote</span> <span class="n">-Password</span> <span class="nv">$password</span> <span class="n">-PasswordNeverExpires</span> <span class="p">|</span> <span class="nb">Out-Null</span>
+<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="p">}</span>
+<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="nb">Set-LocalUser</span> <span class="n">-Name</span> <span class="n">remote</span> <span class="n">-Password</span> <span class="nv">$password</span>
+<a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a><span class="k">if</span> <span class="p">(</span><span class="o">-not</span> <span class="p">(</span><span class="nb">Get-LocalGroupMember</span> <span class="n">-Group</span> <span class="s1">'Administrators'</span> <span class="p">|</span> <span class="nb">Where-Object</span> <span class="n">Name</span> <span class="o">-Match</span> <span class="s1">'(^|\\)remote$'</span><span class="p">))</span> <span class="p">{</span>
+<a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a>    <span class="nb">Add-LocalGroupMember</span> <span class="n">-Group</span> <span class="s1">'Administrators'</span> <span class="n">-Member</span> <span class="n">remote</span>
+<a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a><span class="p">}</span>
+<a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a>
+<a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a><span class="c"># Required by the Windows Kubernetes worker: HNS and Host Compute Service.</span>
+<a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a><span class="nv">$features</span> <span class="p">=</span> <span class="p">@(</span><span class="s1">'Containers'</span><span class="p">,</span> <span class="s1">'Microsoft-Hyper-V-All'</span><span class="p">,</span> <span class="s1">'VirtualMachinePlatform'</span><span class="p">)</span>
+<a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a><span class="nb">Enable-WindowsOptionalFeature</span> <span class="n">-Online</span> <span class="n">-FeatureName</span> <span class="nv">$features</span> <span class="n">-All</span> <span class="n">-NoRestart</span> <span class="p">|</span> <span class="nb">Out-Null</span>
+<a id="__codelineno-0-15" name="__codelineno-0-15" href="#__codelineno-0-15"></a>
+<a id="__codelineno-0-16" name="__codelineno-0-16" href="#__codelineno-0-16"></a><span class="nv">$openSshCapability</span> <span class="p">=</span> <span class="nb">Get-WindowsCapability</span> <span class="n">-Online</span> <span class="n">-Name</span> <span class="n">OpenSSH</span><span class="p">.</span><span class="n">Server</span><span class="p">~~~~</span><span class="n">0</span><span class="p">.</span><span class="n">0</span><span class="p">.</span><span class="n">1</span><span class="p">.</span><span class="n">0</span>
+<a id="__codelineno-0-17" name="__codelineno-0-17" href="#__codelineno-0-17"></a><span class="k">if</span> <span class="p">(</span><span class="nv">$openSshCapability</span><span class="p">.</span><span class="n">State</span> <span class="o">-ne</span> <span class="s1">'Installed'</span><span class="p">)</span> <span class="p">{</span>
+<a id="__codelineno-0-18" name="__codelineno-0-18" href="#__codelineno-0-18"></a>    <span class="nb">Add-WindowsCapability</span> <span class="n">-Online</span> <span class="n">-Name</span> <span class="n">OpenSSH</span><span class="p">.</span><span class="n">Server</span><span class="p">~~~~</span><span class="n">0</span><span class="p">.</span><span class="n">0</span><span class="p">.</span><span class="n">1</span><span class="p">.</span><span class="n">0</span> <span class="p">|</span> <span class="nb">Out-Null</span>
+<a id="__codelineno-0-19" name="__codelineno-0-19" href="#__codelineno-0-19"></a>    <span class="nv">$openSshCapability</span> <span class="p">=</span> <span class="nb">Get-WindowsCapability</span> <span class="n">-Online</span> <span class="n">-Name</span> <span class="n">OpenSSH</span><span class="p">.</span><span class="n">Server</span><span class="p">~~~~</span><span class="n">0</span><span class="p">.</span><span class="n">0</span><span class="p">.</span><span class="n">1</span><span class="p">.</span><span class="n">0</span>
+<a id="__codelineno-0-20" name="__codelineno-0-20" href="#__codelineno-0-20"></a><span class="p">}</span>
+<a id="__codelineno-0-21" name="__codelineno-0-21" href="#__codelineno-0-21"></a><span class="k">if</span> <span class="p">(</span><span class="nv">$openSshCapability</span><span class="p">.</span><span class="n">State</span> <span class="o">-ne</span> <span class="s1">'Installed'</span><span class="p">)</span> <span class="p">{</span>
+<a id="__codelineno-0-22" name="__codelineno-0-22" href="#__codelineno-0-22"></a>    <span class="k">throw</span> <span class="s2">"OpenSSH Server capability is not installed. Current state: </span><span class="p">$(</span><span class="nv">$openSshCapability</span><span class="p">.</span><span class="n">State</span><span class="p">)</span><span class="s2">"</span>
+<a id="__codelineno-0-23" name="__codelineno-0-23" href="#__codelineno-0-23"></a><span class="p">}</span>
+<a id="__codelineno-0-24" name="__codelineno-0-24" href="#__codelineno-0-24"></a>
+<a id="__codelineno-0-25" name="__codelineno-0-25" href="#__codelineno-0-25"></a><span class="k">if</span> <span class="p">(</span><span class="o">-not</span> <span class="p">(</span><span class="nb">Get-Service</span> <span class="n">-Name</span> <span class="n">sshd</span> <span class="n">-ErrorAction</span> <span class="n">SilentlyContinue</span><span class="p">))</span> <span class="p">{</span>
+<a id="__codelineno-0-26" name="__codelineno-0-26" href="#__codelineno-0-26"></a>    <span class="nv">$installSshd</span> <span class="p">=</span> <span class="nb">Join-Path</span> <span class="nv">$env:WINDIR</span> <span class="s1">'System32\OpenSSH\install-sshd.ps1'</span>
+<a id="__codelineno-0-27" name="__codelineno-0-27" href="#__codelineno-0-27"></a>    <span class="nv">$sshdExe</span> <span class="p">=</span> <span class="nb">Join-Path</span> <span class="nv">$env:WINDIR</span> <span class="s1">'System32\OpenSSH\sshd.exe'</span>
+<a id="__codelineno-0-28" name="__codelineno-0-28" href="#__codelineno-0-28"></a>    <span class="k">if</span> <span class="p">(</span><span class="nb">Test-Path</span> <span class="nv">$installSshd</span><span class="p">)</span> <span class="p">{</span>
+<a id="__codelineno-0-29" name="__codelineno-0-29" href="#__codelineno-0-29"></a>        <span class="p">&amp;</span> <span class="nv">$installSshd</span>
+<a id="__codelineno-0-30" name="__codelineno-0-30" href="#__codelineno-0-30"></a>    <span class="p">}</span>
+<a id="__codelineno-0-31" name="__codelineno-0-31" href="#__codelineno-0-31"></a>    <span class="k">elseif</span> <span class="p">(</span><span class="nb">Test-Path</span> <span class="nv">$sshdExe</span><span class="p">)</span> <span class="p">{</span>
+<a id="__codelineno-0-32" name="__codelineno-0-32" href="#__codelineno-0-32"></a>        <span class="p">&amp;</span> <span class="p">(</span><span class="nb">Join-Path</span> <span class="nv">$env:WINDIR</span> <span class="s1">'System32\OpenSSH\ssh-keygen.exe'</span><span class="p">)</span> <span class="n">-A</span>
+<a id="__codelineno-0-33" name="__codelineno-0-33" href="#__codelineno-0-33"></a>        <span class="nb">New-Service</span> <span class="n">-Name</span> <span class="n">sshd</span> <span class="n">-BinaryPathName</span> <span class="s2">"</span><span class="se">`"</span><span class="s2">$sshdExe</span><span class="se">`"</span><span class="s2">"</span> <span class="n">-DisplayName</span> <span class="s1">'OpenSSH SSH Server'</span> <span class="n">-StartupType</span> <span class="n">Automatic</span> <span class="p">|</span> <span class="nb">Out-Null</span>
+<a id="__codelineno-0-34" name="__codelineno-0-34" href="#__codelineno-0-34"></a>    <span class="p">}</span>
+<a id="__codelineno-0-35" name="__codelineno-0-35" href="#__codelineno-0-35"></a>    <span class="k">else</span> <span class="p">{</span>
+<a id="__codelineno-0-36" name="__codelineno-0-36" href="#__codelineno-0-36"></a>        <span class="k">throw</span> <span class="s2">"OpenSSH Server capability is marked Installed but sshd.exe is missing: $sshdExe. Remove and reinstall the capability before continuing."</span>
+<a id="__codelineno-0-37" name="__codelineno-0-37" href="#__codelineno-0-37"></a>    <span class="p">}</span>
+<a id="__codelineno-0-38" name="__codelineno-0-38" href="#__codelineno-0-38"></a><span class="p">}</span>
+<a id="__codelineno-0-39" name="__codelineno-0-39" href="#__codelineno-0-39"></a><span class="k">if</span> <span class="p">(</span><span class="o">-not</span> <span class="p">(</span><span class="nb">Get-Service</span> <span class="n">-Name</span> <span class="n">sshd</span> <span class="n">-ErrorAction</span> <span class="n">SilentlyContinue</span><span class="p">))</span> <span class="p">{</span>
+<a id="__codelineno-0-40" name="__codelineno-0-40" href="#__codelineno-0-40"></a>    <span class="k">throw</span> <span class="s1">'OpenSSH Server did not register the sshd service.'</span>
+<a id="__codelineno-0-41" name="__codelineno-0-41" href="#__codelineno-0-41"></a><span class="p">}</span>
+<a id="__codelineno-0-42" name="__codelineno-0-42" href="#__codelineno-0-42"></a><span class="nb">Set-Service</span> <span class="n">-Name</span> <span class="n">sshd</span> <span class="n">-StartupType</span> <span class="n">Automatic</span>
+<a id="__codelineno-0-43" name="__codelineno-0-43" href="#__codelineno-0-43"></a><span class="nb">Start-Service</span> <span class="n">sshd</span>
+<a id="__codelineno-0-44" name="__codelineno-0-44" href="#__codelineno-0-44"></a><span class="nb">New-NetFirewallRule</span> <span class="n">-DisplayName</span> <span class="s1">'K2s Windows worker SSH'</span> <span class="n">-Direction</span> <span class="n">Inbound</span> <span class="n">-Action</span> <span class="n">Allow</span> <span class="n">-Protocol</span> <span class="n">TCP</span> <span class="n">-LocalPort</span> <span class="n">22</span> <span class="n">-ErrorAction</span> <span class="n">SilentlyContinue</span> <span class="p">|</span> <span class="nb">Out-Null</span>
+<a id="__codelineno-0-45" name="__codelineno-0-45" href="#__codelineno-0-45"></a>
+<a id="__codelineno-0-46" name="__codelineno-0-46" href="#__codelineno-0-46"></a><span class="c"># Keep the worker stable. Apply Windows updates only during planned image maintenance.</span>
+<a id="__codelineno-0-47" name="__codelineno-0-47" href="#__codelineno-0-47"></a><span class="nv">$windowsUpdatePolicy</span> <span class="p">=</span> <span class="s1">'HKLM:\SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate\AU'</span>
+<a id="__codelineno-0-48" name="__codelineno-0-48" href="#__codelineno-0-48"></a><span class="nb">New-Item</span> <span class="n">-Path</span> <span class="nv">$windowsUpdatePolicy</span> <span class="n">-Force</span> <span class="p">|</span> <span class="nb">Out-Null</span>
+<a id="__codelineno-0-49" name="__codelineno-0-49" href="#__codelineno-0-49"></a><span class="nb">New-ItemProperty</span> <span class="n">-Path</span> <span class="nv">$windowsUpdatePolicy</span> <span class="n">-Name</span> <span class="n">NoAutoUpdate</span> <span class="n">-PropertyType</span> <span class="n">DWord</span> <span class="n">-Value</span> <span class="n">1</span> <span class="n">-Force</span> <span class="p">|</span> <span class="nb">Out-Null</span>
+<a id="__codelineno-0-50" name="__codelineno-0-50" href="#__codelineno-0-50"></a><span class="nb">Stop-Service</span> <span class="n">-Name</span> <span class="n">wuauserv</span> <span class="n">-Force</span> <span class="n">-ErrorAction</span> <span class="n">SilentlyContinue</span>
+<a id="__codelineno-0-51" name="__codelineno-0-51" href="#__codelineno-0-51"></a><span class="nb">Set-Service</span> <span class="n">-Name</span> <span class="n">wuauserv</span> <span class="n">-StartupType</span> <span class="n">Disabled</span>
 </code></pre></div>
- , see <a href="https://learn.microsoft.com/en-us/virtualization/hyper-v-on-windows/user-guide/enable-nested-virtualization#configure-nested-virtualization" target="_blank" rel="noopener">Configure Nested Virtualization</a> for details).</li>
-<li><em>Docker</em> (Desktop) must not be running. Either stop <em>Docker</em> and set it to start manually or uninstall it completely</li>
-<li><em>PowerShell</em> execution policy must be <strong>RemoteSigned</strong> or less restrictive. To set the policy, run:
-  <div class="highlight"><span class="filename">PowerShell</span><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="nb">Set-ExecutionPolicy</span> <span class="n">RemoteSigned</span> <span class="n">-Force</span>
-</code></pre></div></li>
-<li><em>curl.exe</em>: the installed version in the <em>Windows</em> host must be at least <strong>7.71.0</strong> (to check it call <code>curl.exe --version</code> from the command shell).</li>
-<li><em>Optional: ssh.exe</em>: the installed version in the <em>Windows</em> host must be at least major version <strong>8</strong> to prevent the installation from hanging in certain situations (to check it call <code>ssh.exe -V</code> from the command shell). Normally, only Windows Server 2019 does not fulfill this requirement from the supported operating systems.</li>
-<li><em>Optional:</em> Enable required <em>Windows Features</em> beforehand (they will get enabled during the installation anyways, but would require a system restart and installation re-run):</li>
-<li><em>Windows 10/11</em>
-    <div class="highlight"><span class="filename">PowerShell</span><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="nb">Enable-WindowsOptionalFeature</span> <span class="n">-Online</span> <span class="n">-FeatureName</span> <span class="p">$(</span><span class="s1">'Microsoft-Hyper-V-All'</span><span class="p">,</span> <span class="s1">'Microsoft-Hyper-V'</span><span class="p">,</span> <span class="s1">'Microsoft-Hyper-V-Tools-All'</span><span class="p">,</span> <span class="s1">'Microsoft-Hyper-V-Management-PowerShell'</span><span class="p">,</span> <span class="s1">'Microsoft-Hyper-V-Hypervisor'</span><span class="p">,</span> <span class="s1">'Microsoft-Hyper-V-Services'</span><span class="p">,</span> <span class="s1">'Microsoft-Hyper-V-Management-Clients'</span><span class="p">,</span> <span class="s1">'Containers'</span><span class="p">,</span> <span class="s1">'VirtualMachinePlatform'</span><span class="p">)</span> <span class="n">-All</span> <span class="n">-NoRestart</span>
-</code></pre></div></li>
-<li><em>Windows Server</em> OSs
-    <div class="highlight"><span class="filename">PowerShell</span><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="nb">Enable-WindowsOptionalFeature</span> <span class="n">-Online</span> <span class="n">-FeatureName</span> <span class="p">$(</span><span class="s1">'Microsoft-Hyper-V'</span><span class="p">,</span> <span class="s1">'Microsoft-Hyper-V-Management-PowerShell'</span><span class="p">,</span> <span class="s1">'Containers'</span><span class="p">,</span> <span class="s1">'VirtualMachinePlatform'</span><span class="p">)</span> <span class="n">-All</span> <span class="n">-NoRestart</span>
-</code></pre></div></li>
-<li>
-<p><em>Hyper-V configuration</em>: after the enabling of Hyper-V on your host using <a href="https://learn.microsoft.com/en-us/powershell/module/hyper-v/set-vmhost">Set-VMHost</a> different settings can be configured for Hyper-V, for example in some cases it makes sense to have new default locations for virtual hard disks on that host. Please checkout all possibilities and configure Hyper-V on your host as wanted before doing an install of k2s !</p>
-</li>
-<li>
-<p><em>Installing in <abbr title="Windows Subsystem for Linux">WSL</abbr> mode</em>: Enable the <abbr title="Windows Subsystem for Linux">WSL</abbr> 2 feature on Windows. For detailed instructions, see <a href="https://learn.microsoft.com/windows/wsl/install">Configure <abbr title="Windows Subsystem for Linux">WSL</abbr></a> or <a href="https://learn.microsoft.com/windows/wsl/install-manual">Manual install (older <abbr title="Windows Subsystem for Linux">WSL</abbr> versions)</a>
-   <div class="highlight"><span class="filename">PowerShell</span><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="nb">Enable-WindowsOptionalFeature</span> <span class="n">-Online</span> <span class="n">-FeatureName</span> <span class="p">$(</span><span class="s1">'Microsoft-Windows-Subsystem-Linux'</span><span class="p">,</span> <span class="s1">'VirtualMachinePlatform'</span><span class="p">)</span> <span class="n">-All</span>
-</code></pre></div></p>
-</li>
-<li>
-<p><em>VC Runtime 140</em>: please install the VC runtime dlls, either with choco</p>
-</li>
-</ul>
-<p><code>choco install vcredist140 -y</code></p>
-<p>or download them from <a href="https://learn.microsoft.com/en-us/cpp/windows/latest-supported-vc-redist">Microsoft</a> directly and install the appropriate VC runtime.</p>
-<div class="admonition tip">
-<p class="admonition-title">Tip</p>
-<p>Environment variables HTTP_PROXY and HTTPS_PROXY shall not be used in Windows when creating a cluster. Usage of an <abbr title="Hypertext Transfer Protocol">HTTP</abbr> proxy shall be configured in <code>control panel</code> at the <code>network and internet</code> section.
-<em>K2s</em> will always take the proxy automatically from the Windows proxy configuration and will use that setting (in this case also local networks can be addressed).</p>
-</div>
-<h2 id="installation-via-k2s-cli">Installation via <em>k2s</em> <abbr title="Command-Line Interface">CLI</abbr></h2>
-<p>The <em>K2s</em> setup provides a variety of installation options. Based on the <a href="../../user-guide/hosting-variants/">Hosting Variants</a>, select one of the following setup variants:</p>
-<ul>
-<li><a href="#option-1-host-default">Option 1: Host</a> (Default, <em>Windows</em> host acts as a worker node).</li>
-<li><a href="#option-2-development-only">Option 2: Development-Only</a> (no <em><abbr title="Kubernetes">K8s</abbr></em> cluster, for building and testing containers only)</li>
-</ul>
-<p>To inspect the different install options, run:
-<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="go">&lt;repo&gt;\k2s.exe install -h</span>
-</code></pre></div></p>
-<div class="admonition warning">
-<p class="admonition-title">Warning</p>
-<p>If the installer detects more than one <code>k2s.exe</code> in your system <code>PATH</code>, installation will fail.
-Please review the error message for all detected <code>k2s.exe</code> locations and remove any outdated or duplicate directories from your <code>PATH</code> environment variable before retrying installation.</p>
-</div>
-<div class="admonition info">
-<p class="admonition-title">Info</p>
-<p>By default, the installation assumes 6 <abbr title="Central Processing Unit">CPU</abbr> cores to be available on the host system. If less cores are available, reduce the number of virtual cores used by <em>K2s</em> according to the actual amount, e.g. when 4 cores are available, assign max. 4 virtual cores to <em>K2s</em>:
-<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="go">&lt;repo&gt;\k2s.exe install --master-cpus 4</span>
-</code></pre></div></p>
-</div>
-<div class="admonition tip">
-<p class="admonition-title">Tip</p>
-<p>If you acquired <em>K2s</em> via <a href="../getting-k2s/#option-1-cloning-git-repository">Cloning the <em>Git</em> repository</a>, you might want to checkout a specific version first, e.g.:
-<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="go">git checkout tags/v1.4.0</span>
+<p>Restart the source <abbr title="Virtual Machine">VM</abbr> once after enabling the Windows features, then rerun the
+verification commands below before converting its VHDX.</p>
+<p>Shut down the <abbr title="Virtual Machine">VM</abbr>. Preserve its partition style: K2s automatically boots an MBR
+image with <abbr title="Basic Input/Output System">BIOS</abbr> and a GPT image with UEFI. Do not generalize the image after
+configuring OpenSSH, because its service and the <code>remote</code> account must remain in
+the base image.</p>
+<h2 id="convert-to-qcow2">Convert to QCOW2</h2>
+<p>K2s does not bundle a QCOW2 conversion utility. Install the QEMU <code>qemu-img</code>
+utility on the Hyper-V host, shut down the source <abbr title="Virtual Machine">VM</abbr>, and locate its VHDX with
+<code>Get-VMHardDiskDrive</code>. Convert that VHDX from an elevated PowerShell session:</p>
+<div class="highlight"><span class="filename">PowerShell</span><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="nv">$vhdx</span> <span class="p">=</span> <span class="p">(</span><span class="nb">Get-VMHardDiskDrive</span> <span class="n">-VMName</span> <span class="s1">'&lt;Hyper-V VM name&gt;'</span><span class="p">).</span><span class="n">Path</span>
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="n">qemu-img</span><span class="p">.</span><span class="n">exe</span> <span class="n">convert</span> <span class="n">-p</span> <span class="o">-f</span> <span class="n">vhdx</span> <span class="n">-O</span> <span class="n">qcow2</span> <span class="n">-o</span> <span class="n">compat</span><span class="p">=</span><span class="n">1</span><span class="p">.</span><span class="n">1</span> <span class="nv">$vhdx</span> <span class="s1">'E:\Images\WindowsWorker-Base.qcow2'</span>
+<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="n">qemu-img</span><span class="p">.</span><span class="n">exe</span> <span class="n">check</span> <span class="s1">'E:\Images\WindowsWorker-Base.qcow2'</span>
 </code></pre></div>
-Also make sure you have built the Go binaries (<code>.\bin\bgow</code> on <em>Windows</em>, <code>./bin/bgol</code> on <em>Linux</em>) as described in the <a href="../getting-k2s/#option-1-cloning-git-repository">cloning instructions</a>.</p>
-</div>
-<div class="admonition note">
-<p class="admonition-title">Note</p>
-<p><em>K2s</em> will start automatically after the installation has finished.</p>
-</div>
-<div class="admonition note">
-<p class="admonition-title">Windows loopback adapter discovery</p>
-<p>During <code>k2s install</code>, Windows worker setup checks the device installer's exit
-code and logs its output. It waits for the loopback adapter to become visible
-using up to 31 queries, two seconds apart, rather than failing immediately
-after device creation. Existing loopback devices removed during setup must
-disappear before another device is installed; the same polling limit applies.
-Device-command failures, discovery timeouts and multiple adapters remain
-explicit installation errors. For diagnosis, inspect <code>k2s.log</code> in the configured
-log directory (normally <code>C:\var\log</code>) and <code>C:\Windows\INF\setupapi.dev.log</code>.
-This behavior applies to packages containing the fix, not older release packages.</p>
-</div>
-<h3 id="installing-using-config-files">Installing Using Config Files</h3>
-<p>Instead of assembling many command-line parameters/flags to customize the installation, you can also pass a <abbr title="Yet Another Markup Language">YAML</abbr> file to the <code>k2s install</code> command configuring install parameters like node resource definitions (e.g. <abbr title="Central Processing Unit">CPU</abbr>, <abbr title="Random-Access Memory">RAM</abbr> or size of the hard drive):
-<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="go">&lt;repo&gt;\k2s.exe install [-c|--config] &lt;path-to-config-file&gt;</span>
-</code></pre></div></p>
-<div class="admonition example">
-<p class="admonition-title">Example</p>
-<p>Create a custom install config:
-<div class="highlight"><table class="highlighttable"><tr><th colspan="2" class="filename"><span class="filename">my_config.yaml</span></th></tr><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-9-1"> 1</a></span>
-<span class="normal"><a href="#__codelineno-9-2"> 2</a></span>
-<span class="normal"><a href="#__codelineno-9-3"> 3</a></span>
-<span class="normal"><a href="#__codelineno-9-4"> 4</a></span>
-<span class="normal"><a href="#__codelineno-9-5"> 5</a></span>
-<span class="normal"><a href="#__codelineno-9-6"> 6</a></span>
-<span class="normal"><a href="#__codelineno-9-7"> 7</a></span>
-<span class="normal"><a href="#__codelineno-9-8"> 8</a></span>
-<span class="normal"><a href="#__codelineno-9-9"> 9</a></span>
-<span class="normal"><a href="#__codelineno-9-10">10</a></span>
-<span class="normal"><a href="#__codelineno-9-11">11</a></span>
-<span class="normal"><a href="#__codelineno-9-12">12</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1"></a><span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">k2s</span>
-<a id="__codelineno-9-2" name="__codelineno-9-2"></a><span class="nt">apiVersion</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">v1</span>
-<a id="__codelineno-9-3" name="__codelineno-9-3"></a><span class="nt">nodes</span><span class="p">:</span>
-<a id="__codelineno-9-4" name="__codelineno-9-4"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">role</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">control-plane</span>
-<a id="__codelineno-9-5" name="__codelineno-9-5"></a><span class="w">    </span><span class="nt">resources</span><span class="p">:</span>
-<a id="__codelineno-9-6" name="__codelineno-9-6"></a><span class="w">      </span><span class="nt">cpu</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">8</span>
-<a id="__codelineno-9-7" name="__codelineno-9-7"></a><span class="w">      </span><span class="nt">memory</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">7GB</span>
-<a id="__codelineno-9-8" name="__codelineno-9-8"></a><span class="w">      </span><span class="nt">disk</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">60GB</span>
-<a id="__codelineno-9-9" name="__codelineno-9-9"></a><span class="nt">env</span><span class="p">:</span>
-<a id="__codelineno-9-10" name="__codelineno-9-10"></a><span class="w">  </span><span class="nt">httpProxy</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">192.168.178.100:8765</span>
-<a id="__codelineno-9-11" name="__codelineno-9-11"></a><span class="nt">installBehavior</span><span class="p">:</span>
-<a id="__codelineno-9-12" name="__codelineno-9-12"></a><span class="w">  </span><span class="nt">showOutput</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
-</code></pre></div></td></tr></table></div>
-Start the installation passing this config:
-<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a><span class="go">&lt;repo&gt;\k2s.exe install -c c:\temp\my_config.yaml</span>
-</code></pre></div></p>
-</div>
-<div class="admonition example">
-<p class="admonition-title">Dynamic Memory Config</p>
-<p>Enable dynamic memory with custom minimum and maximum values:
-<div class="highlight"><table class="highlighttable"><tr><th colspan="2" class="filename"><span class="filename">dynamic_memory_config.yaml</span></th></tr><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-11-1"> 1</a></span>
-<span class="normal"><a href="#__codelineno-11-2"> 2</a></span>
-<span class="normal"><a href="#__codelineno-11-3"> 3</a></span>
-<span class="normal"><a href="#__codelineno-11-4"> 4</a></span>
-<span class="normal"><a href="#__codelineno-11-5"> 5</a></span>
-<span class="normal"><a href="#__codelineno-11-6"> 6</a></span>
-<span class="normal"><a href="#__codelineno-11-7"> 7</a></span>
-<span class="normal"><a href="#__codelineno-11-8"> 8</a></span>
-<span class="normal"><a href="#__codelineno-11-9"> 9</a></span>
-<span class="normal"><a href="#__codelineno-11-10">10</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-11-1" name="__codelineno-11-1"></a><span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">k2s</span>
-<a id="__codelineno-11-2" name="__codelineno-11-2"></a><span class="nt">apiVersion</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">v1</span>
-<a id="__codelineno-11-3" name="__codelineno-11-3"></a><span class="nt">nodes</span><span class="p">:</span>
-<a id="__codelineno-11-4" name="__codelineno-11-4"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">role</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">control-plane</span>
-<a id="__codelineno-11-5" name="__codelineno-11-5"></a><span class="w">    </span><span class="nt">resources</span><span class="p">:</span>
-<a id="__codelineno-11-6" name="__codelineno-11-6"></a><span class="w">      </span><span class="nt">cpu</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">6</span>
-<a id="__codelineno-11-7" name="__codelineno-11-7"></a><span class="w">      </span><span class="nt">memory</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">4GB</span><span class="w">           </span><span class="c1"># Startup memory (optional - see defaults below)</span>
-<a id="__codelineno-11-8" name="__codelineno-11-8"></a><span class="w">      </span><span class="nt">memoryMin</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">2GB</span><span class="w">        </span><span class="c1"># Minimum memory (automatically enables dynamic memory)</span>
-<a id="__codelineno-11-9" name="__codelineno-11-9"></a><span class="w">      </span><span class="nt">memoryMax</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">8GB</span><span class="w">        </span><span class="c1"># Maximum memory (automatically enables dynamic memory)</span>
-<a id="__codelineno-11-10" name="__codelineno-11-10"></a><span class="w">      </span><span class="nt">disk</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">50GB</span>
-</code></pre></div></td></tr></table></div></p>
-</div>
-<div class="admonition note">
-<p class="admonition-title">Dynamic Memory with Intelligent Defaults</p>
-<ul>
-<li>Specifying <code>memoryMin</code> or <code>memoryMax</code> automatically enables Hyper-V dynamic memory management</li>
-</ul>
-<p><strong>When only <code>memoryMin</code> is specified:</strong>
-- <abbr title="Virtual Machine">VM</abbr> starts with minimum memory for optimal resource efficiency
-- Maximum auto-calculated as 50% of host <abbr title="Random-Access Memory">RAM</abbr> (floor: 8GB, ceiling: 32GB)
-- Example: On 32GB host, <abbr title="Virtual Machine">VM</abbr> can grow from 2GB → 16GB</p>
-<p><strong>When only <code>memoryMax</code> is specified:</strong>
-- <abbr title="Virtual Machine">VM</abbr> starts with default 6GB
-- Minimum auto-calculated as 30% of startup (floor: 2GB)
-- Example: 6GB startup can shrink to 2GB when idle (saves 4GB!)</p>
-<p><strong>When both <code>memoryMin</code> and <code>memoryMax</code> are specified:</strong>
-- <abbr title="Virtual Machine">VM</abbr> starts with minimum memory
-- Full dynamic range between min and max available</p>
-<p><strong>To override auto-calculation:</strong>
-- Set <code>memory</code> explicitly to control startup value (must be between min and max)</p>
-</div>
-<p>To create a user-defined configuration for any of the hosting variants, take one of the corresponding <a href="https://github.com/Siemens-Healthineers/K2s/tree/main/cmd/k2s/cmd/install/config/embed" target="_blank" rel="noopener">Base Configuration Files</a> as a template.</p>
-<h3 id="online-vs-offline">Online vs. Offline</h3>
-<p>Downloading all dependencies (i.e. binaries) on-the-fly is referred to as <em>online</em> installation, whereas <em>offline</em> refers to an installation package containing parts of or all the dependencies. If <em>K2s</em> was acquired via <a href="../getting-k2s/#option-2-downloading-official-release-package">Downloading the Official Release Package</a>, parts of the dependencies are already available locally. If an offline package was create according to <a href="../creating-offline-package/">Creating Offline Package</a>, all dependencies are available offline.</p>
-<p>As per default, the <em>k2s</em> <abbr title="Command-Line Interface">CLI</abbr> keeps downloaded files as well as the <em>Linux</em>-based control-plane image and reuses them. To change this behavior, use the following <abbr title="Command-Line Interface">CLI</abbr> flags (they apply to all installation variants<sup id="fnref:1"><a class="footnote-ref" href="#fn:1">1</a></sup>).</p>
-<p>To delete all downloaded binaries and the control-plane image after installation, run:
-<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a><span class="go">&lt;repo&gt;\k2s.exe install -d</span>
-</code></pre></div></p>
-<p>To force the download of all binaries and the re-creation of the control-plane image regardless of their local presence, run:
-<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a><span class="go">&lt;repo&gt;\k2s.exe install -f</span>
-</code></pre></div></p>
-<details class="info">
-<summary>Offline vs. Online Installation Diagram</summary>
-</details>
-<pre class="mermaid"><code>graph TD
-    CallScript["Installation scripts\n (Default, BuildOnlySetup)\n\n with\n [-DeleteFilesForOfflineInstallation]\n [-ForceOnlineInstallation]"] --&gt; if_force_online_installation{"Switch\n ForceOnlineInstallation\n used ?"}
-    if_force_online_installation --&gt; |yes| BuildAndProvisionKubemasterBaseImage
-    if_force_online_installation --&gt; |no| if_base_image_available{"c\k\bin\Kubemaster-Base.vhdx\n available?"}
-    if_base_image_available --&gt; |yes| CopyBaseImage
-    if_base_image_available --&gt; |no| BuildAndProvisionKubemasterBaseImage
-    BuildAndProvisionKubemasterBaseImage("Build and provision base image") --&gt; PublishBaseImage("Publish base image as\n c\k\bin\Kubemaster-Base.vhdx")
-    PublishBaseImage --&gt; CopyBaseImage("Copy published base image to\n C\Users\Public\Documents\Hyper-V\Virtual hard disks")
-    CopyBaseImage --&gt; InstallLinuxNode("Install Linux node")
-    InstallLinuxNode --&gt; if_delete_files_for_offline_installation{"Switch\n -DeleteFilesForOfflineInstallation\n used ?"}
-    if_delete_files_for_offline_installation --&gt; |yes| DeleteBaseImage("Delete file c\k\bin\Kubemaster-Base.vhdx")
-    if_delete_files_for_offline_installation --&gt; |no| End
-    DeleteBaseImage --&gt; End</code></pre>
-<h3 id="option-1-host-default">[Option 1] Host (Default)</h3>
-<p>Simply run:
-<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a><span class="go">&lt;repo&gt;\k2s.exe install</span>
-</code></pre></div></p>
-<h4 id="wsl"><abbr title="Windows Subsystem for Linux">WSL</abbr></h4>
-<p>To install the control-plane in <abbr title="Windows Subsystem for Linux">WSL</abbr> 2 instead of a dedicated <em>Linux</em> <abbr title="Virtual Machine">VM</abbr>, run:
-<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-15-1" name="__codelineno-15-1" href="#__codelineno-15-1"></a><span class="go">&lt;repo&gt;\k2s.exe install --wsl</span>
-</code></pre></div></p>
-<h3 id="option-2-development-only">[Option 2] Development-Only</h3>
-<p>To build and test containers without a <em><abbr title="Kubernetes">K8s</abbr></em> cluster, run:
-<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-16-1" name="__codelineno-16-1" href="#__codelineno-16-1"></a><span class="go">&lt;repo&gt;\k2s.exe install buildonly</span>
-</code></pre></div></p>
-<h3 id="experimental-linux-host">[Experimental] Linux Host</h3>
-<p>The native Linux-host implementation supports <strong>Debian 13</strong>. The Kubernetes
-control plane runs directly on the host and uses <strong><abbr title="Container Runtime Interface">CRI</abbr>-O</strong> as its container
-runtime. By default, K2s also provisions one K2s-managed Windows worker with
-libvirt/KVM. Use <code>--linux-only</code> to install the native control plane without a
-Windows worker.</p>
-<p>Run the Linux binary with elevated privileges:</p>
-<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-17-1" name="__codelineno-17-1" href="#__codelineno-17-1"></a><span class="go">sudo ./k2s install --linux-only --proxy http://proxy.example:8080 --no-proxy localhost,127.0.0.1</span>
-<a id="__codelineno-17-2" name="__codelineno-17-2" href="#__codelineno-17-2"></a>
-<a id="__codelineno-17-3" name="__codelineno-17-3" href="#__codelineno-17-3"></a><span class="gp"># </span>Install<span class="w"> </span>the<span class="w"> </span>native<span class="w"> </span>control<span class="w"> </span>plane<span class="w"> </span>and<span class="w"> </span>a<span class="w"> </span>managed<span class="w"> </span>Windows<span class="w"> </span>worker<span class="w"> </span>from<span class="w"> </span>a<span class="w"> </span>prepared<span class="w"> </span>QCOW2<span class="w"> </span>image.
-<a id="__codelineno-17-4" name="__codelineno-17-4" href="#__codelineno-17-4"></a><span class="go">sudo ./k2s install --worker-cpus 4 --worker-memory 8GB --worker-disk 64GB --windows-qcow2-path /path/to/WindowsWorker-Base.qcow2</span>
+<p>Use the resulting image with <code>--windows-qcow2-path</code>. Before publishing it,
+verify the image source <abbr title="Virtual Machine">VM</abbr> has the required components:</p>
+<div class="highlight"><span class="filename">PowerShell</span><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="nb">Get-Service</span> <span class="n">sshd</span>
+<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="nb">Get-LocalUser</span> <span class="n">remote</span>
+<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="nb">Get-LocalGroupMember</span> <span class="n">-Group</span> <span class="s1">'Administrators'</span> <span class="p">|</span> <span class="nb">Where-Object</span> <span class="n">Name</span> <span class="o">-Match</span> <span class="s1">'(^|\\)remote$'</span>
+<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="nb">Get-Service</span> <span class="n">hns</span><span class="p">,</span> <span class="n">vmcompute</span>
 </code></pre></div>
-<p>The equivalent platform-first lifecycle entry point is
-<code>lib/scripts/linux/debian/linuxonly/Install.sh</code>. It validates root access,
-records the dispatch in <code>/var/log/k2s.log</code>, and invokes the same <code>k2s</code> <abbr title="Command-Line Interface">CLI</abbr>
-implementation. The sibling <code>Start.sh</code>, <code>Stop.sh</code>, <code>Status.sh</code>, and
-<code>Uninstall.sh</code> scripts use that same lifecycle module. The corresponding
-<code>lib/scripts/linux/debian/host/</code> scripts delegate to these entry points; they
-do not maintain a separate native Linux implementation.</p>
-<p>The installer downloads the version-pinned Kubernetes and <abbr title="Container Runtime Interface">CRI</abbr>-O Debian
-packages, then starts a local <code>httpproxy</code> service on <code>127.0.0.1:8181</code>. The
-service forwards external traffic through <code>--proxy</code> when supplied. The given
-<code>--no-proxy</code> values are merged with K2s internal addresses and applied only to
-K2s services; the installer does not change global proxy environment settings.</p>
-<p>For workload pods and the managed Windows worker, the same proxy is available at the configured
-<code>smallsetup.kubeSwitch</code> address from <a href="https://github.com/Siemens-Healthineers/K2s/blob/main/cfg/config.json" target="_blank" rel="noopener">cfg/config.json</a>
-on port <code>8181</code>. The Linux implementation creates a K2s-owned <code>k2s-switch</code>
-libvirt <abbr title="Network Address Translation">NAT</abbr> network with the same addressing contract as KubeSwitch. The proxy
-only accepts loopback, pod-<abbr title="Classless Inter-Domain Routing">CIDR</abbr>, service-<abbr title="Classless Inter-Domain Routing">CIDR</abbr>, and K2s-switch clients.</p>
-<p>The managed worker requires nested virtualization, <code>/dev/kvm</code>, a running
-<code>libvirtd</code> or <code>virtqemud</code>, <code>virsh</code>, <code>qemu-img</code>, OpenSSH tools, and a minimum remaining host
-reserve of 2GB memory and 20GB disk after the worker allocation. Worker memory
-must not exceed 75% of total host memory. Its default
-allocation is 4 CPUs, 8GB <abbr title="Random-Access Memory">RAM</abbr>, and a 64GB disk. K2s owns the domain, disk,
-network, and lifecycle; <code>k2s uninstall</code> removes these K2s-managed resources.</p>
-<p>For the first installation, supply a prepared Windows worker image with
-<code>--windows-qcow2-path</code>. K2s validates the QCOW2 format, imports it into the
-managed base-image cache at <code>/var/lib/libvirt/images/k2s/WindowsWorker-Base.qcow2</code>,
-and creates a disposable QCOW2 overlay from that cache for the worker. For
-repeatable offline use, preserve the cached image under
-<code>/var/lib/libvirt/images/k2s/</code> for later installations.</p>
-<p>Prepare the image with the temporary <code>remote</code> password bootstrap used to install
-the generated worker <abbr title="Secure Shell">SSH</abbr> key. See <a href="../preparing-windows-worker-qcow2/">Preparing a Windows Worker
-QCOW2</a>.</p>
-<p>The worker automatically selects legacy <abbr title="Basic Input/Output System">BIOS</abbr> for an MBR partition table and
-standard OVMF UEFI for GPT. Its VNC console listens only on <code>127.0.0.1</code>; use
-<code>sudo virsh vncdisplay k2s-win-worker</code> to obtain the display number when
-diagnosing a failed boot. On an <abbr title="Secure Shell">SSH</abbr> timeout, K2s saves a console screenshot at
-<code>/var/lib/k2s/k2s-win-worker-console.png</code>.</p>
-<p>The following options are intentionally unavailable on a native Linux host:</p>
-<ul>
-<li><code>--master-cpus</code>, <code>--master-memory</code>, <code>--master-disk</code>, dynamic-memory options,
-  and <code>--wsl</code></li>
-<li><code>--force-online-installation</code>, offline artifact cleanup, and <code>--k8s-bins</code></li>
-</ul>
-<p>Native Linux exposes <code>--worker-cpus</code>, <code>--worker-memory</code>, <code>--worker-disk</code>, and
-<code>--windows-qcow2-path</code>; Windows hosts do not expose these options. In an install
-configuration, the corresponding resource fields belong to the <code>worker</code> node
-entry and <code>windowsQCOW2Path</code> supplies the prepared image location.</p>
-<p>The administrator invoking <code>sudo</code> receives the generated kubeconfig at
-<code>~/.kube/config</code> after a successful installation.</p>
-<h2 id="wsl-2-vs-hyper-v"><abbr title="Windows Subsystem for Linux">WSL</abbr> 2 vs. Hyper-V</h2>
-<p>The Linux control-plane <abbr title="Virtual Machine">VM</abbr> can be hosted in either Hyper-V (default) or <abbr title="Windows Subsystem for Linux">WSL</abbr> 2. The table below summarises the trade-offs:</p>
-<table>
-<thead>
-<tr>
-<th>Aspect</th>
-<th>Hyper-V (default)</th>
-<th><abbr title="Windows Subsystem for Linux">WSL</abbr> 2 (<code>--wsl</code>)</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>Isolation</td>
-<td>Full hardware-level <abbr title="Virtual Machine">VM</abbr></td>
-<td>Lightweight utility <abbr title="Virtual Machine">VM</abbr>, shared kernel</td>
-</tr>
-<tr>
-<td>Startup time</td>
-<td>Slower (full <abbr title="Virtual Machine">VM</abbr> boot)</td>
-<td>Faster (managed by Windows)</td>
-</tr>
-<tr>
-<td>Resource overhead</td>
-<td>Higher (dedicated memory reservation)</td>
-<td>Lower (dynamic memory)</td>
-</tr>
-<tr>
-<td>Nested virtualisation</td>
-<td>Required when running inside a <abbr title="Virtual Machine">VM</abbr></td>
-<td>Required when running inside a <abbr title="Virtual Machine">VM</abbr></td>
-</tr>
-<tr>
-<td>L2Bridge networking</td>
-<td>Yes</td>
-<td>Yes</td>
-</tr>
-<tr>
-<td>DNSProxy support</td>
-<td>Yes</td>
-<td>Yes</td>
-</tr>
-<tr>
-<td>HttpProxy support</td>
-<td>Yes</td>
-<td>Yes</td>
-</tr>
-<tr>
-<td>VFP rules</td>
-<td>Yes</td>
-<td>No</td>
-</tr>
-<tr>
-<td>Disk passthrough</td>
-<td>Dedicated VHDX</td>
-<td><abbr title="Windows Subsystem for Linux">WSL</abbr> 2 managed VHDX</td>
-</tr>
-</tbody>
-</table>
-<div class="admonition tip">
-<p class="admonition-title">Tip</p>
-<p>Use Hyper-V for production-like environments and full feature support. Use <abbr title="Windows Subsystem for Linux">WSL</abbr> 2 for development environments where faster startup and lower overhead are preferred.</p>
-</div>
-<p>See the <a href="../../dev-guide/hosting-variants-features-matrix/">Hosting Variants Features Matrix</a> for the complete feature comparison.</p>
-<h2 id="advanced-installation-options">Advanced Installation Options</h2>
-<h3 id="install-without-starting">Install Without Starting</h3>
-<p>To install the cluster without automatically starting it (useful for pre-provisioning):</p>
-<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-18-1" name="__codelineno-18-1" href="#__codelineno-18-1"></a><span class="go">&lt;repo&gt;\k2s.exe install --skip-start</span>
+<h2 id="temporary-password-bootstrap">Temporary Password Bootstrap</h2>
+<p>For the current bootstrap workflow, K2s uses the temporary <code>remote</code> password
+<code>admin</code>. An alternative password can be supplied only through the process
+environment; do not add it to an install configuration file or command-line
+flag:</p>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="go">sudo env K2S_WINDOWS_WORKER_PASSWORD=admin ./k2s install --windows-qcow2-path /path/to/WindowsWorker-Base.qcow2</span>
 </code></pre></div>
-<p>Start the cluster later with <code>k2s start</code>.</p>
-<h3 id="using-locally-built-kubernetes-binaries">Using Locally-Built Kubernetes Binaries</h3>
-<p>For development or testing with custom Kubernetes builds:</p>
-<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-19-1" name="__codelineno-19-1" href="#__codelineno-19-1"></a><span class="go">&lt;repo&gt;\k2s.exe install --k8s-bins "C:\path\to\k8s-binaries"</span>
-</code></pre></div>
-<p>The directory must contain the Kubernetes binaries (kubelet, kubeadm, kubectl, kube-proxy).</p>
-<h3 id="post-install-restarts">Post-Install Restarts</h3>
-<p>The <code>restartPostInstallCount</code> config option triggers automatic cluster restarts after installation. This can help stabilise the cluster on systems where the first start encounters transient issues:</p>
-<div class="highlight"><span class="filename">YAML</span><pre><span></span><code><a id="__codelineno-20-1" name="__codelineno-20-1" href="#__codelineno-20-1"></a><span class="nt">env</span><span class="p">:</span>
-<a id="__codelineno-20-2" name="__codelineno-20-2" href="#__codelineno-20-2"></a><span class="w">  </span><span class="nt">restartPostInstallCount</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">1</span>
-</code></pre></div>
-<h3 id="configuration-reference">Configuration Reference</h3>
-<p>For the full list of configuration files and their settings (network CIDRs, registry mirrors, runtime state, and more), see the <a href="../configuration-reference/">Configuration Reference</a>.</p>
+<p>K2s uses this password once to install its generated public key for <code>remote</code>;
+all subsequent worker actions use the generated key. Remove this password
+bootstrap after the worker onboarding path has been finalized.</p>
+<p>After key authentication succeeds, K2s copies its required runtime files to
+<code>C:\k2s</code> before initializing the Windows worker: <code>VERSION</code>, <code>cfg</code>, <code>lib</code>,
+<code>smallsetup</code>, <code>bin</code>, and <code>LocalHooks</code> when present. The QCOW2 therefore does
+not need a preinstalled K2s directory.</p>
+<p>Because <code>remote</code> is a local administrator, Windows OpenSSH applies its
+<code>Match Group administrators</code> rule. K2s installs the generated key in
+<code>C:\ProgramData\ssh\administrators_authorized_keys</code> with the <abbr title="Access Control List">ACL</abbr> required by
+that rule; it does not use <code>C:\Users\remote\.ssh\authorized_keys</code>.</p>
 <!--
 SPDX-FileCopyrightText: © 2024 Siemens Healthineers AG
 SPDX-License-Identifier: MIT
 -->
-
-<div class="footnote">
-<hr />
-<ol>
-<li id="fn:1">
-<p>Creating of and installing from an offline package is currently supported for <a href="../../user-guide/hosting-variants/#host-default">Host Variant</a> and <a href="../../user-guide/hosting-variants/#development-only">Development-Only</a> only.&#160;<a class="footnote-backref" href="#fnref:1" title="Jump back to footnote 1 in the text">&#8617;</a></p>
-</li>
-</ol>
-</div>
 
 
 
@@ -3621,44 +2995,6 @@ SPDX-License-Identifier: MIT
       
         <footer class="md-footer">
   
-    
-      
-      <nav class="md-footer__inner md-grid" aria-label="Footer" >
-        
-          
-          <a href="../delta-packages/" class="md-footer__link md-footer__link--prev" aria-label="Previous: Delta Packages">
-            <div class="md-footer__button md-icon">
-              
-              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
-            </div>
-            <div class="md-footer__title">
-              <span class="md-footer__direction">
-                Previous
-              </span>
-              <div class="md-ellipsis">
-                Delta Packages
-              </div>
-            </div>
-          </a>
-        
-        
-          
-          <a href="../configuration-reference/" class="md-footer__link md-footer__link--next" aria-label="Next: Configuration Reference">
-            <div class="md-footer__title">
-              <span class="md-footer__direction">
-                Next
-              </span>
-              <div class="md-ellipsis">
-                Configuration Reference
-              </div>
-            </div>
-            <div class="md-footer__button md-icon">
-              
-              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M4 11v2h12l-5.5 5.5 1.42 1.42L19.84 12l-7.92-7.92L10.5 5.5 16 11z"/></svg>
-            </div>
-          </a>
-        
-      </nav>
     
   
   <div class="md-footer-meta md-typeset">
