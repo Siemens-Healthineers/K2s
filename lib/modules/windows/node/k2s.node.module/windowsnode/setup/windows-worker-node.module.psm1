@@ -561,6 +561,12 @@ function Repair-K2sRoutes {
     This function removes such conflicting routes on the Loopbackk2s interface.
 #>
 function Remove-FlannelConflictingRoutesOnLoopback {
+    if (Get-L2BridgeAdapterOverride) {
+        # Only the loopback adapter is topologically unable to reach the remote node
+        # gateways. On a real NIC flannel's host-gw routes are valid and must stay.
+        Write-Log '[FlannelRoutes] L2 bridge is not on a loopback adapter, skipping route cleanup'
+        return
+    }
     $adapterName = Get-L2BridgeName
     $adapter = Get-NetAdapter -Name $adapterName -ErrorAction SilentlyContinue
     if ($null -eq $adapter) {

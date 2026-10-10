@@ -25,15 +25,9 @@ function Get-CrictlExePath {
     $kubeBinPath = Get-KubeBinPath
     $crictlExe = "$kubeBinPath\crictl.exe"
     if (-Not (Test-Path -Path $crictlExe)) {
-        $crictlExeCmd = cmd /c "where crictl.exe" 2>$null
-        if ($LASTEXITCODE -eq 0 -and $crictlExeCmd) {
-            # Ensure we get a string and handle multiple results
-            $crictlPath = $crictlExeCmd | Select-Object -First 1
-            if ($crictlPath -is [string]) {
-                $crictlExe = $crictlPath.Trim()
-            } else {
-                $crictlExe = $crictlPath.ToString().Trim()
-            }
+        $crictlCommand = Get-Command -Name 'crictl.exe' -CommandType Application -ErrorAction SilentlyContinue
+        if ($null -ne $crictlCommand) {
+            $crictlExe = ($crictlCommand | Select-Object -First 1).Source
         }
         else {
             # Return default path instead of throwing error during installation

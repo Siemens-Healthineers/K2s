@@ -118,16 +118,10 @@ func bindFlags(cmd *cobra.Command) {
 	cmd.Flags().BoolP(cc.DeleteFilesFlagName, cc.DeleteFilesFlagShorthand, false, cc.DeleteFilesFlagUsage)
 	cmd.Flags().BoolP(cc.ForceOnlineInstallFlagName, cc.ForceOnlineInstallFlagShorthand, false, cc.ForceOnlineInstallFlagUsage)
 
-	cmd.Flags().String(ic.ControlPlaneCPUsFlagName, "", ic.ControlPlaneCPUsFlagUsage)
-	cmd.Flags().String(ic.ControlPlaneMemoryFlagName, "", ic.ControlPlaneMemoryFlagUsage)
-	cmd.Flags().String(ic.ControlPlaneMemoryMinFlagName, "", ic.ControlPlaneMemoryMinFlagUsage)
-	cmd.Flags().String(ic.ControlPlaneMemoryMaxFlagName, "", ic.ControlPlaneMemoryMaxFlagUsage)
-	cmd.Flags().String(ic.ControlPlaneDiskSizeFlagName, "", ic.ControlPlaneDiskSizeFlagUsage)
+	bindPlatformFlags(cmd)
 	cmd.Flags().StringP(ic.ProxyFlagName, ic.ProxyFlagShorthand, "", ic.ProxyFlagUsage)
 	cmd.Flags().StringSlice(ic.NoProxyFlagName, []string{}, ic.NoProxyFlagUsage)
 	cmd.Flags().StringP(ic.ConfigFileFlagName, ic.ConfigFileFlagShorthand, "", ic.ConfigFileFlagUsage)
-	cmd.Flags().Bool(ic.WslFlagName, false, ic.WslFlagUsage)
-	cmd.Flags().String(ic.K8sBinFlagName, "", ic.K8sBinFlagUsage)
 
 	// convenience flag; not configurable in config file
 	cmd.Flags().Bool(ic.LinuxOnlyFlagName, false, ic.LinuxOnlyFlagUsage)
@@ -186,13 +180,14 @@ func install(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return err
 	}
-
 	linuxOnly, err := cmd.Flags().GetBool(ic.LinuxOnlyFlagName)
 	if err != nil {
 		return err
 	}
+	installConfig.LinuxOnly = linuxOnly
+
 	if runtime.GOOS == "linux" {
-		if err := validateLinuxInstallOptions(cmd, linuxOnly); err != nil {
+		if err := validateLinuxInstallOptions(cmd, installConfig.LinuxOnly); err != nil {
 			return err
 		}
 	}
@@ -234,6 +229,14 @@ func install(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return err
 	}
+	// The managed Windows worker only exists for native Linux hosts. Everywhere
+	// else the worker resources stay empty so nothing is resolved or passed on.
+	var worker ic.NodeConfig
+	if runtime.GOOS == "linux" && !installConfig.LinuxOnly {
+		if configured, found := installConfig.FindNodeByRole(ic.WorkerRoleName); found {
+			worker = *configured
+		}
+	}
 
 	hostname, _ := os.Hostname()
 	ver := version.GetVersion()
@@ -249,8 +252,12 @@ func install(cmd *cobra.Command, args []string) error {
 		MasterVMMemoryMin:                 node.Resources.MemoryMin,
 		MasterVMMemoryMax:                 node.Resources.MemoryMax,
 		MasterDiskSize:                    node.Resources.Disk,
+		WorkerCPUCount:                    worker.Resources.Cpu,
+		WorkerMemory:                      worker.Resources.Memory,
+		WorkerDiskSize:                    worker.Resources.Disk,
+		WindowsQCOW2Path:                  installConfig.WindowsQCOW2Path,
 		DynamicMemory:                     node.Resources.DynamicMemory,
-		LinuxOnly:                         linuxOnly,
+		LinuxOnly:                         installConfig.LinuxOnly,
 		WSL:                               installConfig.Behavior.Wsl,
 		ShowLogs:                          installConfig.Behavior.ShowOutput,
 		SkipStart:                         installConfig.Behavior.SkipStart,
@@ -300,26 +307,16 @@ func install(cmd *cobra.Command, args []string) error {
 }
 
 func validateLinuxInstallOptions(cmd *cobra.Command, linuxOnly bool) error {
-	if !linuxOnly {
-		return errors.New("Linux host installation currently supports only 'k2s install --linux-only'; Windows worker provisioning is not supported yet")
-	}
-
+	// Flags the Linux flag set does not register at all (see flags_linux.go) are
+	// rejected by cobra itself, so only the cross-platform ones are listed here.
 	unsupportedFlags := []string{
 		cc.ForceOnlineInstallFlagName,
 		cc.DeleteFilesFlagName,
-		ic.K8sBinFlagName,
-		ic.WslFlagName,
-		ic.ControlPlaneCPUsFlagName,
-		ic.ControlPlaneMemoryFlagName,
-		ic.ControlPlaneMemoryMinFlagName,
-		ic.ControlPlaneMemoryMaxFlagName,
-		ic.ControlPlaneDiskSizeFlagName,
 	}
 	for _, flagName := range unsupportedFlags {
 		if cmd.Flags().Changed(flagName) {
 			return fmt.Errorf("--%s is not supported for native Linux hosts", flagName)
 		}
 	}
-
 	return nil
 }

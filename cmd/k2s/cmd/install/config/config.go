@@ -62,6 +62,7 @@ type InstallConfig struct {
 	Env              EnvConfig              `mapstructure:"env" json:"env" yaml:"env"`
 	Behavior         BehaviorConfig         `mapstructure:"installBehavior" json:"installBehavior" yaml:"installBehavior"`
 	LinuxOnly        bool                   `mapstructure:"linuxOnly" json:"linuxOnly" yaml:"linuxOnly"`
+	WindowsQCOW2Path string                 `mapstructure:"windowsQCOW2Path" json:"windowsQCOW2Path" yaml:"windowsQCOW2Path"`
 	KubeletOverrides KubeletOverridesConfig `mapstructure:"kubeletOverrides" json:"kubeletOverrides" yaml:"kubeletOverrides"`
 }
 
@@ -123,6 +124,7 @@ const (
 
 	SupportedApiVersion  = "v1"
 	ControlPlaneRoleName = "control-plane"
+	WorkerRoleName       = "worker"
 
 	ControlPlaneCPUsFlagName  = "master-cpus"
 	ControlPlaneCPUsFlagUsage = "Number of CPUs allocated to master VM"
@@ -138,6 +140,18 @@ const (
 
 	ControlPlaneDiskSizeFlagName  = "master-disk"
 	ControlPlaneDiskSizeFlagUsage = "Disk size allocated to the master VM (minimum 10GB, format: <number>[<unit>], where unit = KB, MB or GB)"
+
+	WorkerCPUsFlagName  = "worker-cpus"
+	WorkerCPUsFlagUsage = "Number of CPUs allocated to the managed Windows worker VM"
+
+	WorkerMemoryFlagName  = "worker-memory"
+	WorkerMemoryFlagUsage = "Amount of RAM to allocate to the managed Windows worker VM (minimum 2GB, format: <number>GB)"
+
+	WorkerDiskSizeFlagName  = "worker-disk"
+	WorkerDiskSizeFlagUsage = "Disk size allocated to the managed Windows worker VM (minimum 20GB, format: <number>GB)"
+
+	WindowsQCOW2PathFlagName  = "windows-qcow2-path"
+	WindowsQCOW2PathFlagUsage = "Path to a prepared Windows QCOW2 image for the managed Windows worker VM"
 
 	ProxyFlagName      = "proxy"
 	ProxyFlagShorthand = "p"
@@ -253,6 +267,24 @@ func (config *InstallConfig) GetNodeByRole(role string) (*NodeConfig, error) {
 	return result, nil
 }
 
+// FindNodeByRole reports whether the role is configured. Unlike GetNodeByRole it
+// does not treat a missing node as an error, for roles that are optional.
+func (config *InstallConfig) FindNodeByRole(role string) (*NodeConfig, bool) {
+	return config.findNodeByRole(role)
+}
+
+// GetOrCreateNodeByRole returns the configured node for the role, adding an
+// empty one when the config does not define it. Resource values are left blank
+// on purpose: the defaults live in cfg/config.json and are resolved at the point
+// of use, so they are not duplicated here.
+func (config *InstallConfig) GetOrCreateNodeByRole(role string) *NodeConfig {
+	if node, found := config.findNodeByRole(role); found {
+		return node
+	}
+	config.Nodes = append(config.Nodes, NodeConfig{Role: role})
+	return &config.Nodes[len(config.Nodes)-1]
+}
+
 func (i *installConfigAccess) loadBaseConfig(kind Kind) error {
 	configPath := fmt.Sprintf("embed/%s", configFileMap[kind])
 
@@ -326,10 +358,13 @@ func (*userConfigValidator) validate(kind Kind, config *viper.Viper) error {
 
 	nodes := config.Get("nodes").([]any)
 	for _, node := range nodes {
-		n := node.(map[string]any)
+		n, ok := node.(map[string]any)
+		if !ok {
+			return fmt.Errorf("error in user-provided config: invalid node configuration")
+		}
 
-		if n["role"] != ControlPlaneRoleName {
-			return fmt.Errorf("error in user-provided config: Invalid node role name. Supported: (%s), found: '%s'", ControlPlaneRoleName, n["role"])
+		if n["role"] != ControlPlaneRoleName && n["role"] != WorkerRoleName {
+			return fmt.Errorf("error in user-provided config: Invalid node role name. Supported: (%s, %s), found: '%s'", ControlPlaneRoleName, WorkerRoleName, n["role"])
 		}
 	}
 
@@ -494,6 +529,14 @@ func overwriteConfigWithCliParam(iConfig *InstallConfig, vConfig *viper.Viper, f
 		(iConfig.getNodeByRolePanic(ControlPlaneRoleName)).Resources.MemoryMin = vConfig.GetString(flagName)
 	case ControlPlaneMemoryMaxFlagName:
 		(iConfig.getNodeByRolePanic(ControlPlaneRoleName)).Resources.MemoryMax = vConfig.GetString(flagName)
+	case WorkerCPUsFlagName:
+		iConfig.GetOrCreateNodeByRole(WorkerRoleName).Resources.Cpu = vConfig.GetString(flagName)
+	case WorkerMemoryFlagName:
+		iConfig.GetOrCreateNodeByRole(WorkerRoleName).Resources.Memory = vConfig.GetString(flagName)
+	case WorkerDiskSizeFlagName:
+		iConfig.GetOrCreateNodeByRole(WorkerRoleName).Resources.Disk = vConfig.GetString(flagName)
+	case WindowsQCOW2PathFlagName:
+		iConfig.WindowsQCOW2Path = vConfig.GetString(flagName)
 	case ProxyFlagName:
 		iConfig.Env.Proxy = vConfig.GetString(flagName)
 	case NoProxyFlagName:

@@ -16,13 +16,40 @@ $loopbackAdapterIp = $setupConfigRoot.psobject.properties['loopback'].value
 $loopbackAdapterGateway = $setupConfigRoot.psobject.properties['loopbackGateway'].value
 $loopbackAdapterCIDR = $setupConfigRoot.psobject.properties['loopbackAdapterCIDR'].value
 
+<#
+.SYNOPSIS
+    Name of the adapter configured to carry the l2 bridge, empty if none.
+.DESCRIPTION
+    Empty for the default setup, which builds the l2 bridge on a dedicated loopback
+    adapter so that K2s does not take over the NIC of the Windows host. A node that
+    is a dedicated VM, such as the managed Windows worker of a native Linux host,
+    configures its own Ethernet adapter instead and has no loopback adapter at all.
+#>
+function Get-L2BridgeAdapterOverride {
+    $name = Get-ConfigL2BridgeAdapterName
+    if ([string]::IsNullOrWhiteSpace($name)) {
+        return ''
+    }
+    return $name.Trim()
+}
+
 function New-DefaultLoopbackAdapter {
+    $overrideAdapter = Get-L2BridgeAdapterOverride
+    if ($overrideAdapter) {
+        Write-Log "L2 bridge is configured on adapter '$overrideAdapter', skipping loopback adapter creation"
+        return
+    }
     New-LoopbackAdapter -Name $defaultLoopbackAdapterName -DevConExe $devgonPath | Out-Null
     $AdapterName = Get-L2BridgeName
     Set-LoopbackAdapterProperties -Name $AdapterName -IPAddress $loopbackAdapterIp -Gateway $loopbackAdapterGateway
 }
 
 function Enable-LoopbackAdapter {
+    $overrideAdapter = Get-L2BridgeAdapterOverride
+    if ($overrideAdapter) {
+        Write-Log "L2 bridge is configured on adapter '$overrideAdapter', no loopback adapter to enable"
+        return
+    }
     $AdapterName = Get-L2BridgeName
     Write-Log "Enabling network adapter $AdapterName"
     Enable-NetAdapter -Name $AdapterName -Confirm:$false -ErrorAction SilentlyContinue
@@ -30,12 +57,22 @@ function Enable-LoopbackAdapter {
 }
 
 function Disable-LoopbackAdapter {
+    $overrideAdapter = Get-L2BridgeAdapterOverride
+    if ($overrideAdapter) {
+        Write-Log "L2 bridge is configured on adapter '$overrideAdapter', no loopback adapter to disable"
+        return
+    }
     $AdapterName = Get-L2BridgeName
     Write-Log "Disabling network adapter $AdapterName"
     Disable-NetAdapter -Name $AdapterName -Confirm:$false -ErrorAction SilentlyContinue
 }
 
 function Uninstall-LoopbackAdapter {
+    $overrideAdapter = Get-L2BridgeAdapterOverride
+    if ($overrideAdapter) {
+        Write-Log "L2 bridge is configured on adapter '$overrideAdapter', no loopback adapter to uninstall"
+        return
+    }
     $AdapterName = Get-L2BridgeName
     Write-Log "Uninstalling network adapter $AdapterName"
     Remove-LoopbackAdapter -Name $AdapterName -DevConExe $devgonPath
@@ -54,6 +91,10 @@ function Get-LoopbackAdapterCIDR {
 }
 
 function Get-L2BridgeName {
+    $overrideAdapter = Get-L2BridgeAdapterOverride
+    if ($overrideAdapter) {
+        return $overrideAdapter
+    }
     # Find the newly added Loopback Adapter
     $Adapter = Get-NetAdapter  | Where-Object { ($_.InterfaceDescription -like 'Microsoft KM-TEST Loopback Adapter*') }
     # check for zero or multiple entries
@@ -262,6 +303,13 @@ function Confirm-LoopbackAdapterIP {
     This function checks both adapters and operates on the correct one.
     Throws an exception if the IP cannot be corrected after retries.
     #>
+    $overrideAdapter = Get-L2BridgeAdapterOverride
+    if ($overrideAdapter) {
+        # The l2 bridge sits on a real NIC that carries the node's own address. Forcing
+        # the loopback IP onto it would drop that address and cut the node off.
+        Write-Log "[LoopbackAdapter] L2 bridge is configured on adapter '$overrideAdapter', skipping loopback IP verification"
+        return
+    }
     $baseAdapterName = Get-L2BridgeName
     $vEthernetAdapterName = "vEthernet ($baseAdapterName)"
     $expectedIP = $loopbackAdapterIp
@@ -411,6 +459,15 @@ function Set-LoopbackAdapterExtendedProperties {
     }    
     Write-Log "Found Loopback adapter with Alias: '$loopbackAdapterAlias' and ifIndex: '$loopbackAdapterIfIndex'"
     $ipAddressForLoopbackAdapter = Get-LoopbackAdapterIP
+    if (Get-L2BridgeAdapterOverride) {
+        # The l2 bridge is on a real NIC carrying the node's own address. Imposing the
+        # loopback adapter's IP and gateway here would cut the node off the network.
+        $currentIp = Get-NetIPAddress -InterfaceIndex $loopbackAdapterIfIndex -AddressFamily IPv4 -ErrorAction SilentlyContinue | Select-Object -ExpandProperty IPAddress -First 1
+        if ($currentIp) { $ipAddressForLoopbackAdapter = $currentIp }
+        $currentGateway = Get-NetRoute -InterfaceIndex $loopbackAdapterIfIndex -DestinationPrefix '0.0.0.0/0' -ErrorAction SilentlyContinue | Select-Object -ExpandProperty NextHop -First 1
+        if ($currentGateway) { $gw = $currentGateway }
+        Write-Log "Keeping the adapter's own IP '$ipAddressForLoopbackAdapter' and gateway '$gw'"
+    }
     Set-NetIPInterface -InterfaceIndex $loopbackAdapterIfIndex -Dhcp Disabled  | Out-Null
     $dnsServersAsArray = $DnsServers -split ','
     Set-IPAddressAndDnsClientServerAddress -IPAddress $ipAddressForLoopbackAdapter -DefaultGateway $gw -Index $loopbackAdapterIfIndex -DnsAddresses $dnsServersAsArray
@@ -467,4 +524,5 @@ Export-ModuleMember Remove-LoopbackAdapter
 Export-ModuleMember Set-LoopbackAdapterProperties, Get-LoopbackAdapterIP,
 Get-LoopbackAdapterGateway, Get-LoopbackAdapterCIDR, New-DefaultLoopbackAdapter, Get-L2BridgeName,
 Enable-LoopbackAdapter, Disable-LoopbackAdapter, Uninstall-LoopbackAdapter, Get-DevgonExePath, Set-LoopbackAdapterExtendedProperties,
-Set-NewNameForLoopbackAdapter, Set-PrivateNetworkProfileForLoopbackAdapter, Confirm-LoopbackAdapterIP
+Set-NewNameForLoopbackAdapter, Set-PrivateNetworkProfileForLoopbackAdapter, Confirm-LoopbackAdapterIP,
+Get-L2BridgeAdapterOverride
