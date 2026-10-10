@@ -185,15 +185,39 @@ func (p *linuxImageProvider) Remove(cfg ImageRemoveConfig) error {
 		}
 	}
 
-	args := []string{"rmi"}
 	if cfg.Force {
-		args = append(args, "--force")
+		selectors := []string{ref}
+		if !strings.HasPrefix(ref, "localhost/") {
+			selectors = append(selectors, "localhost/"+ref)
+		}
+		for _, sel := range selectors {
+			out, err := exec.Command("crictl", "ps", "-a", "-q", "--image", sel).Output()
+			if err == nil {
+				for _, cid := range strings.Fields(string(out)) {
+					_ = exec.Command("crictl", "stop", cid).Run()
+					_ = exec.Command("crictl", "rm", cid).Run()
+				}
+			}
+		}
 	}
-	args = append(args, ref)
-	cmd := exec.Command("crictl", args...)
+
+	cmd := exec.Command("crictl", "rmi", ref)
 	if cfg.ShowOutput {
 		cmd.Stdout = os.Stdout
 		cmd.Stderr = os.Stderr
+	}
+	if err := cmd.Run(); err == nil {
+		return nil
+	}
+	if !strings.HasPrefix(ref, "localhost/") {
+		retryCmd := exec.Command("crictl", "rmi", "localhost/"+ref)
+		if cfg.ShowOutput {
+			retryCmd.Stdout = os.Stdout
+			retryCmd.Stderr = os.Stderr
+		}
+		if err := retryCmd.Run(); err == nil {
+			return nil
+		}
 	}
 	return cmd.Run()
 }

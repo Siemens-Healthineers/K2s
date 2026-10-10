@@ -138,25 +138,39 @@ func (p *linuxAddonProvider) enableRegistry(cfg AddonEnableConfig) error {
 	// 2. Create registry namespace
 	_ = exec.Command("kubectl", "create", "namespace", "registry").Run()
 
-	// 3. Inject storage node hostname into persistent-volume.yaml
-	pvFile := filepath.Join(p.installDir, "addons", "registry", "manifests", "registry", "persistent-volume.yaml")
-	pvOrig, err := os.ReadFile(pvFile)
-	if err != nil {
-		return fmt.Errorf("reading persistent-volume.yaml: %w", err)
-	}
-
-	storageNode := getNodeName()
-	pvRendered := strings.Replace(string(pvOrig), "__STORAGE_NODE__", storageNode, 1)
-	if err := os.WriteFile(pvFile, []byte(pvRendered), 0644); err != nil {
-		return fmt.Errorf("writing persistent-volume.yaml: %w", err)
-	}
-	defer func() {
-		_ = os.WriteFile(pvFile, pvOrig, 0644)
-	}()
-
-	// 4. Apply registry kustomize manifests
+	// 3. Render registry manifests to a temporary directory without modifying installDir
 	registryManifestsDir := filepath.Join(p.installDir, "addons", "registry", "manifests", "registry")
-	cmd := exec.Command("kubectl", "apply", "-k", registryManifestsDir)
+	tmpManifestsDir, err := os.MkdirTemp("", "k2s-registry-manifests-*")
+	if err != nil {
+		return fmt.Errorf("creating temp directory for registry manifests: %w", err)
+	}
+	defer os.RemoveAll(tmpManifestsDir)
+
+	entries, err := os.ReadDir(registryManifestsDir)
+	if err != nil {
+		return fmt.Errorf("reading registry manifests dir: %w", err)
+	}
+	storageNode := getNodeName()
+	for _, entry := range entries {
+		if entry.IsDir() {
+			continue
+		}
+		srcPath := filepath.Join(registryManifestsDir, entry.Name())
+		dstPath := filepath.Join(tmpManifestsDir, entry.Name())
+		data, err := os.ReadFile(srcPath)
+		if err != nil {
+			return fmt.Errorf("reading %s: %w", entry.Name(), err)
+		}
+		if entry.Name() == "persistent-volume.yaml" {
+			data = []byte(strings.Replace(string(data), "__STORAGE_NODE__", storageNode, 1))
+		}
+		if err := os.WriteFile(dstPath, data, 0644); err != nil {
+			return fmt.Errorf("writing rendered %s: %w", entry.Name(), err)
+		}
+	}
+
+	// 4. Apply registry kustomize manifests from temp directory
+	cmd := exec.Command("kubectl", "apply", "-k", tmpManifestsDir)
 	if cfg.ShowOutput {
 		cmd.Stdout = os.Stdout
 		cmd.Stderr = os.Stderr
@@ -1189,12 +1203,8 @@ func (p *linuxAddonProvider) removeRegistryFromConfig(registry string) error {
 	return kjson.ToFile(configPath, cfgMap)
 }
 
-func setHostEntry(hostname, ip string) {
-	content, err := os.ReadFile("/etc/hosts")
-	if err != nil {
-		return
-	}
-	lines := strings.Split(string(content), "\n")
+func updateHostsContent(content, hostname, ip string) string {
+	lines := strings.Split(content, "\n")
 	var newLines []string
 	found := false
 	for _, line := range lines {
@@ -1205,16 +1215,24 @@ func setHostEntry(hostname, ip string) {
 		}
 		fields := strings.Fields(trimmed)
 		if len(fields) >= 2 {
+			var remaining []string
 			hasHost := false
 			for _, f := range fields[1:] {
 				if f == hostname {
 					hasHost = true
-					break
+				} else {
+					remaining = append(remaining, f)
 				}
 			}
 			if hasHost {
-				newLines = append(newLines, fmt.Sprintf("%s %s", ip, hostname))
-				found = true
+				if fields[0] == ip && len(remaining) == 0 {
+					found = true
+					newLines = append(newLines, line)
+					continue
+				}
+				if len(remaining) > 0 {
+					newLines = append(newLines, fmt.Sprintf("%s %s", fields[0], strings.Join(remaining, " ")))
+				}
 				continue
 			}
 		}
@@ -1223,7 +1241,47 @@ func setHostEntry(hostname, ip string) {
 	if !found {
 		newLines = append(newLines, fmt.Sprintf("%s %s", ip, hostname))
 	}
-	newContent := strings.Join(newLines, "\n")
+	return strings.Join(newLines, "\n")
+}
+
+func removeHostsContent(content, hostname string) string {
+	lines := strings.Split(content, "\n")
+	var newLines []string
+	for _, line := range lines {
+		trimmed := strings.TrimSpace(line)
+		if strings.HasPrefix(trimmed, "#") {
+			newLines = append(newLines, line)
+			continue
+		}
+		fields := strings.Fields(trimmed)
+		if len(fields) >= 2 {
+			var remaining []string
+			hasHost := false
+			for _, f := range fields[1:] {
+				if f == hostname {
+					hasHost = true
+				} else {
+					remaining = append(remaining, f)
+				}
+			}
+			if hasHost {
+				if len(remaining) > 0 {
+					newLines = append(newLines, fmt.Sprintf("%s %s", fields[0], strings.Join(remaining, " ")))
+				}
+				continue
+			}
+		}
+		newLines = append(newLines, line)
+	}
+	return strings.Join(newLines, "\n")
+}
+
+func setHostEntry(hostname, ip string) {
+	content, err := os.ReadFile("/etc/hosts")
+	if err != nil {
+		return
+	}
+	newContent := updateHostsContent(string(content), hostname, ip)
 	if err := os.WriteFile("/etc/hosts", []byte(newContent), 0644); err != nil {
 		cmd := exec.Command("sudo", "sh", "-c", fmt.Sprintf("printf '%%s\n' %q > /etc/hosts", newContent))
 		_ = cmd.Run()
@@ -1235,30 +1293,7 @@ func removeHostEntry(hostname string) {
 	if err != nil {
 		return
 	}
-	lines := strings.Split(string(content), "\n")
-	var newLines []string
-	for _, line := range lines {
-		trimmed := strings.TrimSpace(line)
-		if strings.HasPrefix(trimmed, "#") {
-			newLines = append(newLines, line)
-			continue
-		}
-		fields := strings.Fields(trimmed)
-		if len(fields) >= 2 {
-			hasHost := false
-			for _, f := range fields[1:] {
-				if f == hostname {
-					hasHost = true
-					break
-				}
-			}
-			if hasHost {
-				continue
-			}
-		}
-		newLines = append(newLines, line)
-	}
-	newContent := strings.Join(newLines, "\n")
+	newContent := removeHostsContent(string(content), hostname)
 	if err := os.WriteFile("/etc/hosts", []byte(newContent), 0644); err != nil {
 		cmd := exec.Command("sudo", "sh", "-c", fmt.Sprintf("printf '%%s\n' %q > /etc/hosts", newContent))
 		_ = cmd.Run()

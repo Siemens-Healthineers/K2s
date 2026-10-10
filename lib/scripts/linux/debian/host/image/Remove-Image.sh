@@ -52,9 +52,21 @@ fi
 
 k2s_log INFO "Removing container image $ref"
 
-force_args=()
-if [[ "$force" == true ]]; then
-  force_args+=("--force")
+# If forced, remove any containers referencing the image first (crictl rmi does not support --force)
+if [[ "$force" == true ]] && command -v crictl >/dev/null 2>&1; then
+  image_selectors=("$ref")
+  if [[ "$ref" != localhost/* ]]; then
+    image_selectors+=("localhost/$ref")
+  fi
+  for selector in "${image_selectors[@]}"; do
+    containers=$(crictl ps -a -q --image "$selector" 2>/dev/null || true)
+    if [[ -n "$containers" ]]; then
+      for cid in $containers; do
+        crictl stop "$cid" >/dev/null 2>&1 || true
+        crictl rm "$cid" >/dev/null 2>&1 || true
+      done
+    fi
+  done
 fi
 
 # Try buildah rmi first (untags specific tag without deleting the underlying image or other tags)
@@ -74,13 +86,13 @@ if command -v buildah >/dev/null 2>&1; then
 fi
 
 # Try crictl rmi with exact ref
-if crictl rmi "${force_args[@]}" "$ref" >/dev/null 2>&1; then
+if crictl rmi "$ref" >/dev/null 2>&1; then
   exit 0
 fi
 
 # If unqualified, try with localhost/ prefix for CRI-O storage
 if [[ "$ref" != localhost/* ]]; then
-  if crictl rmi "${force_args[@]}" "localhost/$ref" >/dev/null 2>&1; then
+  if crictl rmi "localhost/$ref" >/dev/null 2>&1; then
     exit 0
   fi
 fi
@@ -98,8 +110,8 @@ if command -v buildah >/dev/null 2>&1; then
   fi
 else
   if [[ "$ref" != localhost/* ]] && crictl inspecti "localhost/$ref" >/dev/null 2>&1; then
-    k2s_run crictl rmi "${force_args[@]}" "localhost/$ref"
+    k2s_run crictl rmi "localhost/$ref"
   else
-    k2s_run crictl rmi "${force_args[@]}" "$ref"
+    k2s_run crictl rmi "$ref"
   fi
 fi
