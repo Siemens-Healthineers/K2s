@@ -131,10 +131,6 @@ if [ "$CONFIGURE_CONTAINER_TOOLING_PROXY" = "true" ] && [ -n "$PROXY" ]; then
     # Native Linux K2s uses Buildah directly on the host. Keep
     # its proxy configuration separate from CRI-O and user configuration.
     echo "[InstallK8s] Configuring containers tooling proxy: $PROXY"
-    local_no_proxy="$NO_PROXY"
-    if [[ "$local_no_proxy" != *"k2s.registry.local"* ]]; then
-        local_no_proxy="${local_no_proxy:+$local_no_proxy,}k2s.registry.local"
-    fi
     sudo mkdir -p /etc/containers/containers.conf.d
     {
         echo '# Managed by K2s native Linux installation'
@@ -144,8 +140,8 @@ if [ "$CONFIGURE_CONTAINER_TOOLING_PROXY" = "true" ] && [ -n "$PROXY" ]; then
         echo "  \"HTTPS_PROXY=$PROXY\","
         echo "  \"http_proxy=$PROXY\","
         echo "  \"https_proxy=$PROXY\","
-        echo "  \"NO_PROXY=$local_no_proxy\","
-        echo "  \"no_proxy=$local_no_proxy\""
+        echo "  \"NO_PROXY=$NO_PROXY\","
+        echo "  \"no_proxy=$NO_PROXY\""
         echo ']'
     } | sudo tee /etc/containers/containers.conf.d/20-k2s-proxy.conf > /dev/null
 else
