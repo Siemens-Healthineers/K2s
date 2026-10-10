@@ -135,6 +135,7 @@ if [ "$CONFIGURE_CONTAINER_TOOLING_PROXY" = "true" ] && [ -n "$PROXY" ]; then
     if [[ "$local_no_proxy" != *"k2s.registry.local"* ]]; then
         local_no_proxy="${local_no_proxy:+$local_no_proxy,}k2s.registry.local"
     fi
+    sudo mkdir -p /etc/containers/containers.conf.d
     {
         echo '# Managed by K2s native Linux installation'
         echo '[engine]'
