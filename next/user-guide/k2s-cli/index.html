@@ -4332,6 +4332,10 @@ SPDX-License-Identifier: MIT
 </table>
 <h3 id="image-build">image build</h3>
 <p>Build a container image.</p>
+<blockquote>
+<p>[!NOTE]
+Building Windows container images (<code>--windows</code>) is only supported on Windows worker nodes and will return an error when invoked on a Linux-only installation.</p>
+</blockquote>
 <div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a><span class="go">k2s image build [flags]</span>
 </code></pre></div>
 <table>
@@ -4566,6 +4570,10 @@ SPDX-License-Identifier: MIT
 </code></pre></div>
 <h3 id="image-reset-win-storage">image reset-win-storage</h3>
 <p>Reset the containerd and Docker image storage on Windows nodes.</p>
+<blockquote>
+<p>[!NOTE]
+Resetting Windows container storage is Windows-specific and is not supported on Linux-only or Linux host installations.</p>
+</blockquote>
 <div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-18-1" name="__codelineno-18-1" href="#__codelineno-18-1"></a><span class="go">k2s image reset-win-storage [flags]</span>
 </code></pre></div>
 <table>
@@ -4606,6 +4614,7 @@ SPDX-License-Identifier: MIT
 </table>
 <h3 id="image-registry">image registry</h3>
 <p>Manage configured container registries.</p>
+<p>On Linux hosts, registry additions and removals configure <code>/etc/containers/registries.conf.d/</code> drop-in files and Buildah credentials natively without PowerShell.</p>
 <h4 id="image-registry-add">image registry add</h4>
 <div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-19-1" name="__codelineno-19-1" href="#__codelineno-19-1"></a><span class="go">k2s image registry add &lt;registry-url&gt; [flags]</span>
 </code></pre></div>

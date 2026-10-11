@@ -2449,6 +2449,17 @@ You're not viewing the latest release version.
 </li>
       
         <li class="md-nav__item">
+  <a href="#image-commands" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Image Commands
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#l2bridge" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -2926,6 +2937,17 @@ You're not viewing the latest release version.
 </li>
       
         <li class="md-nav__item">
+  <a href="#image-commands" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Image Commands
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#l2bridge" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -3010,12 +3032,14 @@ SPDX-License-Identifier: MIT
 <th style="text-align: center;">DNSProxy</th>
 <th style="text-align: center;">HttpProxy</th>
 <th style="text-align: center;">VFPRules</th>
+<th style="text-align: center;">Image Commands</th>
 </tr>
 </thead>
 <tbody>
 <tr>
 <td>Host</td>
 <td style="text-align: center;">Windows</td>
+<td style="text-align: center;">&#10004;</td>
 <td style="text-align: center;">&#10004;</td>
 <td style="text-align: center;">&#10004;</td>
 <td style="text-align: center;">&#10004;</td>
@@ -3028,6 +3052,7 @@ SPDX-License-Identifier: MIT
 <td style="text-align: center;">&#10008;</td>
 <td style="text-align: center;">&#10004;</td>
 <td style="text-align: center;">&#10008;</td>
+<td style="text-align: center;">&#10004;</td>
 </tr>
 <tr>
 <td>Linux-only</td>
@@ -3036,10 +3061,12 @@ SPDX-License-Identifier: MIT
 <td style="text-align: center;">&#10008;</td>
 <td style="text-align: center;">&#10008;</td>
 <td style="text-align: center;">&#10008;</td>
+<td style="text-align: center;">&#10004;</td>
 </tr>
 <tr>
 <td>Host (<abbr title="Windows Subsystem for Linux">WSL</abbr>)</td>
 <td style="text-align: center;">Windows</td>
+<td style="text-align: center;">&#10004;</td>
 <td style="text-align: center;">&#10004;</td>
 <td style="text-align: center;">&#10004;</td>
 <td style="text-align: center;">&#10004;</td>
@@ -3052,10 +3079,12 @@ SPDX-License-Identifier: MIT
 <td style="text-align: center;">&#10008;</td>
 <td style="text-align: center;">&#10004;</td>
 <td style="text-align: center;">&#10008;</td>
+<td style="text-align: center;">&#10004;</td>
 </tr>
 <tr>
 <td>Linux-only (<abbr title="Windows Subsystem for Linux">WSL</abbr>)</td>
 <td style="text-align: center;">Windows</td>
+<td style="text-align: center;">not supported</td>
 <td style="text-align: center;">not supported</td>
 <td style="text-align: center;">not supported</td>
 <td style="text-align: center;">not supported</td>
@@ -3068,6 +3097,7 @@ SPDX-License-Identifier: MIT
 <td style="text-align: center;">&#10008;</td>
 <td style="text-align: center;">&#10008;</td>
 <td style="text-align: center;">&#10008;</td>
+<td style="text-align: center;">&#10004;</td>
 </tr>
 </tbody>
 </table>
@@ -3077,6 +3107,10 @@ SPDX-License-Identifier: MIT
 <p>Linux host support is experimental. Some features may be incomplete or change without notice.</p>
 </div>
 <p>On a Linux host the control plane runs natively (no <abbr title="Virtual Machine">VM</abbr>). An optional Windows <abbr title="Virtual Machine">VM</abbr> is provisioned via libvirt/KVM for mixed-<abbr title="Operating System">OS</abbr> workloads. Networking uses standard Linux routing and iptables — L2Bridge, DNSProxy, VFPRules are Windows-specific components and are not used.</p>
+<h2 id="image-commands"><em>Image Commands</em></h2>
+<p>Container image lifecycle operations (<code>build</code>, <code>clean</code>, <code>export</code>, <code>import</code>, <code>ls</code>, <code>pull</code>, <code>push</code>, <code>rm</code>, <code>tag</code>, <code>registry add</code>, <code>registry rm</code>, <code>registry ls</code>) are supported across all active hosting variants:
+- <strong>Windows host</strong>: Delegated to PowerShell automation managing the host Windows node and remote Linux <abbr title="Virtual Machine">VM</abbr>.
+- <strong>Linux host (Reverted setup)</strong>: Managed natively via Linux tools (<code>crictl</code>, <code>ctr</code>, <code>nerdctl</code>, <code>buildah</code>) and symmetric Bash scripts (<code>lib/scripts/linux/debian/host/image/</code>), requiring no PowerShell. Windows-only operations (e.g. <code>--windows</code> build flag, <code>image reset-win-storage</code>) and multi-node selectors are rejected with actionable errors.</p>
 <h2 id="l2bridge"><em>L2Bridge</em></h2>
 <p>Creation of <em>L2Bridge</em> is essential for communication between <em>Pods</em> across <em>Linux</em> and <em>Windows</em> nodes. In principle, a network adapter named <code>cbr0</code> is created to facilitate communication across nodes.</p>
 <h2 id="dnsproxy"><em>DNSProxy</em></h2>
