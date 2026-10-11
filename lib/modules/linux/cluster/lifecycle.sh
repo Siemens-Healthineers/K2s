@@ -49,7 +49,7 @@ k2s_merge_no_proxy() {
   local pod_cidr service_cidr
   pod_cidr=$(k2s_cfg '.smallsetup.podNetworkCIDR') || return 1
   service_cidr=$(k2s_cfg '.smallsetup.servicesCIDR') || return 1
-  K2S_NO_PROXY=$(printf '%s\n' "${K2S_NO_PROXY//,/$'\n'}" localhost 127.0.0.1 ::1 "$pod_cidr" "$service_cidr" .svc .cluster.local | awk 'NF && !seen[$0]++' | paste -sd, -)
+  K2S_NO_PROXY=$(printf '%s\n' "${K2S_NO_PROXY//,/$'\n'}" localhost 127.0.0.1 ::1 "$pod_cidr" "$service_cidr" .svc .cluster.local k2s.registry.local | awk 'NF && !seen[$0]++' | paste -sd, -)
   export K2S_NO_PROXY
 }
 
@@ -69,7 +69,11 @@ k2s_windows_worker_install() {
 }
 
 k2s_control_plane_install() {
-  local pod service cfg; pod=$(k2s_cfg '.smallsetup.podNetworkCIDR'); service=$(k2s_cfg '.smallsetup.servicesCIDR'); cfg=$(mktemp)
+  local pod service cfg cluster_name
+  pod=$(k2s_cfg '.smallsetup.podNetworkCIDR')
+  service=$(k2s_cfg '.smallsetup.servicesCIDR')
+  cluster_name="${K2S_CLUSTER_NAME:-$(k2s_cfg '.clusterName // "k2s-cluster"')}"
+  cfg=$(mktemp)
   cat > "$cfg" <<EOF
 apiVersion: kubeadm.k8s.io/v1beta4
 kind: InitConfiguration
@@ -79,6 +83,7 @@ nodeRegistration:
 apiVersion: kubeadm.k8s.io/v1beta4
 kind: ClusterConfiguration
 kubernetesVersion: $K2S_VERSION
+clusterName: $cluster_name
 networking:
   podSubnet: $pod
   serviceSubnet: $service
@@ -87,7 +92,11 @@ EOF
   kubeadm init --config="$cfg" || { rm -f "$cfg"; return 1; }
   rm -f "$cfg"
   systemctl enable kubelet || true
-  local user="${SUDO_USER:-root}" home; home=$(getent passwd "$user" | cut -d: -f6); mkdir -p "$home/.kube"; cp /etc/kubernetes/admin.conf "$home/.kube/config"; chown -R "$user":"$(id -gn "$user")" "$home/.kube"
+  local user="${SUDO_USER:-root}" home; home=$(getent passwd "$user" | cut -d: -f6); mkdir -p "$home/.kube"; cp --remove-destination /etc/kubernetes/admin.conf "$home/.kube/config"; chown -R "$user":"$(id -gn "$user")" "$home/.kube"
+  if [[ "$user" != "root" ]]; then
+    mkdir -p /root/.kube
+    cp --remove-destination /etc/kubernetes/admin.conf /root/.kube/config
+  fi
 }
 
 k2s_configure_kube_proxy_kubeswitch() {
@@ -247,6 +256,12 @@ k2s_uninstall_cluster() {
   if [[ "$K2S_SKIP_PURGE" != true ]]; then
     kubeadm reset -f 2>/dev/null || true
     rm -rf /etc/kubernetes /var/lib/etcd /var/lib/kubelet /etc/cni/net.d/10-flannel.conflist /run/flannel
+    rm -f /root/.kube/config
+    local user="${SUDO_USER:-}"
+    if [[ -n "$user" ]]; then
+      local home; home=$(getent passwd "$user" | cut -d: -f6)
+      rm -f "$home/.kube/config"
+    fi
   fi
   ip link delete cni0 2>/dev/null || true
   ip link delete flannel.1 2>/dev/null || true

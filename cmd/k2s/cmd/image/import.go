@@ -122,11 +122,15 @@ func importImage(cmd *cobra.Command, args []string) error {
 	}
 
 	if runtimeConfig.InstallConfig().LinuxOnly() && isWindowsImage {
-		return common.CreateFuncUnavailableForLinuxOnlyCmdFailure()
+		return fmt.Errorf("importing Windows container images is not supported on a Linux-only installation")
 	}
 
 	nodeSelector, err := parseNodeSelector(cmd)
 	if err != nil {
+		return err
+	}
+
+	if err := validateNodeSelector(nodeSelector, runtimeConfig); err != nil {
 		return err
 	}
 

@@ -6,12 +6,9 @@ package image
 import (
 	"errors"
 	"fmt"
-	"path/filepath"
 	"strconv"
 
 	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/common"
-
-	"github.com/siemens-healthineers/k2s/cmd/k2s/utils"
 
 	cconfig "github.com/siemens-healthineers/k2s/internal/contracts/config"
 	"github.com/siemens-healthineers/k2s/internal/core/config"
@@ -82,12 +79,12 @@ func pushImage(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	if runtimeConfig.InstallConfig().LinuxOnly() {
-		return common.CreateFuncUnavailableForLinuxOnlyCmdFailure()
-	}
-
 	nodeSelector, err := parseNodeSelector(cmd)
 	if err != nil {
+		return err
+	}
+
+	if err := validateNodeSelector(nodeSelector, runtimeConfig); err != nil {
 		return err
 	}
 
@@ -103,47 +100,4 @@ func pushImage(cmd *cobra.Command, args []string) error {
 	cmdSession.Finish()
 
 	return nil
-}
-
-func buildPushPsCmd(cmd *cobra.Command) (psCmd string, params []string, err error) {
-
-	imageId, err := cmd.Flags().GetString(imageIdFlagName)
-	if err != nil {
-		return "", nil, fmt.Errorf("unable to parse flag '%s': %w", imageIdFlagName, err)
-	}
-
-	imageName, err := cmd.Flags().GetString(imageNameFlagName)
-	if err != nil {
-		return "", nil, fmt.Errorf("unable to parse flag '%s': %w", imageNameFlagName, err)
-	}
-
-	if imageId == "" && imageName == "" {
-		return "", nil, errors.New("no image id or image name provided")
-	}
-
-	psCmd = utils.FormatScriptFilePath(filepath.Join(utils.InstallDir(), "lib", "scripts", "windows", "host", "image", "Push-Image.ps1"))
-
-	if imageId != "" {
-		params = append(params, " -Id "+imageId)
-	}
-	if imageName != "" {
-		params = append(params, " -ImageName "+imageName)
-	}
-
-	nodeSelector, err := parseNodeSelector(cmd)
-	if err != nil {
-		return "", nil, err
-	}
-	params = appendNodesParam(params, nodeSelector)
-
-	showOutput, err := strconv.ParseBool(cmd.Flags().Lookup(common.OutputFlagName).Value.String())
-	if err != nil {
-		return "", nil, err
-	}
-
-	if showOutput {
-		params = append(params, " -ShowLogs")
-	}
-
-	return
 }

@@ -65,8 +65,8 @@ func cleanImages(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	if runtimeConfig.InstallConfig().LinuxOnly() {
-		return common.CreateFuncUnavailableForLinuxOnlyCmdFailure()
+	if err := validateNodeSelector(nodeSelector, runtimeConfig); err != nil {
+		return err
 	}
 
 	if err := context.Providers().Image.Clean(provider.ImageCleanConfig{

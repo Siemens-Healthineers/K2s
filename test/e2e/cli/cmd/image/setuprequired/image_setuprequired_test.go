@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText:  © 2025 Siemens Healthineers AG
+// SPDX-FileCopyrightText:  © 2026 Siemens Healthineers AG
 // SPDX-License-Identifier:   MIT
 
 package setuprequired
@@ -11,6 +11,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
+	"github.com/siemens-healthineers/k2s/internal/cli"
 	"github.com/siemens-healthineers/k2s/test/framework"
 	"github.com/siemens-healthineers/k2s/test/framework/dsl"
 )
@@ -45,35 +46,25 @@ var _ = Describe("image", func() {
 	})
 
 	Describe("rm", Label("rm", "invasive"), func() {
-		When("functionality is not supported in setup type", func() {
-			It("fails", func(ctx context.Context) {
-				if !suite.SetupInfo().RuntimeConfig.InstallConfig().LinuxOnly() {
-					Skip("setup type must be Linux-only")
-				}
+		When("wrong K8s context is in use", func() {
+			BeforeEach(func(ctx context.Context) {
+				k2s.SetWrongK8sContext(ctx)
 
+				DeferCleanup(k2s.ResetK8sContext)
+			})
+
+			It("fails with wrong K8s context warning", func(ctx context.Context) {
 				result := k2s.RemoveImage(ctx)
 
-				result.VerifyFunctionalityNotAvailableFailure()
+				result.VerifyWrongK8sContextFailure()
 			})
 		})
 
-		When("functionality is supported in setup type", func() {
-			When("wrong K8s context is in use", func() {
-				BeforeEach(func(ctx context.Context) {
-					if suite.SetupInfo().RuntimeConfig.InstallConfig().LinuxOnly() {
-						Skip("setup type must not be Linux-only")
-					}
+		When("validating command availability across setups", func() {
+			It("is supported and does not fail with functionality not available", func(ctx context.Context) {
+				output, _ := suite.K2sCli().ExpectedExitCode(cli.ExitCodeFailure).Exec(ctx, "image", "rm")
 
-					k2s.SetWrongK8sContext(ctx)
-
-					DeferCleanup(k2s.ResetK8sContext)
-				})
-
-				It("fails", func(ctx context.Context) {
-					result := k2s.RemoveImage(ctx)
-
-					result.VerifyWrongK8sContextFailure()
-				})
+				Expect(output).ToNot(ContainSubstring("functionality is not available"))
 			})
 		})
 	})

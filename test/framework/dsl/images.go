@@ -8,7 +8,9 @@ import (
 	"context"
 	"crypto/tls"
 	"fmt"
+	"os/exec"
 	"path/filepath"
+	"runtime"
 	"slices"
 	"strings"
 	"time"
@@ -148,6 +150,10 @@ func (k2s *K2s) getK8sImageRepositories() (repos []string) {
 }
 
 func (k2s *K2s) getImagesFromWindowsNode(ctx context.Context) (images []string) {
+	if k2s.isLinuxOnly() || runtime.GOOS == "linux" {
+		return nil
+	}
+
 	crictl := k2s.suite.Cli(filepath.Join(k2s.suite.RootDir(), "bin", "crictl.exe"))
 	crictlConfig := filepath.Join(k2s.suite.RootDir(), "bin", "crictl.yaml")
 	output := crictl.NoStdOut().MustExec(ctx, "--config", crictlConfig, "images", "-o", "json")
@@ -163,22 +169,41 @@ func (k2s *K2s) getImagesFromWindowsNode(ctx context.Context) (images []string) 
 }
 
 func (k2s *K2s) getImagesFromLinuxNode() (images []string) {
-	output := new(bytes.Buffer)
+	var output []byte
+	var err error
 
-	connectionOptions := ssh.ConnectionOptions{
-		IpAddress:         k2s.suite.SetupInfo().Config.ControlPlane().IpAddress(),
-		Port:              definitions.SSHDefaultPort,
-		RemoteUser:        definitions.SSHRemoteUser,
-		SshPrivateKeyPath: k2s.suite.SetupInfo().Config.Host().SshConfig().CurrentPrivateKeyPath(),
-		Timeout:           time.Minute * 2,
-		StdOutWriter:      output,
+	if k2s.isLinuxOnly() || runtime.GOOS == "linux" {
+		output, err = exec.Command("sudo", "buildah", "images", "--json").Output()
+		if err != nil {
+			output, err = exec.Command("sudo", "crictl", "images", "-o", "json").Output()
+			if err == nil {
+				var crictlRes crictlImagesResult
+				if json.Unmarshal(output, &crictlRes) == nil {
+					for _, img := range crictlRes.Images {
+						images = append(images, img.RepoTags...)
+					}
+					return images
+				}
+			}
+		}
+	} else {
+		buf := new(bytes.Buffer)
+		connectionOptions := ssh.ConnectionOptions{
+			IpAddress:         k2s.suite.SetupInfo().Config.ControlPlane().IpAddress(),
+			Port:              definitions.SSHDefaultPort,
+			RemoteUser:        definitions.SSHRemoteUser,
+			SshPrivateKeyPath: k2s.suite.SetupInfo().Config.Host().SshConfig().CurrentPrivateKeyPath(),
+			Timeout:           time.Minute * 2,
+			StdOutWriter:      buf,
+		}
+
+		err = ssh.NewSSH(connectionOptions).Exec("sudo buildah images --json")
+		output = buf.Bytes()
 	}
-
-	err := ssh.NewSSH(connectionOptions).Exec("sudo buildah images --json")
 	Expect(err).ToNot(HaveOccurred())
 
 	var imageList []buildahImage
-	err = json.Unmarshal(output.Bytes(), &imageList)
+	err = json.Unmarshal(output, &imageList)
 	Expect(err).ToNot(HaveOccurred())
 
 	for _, imageEntry := range imageList {
@@ -188,11 +213,26 @@ func (k2s *K2s) getImagesFromLinuxNode() (images []string) {
 }
 
 func (k2s *K2s) isImageAvailableOnWindowsNode(ctx context.Context, fullName string) bool {
+	if k2s.isLinuxOnly() || runtime.GOOS == "linux" {
+		return false
+	}
 	return slices.Contains(k2s.getImagesFromWindowsNode(ctx), fullName)
 }
 
 func (k2s *K2s) isImageAvailableOnLinuxNode(fullName string) bool {
-	return slices.Contains(k2s.getImagesFromLinuxNode(), fullName)
+	for _, img := range k2s.getImagesFromLinuxNode() {
+		if img == fullName || strings.TrimPrefix(img, "localhost/") == fullName {
+			return true
+		}
+	}
+	return false
+}
+
+func (k2s *K2s) isLinuxOnly() bool {
+	if installConfig := k2s.suite.SetupInfo().RuntimeConfig.InstallConfig(); installConfig != nil {
+		return installConfig.LinuxOnly()
+	}
+	return false
 }
 
 func (k2s *K2s) isImageAvailableInLocalRegistry(ctx context.Context, name string) bool {

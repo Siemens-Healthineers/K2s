@@ -99,13 +99,20 @@ var _ = Describe("'ingress nginx-gw' addon", Ordered, func() {
 
 		k2s.VerifyAddonIsEnabled("ingress", nginxGw)
 		suite.Cluster().ExpectDeploymentToBeAvailable("nginx-gw-controller", nginxGw)
-		suite.Cluster().ExpectDeploymentToBeAvailable("external-dns", "kube-system")
+		if !suite.SetupInfo().RuntimeConfig.InstallConfig().LinuxOnly() {
+			suite.Cluster().ExpectDeploymentToBeAvailable("external-dns", "kube-system")
+		}
 
 		suite.Cluster().ExpectPodsUnderDeploymentReady(ctx, "app.kubernetes.io/name", nginxGw, nginxGw)
-		suite.Cluster().ExpectPodsUnderDeploymentReady(ctx, "app", "external-dns", "kube-system")
+		if !suite.SetupInfo().RuntimeConfig.InstallConfig().LinuxOnly() {
+			suite.Cluster().ExpectPodsUnderDeploymentReady(ctx, "app", "external-dns", "kube-system")
+		}
 	})
 
 	It("installs cmctl.exe, the cert-manager CLI", func(ctx context.Context) {
+		if suite.SetupInfo().RuntimeConfig.InstallConfig().LinuxOnly() {
+			Skip("cmctl.exe is a Windows-only binary")
+		}
 		cmCtlPath := path.Join(suite.RootDir(), "bin", "cmctl.exe")
 		_, err := os.Stat(cmCtlPath)
 		Expect(err).To(BeNil())
