@@ -67,13 +67,6 @@ if ! command -v crictl >/dev/null 2>&1; then
     exit 1
 fi
 
-if ! command -v buildah >/dev/null 2>&1; then
-    echo "[InstallK8s] Installing buildah for container image operations"
-    sudo DEBIAN_FRONTEND=noninteractive apt-get install -y \
-        -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold" \
-        buildah
-fi
-
 # ---------------------------------------------------------------------------
 # Configure bridged traffic (kernel modules + sysctl)
 # ---------------------------------------------------------------------------
