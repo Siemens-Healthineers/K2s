@@ -121,7 +121,7 @@ if [ -n "$PROXY" ]; then
 fi
 
 if [ "$CONFIGURE_CONTAINER_TOOLING_PROXY" = "true" ] && [ -n "$PROXY" ]; then
-    # Native Linux K2s uses Buildah directly on the host. Keep
+    # Native Linux K2s uses Buildah and Podman directly on the host. Keep
     # its proxy configuration separate from CRI-O and user configuration.
     echo "[InstallK8s] Configuring containers tooling proxy: $PROXY"
     sudo mkdir -p /etc/containers/containers.conf.d
