@@ -82,6 +82,14 @@ To inspect the different install options, run:
 !!! note
     *K2s* will start automatically after the installation has finished.
 
+!!! note "Control-plane base-image preparation"
+    When `k2s install` prepares a new control-plane base image, Buildah is installed
+    separately from the Kubernetes packages. Registry configuration is restored
+    after the Buildah packages are installed. Preparation stops on failed registry
+    updates, CRI-O restart/readiness checks, or required image pulls instead of
+    producing an unusable base image. CRI-O restart failures include service status
+    and recent journal output in `k2s.log`.
+
 !!! note "Windows loopback adapter discovery"
     During `k2s install`, Windows worker setup checks the device installer's exit
     code and logs its output. It waits for the loopback adapter to become visible
