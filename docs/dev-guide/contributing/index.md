@@ -4,15 +4,11 @@ SPDX-License-Identifier: MIT
 -->
 
 # Contributing
-## Contributor License Agreement
-There are two versions of the Contributor License Agreement (CLA). 
-The contributor should be able to chose the right one: 
+## Contribution Requirements
 
-* contribution by his/her employer (typically a legal entity) [CLA Corporate Contributor](./cla-corporate-contributor.md)
-* contribution by an individual [CLA Individual Contributor](./cla-individual-contributor.md) 
+All new code contributions must be made under the Apache License, Version 2.0 and include a Developer Certificate of Origin sign-off on every commit. Create a signed-off commit with `git commit -s`; see [Submitting Changes](submitting-changes.md) for details.
 
-The CLA is drafted for re-use for any contributions the (same) contributor makes, so that it needs to be signed only once.
-This CLA does not enable Siemens Healthineers to use or process personal data. The contributor must not contribute personal data according to this CLA.
+Review the [K2s Intellectual Property Policy](https://github.com/k2s-project/k2s/blob/main/IP_POLICY.md) before adding third-party content. It defines the licensing and provenance requirements for dependencies, vendored files, generated assets, and documentation.
 
 ## Contributing with code
 The code is mainly written in *Go* and *PowerShell*. See [*PowerShell* Development](powershell-dev.md) for more information.
@@ -38,7 +34,7 @@ The codebase structure looks like the following:
 ```
 
 1. [Clone the *Git* Repository](../../op-manual/getting-k2s.md#option-1-cloning-git-repository)
-2. Make your changes locally, adhering to the [Licensing Obligations](licensing.md)
+2. Make your changes locally, adhering to the [Licensing Obligations](licensing.md) and the K2s Intellectual Property Policy
 3. [Build Locally](building-locally.md)
 4. Create [Automated Tests](automated-testing.md) and execute them successfully
 5. [Update the Documentation](updating-documentation.md)
