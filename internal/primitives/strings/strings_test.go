@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	sut "github.com/siemens-healthineers/k2s/internal/primitives/strings"
+	sut "github.com/k2s-project/k2s/internal/primitives/strings"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"

@@ -48,6 +48,6 @@ SPDX-License-Identifier: MIT
   - Set your git user name and email
     - git config --global user.name "Your Name"
     - git config --global user.email "Your email"
-  - Goto any folder in terminal and Clone a repository for example git clone https://github.com/Siemens-Healthineers/K2s .
+  - Goto any folder in terminal and Clone a repository for example git clone https://github.com/k2s-project/K2s .
   - While cloning, Git may prompt for authentication. You can authenticate using your GitHub username and a personal access token (PAT), or follow the on-screen instructions for other supported authentication methods (such as browser-based login or OAuth).
 - After cloning, Open the cloned repo folder in VS Code (`File > Open Folder...`).

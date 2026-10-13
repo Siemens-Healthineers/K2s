@@ -6,7 +6,7 @@ package status
 import (
 	"log/slog"
 
-	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/common"
+	"github.com/k2s-project/k2s/cmd/k2s/cmd/common"
 
 	"fmt"
 )

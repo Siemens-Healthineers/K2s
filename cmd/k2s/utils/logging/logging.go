@@ -7,7 +7,7 @@ import (
 	"log/slog"
 
 	"github.com/samber/lo"
-	base "github.com/siemens-healthineers/k2s/internal/logging"
+	base "github.com/k2s-project/k2s/internal/logging"
 )
 
 // SlogHandler extends slog.Handler interface for e.g. log file sync/close

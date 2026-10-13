@@ -10,16 +10,16 @@ import (
 	"testing"
 	"time"
 
-	"github.com/siemens-healthineers/k2s/internal/contracts/config"
-	"github.com/siemens-healthineers/k2s/internal/output"
-	"github.com/siemens-healthineers/k2s/internal/test/reflection"
-	"github.com/siemens-healthineers/k2s/internal/version"
+	"github.com/k2s-project/k2s/internal/contracts/config"
+	"github.com/k2s-project/k2s/internal/output"
+	"github.com/k2s-project/k2s/internal/test/reflection"
+	"github.com/k2s-project/k2s/internal/version"
 
-	ic "github.com/siemens-healthineers/k2s/cmd/k2s/cmd/install/config"
+	ic "github.com/k2s-project/k2s/cmd/k2s/cmd/install/config"
 
-	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/common"
+	"github.com/k2s-project/k2s/cmd/k2s/cmd/common"
 
-	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/install/core"
+	"github.com/k2s-project/k2s/cmd/k2s/cmd/install/core"
 
 	"github.com/go-logr/logr"
 	. "github.com/onsi/ginkgo/v2"

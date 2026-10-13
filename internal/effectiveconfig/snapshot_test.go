@@ -9,7 +9,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/siemens-healthineers/k2s/internal/definitions"
+	"github.com/k2s-project/k2s/internal/definitions"
 )
 
 func TestStageRejectsEmptyContent(t *testing.T) {

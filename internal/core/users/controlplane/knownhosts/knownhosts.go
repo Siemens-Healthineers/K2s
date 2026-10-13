@@ -11,10 +11,10 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/siemens-healthineers/k2s/internal/contracts/config"
-	"github.com/siemens-healthineers/k2s/internal/contracts/users"
-	k_host "github.com/siemens-healthineers/k2s/internal/host"
-	k_os "github.com/siemens-healthineers/k2s/internal/os"
+	"github.com/k2s-project/k2s/internal/contracts/config"
+	"github.com/k2s-project/k2s/internal/contracts/users"
+	k_host "github.com/k2s-project/k2s/internal/host"
+	k_os "github.com/k2s-project/k2s/internal/os"
 )
 
 type KnownHostsCopier struct {

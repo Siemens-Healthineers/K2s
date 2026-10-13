@@ -16,7 +16,7 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/siemens-healthineers/k2s/internal/output"
+	"github.com/k2s-project/k2s/internal/output"
 )
 
 type Files []fs.FileInfo

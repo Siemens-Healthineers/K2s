@@ -10,8 +10,8 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/common"
-	contracts "github.com/siemens-healthineers/k2s/internal/contracts/config"
+	"github.com/k2s-project/k2s/cmd/k2s/cmd/common"
+	contracts "github.com/k2s-project/k2s/internal/contracts/config"
 )
 
 const (

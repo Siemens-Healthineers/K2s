@@ -7,15 +7,15 @@ import (
 	"fmt"
 	"log/slog"
 
-	"github.com/siemens-healthineers/k2s/internal/contracts/config"
-	"github.com/siemens-healthineers/k2s/internal/contracts/users"
-	"github.com/siemens-healthineers/k2s/internal/core/users/cluster"
-	"github.com/siemens-healthineers/k2s/internal/core/users/controlplane"
-	"github.com/siemens-healthineers/k2s/internal/core/users/naming"
-	"github.com/siemens-healthineers/k2s/internal/core/users/validation"
-	"github.com/siemens-healthineers/k2s/internal/primitives/concurrency"
-	"github.com/siemens-healthineers/k2s/internal/providers/osusers"
-	"github.com/siemens-healthineers/k2s/internal/providers/ssh"
+	"github.com/k2s-project/k2s/internal/contracts/config"
+	"github.com/k2s-project/k2s/internal/contracts/users"
+	"github.com/k2s-project/k2s/internal/core/users/cluster"
+	"github.com/k2s-project/k2s/internal/core/users/controlplane"
+	"github.com/k2s-project/k2s/internal/core/users/naming"
+	"github.com/k2s-project/k2s/internal/core/users/validation"
+	"github.com/k2s-project/k2s/internal/primitives/concurrency"
+	"github.com/k2s-project/k2s/internal/providers/osusers"
+	"github.com/k2s-project/k2s/internal/providers/ssh"
 )
 
 type OSUserProvider interface {

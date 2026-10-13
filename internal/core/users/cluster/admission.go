@@ -7,13 +7,13 @@ import (
 	"fmt"
 	"log/slog"
 
-	"github.com/siemens-healthineers/k2s/internal/contracts/config"
-	"github.com/siemens-healthineers/k2s/internal/contracts/users"
-	"github.com/siemens-healthineers/k2s/internal/core/users/cluster/naming"
-	"github.com/siemens-healthineers/k2s/internal/core/users/cluster/tempdir"
-	"github.com/siemens-healthineers/k2s/internal/primitives/concurrency"
-	"github.com/siemens-healthineers/k2s/internal/providers/kubeconfig"
-	"github.com/siemens-healthineers/k2s/internal/providers/ssh"
+	"github.com/k2s-project/k2s/internal/contracts/config"
+	"github.com/k2s-project/k2s/internal/contracts/users"
+	"github.com/k2s-project/k2s/internal/core/users/cluster/naming"
+	"github.com/k2s-project/k2s/internal/core/users/cluster/tempdir"
+	"github.com/k2s-project/k2s/internal/primitives/concurrency"
+	"github.com/k2s-project/k2s/internal/providers/kubeconfig"
+	"github.com/k2s-project/k2s/internal/providers/ssh"
 )
 
 type ClusterAdmission struct {

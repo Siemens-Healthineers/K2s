@@ -9,14 +9,14 @@ import (
 	"fmt"
 	"log/slog"
 
-	ic "github.com/siemens-healthineers/k2s/cmd/k2s/cmd/install/config"
-	"github.com/siemens-healthineers/k2s/cmd/k2s/utils"
+	ic "github.com/k2s-project/k2s/cmd/k2s/cmd/install/config"
+	"github.com/k2s-project/k2s/cmd/k2s/utils"
 
-	cc "github.com/siemens-healthineers/k2s/cmd/k2s/cmd/common"
+	cc "github.com/k2s-project/k2s/cmd/k2s/cmd/common"
 
-	"github.com/siemens-healthineers/k2s/internal/contracts/config"
-	"github.com/siemens-healthineers/k2s/internal/output"
-	"github.com/siemens-healthineers/k2s/internal/version"
+	"github.com/k2s-project/k2s/internal/contracts/config"
+	"github.com/k2s-project/k2s/internal/output"
+	"github.com/k2s-project/k2s/internal/version"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
@@ -117,7 +117,7 @@ func (i *Installer) Install(
 		errorLine, found := cc.GetInstallPreRequisiteError(outputWriter.ErrorLines)
 		if found {
 			i.Printer.PrintWarning("Prerequisite check failed,", errorLine)
-			i.Printer.PrintWarning("Have a look at the pre-requisites 'https://github.com/Siemens-Healthineers/K2s/blob/main/docs/op-manual/installing-k2s.md#prerequisites' and re-issue 'k2s install'")
+			i.Printer.PrintWarning("Have a look at the pre-requisites 'https://github.com/k2s-project/K2s/blob/main/docs/op-manual/installing-k2s.md#prerequisites' and re-issue 'k2s install'")
 			err = i.DeleteConfigFunc(configDir)
 			if err != nil {
 				slog.Debug("config file does not exist, nothing to do")

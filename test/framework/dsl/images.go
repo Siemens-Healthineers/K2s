@@ -15,10 +15,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/siemens-healthineers/k2s/internal/definitions"
-	k2s_json "github.com/siemens-healthineers/k2s/internal/json"
-	"github.com/siemens-healthineers/k2s/internal/providers/ssh"
-	"github.com/siemens-healthineers/k2s/test/framework/http"
+	"github.com/k2s-project/k2s/internal/definitions"
+	k2s_json "github.com/k2s-project/k2s/internal/json"
+	"github.com/k2s-project/k2s/internal/providers/ssh"
+	"github.com/k2s-project/k2s/test/framework/http"
 
 	"encoding/json"
 

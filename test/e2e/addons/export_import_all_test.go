@@ -14,11 +14,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/siemens-healthineers/k2s/internal/cli"
-	"github.com/siemens-healthineers/k2s/internal/core/addons"
-	"github.com/siemens-healthineers/k2s/test/e2e/addons/exportimport"
-	"github.com/siemens-healthineers/k2s/test/framework"
-	"github.com/siemens-healthineers/k2s/test/framework/dsl"
+	"github.com/k2s-project/k2s/internal/cli"
+	"github.com/k2s-project/k2s/internal/core/addons"
+	"github.com/k2s-project/k2s/test/e2e/addons/exportimport"
+	"github.com/k2s-project/k2s/test/framework"
+	"github.com/k2s-project/k2s/test/framework/dsl"
 
 	"slices"
 

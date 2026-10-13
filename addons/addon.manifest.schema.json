@@ -1,6 +1,6 @@
 {
     "$schema": "https://json-schema.org/draft/2020-12/schema",
-    "$id": "https://github.com/Siemens-Healthineers/K2s/addon.manifest.schema.json",
+    "$id": "https://github.com/k2s-project/K2s/addon.manifest.schema.json",
     "title": "Addon Manifest",
     "description": "Addon manifest containing all metadata and available commands",
     "type": "object",

@@ -7,11 +7,11 @@ import (
 	"fmt"
 	"log/slog"
 
-	"github.com/siemens-healthineers/k2s/internal/core/users/cluster/decoding"
-	"github.com/siemens-healthineers/k2s/internal/core/users/cluster/verification"
-	"github.com/siemens-healthineers/k2s/internal/providers/http"
-	"github.com/siemens-healthineers/k2s/internal/providers/k8s"
-	"github.com/siemens-healthineers/k2s/internal/providers/kubeconfig"
+	"github.com/k2s-project/k2s/internal/core/users/cluster/decoding"
+	"github.com/k2s-project/k2s/internal/core/users/cluster/verification"
+	"github.com/k2s-project/k2s/internal/providers/http"
+	"github.com/k2s-project/k2s/internal/providers/k8s"
+	"github.com/k2s-project/k2s/internal/providers/kubeconfig"
 )
 
 type ClusterAccessVerifier struct {

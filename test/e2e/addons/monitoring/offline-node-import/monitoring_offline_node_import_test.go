@@ -15,11 +15,11 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 
-	"github.com/siemens-healthineers/k2s/internal/core/addons"
-	"github.com/siemens-healthineers/k2s/internal/core/clusterconfig"
-	"github.com/siemens-healthineers/k2s/test/e2e/addons/exportimport"
-	"github.com/siemens-healthineers/k2s/test/framework"
-	"github.com/siemens-healthineers/k2s/test/framework/dsl"
+	"github.com/k2s-project/k2s/internal/core/addons"
+	"github.com/k2s-project/k2s/internal/core/clusterconfig"
+	"github.com/k2s-project/k2s/test/e2e/addons/exportimport"
+	"github.com/k2s-project/k2s/test/framework"
+	"github.com/k2s-project/k2s/test/framework/dsl"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"

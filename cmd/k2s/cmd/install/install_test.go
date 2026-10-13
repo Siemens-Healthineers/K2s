@@ -6,13 +6,13 @@ package install
 import (
 	"testing"
 
-	"github.com/siemens-healthineers/k2s/cmd/k2s/utils/tz"
+	"github.com/k2s-project/k2s/cmd/k2s/utils/tz"
 
-	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/common"
-	ic "github.com/siemens-healthineers/k2s/cmd/k2s/cmd/install/config"
+	"github.com/k2s-project/k2s/cmd/k2s/cmd/common"
+	ic "github.com/k2s-project/k2s/cmd/k2s/cmd/install/config"
 
-	"github.com/siemens-healthineers/k2s/internal/contracts/config"
-	r "github.com/siemens-healthineers/k2s/internal/test/reflection"
+	"github.com/k2s-project/k2s/internal/contracts/config"
+	r "github.com/k2s-project/k2s/internal/test/reflection"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"

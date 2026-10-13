@@ -5,13 +5,13 @@ SPDX-License-Identifier: MIT
 -->
 
 # K2s - Kubernetes distribution for Windows & Linux workloads
-[![ci](https://github.com/Siemens-Healthineers/K2s/actions/workflows/ci-reuse-checks.yml/badge.svg)](https://github.com/Siemens-Healthineers/K2s/actions/workflows/ci-reuse-checks.yml)
-[![ci](https://github.com/Siemens-Healthineers/K2s/actions/workflows/ci-unit-tests.yml/badge.svg)](https://github.com/Siemens-Healthineers/K2s/actions/workflows/ci-unit-tests.yml)
-[![ci](https://github.com/Siemens-Healthineers/K2s/actions/workflows/build-k2s-cli.yml/badge.svg)](https://github.com/Siemens-Healthineers/K2s/actions/workflows/build-k2s-cli.yml)
-[![ci](https://github.com/Siemens-Healthineers/K2s/actions/workflows/build-k2s-artifacts.yml/badge.svg)](https://github.com/Siemens-Healthineers/K2s/actions/workflows/build-k2s-artifacts.yml)
-[![ci](https://github.com/Siemens-Healthineers/K2s/actions/workflows/build-docs-next.yml/badge.svg)](https://github.com/Siemens-Healthineers/K2s/actions/workflows/build-docs-next.yml)
+[![ci](https://github.com/k2s-project/K2s/actions/workflows/ci-reuse-checks.yml/badge.svg)](https://github.com/k2s-project/K2s/actions/workflows/ci-reuse-checks.yml)
+[![ci](https://github.com/k2s-project/K2s/actions/workflows/ci-unit-tests.yml/badge.svg)](https://github.com/k2s-project/K2s/actions/workflows/ci-unit-tests.yml)
+[![ci](https://github.com/k2s-project/K2s/actions/workflows/build-k2s-cli.yml/badge.svg)](https://github.com/k2s-project/K2s/actions/workflows/build-k2s-cli.yml)
+[![ci](https://github.com/k2s-project/K2s/actions/workflows/build-k2s-artifacts.yml/badge.svg)](https://github.com/k2s-project/K2s/actions/workflows/build-k2s-artifacts.yml)
+[![ci](https://github.com/k2s-project/K2s/actions/workflows/build-docs-next.yml/badge.svg)](https://github.com/k2s-project/K2s/actions/workflows/build-docs-next.yml)
 
-<span style="font-size: large;border: medium solid #326CE5;border-radius: 5px;padding: 10px;">Read the [K2s Online Documentation](https://siemens-healthineers.github.io/K2s/).</span>
+<span style="font-size: large;border: medium solid #326CE5;border-radius: 5px;padding: 10px;">Read the [K2s Online Documentation](https://k2s-project.github.io/K2s/).</span>
 
 ---
 

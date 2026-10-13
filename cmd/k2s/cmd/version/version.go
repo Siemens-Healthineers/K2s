@@ -4,10 +4,10 @@
 package version
 
 import (
-	"github.com/siemens-healthineers/k2s/cmd/k2s/common"
+	"github.com/k2s-project/k2s/cmd/k2s/common"
 
-	"github.com/siemens-healthineers/k2s/internal/cli"
-	ve "github.com/siemens-healthineers/k2s/internal/version"
+	"github.com/k2s-project/k2s/internal/cli"
+	ve "github.com/k2s-project/k2s/internal/version"
 
 	"github.com/pterm/pterm"
 	"github.com/spf13/cobra"

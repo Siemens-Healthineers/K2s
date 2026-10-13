@@ -6,7 +6,7 @@ package status
 import (
 	"fmt"
 
-	"github.com/siemens-healthineers/k2s/internal/provider"
+	"github.com/k2s-project/k2s/internal/provider"
 )
 
 type LoadedAddonStatus struct {

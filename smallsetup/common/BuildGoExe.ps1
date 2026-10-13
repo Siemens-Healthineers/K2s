@@ -155,11 +155,11 @@ for ($i = 0; $i -lt $goExecutables.Count; $i++) {
     $Env:GOOS = $TargetOS
     $Env:GOARCH = 'amd64'
     go build -ldflags "-s -w  `
-    -X github.com/siemens-healthineers/k2s/internal/version.version=$($Version) `
-    -X github.com/siemens-healthineers/k2s/internal/version.buildDate=$($BUILD_DATE)  `
-    -X github.com/siemens-healthineers/k2s/internal/version.gitCommit=$($GIT_COMMIT)  `
-    -X github.com/siemens-healthineers/k2s/internal/version.gitTag=$($GIT_TAG) `
-    -X github.com/siemens-healthineers/k2s/internal/version.gitTreeState=$($GIT_TREE_STATE)" `
+    -X github.com/k2s-project/k2s/internal/version.version=$($Version) `
+    -X github.com/k2s-project/k2s/internal/version.buildDate=$($BUILD_DATE)  `
+    -X github.com/k2s-project/k2s/internal/version.gitCommit=$($GIT_COMMIT)  `
+    -X github.com/k2s-project/k2s/internal/version.gitTag=$($GIT_TAG) `
+    -X github.com/k2s-project/k2s/internal/version.gitTreeState=$($GIT_TREE_STATE)" `
         -trimpath `
         -o "$outPath" `
 

@@ -12,8 +12,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/siemens-healthineers/k2s/internal/definitions"
-	kjson "github.com/siemens-healthineers/k2s/internal/json"
+	"github.com/k2s-project/k2s/internal/definitions"
+	kjson "github.com/k2s-project/k2s/internal/json"
 )
 
 func createDummyScript(t *testing.T, path string) {

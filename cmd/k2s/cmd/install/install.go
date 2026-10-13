@@ -13,29 +13,29 @@ import (
 	"path/filepath"
 	"runtime"
 
-	config_contracts "github.com/siemens-healthineers/k2s/internal/contracts/config"
-	"github.com/siemens-healthineers/k2s/internal/core/config"
-	"github.com/siemens-healthineers/k2s/internal/definitions"
-	"github.com/siemens-healthineers/k2s/internal/effectiveconfig"
-	kos "github.com/siemens-healthineers/k2s/internal/os"
-	"github.com/siemens-healthineers/k2s/internal/provider"
-	"github.com/siemens-healthineers/k2s/internal/providers/powershell"
-	"github.com/siemens-healthineers/k2s/internal/version"
+	config_contracts "github.com/k2s-project/k2s/internal/contracts/config"
+	"github.com/k2s-project/k2s/internal/core/config"
+	"github.com/k2s-project/k2s/internal/definitions"
+	"github.com/k2s-project/k2s/internal/effectiveconfig"
+	kos "github.com/k2s-project/k2s/internal/os"
+	"github.com/k2s-project/k2s/internal/provider"
+	"github.com/k2s-project/k2s/internal/providers/powershell"
+	"github.com/k2s-project/k2s/internal/version"
 
 	"github.com/spf13/cobra"
 
-	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/install/buildonly"
-	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/install/core"
+	"github.com/k2s-project/k2s/cmd/k2s/cmd/install/buildonly"
+	"github.com/k2s-project/k2s/cmd/k2s/cmd/install/core"
 
-	"github.com/siemens-healthineers/k2s/cmd/k2s/utils/tz"
+	"github.com/k2s-project/k2s/cmd/k2s/utils/tz"
 
-	ic "github.com/siemens-healthineers/k2s/cmd/k2s/cmd/install/config"
+	ic "github.com/k2s-project/k2s/cmd/k2s/cmd/install/config"
 
-	"github.com/siemens-healthineers/k2s/internal/terminal"
+	"github.com/k2s-project/k2s/internal/terminal"
 
-	cc "github.com/siemens-healthineers/k2s/cmd/k2s/cmd/common"
+	cc "github.com/k2s-project/k2s/cmd/k2s/cmd/common"
 
-	"github.com/siemens-healthineers/k2s/cmd/k2s/utils"
+	"github.com/k2s-project/k2s/cmd/k2s/utils"
 )
 
 const (
@@ -288,7 +288,7 @@ func install(cmd *cobra.Command, args []string) error {
 			return &cc.CmdFailure{
 				Severity: cc.SeverityWarning,
 				Code:     "prereq-failed",
-				Message:  fmt.Sprintf("Prerequisite check failed: %s. See https://github.com/Siemens-Healthineers/K2s/blob/main/docs/op-manual/installing-k2s.md#prerequisites", errorLine),
+				Message:  fmt.Sprintf("Prerequisite check failed: %s. See https://github.com/k2s-project/K2s/blob/main/docs/op-manual/installing-k2s.md#prerequisites", errorLine),
 			}
 		}
 

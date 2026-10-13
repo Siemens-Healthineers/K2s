@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"log/slog"
 
-	"github.com/siemens-healthineers/k2s/internal/core/users/cluster/cert"
+	"github.com/k2s-project/k2s/internal/core/users/cluster/cert"
 )
 
 type sshProvider interface {

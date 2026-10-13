@@ -9,16 +9,16 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/siemens-healthineers/k2s/internal/core/config"
-	kos "github.com/siemens-healthineers/k2s/internal/os"
+	"github.com/k2s-project/k2s/internal/core/config"
+	kos "github.com/k2s-project/k2s/internal/os"
 
 	"testing"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
-	"github.com/siemens-healthineers/k2s/internal/cli"
-	"github.com/siemens-healthineers/k2s/test/framework"
+	"github.com/k2s-project/k2s/internal/cli"
+	"github.com/k2s-project/k2s/test/framework"
 )
 
 var suite *framework.K2sTestSuite

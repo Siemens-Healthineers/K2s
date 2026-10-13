@@ -7,7 +7,7 @@
 package remove
 
 import (
-	"github.com/siemens-healthineers/k2s/internal/windows/device"
+	"github.com/k2s-project/k2s/internal/windows/device"
 	"github.com/spf13/cobra"
 )
 

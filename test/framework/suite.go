@@ -16,16 +16,16 @@ import (
 	"strings"
 	"time"
 
-	"github.com/siemens-healthineers/k2s/internal/definitions"
-	"github.com/siemens-healthineers/k2s/internal/logging"
-	"github.com/siemens-healthineers/k2s/test/framework/k2s/addons"
-	"github.com/siemens-healthineers/k2s/test/framework/os"
+	"github.com/k2s-project/k2s/internal/definitions"
+	"github.com/k2s-project/k2s/internal/logging"
+	"github.com/k2s-project/k2s/test/framework/k2s/addons"
+	"github.com/k2s-project/k2s/test/framework/os"
 
-	"github.com/siemens-healthineers/k2s/test/framework/k8s"
+	"github.com/k2s-project/k2s/test/framework/k8s"
 
-	"github.com/siemens-healthineers/k2s/test/framework/k2s"
+	"github.com/k2s-project/k2s/test/framework/k2s"
 
-	"github.com/siemens-healthineers/k2s/test/framework/http"
+	"github.com/k2s-project/k2s/test/framework/http"
 
 	//lint:ignore ST1001 test framework code
 	. "github.com/onsi/ginkgo/v2"

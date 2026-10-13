@@ -24,9 +24,9 @@ import (
 	"unsafe"
 	"sync"
 
-	"github.com/siemens-healthineers/k2s/internal/cli"
-	"github.com/siemens-healthineers/k2s/internal/logging"
-	ve "github.com/siemens-healthineers/k2s/internal/version"
+	"github.com/k2s-project/k2s/internal/cli"
+	"github.com/k2s-project/k2s/internal/logging"
+	ve "github.com/k2s-project/k2s/internal/version"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/clientcmd"

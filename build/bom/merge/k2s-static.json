@@ -653,7 +653,7 @@
   "externalReferences": [
     {
       "type": "other",
-      "url": "https://github.com/Siemens-Healthineers/K2s",
+      "url": "https://github.com/k2s-project/K2s",
       "comment": "Base path"
     }
   ]

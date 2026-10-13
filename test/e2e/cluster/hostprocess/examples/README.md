@@ -6,7 +6,7 @@ SPDX-License-Identifier: MIT
 # HostProcess Integration Examples
 
 These examples accompany the guide
-[Integrating Native Host Processes into Kubernetes & K2s](https://siemens-healthineers.github.io/K2s/next/op-manual/integrating-native-processes/).
+[Integrating Native Host Processes into Kubernetes & K2s](https://k2s-project.github.io/K2s/next/op-manual/integrating-native-processes/).
 
 They show the **two options** for integrating a native Windows host process into a *K2s* cluster, using the
 [`albumswin`](../albumswin/main.go) test executable as the example workload.

@@ -4,7 +4,7 @@
 package image
 
 import (
-	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/image/registry"
+	"github.com/k2s-project/k2s/cmd/k2s/cmd/image/registry"
 
 	"github.com/spf13/cobra"
 )

@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: MIT
 
-module github.com/siemens-healthineers/k2s
+module github.com/k2s-project/k2s
 
 go 1.27.2
 
