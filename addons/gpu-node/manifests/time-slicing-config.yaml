@@ -1,6 +1,6 @@
-# SPDX-FileCopyrightText: © 2026 Siemens Healthineers AG
+# SPDX-FileCopyrightText: © 2026 The K2s Authors
 #
-# SPDX-License-Identifier: MIT
+# SPDX-License-Identifier: Apache-2.0
 
 # Template: __TIME_SLICES__ is replaced by Enable.ps1 before applying.
 # Used when TimeSlices >= 2; for default (1), see time-slicing-config-default.yaml.

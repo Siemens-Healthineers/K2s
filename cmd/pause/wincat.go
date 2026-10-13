@@ -1,6 +1,6 @@
-// SPDX-FileCopyrightText: © 2024 Siemens Healthineers AG
+// SPDX-FileCopyrightText: © 2024 The K2s Authors
 //
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: Apache-2.0
 
 // package main connects to the given host and port and redirects its stdin to the connection and
 // the connection's output to stdout. This is currently being used for port-forwarding for Windows Pods.

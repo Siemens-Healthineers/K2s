@@ -1,6 +1,6 @@
-# SPDX-FileCopyrightText: © 2026 Siemens Healthineers AG
+# SPDX-FileCopyrightText: © 2026 The K2s Authors
 #
-# SPDX-License-Identifier: MIT
+# SPDX-License-Identifier: Apache-2.0
 
 # BackendTLSPolicy configures TLS settings for backend connections
 # This enables NGINX Gateway Fabric to use HTTPS when connecting to argocd-server:443

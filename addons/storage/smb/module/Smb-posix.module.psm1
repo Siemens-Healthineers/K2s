@@ -1,6 +1,6 @@
-# SPDX-FileCopyrightText: © 2026 Siemens Healthineers AG
+# SPDX-FileCopyrightText: © 2026 The K2s Authors
 #
-# SPDX-License-Identifier: MIT
+# SPDX-License-Identifier: Apache-2.0
 
 # Import the leaf vm.module in THIS module's scope so Invoke-CmdOnControlPlaneViaSSHKey resolves (not the admin-gated node aggregator).
 $vmModule = "$PSScriptRoot/../../../../lib/modules/windows/node/k2s.node.module/linuxnode/vm/vm.module.psm1"

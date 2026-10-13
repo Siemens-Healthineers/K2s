@@ -1,5 +1,5 @@
-# SPDX-FileCopyrightText: © 2024 Siemens Healthineers AG
-# SPDX-License-Identifier: MIT
+# SPDX-FileCopyrightText: © 2024 The K2s Authors
+# SPDX-License-Identifier: Apache-2.0
 
 $vmModule = "$PSScriptRoot\..\..\..\node\k2s.node.module\linuxnode\vm\vm.module.psm1"
 $setupInfoModule = "$PSScriptRoot\..\setupinfo\setupinfo.module.psm1"

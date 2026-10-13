@@ -1,6 +1,6 @@
-# SPDX-FileCopyrightText: © 2025 Siemens Healthineers AG
+# SPDX-FileCopyrightText: © 2025 The K2s Authors
 #
-# SPDX-License-Identifier: MIT
+# SPDX-License-Identifier: Apache-2.0
 
 # 10 Windows Deployments + Services to stress-test concurrent ClusterIP allocation.
 # All are deployed simultaneously via kubectl apply to trigger parallel webhook calls.

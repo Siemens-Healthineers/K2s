@@ -1,5 +1,5 @@
-# SPDX-FileCopyrightText: © 2026 Siemens Healthineers AG
-# SPDX-License-Identifier: MIT
+# SPDX-FileCopyrightText: © 2026 The K2s Authors
+# SPDX-License-Identifier: Apache-2.0
 
 $registryFunctionsModule = "$PSScriptRoot\registry\registry.module.psm1"
 $k8sApiModule = "$PSScriptRoot\..\k8s-api\k8s-api.module.psm1"

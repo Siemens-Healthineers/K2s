@@ -1,6 +1,6 @@
-# SPDX-FileCopyrightText: © 2026 Siemens Healthineers AG
+# SPDX-FileCopyrightText: © 2026 The K2s Authors
 #
-# SPDX-License-Identifier: MIT
+# SPDX-License-Identifier: Apache-2.0
 
 <#
 .SYNOPSIS
@@ -382,8 +382,8 @@ try {
     }
 
     $applyPs1 = @'
-# SPDX-FileCopyrightText: (c) 2026 Siemens Healthineers AG
-# SPDX-License-Identifier: MIT
+# SPDX-FileCopyrightText: (c) 2026 The K2s Authors
+# SPDX-License-Identifier: Apache-2.0
 
 <#
 .SYNOPSIS

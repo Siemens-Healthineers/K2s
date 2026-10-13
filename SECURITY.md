@@ -1,7 +1,7 @@
 <!--
-SPDX-FileCopyrightText: © 2024 Siemens Healthineers AG
+SPDX-FileCopyrightText: © 2024 The K2s Authors
 
-SPDX-License-Identifier: MIT
+SPDX-License-Identifier: Apache-2.0
 -->
 
 # Security
@@ -14,9 +14,7 @@ Please do not report security vulnerabilities through public GitHub issues.
 
 If you believe you have found a security issue or vulnerability in K2s, report it to:
 
-```text
-dieter.krotz@siemens-healthineers.com
-```
+https://github.com/k2s-project/k2s/security/advisories/new
 
 Please include as much information as possible to help with analysis:
 
