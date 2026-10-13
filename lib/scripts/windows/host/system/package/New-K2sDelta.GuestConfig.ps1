@@ -1,5 +1,5 @@
-# SPDX-FileCopyrightText: © 2025 Siemens Healthineers AG
-# SPDX-License-Identifier: MIT
+# SPDX-FileCopyrightText: © 2025 The K2s Authors
+# SPDX-License-Identifier: Apache-2.0
 
 # Guest configuration file diff helpers for delta packaging
 # Tracks changes to config files, systemd units, and custom binaries in Linux Kubemaster VM

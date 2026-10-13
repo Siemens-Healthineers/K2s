@@ -1,5 +1,5 @@
-# SPDX-FileCopyrightText: © 2024 Siemens Healthineers AG
-# SPDX-License-Identifier: MIT
+# SPDX-FileCopyrightText: © 2024 The K2s Authors
+# SPDX-License-Identifier: Apache-2.0
 
 # USAGE NOTES
 # Root module of k2s.infra.module which contains all the sub-modules and functions such as cross cutting features eg. log, DownloadFile, Send-ToCli.

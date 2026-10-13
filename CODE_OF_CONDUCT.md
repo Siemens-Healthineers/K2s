@@ -1,7 +1,7 @@
 <!--
-SPDX-FileCopyrightText: © 2026 Siemens Healthineers AG
+SPDX-FileCopyrightText: © 2026 The K2s Authors
 
-SPDX-License-Identifier: MIT
+SPDX-License-Identifier: Apache-2.0
 -->
 
 # Code of Conduct
@@ -26,8 +26,6 @@ Unacceptable behavior includes harassment, intimidation, discrimination, persona
 
 If you experience or witness unacceptable behavior, please report it to:
 
-```text
-dieter.krotz@siemens-healthineers.com
-```
+Contact a project maintainer privately through the [K2s GitHub repository](https://github.com/k2s-project/k2s).
 
 Reports will be handled with care and confidentiality by the project maintainers.

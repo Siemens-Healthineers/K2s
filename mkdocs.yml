@@ -1,5 +1,5 @@
-# SPDX-FileCopyrightText: © 2026 Siemens Healthineers AG
-# SPDX-License-Identifier: MIT
+# SPDX-FileCopyrightText: © 2026 The K2s Authors
+# SPDX-License-Identifier: Apache-2.0
 
 site_name: K2s - Kubernetes distribution for Windows & Linux workloads
 site_url: https://k2s-project.github.io/K2s
@@ -137,8 +137,6 @@ nav:
   - Developer Guide:
       - Contributing:
           - dev-guide/contributing/index.md
-          - Corporate Contributors: dev-guide/contributing/cla-corporate-contributor.md
-          - Individual Contributors: dev-guide/contributing/cla-individual-contributor.md
           - Licensing: dev-guide/contributing/licensing.md
           - PowerShell Development: dev-guide/contributing/powershell-dev.md
           - Building Locally: dev-guide/contributing/building-locally.md

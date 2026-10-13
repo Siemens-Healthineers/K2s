@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# SPDX-FileCopyrightText: © 2026 Siemens Healthineers AG
-# SPDX-License-Identifier: MIT
+# SPDX-FileCopyrightText: © 2026 The K2s Authors
+# SPDX-License-Identifier: Apache-2.0
 #
 # Native Linux acceptance-test runner. The Windows runner remains
 # execute_all_tests.ps1; this script runs the portable Go/Ginkgo e2e suites.

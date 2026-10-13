@@ -1,5 +1,5 @@
-# SPDX-FileCopyrightText: © 2026 Siemens Healthineers AG
-# SPDX-License-Identifier: MIT
+# SPDX-FileCopyrightText: © 2026 The K2s Authors
+# SPDX-License-Identifier: Apache-2.0
 
 $script:k2sKubeletManagedHeader = '# This file is managed by K2s. Do not edit.'
 $script:k2sKubeletDropInPath = 'C:\etc\kubernetes\kubelet.conf.d\20-k2s-install-config.conf'

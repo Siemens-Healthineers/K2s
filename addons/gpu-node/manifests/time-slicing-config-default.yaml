@@ -1,6 +1,6 @@
-# SPDX-FileCopyrightText: © 2026 Siemens Healthineers AG
+# SPDX-FileCopyrightText: © 2026 The K2s Authors
 #
-# SPDX-License-Identifier: MIT
+# SPDX-License-Identifier: Apache-2.0
 
 # Default config: exclusive GPU access (no time-slicing).
 # The NVIDIA device plugin rejects replicas: 1, so the sharing section is omitted.

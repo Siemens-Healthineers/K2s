@@ -1,6 +1,6 @@
-# SPDX-FileCopyrightText: © 2026 Siemens Healthineers AG
+# SPDX-FileCopyrightText: © 2026 The K2s Authors
 #
-# SPDX-License-Identifier: MIT
+# SPDX-License-Identifier: Apache-2.0
 
 # Option 1: expose a native host process (albumswin.exe) as a cluster Service.
 # The process runs OUTSIDE Kubernetes and listens on the KubeSwitch IP 172.19.1.1.

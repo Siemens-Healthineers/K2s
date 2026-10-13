@@ -1,6 +1,6 @@
-# SPDX-FileCopyrightText: © 2026 Siemens Healthineers AG
+# SPDX-FileCopyrightText: © 2026 The K2s Authors
 #
-# SPDX-License-Identifier: MIT
+# SPDX-License-Identifier: Apache-2.0
 
 # Test clients consuming the HostProcess Service DIRECTLY (no ingress).
 # The app port 8080 is MESHED (zero-trust), so callers need an mTLS identity. Both clients are

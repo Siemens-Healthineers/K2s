@@ -1,7 +1,7 @@
 #!/bin/bash
-# SPDX-FileCopyrightText: © 2026 Siemens Healthineers AG
+# SPDX-FileCopyrightText: © 2026 The K2s Authors
 #
-# SPDX-License-Identifier: MIT
+# SPDX-License-Identifier: Apache-2.0
 #
 # prepare-osd-disk-hyperv.sh  -  Debian (12/13) variant
 #

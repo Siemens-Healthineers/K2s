@@ -1,6 +1,6 @@
-# SPDX-FileCopyrightText: © 2026 Siemens Healthineers AG
+# SPDX-FileCopyrightText: © 2026 The K2s Authors
 #
-# SPDX-License-Identifier: MIT
+# SPDX-License-Identifier: Apache-2.0
 
 # Headlamp service exposes the dashboard on port 4466 (HTTP, no TLS).
 # Headlamp is configured with --base-url=/dashboard so it correctly

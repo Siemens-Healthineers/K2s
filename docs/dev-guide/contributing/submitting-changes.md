@@ -1,5 +1,5 @@
 <!--
-SPDX-FileCopyrightText: © 2024 Siemens Healthineers AG
+SPDX-FileCopyrightText: © 2024 The K2s Authors
 SPDX-License-Identifier: MIT
 -->
 
@@ -15,8 +15,18 @@ The following guidelines apply to submitting changes to *K2s*:
     - Create a separate branch, commit to that branch and push your changes
     - Create a PR in *GitHub* to this repository. This will trigger at least short-running automated tests.
     - The PR will be reviewed by the maintainers. If re-work is needed, the preceding steps will be iterated. If the changes are acceptable, the PR will be merged to main.
-- Sign your commits (see [Commit Signing](#commit-signing))
+- Add a Developer Certificate of Origin sign-off to every commit (see [DCO Sign-off](#dco-sign-off))
+- Sign your commits where possible (see [Commit Signing](#commit-signing))
 - Run as many automated tests as possible, but at least the unit tests: `<repo>\test\execute_all_tests.ps1 -Tags unit` (see also [Main Script: execute_all_tests.ps1](automated-testing.md#main-script-execute_all_testsps1)). Depending on the area of changes, consider running the appropriate e2e tests as well.
+
+## DCO Sign-off
+The [K2s Intellectual Property Policy](https://github.com/k2s-project/k2s/blob/main/IP_POLICY.md) requires a Developer Certificate of Origin sign-off on every code contribution. Add it when creating a commit:
+
+```console
+git commit -s -m "Describe the change"
+```
+
+The `-s` option appends a `Signed-off-by` trailer, confirming that you have the right to submit the contribution under the Apache License, Version 2.0.
 
 ## Commit Signing
 Signing commits increases trust in your contributions. Verified commit signatures will be display in GitHub like this:
