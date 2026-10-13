@@ -6,7 +6,7 @@ SPDX-License-Identifier: Apache-2.0
 
 # Governance
 
-K2s is an open source project currently maintained by Siemens Healthineers contributors. This document describes how the project is governed and how technical decisions are made.
+K2s is an open source project maintained by its contributor community. This document describes how the project is governed and how technical decisions are made.
 
 ## Project Scope
 

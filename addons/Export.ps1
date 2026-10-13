@@ -843,8 +843,8 @@ try {
                     'org.opencontainers.image.title' = $addonFolderName
                     'org.opencontainers.image.version' = $addonVersion
                     'org.opencontainers.image.created' = (Get-Date).ToString('yyyy-MM-ddTHH:mm:ssZ')
-                    'org.opencontainers.image.vendor' = 'Siemens Healthineers AG'
-                    'org.opencontainers.image.licenses' = 'MIT'
+                    'org.opencontainers.image.vendor' = 'K2s Project'
+                    'org.opencontainers.image.licenses' = 'Apache-2.0'
                     'org.opencontainers.image.description' = if ($manifest.metadata.description) { $manifest.metadata.description } else { "K2s addon: $($manifest.metadata.name)" }
                     'vnd.k2s.addon.name' = $manifest.metadata.name
                     'vnd.k2s.addon.implementation' = $implementation.name
@@ -914,8 +914,8 @@ try {
         manifests = @()
         annotations = @{
             'org.opencontainers.image.created' = (Get-Date).ToString('yyyy-MM-ddTHH:mm:ssZ')
-            'org.opencontainers.image.vendor' = 'Siemens Healthineers AG'
-            'org.opencontainers.image.licenses' = 'MIT'
+            'org.opencontainers.image.vendor' = 'K2s Project'
+            'org.opencontainers.image.licenses' = 'Apache-2.0'
             'vnd.k2s.version' = $k2sVersion
             'vnd.k2s.export.date' = (Get-Date).ToString('yyyy-MM-ddTHH:mm:ssZ')
             'vnd.k2s.export.type' = if ($All) { 'all' } else { 'specific' }

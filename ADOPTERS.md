@@ -12,7 +12,7 @@ This file lists organizations that publicly acknowledge using K2s.
 
 | Organization | Usage |
 | --- | --- |
-| [Siemens Healthineers AG](https://www.siemens-healthineers.com/) | K2s started as an internal Siemens Healthineers project and is used across different business units for mixed Windows and Linux Kubernetes scenarios. |
+No adopter organizations are currently listed.
 
 ## Add Your Organization
 
