@@ -8,8 +8,8 @@ package effectiveconfig
 import (
 	"fmt"
 
-	"github.com/siemens-healthineers/k2s/internal/providers/acl"
-	"github.com/siemens-healthineers/k2s/internal/providers/osusers"
+	"github.com/k2s-project/k2s/internal/providers/acl"
+	"github.com/k2s-project/k2s/internal/providers/osusers"
 	"golang.org/x/sys/windows"
 )
 

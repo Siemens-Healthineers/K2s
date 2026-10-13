@@ -15,7 +15,7 @@ import (
 	"strings"
 
 	"github.com/pkg/sftp"
-	"github.com/siemens-healthineers/k2s/internal/host"
+	"github.com/k2s-project/k2s/internal/host"
 )
 
 type copier interface {

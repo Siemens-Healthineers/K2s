@@ -8,10 +8,10 @@ import (
 	"log/slog"
 	"testing"
 
-	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/common"
-	"github.com/siemens-healthineers/k2s/internal/test/reflection"
+	"github.com/k2s-project/k2s/cmd/k2s/cmd/common"
+	"github.com/k2s-project/k2s/internal/test/reflection"
 
-	"github.com/siemens-healthineers/k2s/internal/core/addons"
+	"github.com/k2s-project/k2s/internal/core/addons"
 
 	"github.com/go-logr/logr"
 	. "github.com/onsi/ginkgo/v2"

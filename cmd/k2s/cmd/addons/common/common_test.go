@@ -6,7 +6,7 @@ package common
 import (
 	"testing"
 
-	"github.com/siemens-healthineers/k2s/internal/core/addons"
+	"github.com/k2s-project/k2s/internal/core/addons"
 )
 
 func TestFindImplementationDefaultsStorageToSmb(t *testing.T) {

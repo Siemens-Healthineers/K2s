@@ -12,7 +12,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/siemens-healthineers/k2s/internal/contracts/users"
+	"github.com/k2s-project/k2s/internal/contracts/users"
 )
 
 const (

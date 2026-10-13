@@ -9,10 +9,10 @@ import (
 	"log/slog"
 	"testing"
 
-	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/common"
-	contracts "github.com/siemens-healthineers/k2s/internal/contracts/config"
-	coreconfig "github.com/siemens-healthineers/k2s/internal/core/config"
-	"github.com/siemens-healthineers/k2s/internal/provider"
+	"github.com/k2s-project/k2s/cmd/k2s/cmd/common"
+	contracts "github.com/k2s-project/k2s/internal/contracts/config"
+	coreconfig "github.com/k2s-project/k2s/internal/core/config"
+	"github.com/k2s-project/k2s/internal/provider"
 
 	"github.com/go-logr/logr"
 	. "github.com/onsi/ginkgo/v2"

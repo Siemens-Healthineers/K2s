@@ -6,7 +6,7 @@ package dsl
 import (
 	"context"
 
-	"github.com/siemens-healthineers/k2s/internal/cli"
+	"github.com/k2s-project/k2s/internal/cli"
 )
 
 func (k2s *K2s) ShowStatus(ctx context.Context) *K2sCmdResult {

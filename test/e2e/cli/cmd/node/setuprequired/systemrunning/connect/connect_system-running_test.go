@@ -18,7 +18,7 @@ import (
 	"github.com/onsi/gomega/gexec"
 
 	"github.com/shirou/gopsutil/v3/process"
-	"github.com/siemens-healthineers/k2s/test/framework"
+	"github.com/k2s-project/k2s/test/framework"
 )
 
 const (

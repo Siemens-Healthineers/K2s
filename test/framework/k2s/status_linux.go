@@ -9,7 +9,7 @@ import (
 	"context"
 	"os"
 
-	testos "github.com/siemens-healthineers/k2s/test/framework/os"
+	testos "github.com/k2s-project/k2s/test/framework/os"
 
 	//lint:ignore ST1001 test framework code
 	. "github.com/onsi/ginkgo/v2"

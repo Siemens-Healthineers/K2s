@@ -10,9 +10,9 @@ import (
 	"log/slog"
 	"os"
 
-	"github.com/siemens-healthineers/k2s/cmd/devgon/cmd"
+	"github.com/k2s-project/k2s/cmd/devgon/cmd"
 
-	"github.com/siemens-healthineers/k2s/internal/logging"
+	"github.com/k2s-project/k2s/internal/logging"
 )
 
 func main() {

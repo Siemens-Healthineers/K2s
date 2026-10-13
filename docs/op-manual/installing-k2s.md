@@ -155,7 +155,7 @@ Instead of assembling many command-line parameters/flags to customize the instal
     **To override auto-calculation:**
     - Set `memory` explicitly to control startup value (must be between min and max)
 
-To create a user-defined configuration for any of the hosting variants, take one of the corresponding [Base Configuration Files](https://github.com/Siemens-Healthineers/K2s/tree/main/cmd/k2s/cmd/install/config/embed){target="_blank"} as a template.
+To create a user-defined configuration for any of the hosting variants, take one of the corresponding [Base Configuration Files](https://github.com/k2s-project/k2s/tree/main/cmd/k2s/cmd/install/config/embed){target="_blank"} as a template.
 
 ### Online vs. Offline
 Downloading all dependencies (i.e. binaries) on-the-fly is referred to as *online* installation, whereas *offline* refers to an installation package containing parts of or all the dependencies. If *K2s* was acquired via [Downloading the Official Release Package](getting-k2s.md#option-2-downloading-official-release-package), parts of the dependencies are already available locally. If an offline package was create according to [Creating Offline Package](creating-offline-package.md), all dependencies are available offline.
@@ -241,7 +241,7 @@ service forwards external traffic through `--proxy` when supplied. The given
 K2s services; the installer does not change global proxy environment settings.
 
 For workload pods and the managed Windows worker, the same proxy is available at the configured
-`smallsetup.kubeSwitch` address from [cfg/config.json](https://github.com/Siemens-Healthineers/K2s/blob/main/cfg/config.json){target="_blank"}
+`smallsetup.kubeSwitch` address from [cfg/config.json](https://github.com/k2s-project/k2s/blob/main/cfg/config.json){target="_blank"}
 on port `8181`. The Linux implementation creates a K2s-owned `k2s-switch`
 libvirt NAT network with the same addressing contract as KubeSwitch. The proxy
 only accepts loopback, pod-CIDR, service-CIDR, and K2s-switch clients.

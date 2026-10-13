@@ -10,7 +10,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/siemens-healthineers/k2s/internal/json"
+	"github.com/k2s-project/k2s/internal/json"
 )
 
 type NodeType string

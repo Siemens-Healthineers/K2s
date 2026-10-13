@@ -3,7 +3,7 @@
 
 package provider
 
-import "github.com/siemens-healthineers/k2s/internal/output"
+import "github.com/k2s-project/k2s/internal/output"
 
 // ClusterProvider abstracts cluster lifecycle operations.
 // On Windows: delegates to PowerShell scripts.

@@ -8,7 +8,7 @@ import (
 	"sync/atomic"
 	"testing"
 
-	sut "github.com/siemens-healthineers/k2s/internal/primitives/concurrency"
+	sut "github.com/k2s-project/k2s/internal/primitives/concurrency"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"

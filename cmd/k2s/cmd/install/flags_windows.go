@@ -6,7 +6,7 @@
 package install
 
 import (
-	ic "github.com/siemens-healthineers/k2s/cmd/k2s/cmd/install/config"
+	ic "github.com/k2s-project/k2s/cmd/k2s/cmd/install/config"
 	"github.com/spf13/cobra"
 )
 

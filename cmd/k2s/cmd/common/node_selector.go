@@ -8,7 +8,7 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/siemens-healthineers/k2s/cmd/k2s/utils"
+	"github.com/k2s-project/k2s/cmd/k2s/utils"
 )
 
 // ParseNodeSelector reads the nodes/node flags (identified by nodeFlagName and nodesFlagName) and

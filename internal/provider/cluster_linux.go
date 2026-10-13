@@ -13,7 +13,7 @@ import (
 	"strings"
 	"time"
 
-	linuxlifecycle "github.com/siemens-healthineers/k2s/internal/linux/lifecycle"
+	linuxlifecycle "github.com/k2s-project/k2s/internal/linux/lifecycle"
 )
 
 type linuxClusterProvider struct {

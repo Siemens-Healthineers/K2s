@@ -10,7 +10,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/siemens-healthineers/k2s/test/framework/os"
+	"github.com/k2s-project/k2s/test/framework/os"
 	"golang.org/x/sys/windows/svc"
 	"golang.org/x/sys/windows/svc/mgr"
 	"golang.org/x/text/encoding/unicode"

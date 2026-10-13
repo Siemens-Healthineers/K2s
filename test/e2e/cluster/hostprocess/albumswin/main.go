@@ -24,7 +24,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	"github.com/siemens-healthineers/k2s/internal/logging"
+	"github.com/k2s-project/k2s/internal/logging"
 )
 
 // album represents data about a record album.

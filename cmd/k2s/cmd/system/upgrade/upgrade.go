@@ -17,19 +17,19 @@ import (
 	"github.com/pterm/pterm"
 	"github.com/spf13/cobra"
 
-	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/common"
-	installconfig "github.com/siemens-healthineers/k2s/cmd/k2s/cmd/install/config"
-	"github.com/siemens-healthineers/k2s/cmd/k2s/utils/logging"
-	"github.com/siemens-healthineers/k2s/internal/core/config"
-	"github.com/siemens-healthineers/k2s/internal/definitions"
-	"github.com/siemens-healthineers/k2s/internal/effectiveconfig"
-	bl "github.com/siemens-healthineers/k2s/internal/logging"
-	kos "github.com/siemens-healthineers/k2s/internal/os"
+	"github.com/k2s-project/k2s/cmd/k2s/cmd/common"
+	installconfig "github.com/k2s-project/k2s/cmd/k2s/cmd/install/config"
+	"github.com/k2s-project/k2s/cmd/k2s/utils/logging"
+	"github.com/k2s-project/k2s/internal/core/config"
+	"github.com/k2s-project/k2s/internal/definitions"
+	"github.com/k2s-project/k2s/internal/effectiveconfig"
+	bl "github.com/k2s-project/k2s/internal/logging"
+	kos "github.com/k2s-project/k2s/internal/os"
 
-	"github.com/siemens-healthineers/k2s/cmd/k2s/utils"
+	"github.com/k2s-project/k2s/cmd/k2s/utils"
 
-	cconfig "github.com/siemens-healthineers/k2s/internal/contracts/config"
-	"github.com/siemens-healthineers/k2s/internal/provider"
+	cconfig "github.com/k2s-project/k2s/internal/contracts/config"
+	"github.com/k2s-project/k2s/internal/provider"
 )
 
 var upgradeCommandShortDescription = "Upgrades the installed K2s cluster to this version (full upgrade, in-place delta update, or worker node upgrade)"

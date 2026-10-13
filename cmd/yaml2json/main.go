@@ -12,8 +12,8 @@ import (
 	"log/slog"
 	"os"
 
-	"github.com/siemens-healthineers/k2s/internal/cli"
-	"github.com/siemens-healthineers/k2s/internal/logging"
+	"github.com/k2s-project/k2s/internal/cli"
+	"github.com/k2s-project/k2s/internal/logging"
 
 	"gopkg.in/yaml.v3"
 )

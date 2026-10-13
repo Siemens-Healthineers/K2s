@@ -4,8 +4,8 @@
 package common
 
 import (
-	cc "github.com/siemens-healthineers/k2s/cmd/k2s/cmd/common"
-	ic "github.com/siemens-healthineers/k2s/cmd/k2s/cmd/install/config"
+	cc "github.com/k2s-project/k2s/cmd/k2s/cmd/common"
+	ic "github.com/k2s-project/k2s/cmd/k2s/cmd/install/config"
 
 	"github.com/spf13/cobra"
 )

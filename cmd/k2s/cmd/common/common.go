@@ -13,13 +13,13 @@ import (
 	"strings"
 	"time"
 
-	"github.com/siemens-healthineers/k2s/cmd/k2s/utils/logging"
-	"github.com/siemens-healthineers/k2s/internal/contracts/config"
-	"github.com/siemens-healthineers/k2s/internal/definitions"
-	bl "github.com/siemens-healthineers/k2s/internal/logging"
-	"github.com/siemens-healthineers/k2s/internal/output"
-	"github.com/siemens-healthineers/k2s/internal/provider"
-	"github.com/siemens-healthineers/k2s/internal/providers/kubeconfig"
+	"github.com/k2s-project/k2s/cmd/k2s/utils/logging"
+	"github.com/k2s-project/k2s/internal/contracts/config"
+	"github.com/k2s-project/k2s/internal/definitions"
+	bl "github.com/k2s-project/k2s/internal/logging"
+	"github.com/k2s-project/k2s/internal/output"
+	"github.com/k2s-project/k2s/internal/provider"
+	"github.com/k2s-project/k2s/internal/providers/kubeconfig"
 
 	"github.com/pterm/pterm"
 )

@@ -15,10 +15,10 @@ import (
 
 	"github.com/Microsoft/windows-container-networking/cni"
 	"github.com/Microsoft/windows-container-networking/common"
-	"github.com/siemens-healthineers/k2s/internal/cli"
-	"github.com/siemens-healthineers/k2s/internal/containernetworking"
-	"github.com/siemens-healthineers/k2s/internal/logging"
-	ve "github.com/siemens-healthineers/k2s/internal/version"
+	"github.com/k2s-project/k2s/internal/cli"
+	"github.com/k2s-project/k2s/internal/containernetworking"
+	"github.com/k2s-project/k2s/internal/logging"
+	ve "github.com/k2s-project/k2s/internal/version"
 
 	"flag"
 	"os"

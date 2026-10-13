@@ -12,14 +12,14 @@ import (
 	"testing"
 	"time"
 
-	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/addons/status"
-	"github.com/siemens-healthineers/k2s/test/framework"
-	"github.com/siemens-healthineers/k2s/test/framework/os"
+	"github.com/k2s-project/k2s/cmd/k2s/cmd/addons/status"
+	"github.com/k2s-project/k2s/test/framework"
+	"github.com/k2s-project/k2s/test/framework/os"
 
 	bos "os"
 
-	"github.com/siemens-healthineers/k2s/internal/cli"
-	kos "github.com/siemens-healthineers/k2s/internal/os"
+	"github.com/k2s-project/k2s/internal/cli"
+	kos "github.com/k2s-project/k2s/internal/os"
 
 	"encoding/json"
 

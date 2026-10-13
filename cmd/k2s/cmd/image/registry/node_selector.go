@@ -8,7 +8,7 @@ import (
 	"os"
 	"strings"
 
-	contracts "github.com/siemens-healthineers/k2s/internal/contracts/config"
+	contracts "github.com/k2s-project/k2s/internal/contracts/config"
 )
 
 func validateNodeSelector(nodeSelector string, runtimeConfig *contracts.K2sRuntimeConfig) error {
