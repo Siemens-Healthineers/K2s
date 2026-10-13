@@ -6,7 +6,7 @@ SPDX-License-Identifier: MIT
 # Submitting Changes
 The following guidelines apply to submitting changes to *K2s*:
 
-- Only commit changes when a corresponding issue exists and the maintainers have agreed that this issue is going to be realized (see [K2s Issues](https://github.com/k2s-project/K2s/issues){target="_blank"})
+- Only commit changes when a corresponding issue exists and the maintainers have agreed that this issue is going to be realized (see [K2s Issues](https://github.com/k2s-project/k2s/issues){target="_blank"})
 - Reference the issue in commit messages, e.g. for a refactoring issue with ID 42, create a message like `#42 refactor(addons): obsolete code path removed`. 
 !!! info
     This example also uses [Conventional Commits](https://www.conventionalcommits.org/en/v1.0.0/){target="_blank"}, which is not mandatory, but recommended.

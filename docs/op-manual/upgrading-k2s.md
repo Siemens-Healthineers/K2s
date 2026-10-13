@@ -8,7 +8,7 @@ SPDX-License-Identifier: MIT
 This guide explains how to upgrade an existing *K2s* cluster in-place to a newer released version using the `k2s system upgrade` command.
 
 ## Versioning
-*K2s* release versions follow semantic versioning: `MAJOR.MINOR.PATCH` (see the [Releases page](https://github.com/k2s-project/K2s/releases){target="_blank"}).
+*K2s* release versions follow semantic versioning: `MAJOR.MINOR.PATCH` (see the [Releases page](https://github.com/k2s-project/k2s/releases){target="_blank"}).
 
 Supported upgrade path:
 - Standard path: upgrade only from `MINOR-1` to the next `MINOR` within the same `MAJOR` (e.g. `1.4.x` → `1.5.y`).

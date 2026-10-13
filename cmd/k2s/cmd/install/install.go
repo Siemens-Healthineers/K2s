@@ -288,7 +288,7 @@ func install(cmd *cobra.Command, args []string) error {
 			return &cc.CmdFailure{
 				Severity: cc.SeverityWarning,
 				Code:     "prereq-failed",
-				Message:  fmt.Sprintf("Prerequisite check failed: %s. See https://github.com/k2s-project/K2s/blob/main/docs/op-manual/installing-k2s.md#prerequisites", errorLine),
+				Message:  fmt.Sprintf("Prerequisite check failed: %s. See https://github.com/k2s-project/k2s/blob/main/docs/op-manual/installing-k2s.md#prerequisites", errorLine),
 			}
 		}
 

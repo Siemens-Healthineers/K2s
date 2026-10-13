@@ -117,7 +117,7 @@ func (i *Installer) Install(
 		errorLine, found := cc.GetInstallPreRequisiteError(outputWriter.ErrorLines)
 		if found {
 			i.Printer.PrintWarning("Prerequisite check failed,", errorLine)
-			i.Printer.PrintWarning("Have a look at the pre-requisites 'https://github.com/k2s-project/K2s/blob/main/docs/op-manual/installing-k2s.md#prerequisites' and re-issue 'k2s install'")
+			i.Printer.PrintWarning("Have a look at the pre-requisites 'https://github.com/k2s-project/k2s/blob/main/docs/op-manual/installing-k2s.md#prerequisites' and re-issue 'k2s install'")
 			err = i.DeleteConfigFunc(configDir)
 			if err != nil {
 				slog.Debug("config file does not exist, nothing to do")

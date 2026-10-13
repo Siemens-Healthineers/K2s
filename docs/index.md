@@ -4,11 +4,11 @@ SPDX-License-Identifier: MIT
 -->
 
 # Home
-[![ci](https://github.com/k2s-project/K2s/actions/workflows/ci-reuse-checks.yml/badge.svg)](https://github.com/k2s-project/K2s/actions/workflows/ci-reuse-checks.yml){target="_blank"}
-[![ci](https://github.com/k2s-project/K2s/actions/workflows/ci-unit-tests.yml/badge.svg)](https://github.com/k2s-project/K2s/actions/workflows/ci-unit-tests.yml){target="_blank"}
-[![ci](https://github.com/k2s-project/K2s/actions/workflows/build-k2s-cli.yml/badge.svg)](https://github.com/k2s-project/K2s/actions/workflows/build-k2s-cli.yml){target="_blank"}
-[![ci](https://github.com/k2s-project/K2s/actions/workflows/build-k2s-artifacts.yml/badge.svg)](https://github.com/k2s-project/K2s/actions/workflows/build-k2s-artifacts.yml){target="_blank"}
-[![ci](https://github.com/k2s-project/K2s/actions/workflows/build-docs-next.yml/badge.svg)](https://github.com/k2s-project/K2s/actions/workflows/build-docs-next.yml){target="_blank"}
+[![ci](https://github.com/k2s-project/k2s/actions/workflows/ci-reuse-checks.yml/badge.svg)](https://github.com/k2s-project/k2s/actions/workflows/ci-reuse-checks.yml){target="_blank"}
+[![ci](https://github.com/k2s-project/k2s/actions/workflows/ci-unit-tests.yml/badge.svg)](https://github.com/k2s-project/k2s/actions/workflows/ci-unit-tests.yml){target="_blank"}
+[![ci](https://github.com/k2s-project/k2s/actions/workflows/build-k2s-cli.yml/badge.svg)](https://github.com/k2s-project/k2s/actions/workflows/build-k2s-cli.yml){target="_blank"}
+[![ci](https://github.com/k2s-project/k2s/actions/workflows/build-k2s-artifacts.yml/badge.svg)](https://github.com/k2s-project/k2s/actions/workflows/build-k2s-artifacts.yml){target="_blank"}
+[![ci](https://github.com/k2s-project/k2s/actions/workflows/build-docs-next.yml/badge.svg)](https://github.com/k2s-project/k2s/actions/workflows/build-docs-next.yml){target="_blank"}
 
 ## What is *K2s*?
 *K2s* is a *Kubernetes* distribution which packages different open-source components into one small and easy to use solution focusing on running mixed *Windows*-based & *Linux*-based workloads in *Kubernetes*. 
@@ -47,7 +47,7 @@ Get started [here](quickstart/index.md).
 - Multiple network cards support, including support for LAN and *WI-FI* network interfaces
 - Offline support by being able to operate the *K8s* cluster and workloads without internet connectivity
 - [Building a Container Image](user-guide/building-container-image.md) for building and testing *Windows* and *Linux* containers
- [Rich Set of Addons](https://github.com/k2s-project/K2s/blob/main/addons/README.md){target="_blank"} which can be used optionally for additional functionality
+ [Rich Set of Addons](https://github.com/k2s-project/k2s/blob/main/addons/README.md){target="_blank"} which can be used optionally for additional functionality
 - *K2*s supports different [Hosting Variants](user-guide/hosting-variants.md)
 - Template-based setup of the different variants through configuration files
 - Main configuration through central configuration file

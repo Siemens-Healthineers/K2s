@@ -237,11 +237,11 @@ Stop-InstallIfNoMandatoryServiceIsRunning checks for mandatory services on the s
 function Stop-InstallIfNoMandatoryServiceIsRunning {
     $hns = Get-Service 'hns' -ErrorAction SilentlyContinue
     if (!$hns) {
-        throw '[PREREQ-FAILED] Host Network Service is not running. This is required for Windows containers. Please enable prerequisites for K2s - https://github.com/k2s-project/K2s !'
+        throw '[PREREQ-FAILED] Host Network Service is not running. This is required for Windows containers. Please enable prerequisites for K2s - https://github.com/k2s-project/k2s !'
     }
     $hcs = Get-Service 'vmcompute' -ErrorAction SilentlyContinue
     if (!$hcs) {
-        throw '[PREREQ-FAILED] Host Compute Service is not running. This is needed for containers. Please enable prerequisites for K2s - https://github.com/k2s-project/K2s !'
+        throw '[PREREQ-FAILED] Host Compute Service is not running. This is needed for containers. Please enable prerequisites for K2s - https://github.com/k2s-project/k2s !'
     }
 }
 

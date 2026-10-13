@@ -15,9 +15,9 @@ secured, observed, and — if you want — managed by *Kubernetes* itself.
 
 This guide describes the recommended **best practices** for making a native process "cluster‑friendly", and
 the **two integration options** with their trade‑offs. Throughout, we use the small test executable
-[`albumswin`](https://github.com/k2s-project/K2s/blob/main/k2s/test/e2e/cluster/hostprocess/albumswin/main.go)
+[`albumswin`](https://github.com/k2s-project/k2s/blob/main/k2s/test/e2e/cluster/hostprocess/albumswin/main.go)
 as the running example. Ready‑to‑use manifests for both options live under
-[`k2s/test/e2e/cluster/hostprocess/examples`](https://github.com/k2s-project/K2s/tree/main/k2s/test/e2e/cluster/hostprocess/examples).
+[`k2s/test/e2e/cluster/hostprocess/examples`](https://github.com/k2s-project/k2s/tree/main/k2s/test/e2e/cluster/hostprocess/examples).
 
 ```mermaid
 flowchart TD
@@ -114,7 +114,7 @@ ports:
 ```
 
 Full, runnable manifests (with Linux and Windows test clients) are in
-[`examples/option-1-external-service`](https://github.com/k2s-project/K2s/tree/main/k2s/test/e2e/cluster/hostprocess/examples/option-1-external-service).
+[`examples/option-1-external-service`](https://github.com/k2s-project/k2s/tree/main/k2s/test/e2e/cluster/hostprocess/examples/option-1-external-service).
 
 ### Firewall
 
@@ -208,7 +208,7 @@ sequenceDiagram
 ### Zero‑trust security for native processes
 
 Because the process now lives in a pod compartment, you can apply **zero‑trust** networking around a binary you
-never modified. Using the [`security` addon](https://github.com/k2s-project/K2s/blob/main/addons/security/README.md)
+never modified. Using the [`security` addon](https://github.com/k2s-project/k2s/blob/main/addons/security/README.md)
 (enhanced type: Linkerd + policies), you achieve **security through infrastructure**: mTLS identity, and
 fine‑grained authorization that starts from **deny‑all** and then allows only specific operations on specific
 resources — for example, a `GET` on `/x/y` only.
@@ -229,7 +229,7 @@ native host processes. See [Security Features](../security/security-features.md)
 [Policy Enforcement](../security/policy-enforcement.md).
 
 An illustrative policy manifest is provided in
-[`examples/option-2-hostprocess-compartment`](https://github.com/k2s-project/K2s/tree/main/k2s/test/e2e/cluster/hostprocess/examples/option-2-hostprocess-compartment).
+[`examples/option-2-hostprocess-compartment`](https://github.com/k2s-project/k2s/tree/main/k2s/test/e2e/cluster/hostprocess/examples/option-2-hostprocess-compartment).
 
 ### Pros & cons
 
@@ -272,8 +272,8 @@ needs — without recompiling. `albumswin` demonstrates all three knobs via envi
 
 See these best practices applied end‑to‑end in the runnable examples:
 
-* [`examples/option-1-external-service`](https://github.com/k2s-project/K2s/tree/main/k2s/test/e2e/cluster/hostprocess/examples/option-1-external-service) — process managed outside Kubernetes.
-* [`examples/option-2-hostprocess-compartment`](https://github.com/k2s-project/K2s/tree/main/k2s/test/e2e/cluster/hostprocess/examples/option-2-hostprocess-compartment) — process managed by Kubernetes (HostProcess + compartment).
+* [`examples/option-1-external-service`](https://github.com/k2s-project/k2s/tree/main/k2s/test/e2e/cluster/hostprocess/examples/option-1-external-service) — process managed outside Kubernetes.
+* [`examples/option-2-hostprocess-compartment`](https://github.com/k2s-project/k2s/tree/main/k2s/test/e2e/cluster/hostprocess/examples/option-2-hostprocess-compartment) — process managed by Kubernetes (HostProcess + compartment).
 
 !!! note "These are best practices, not a hard requirement"
     Making the three aspects (interfaces, ports, compartment) configurable is **recommended**, not mandatory —
@@ -555,7 +555,7 @@ addon's OAuth2 proxy:
 
 !!! tip "Add authentication with the `security` addon (OAuth2)"
     Because the traffic flows through the gateway, you can put **authentication in front of your native
-    process without changing it**. With the [`security` addon](https://github.com/k2s-project/K2s/blob/main/addons/security/README.md)
+    process without changing it**. With the [`security` addon](https://github.com/k2s-project/k2s/blob/main/addons/security/README.md)
     enabled, an **OAuth2 proxy** (backed by Keycloak or an external OIDC provider) is invoked by the
     `ExtensionRef` filter so every request is authenticated before it reaches the Service. This is **security
     through infrastructure**: mTLS, TLS termination via `cert-manager` and OAuth2/OIDC authentication are all
@@ -591,5 +591,5 @@ certificate and NTLM/Windows authentication.
 * [Secure Host Access](./secure-host-access.md)
 * [Networking Architecture for K2s](./networking-architecture.md)
 * [Security Features](../security/security-features.md) · [Policy Enforcement](../security/policy-enforcement.md)
-* [security addon README](https://github.com/k2s-project/K2s/blob/main/addons/security/README.md)
-* Example manifests: [`hostprocess/examples`](https://github.com/k2s-project/K2s/tree/main/k2s/test/e2e/cluster/hostprocess/examples)
+* [security addon README](https://github.com/k2s-project/k2s/blob/main/addons/security/README.md)
+* Example manifests: [`hostprocess/examples`](https://github.com/k2s-project/k2s/tree/main/k2s/test/e2e/cluster/hostprocess/examples)
