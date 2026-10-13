@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# SPDX-FileCopyrightText: © 2025 Siemens Healthineers AG
-# SPDX-License-Identifier: MIT
+# SPDX-FileCopyrightText: © 2025 The K2s Authors
+# SPDX-License-Identifier: Apache-2.0
 
 # Verify Debian delta package was applied correctly
 # This script checks that installed package versions match the expected versions

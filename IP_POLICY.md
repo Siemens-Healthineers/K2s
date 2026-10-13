@@ -1,5 +1,5 @@
 <!--
-SPDX-FileCopyrightText: © 2026 Siemens Healthineers AG
+SPDX-FileCopyrightText: © 2026 The K2s Authors
 SPDX-License-Identifier: Apache-2.0
 -->
 
@@ -11,8 +11,8 @@ K2s follows the intellectual-property requirements in [section 11 of the CNCF Ch
 
 - K2s code and configuration accepted under this policy are made available under the Apache License, Version 2.0. The repository's controlling license text is in [LICENSE](LICENSE).
 - K2s documentation accepted under this policy is received and made available under the Creative Commons Attribution 4.0 International License.
-- Existing material retains its declared SPDX license until it has been reviewed and formally relicensed. Do not remove or replace third-party files, notices, or SPDX identifiers when modifying a file.
-- A repository-wide relicense of existing first-party files requires an inventory of copyright ownership and explicit approval from the applicable rightsholders. Until that review is complete, individual file SPDX identifiers take precedence for that file.
+- K2s-owned code and configuration previously made available under MIT have been relicensed under Apache-2.0 as part of the project's donation. Do not remove or replace third-party files, notices, or SPDX identifiers when modifying a file.
+- Existing K2s documentation retains its declared SPDX license until its separate CC-BY-4.0 migration is complete.
 - The Apache License does not grant rights to K2s, Siemens Healthineers, or third-party trademarks. Trademark and logo ownership or transfer obligations are handled by the relevant rightsholders and project governance, not by this repository policy.
 
 ## Contributions

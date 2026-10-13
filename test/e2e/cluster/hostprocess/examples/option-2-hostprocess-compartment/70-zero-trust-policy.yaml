@@ -1,6 +1,6 @@
-# SPDX-FileCopyrightText: © 2026 Siemens Healthineers AG
+# SPDX-FileCopyrightText: © 2026 The K2s Authors
 #
-# SPDX-License-Identifier: MIT
+# SPDX-License-Identifier: Apache-2.0
 
 # Illustrative zero-trust policy for the native process running in the anchor compartment.
 # Requires the security addon (enhanced): k2s addons enable security --type enhanced
