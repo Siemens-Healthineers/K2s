@@ -13,14 +13,14 @@ This file lists the K2s maintainers and describes the maintainer expectations fo
 | Name | Affiliation | Contact |
 | --- | --- | --- |
 | Dieter Krotz | Siemens Healthineers AG | dieter.krotz@siemens-healthineers.com |
+| German Lopez | Siemens Healthineers AG | german.gl.lopez@siemens-healthineers.com |
 | Shashank Wagle K | Siemens Healthineers AG | shashankwagle.k@siemens-healthineers.com |
 | VV Krishna Kanth | Siemens Healthineers AG | vvkrishna.kanth@siemens-healthineers.com |
 | Sashi Kumar D | Siemens Healthineers AG | sashikumar.d@siemens-healthineers.com |
 | Saurabh Kumar | Siemens Healthineers AG | saurabh.kumar@siemens-healthineers.com |
 | Jacob Grieger | Siemens Healthineers AG | jacob.grieger@siemens-healthineers.com |
 | Abhitosh | Siemens Healthineers AG | abhitosh@siemens-healthineers.com |
-| German Lopez | Siemens Healthineers AG | german.gl.lopez@siemens-healthineers.com |
-| Ronak Doshi | Siemens Healthineers AG | ronak.doshi@siemens-healthineers.com |
+
 
 ## Maintainer Responsibilities
 
