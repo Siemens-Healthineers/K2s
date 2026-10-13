@@ -36,6 +36,7 @@ type domainTemplateData struct {
 	NetworkBridge string
 	FirmwarePath  string
 	NVRAMPath     string
+	MACAddress    string
 }
 
 func (m *LibvirtVMManager) CreateVM(config VMConfig) error {
@@ -59,6 +60,7 @@ func (m *LibvirtVMManager) CreateVM(config VMConfig) error {
 		NetworkBridge:  config.NetworkBridge,
 		FirmwarePath:  firmwarePath,
 		NVRAMPath:     nvramPath,
+		MACAddress:    winVMMACAddress,
 	}
 
 	// Render domain XML (user-customised template takes precedence over embedded default)

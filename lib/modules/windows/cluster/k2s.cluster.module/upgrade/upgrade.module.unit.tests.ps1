@@ -326,6 +326,7 @@ Describe "PerformClusterUpgrade" -Tag 'unit', 'ci', 'upgrade' {
 		Mock -ModuleName $moduleName Get-ProductVersion -MockWith { return "1.0.0" }
 		Mock -ModuleName $moduleName Get-KubePath -MockWith { return "C:\KubePath" }
 		Mock -ModuleName $moduleName Write-RefreshEnvVariables
+		Mock -ModuleName $moduleName Enable-ClusterIsRunning
 		Mock -ModuleName $moduleName Wait-ForAPIServerInGivenKubePath
 		Mock -ModuleName $moduleName Get-KubeBinPathGivenKubePath -MockWith { return "C:\KubeBinPath" }
 		Mock -ModuleName $moduleName Enable-AddonFromConfig
@@ -356,6 +357,27 @@ Describe "PerformClusterUpgrade" -Tag 'unit', 'ci', 'upgrade' {
 		}
 	}
 	
+	It "starts the rebuilt cluster before waiting for API readiness" {
+		InModuleScope $moduleName {
+			$events = [System.Collections.ArrayList]@()
+			$memoryVM = @{ Startup = '4GB'; DynamicMemoryEnabled = $false }
+			$coresVM = [ref]"2"
+			$storageVM = [ref]"100GB"
+			$enabledAddonsList = [System.Collections.ArrayList]@()
+			$hooksBackupPath = [ref]"C:\Backup\Hooks"
+			$logFilePathBeforeUninstall = [ref]"C:\Backup\logfile.log"
+
+			Mock Invoke-ClusterUninstall
+			Mock Invoke-ClusterInstall { $events.Add('install') | Out-Null }
+			Mock Enable-ClusterIsRunning { $events.Add('start') | Out-Null }
+			Mock Wait-ForAPIServerInGivenKubePath { $events.Add('ready') | Out-Null }
+
+			PerformClusterUpgrade -ExecuteHooks -K2sPathToInstallFrom "C:\K2sPath" -Config "C:\Backup\previous.json" -BackupDir "C:\Backup" -memoryVM $memoryVM -coresVM $coresVM -storageVM $storageVM -enabledAddonsList $enabledAddonsList -hooksBackupPath $hooksBackupPath -logFilePathBeforeUninstall $logFilePathBeforeUninstall -skipResources
+
+			$events | Should -Be @('install', 'start', 'ready')
+		}
+	}
+
 	It "should perform cluster upgrade without execute hooks successfully" {
 		InModuleScope $moduleName {
 			$memoryVM = @{ Startup = '4GB'; DynamicMemoryEnabled = $false }

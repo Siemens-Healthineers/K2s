@@ -14,7 +14,7 @@ import (
 
 	//lint:ignore ST1001 test framework code
 	. "github.com/onsi/ginkgo/v2"
-	"github.com/siemens-healthineers/k2s/internal/cli"
+	"github.com/k2s-project/k2s/internal/cli"
 
 	//lint:ignore ST1001 test framework code
 	. "github.com/onsi/gomega"

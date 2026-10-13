@@ -6,15 +6,15 @@ import (
 	"context"
 	"encoding/json"
 
-	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/status"
+	"github.com/k2s-project/k2s/cmd/k2s/cmd/status"
 
 	"testing"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
-	"github.com/siemens-healthineers/k2s/test/framework"
-	"github.com/siemens-healthineers/k2s/test/framework/regex"
+	"github.com/k2s-project/k2s/test/framework"
+	"github.com/k2s-project/k2s/test/framework/regex"
 )
 
 var suite *framework.K2sTestSuite

@@ -12,10 +12,10 @@ import (
 	"runtime"
 	"strings"
 
-	contracts "github.com/siemens-healthineers/k2s/internal/contracts/config"
-	"github.com/siemens-healthineers/k2s/internal/definitions"
-	"github.com/siemens-healthineers/k2s/internal/json"
-	kos "github.com/siemens-healthineers/k2s/internal/os"
+	contracts "github.com/k2s-project/k2s/internal/contracts/config"
+	"github.com/k2s-project/k2s/internal/definitions"
+	"github.com/k2s-project/k2s/internal/json"
+	kos "github.com/k2s-project/k2s/internal/os"
 )
 
 // k2sCliBaseName is the base name of the K2s CLI executable.

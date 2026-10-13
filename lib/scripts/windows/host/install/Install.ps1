@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: © 2024 Siemens Healthineers AG
+# SPDX-FileCopyrightText: © 2026 Siemens Healthineers AG
 #
 # SPDX-License-Identifier: MIT
 
@@ -45,7 +45,9 @@ Param(
     [parameter(Mandatory = $false, HelpMessage = 'Append to log file (do not start from scratch)')]
     [switch] $AppendLogFile = $false,
     [parameter(Mandatory = $false, HelpMessage = 'The path to local builds of Kubernetes binaries')]
-    [string] $K8sBinsPath = ''
+    [string] $K8sBinsPath = '',
+    [parameter(Mandatory = $true, HelpMessage = 'Internal normalized effective install configuration path')]
+    [string] $EffectiveInstallConfigPath
 )
 
 $installStopwatch = [system.diagnostics.stopwatch]::StartNew()
@@ -113,6 +115,7 @@ $controlPlaneNodeParams = @{
     CheckOnly = $CheckOnly
     ShowLogs = $ShowLogs
     WSL = $WSL
+    EffectiveInstallConfigPath = $EffectiveInstallConfigPath
 }
 & "$PSScriptRoot\..\..\..\control-plane\Install.ps1" @controlPlaneNodeParams
 
@@ -124,6 +127,7 @@ $workerNodeParams = @{
     ForceOnlineInstallation = $ForceOnlineInstallation
     DnsAddresses = $dnsServers
     K8sBinsPath = $K8sBinsPath
+    EffectiveInstallConfigPath = $EffectiveInstallConfigPath
 }
 & "$PSScriptRoot\..\..\..\windows\worker\windows-host\Install.ps1" @workerNodeParams
 

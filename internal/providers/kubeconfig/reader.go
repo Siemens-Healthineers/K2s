@@ -8,7 +8,7 @@ import (
 	"log/slog"
 
 	"github.com/samber/lo"
-	"github.com/siemens-healthineers/k2s/internal/yaml"
+	"github.com/k2s-project/k2s/internal/yaml"
 )
 
 type Kubeconfig struct {

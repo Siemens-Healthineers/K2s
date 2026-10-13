@@ -8,8 +8,8 @@ import (
 	"fmt"
 	"strings"
 
-	ic "github.com/siemens-healthineers/k2s/cmd/k2s/cmd/install/config"
-	"github.com/siemens-healthineers/k2s/cmd/k2s/utils"
+	ic "github.com/k2s-project/k2s/cmd/k2s/cmd/install/config"
+	"github.com/k2s-project/k2s/cmd/k2s/utils"
 )
 
 var ErrWslNotSupported = errors.New("linux-only in combination with WSL is currently not supported")

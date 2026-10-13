@@ -22,10 +22,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/siemens-healthineers/k2s/internal/cli"
-	"github.com/siemens-healthineers/k2s/internal/logging"
-	kos "github.com/siemens-healthineers/k2s/internal/os"
-	ve "github.com/siemens-healthineers/k2s/internal/version"
+	"github.com/k2s-project/k2s/internal/cli"
+	"github.com/k2s-project/k2s/internal/logging"
+	kos "github.com/k2s-project/k2s/internal/os"
+	ve "github.com/k2s-project/k2s/internal/version"
 
 	"github.com/google/uuid"
 )

@@ -270,6 +270,53 @@ spec:
 			})
 		})
 
+		Context("when a file contains multiple YAML documents", func() {
+			It("extracts images from every document, not only the first one", func() {
+				yamlContent := `apiVersion: v1
+kind: Namespace
+metadata:
+  name: cert-manager
+---
+apiVersion: apps/v1
+kind: Deployment
+spec:
+  template:
+    spec:
+      containers:
+        - image: "quay.io/jetstack/cert-manager-controller:v1.21.1"
+---
+apiVersion: apps/v1
+kind: Deployment
+spec:
+  template:
+    spec:
+      containers:
+        - image: "quay.io/jetstack/cert-manager-webhook:v1.21.1"
+`
+
+				yamlFile := filepath.Join(tempDir, "multi-doc.yaml")
+				err := os.WriteFile(yamlFile, []byte(yamlContent), 0644)
+				Expect(err).ToNot(HaveOccurred())
+
+				impl := Implementation{
+					Directory: tempDir,
+					OfflineUsage: OfflineUsage{
+						LinuxResources: LinuxResources{
+							AdditionalImagesFiles: []string{"multi-doc.yaml"},
+						},
+					},
+				}
+
+				images, err := impl.ExtractImagesFromFiles()
+
+				Expect(err).ToNot(HaveOccurred())
+				Expect(images).To(ConsistOf(
+					"quay.io/jetstack/cert-manager-controller:v1.21.1",
+					"quay.io/jetstack/cert-manager-webhook:v1.21.1",
+				))
+			})
+		})
+
 		Context("export monitoring addon", func() {
 			It("extracts both operator and config-reloader images", func() {
 				yamlContent := `apiVersion: apps/v1

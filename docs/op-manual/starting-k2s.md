@@ -46,11 +46,19 @@ A conflicting switch is removed and revalidated before K2s networking starts.
 If the switch remains absent, startup can continue; an existing switch without
 an IPv4 address fails validation because its subnet cannot be checked.
 
-If startup performs networking initialization, it checks again before reporting
-success. The already-running early-return path uses only the initial validation.
-This final check does not remove
-networks: if a conflicting Default Switch appears during startup, startup reports
-an error. After Windows networking has settled, retry `k2s start`.
+During reboot recovery, startup also validates the switch after Windows network
+reconstruction, before repairing Linux routes. K2s networking services are stopped
+and confirmed stopped before removing a conflicting Default Switch. Startup then
+starts flannel and waits for the Windows bridge endpoint and routes to become
+ready. If Windows creates another conflicting switch during this phase, recovery
+retries up to three times. It removes only the conflicting Default Switch, not
+unrelated HNS networks. Service, bridge, or Linux route recovery failures are
+reported instead of allowing incomplete recovery to appear successful.
+
+Startup checks again before reporting success. This final check remains read-only;
+a conflict appearing after recovery still fails startup. The already-running
+early-return path uses only the initial validation. If recovery fails, allow
+Windows networking to settle and retry `k2s start`.
 
 ### Additional Options
 

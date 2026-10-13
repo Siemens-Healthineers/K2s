@@ -12,8 +12,8 @@ import (
 
 	"github.com/go-logr/logr"
 	"github.com/pterm/pterm"
-	"github.com/siemens-healthineers/k2s/cmd/k2s/utils/logging"
-	"github.com/siemens-healthineers/k2s/internal/test/reflection"
+	"github.com/k2s-project/k2s/cmd/k2s/utils/logging"
+	"github.com/k2s-project/k2s/internal/test/reflection"
 	"github.com/stretchr/testify/mock"
 
 	. "github.com/onsi/ginkgo/v2"

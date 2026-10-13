@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: © 2025 Siemens Healthineers AG
+# SPDX-FileCopyrightText: © 2026 Siemens Healthineers AG
 #
 # SPDX-License-Identifier: MIT
 
@@ -34,7 +34,9 @@ Param(
     [parameter(Mandatory = $false, HelpMessage = 'Force the installation online. This option is needed if the files for an offline installation are available but you want to recreate them.')]
     [switch] $ForceOnlineInstallation = $false,
     [parameter(Mandatory = $false, HelpMessage = 'Append to log file (do not start from scratch)')]
-    [switch] $AppendLogFile = $false
+    [switch] $AppendLogFile = $false,
+    [parameter(Mandatory = $true, HelpMessage = 'Internal normalized effective install configuration path')]
+    [string] $EffectiveInstallConfigPath
 )
 
 $installStopwatch = [system.diagnostics.stopwatch]::StartNew()
@@ -69,6 +71,10 @@ Test-ProxyEnvVarsConfiguration
 $Proxy = New-ProxyConfig -Proxy:$Proxy -NoProxy:$NoProxy
 Add-K2sHostsToNoProxyEnvVar
 
+if ($null -ne (Get-K2sKubeletOverrideContent -EffectiveInstallConfigPath $EffectiveInstallConfigPath -Role 'windowsWorker')) {
+    Write-Log '[KubeletOverrides] Windows worker overrides are ignored because linux-only installation was requested.' -Console
+}
+
 $dnsServers = $DnsAddresses -join ','
 if ([string]::IsNullOrWhiteSpace($dnsServers)) {
     $loopbackAdapter = Get-L2BridgeName
@@ -99,6 +105,7 @@ $controlPlaneParams = @{
     CheckOnly                         = $false
     ShowLogs                          = $ShowLogs
     WSL                               = $false
+    EffectiveInstallConfigPath        = $EffectiveInstallConfigPath
 }
 
 & "$PSScriptRoot\..\..\..\control-plane\Install.ps1" @controlPlaneParams

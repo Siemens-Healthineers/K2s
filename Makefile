@@ -8,7 +8,7 @@
 
 # Default target: build all Linux executables.
 build:
-	./build.sh
+	bash ./build.sh
 
 # Remove the binaries produced by build.sh.
 clean:

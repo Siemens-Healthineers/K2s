@@ -51,6 +51,8 @@ By default, the configuration contains a single shared folder mapping as shown b
                     {
                         "winMountPath": "C:\\k8s-smb-share",
                         "linuxMountPath": "/mnt/k8s-smb-share",
+                        "linuxShareName": "linux-smb-share",
+                        "winShareName": "win-smb-share",
                         "storageClassName": "smb"
                     }
                 ]
@@ -62,11 +64,15 @@ Ensure each shared folder mapping includes a unique storageClassName to avoid co
                       {
                           "winMountPath": "C:\\k8s-smb-share1",
                           "linuxMountPath": "/mnt/k8s-smb-share1",
+                          "linuxShareName": "linux-smb-share1",
+                          "winShareName": "win-smb-share1",
                           "storageClassName": "smb1"
                       }
                       {
                           "winMountPath": "C:\\k8s-smb-share2",
                           "linuxMountPath": "/mnt/k8s-smb-share2",
+                          "linuxShareName": "linux-smb-share2",
+                          "winShareName": "win-smb-share2",
                           "storageClassName": "smb2"
                       }
                   ]
@@ -163,6 +169,8 @@ First, configure a POSIX-enabled entry in `SmbStorage.json` (this creates the `s
     {
         "winMountPath": "C:\\k8s-smb-posix",
         "linuxMountPath": "/mnt/k8s-smb-posix",
+        "linuxShareName": "linux-smb-posix-share",
+        "winShareName": "win-smb-posix-share",
         "storageClassName": "smb-posix",
         "smbDialect": "3.1.1",
         "enablePosixExtensions": true,
@@ -235,4 +243,3 @@ k2s addons enable storage smb -t linux
 ```
 
 The enable failure is logged in full to the addon log file; the console shows a single concise note pointing here.
-

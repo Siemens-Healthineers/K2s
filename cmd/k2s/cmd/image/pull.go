@@ -10,13 +10,13 @@ import (
 	"path/filepath"
 	"strconv"
 
-	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/common"
+	"github.com/k2s-project/k2s/cmd/k2s/cmd/common"
 
-	"github.com/siemens-healthineers/k2s/cmd/k2s/utils"
+	"github.com/k2s-project/k2s/cmd/k2s/utils"
 
-	cconfig "github.com/siemens-healthineers/k2s/internal/contracts/config"
-	"github.com/siemens-healthineers/k2s/internal/core/config"
-	"github.com/siemens-healthineers/k2s/internal/provider"
+	cconfig "github.com/k2s-project/k2s/internal/contracts/config"
+	"github.com/k2s-project/k2s/internal/core/config"
+	"github.com/k2s-project/k2s/internal/provider"
 
 	"github.com/pterm/pterm"
 	"github.com/spf13/cobra"
@@ -110,7 +110,11 @@ func pullImage(cmd *cobra.Command, args []string) error {
 	}
 
 	if runtimeConfig.InstallConfig().LinuxOnly() && pullForWindows {
-		return common.CreateFuncUnavailableForLinuxOnlyCmdFailure()
+		return fmt.Errorf("pulling Windows container images is not supported on a Linux-only installation")
+	}
+
+	if err := validateNodeSelector(nodeSelector, runtimeConfig); err != nil {
+		return err
 	}
 
 	if err := context.Providers().Image.Pull(provider.ImagePullConfig{

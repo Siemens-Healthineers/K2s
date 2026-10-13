@@ -7,12 +7,12 @@ import (
 	"fmt"
 	"strings"
 
-	cc "github.com/siemens-healthineers/k2s/cmd/k2s/cmd/common"
+	cc "github.com/k2s-project/k2s/cmd/k2s/cmd/common"
 
-	"github.com/siemens-healthineers/k2s/cmd/k2s/utils"
+	"github.com/k2s-project/k2s/cmd/k2s/utils"
 
-	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/install/common"
-	ic "github.com/siemens-healthineers/k2s/cmd/k2s/cmd/install/config"
+	"github.com/k2s-project/k2s/cmd/k2s/cmd/install/common"
+	ic "github.com/k2s-project/k2s/cmd/k2s/cmd/install/config"
 
 	"github.com/spf13/cobra"
 )

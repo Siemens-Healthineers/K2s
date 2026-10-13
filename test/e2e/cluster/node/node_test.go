@@ -15,10 +15,10 @@ import (
 	"testing"
 	"time"
 
-	kos "github.com/siemens-healthineers/k2s/internal/os"
+	kos "github.com/k2s-project/k2s/internal/os"
 
-	"github.com/siemens-healthineers/k2s/test/framework"
-	"github.com/siemens-healthineers/k2s/test/framework/dsl"
+	"github.com/k2s-project/k2s/test/framework"
+	"github.com/k2s-project/k2s/test/framework/dsl"
 	v1 "k8s.io/api/core/v1"
 
 	. "github.com/onsi/ginkgo/v2"

@@ -14,10 +14,10 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	//lint:ignore ST1001 test framework code
 	. "github.com/onsi/gomega"
-	contracts "github.com/siemens-healthineers/k2s/internal/contracts/config"
-	"github.com/siemens-healthineers/k2s/internal/core/clusterconfig"
-	"github.com/siemens-healthineers/k2s/internal/core/config"
-	"github.com/siemens-healthineers/k2s/internal/definitions"
+	contracts "github.com/k2s-project/k2s/internal/contracts/config"
+	"github.com/k2s-project/k2s/internal/core/clusterconfig"
+	"github.com/k2s-project/k2s/internal/core/config"
+	"github.com/k2s-project/k2s/internal/definitions"
 )
 
 type SetupInfo struct {

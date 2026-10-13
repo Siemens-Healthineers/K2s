@@ -12,7 +12,7 @@ import (
 	"path/filepath"
 	"text/template"
 
-	"github.com/siemens-healthineers/k2s/internal/host"
+	"github.com/k2s-project/k2s/internal/host"
 )
 
 // loadLibvirtTemplate loads a libvirt XML template by name.

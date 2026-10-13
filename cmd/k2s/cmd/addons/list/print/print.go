@@ -7,8 +7,8 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/siemens-healthineers/k2s/internal/core/addons"
-	"github.com/siemens-healthineers/k2s/internal/json"
+	"github.com/k2s-project/k2s/internal/core/addons"
+	"github.com/k2s-project/k2s/internal/json"
 
 	"github.com/samber/lo"
 )

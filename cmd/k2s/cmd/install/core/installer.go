@@ -4,17 +4,19 @@
 package core
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"log/slog"
 
-	ic "github.com/siemens-healthineers/k2s/cmd/k2s/cmd/install/config"
+	ic "github.com/k2s-project/k2s/cmd/k2s/cmd/install/config"
+	"github.com/k2s-project/k2s/cmd/k2s/utils"
 
-	cc "github.com/siemens-healthineers/k2s/cmd/k2s/cmd/common"
+	cc "github.com/k2s-project/k2s/cmd/k2s/cmd/common"
 
-	"github.com/siemens-healthineers/k2s/internal/contracts/config"
-	"github.com/siemens-healthineers/k2s/internal/output"
-	"github.com/siemens-healthineers/k2s/internal/version"
+	"github.com/k2s-project/k2s/internal/contracts/config"
+	"github.com/k2s-project/k2s/internal/output"
+	"github.com/k2s-project/k2s/internal/version"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
@@ -29,16 +31,23 @@ type Printer interface {
 	PrintWarning(m ...any)
 }
 
+type EffectiveInstallConfigSnapshot interface {
+	Path() string
+	Abort() error
+	Commit() error
+}
+
 type Installer struct {
-	InstallConfigAccess      InstallConfigAccess
-	Printer                  Printer
-	ExecutePsScript          func(script string, writer output.StreamWriter) error
-	GetVersionFunc           func() version.Version
-	GetPlatformFunc          func() string
-	GetInstallDirFunc        func() string
-	LoadConfigFunc           func(configDir string) (*config.K2sRuntimeConfig, error)
-	MarkSetupAsCorruptedFunc func(configDir string) error
-	DeleteConfigFunc         func(configDir string) error
+	InstallConfigAccess             InstallConfigAccess
+	Printer                         Printer
+	ExecutePsScript                 func(script string, writer output.StreamWriter) error
+	GetVersionFunc                  func() version.Version
+	GetPlatformFunc                 func() string
+	GetInstallDirFunc               func() string
+	LoadConfigFunc                  func(configDir string) (*config.K2sRuntimeConfig, error)
+	MarkSetupAsCorruptedFunc        func(configDir string) error
+	DeleteConfigFunc                func(configDir string) error
+	StageEffectiveInstallConfigFunc func(configDir string, content []byte) (EffectiveInstallConfigSnapshot, error)
 }
 
 func (i *Installer) Install(
@@ -70,11 +79,24 @@ func (i *Installer) Install(
 		return err
 	}
 
-	slog.Debug("Installing using config", "config", config)
+	slog.Debug("Installing using normalized effective configuration")
 
 	cmd, err := buildCmdFunc(config)
 	if err != nil {
 		return err
+	}
+
+	var snapshot EffectiveInstallConfigSnapshot
+	if i.StageEffectiveInstallConfigFunc != nil {
+		effectiveInstallConfig, err := json.MarshalIndent(config, "", "  ")
+		if err != nil {
+			return fmt.Errorf("failed to serialize effective install configuration: %w", err)
+		}
+		snapshot, err = i.StageEffectiveInstallConfigFunc(configDir, effectiveInstallConfig)
+		if err != nil {
+			return err
+		}
+		cmd += " -EffectiveInstallConfigPath " + utils.EscapeWithSingleQuotes(snapshot.Path())
 	}
 
 	slog.Debug("PS command created", "command", cmd)
@@ -85,11 +107,17 @@ func (i *Installer) Install(
 
 	err = i.ExecutePsScript(cmd, outputWriter)
 	if err != nil {
+		if snapshot != nil {
+			if abortErr := snapshot.Abort(); abortErr != nil {
+				return fmt.Errorf("installation failed: %w; snapshot cleanup failed: %v", err, abortErr)
+			}
+		}
+
 		// Check for pre-requisites first
 		errorLine, found := cc.GetInstallPreRequisiteError(outputWriter.ErrorLines)
 		if found {
 			i.Printer.PrintWarning("Prerequisite check failed,", errorLine)
-			i.Printer.PrintWarning("Have a look at the pre-requisites 'https://github.com/Siemens-Healthineers/K2s/blob/main/docs/op-manual/installing-k2s.md#prerequisites' and re-issue 'k2s install'")
+			i.Printer.PrintWarning("Have a look at the pre-requisites 'https://github.com/k2s-project/k2s/blob/main/docs/op-manual/installing-k2s.md#prerequisites' and re-issue 'k2s install'")
 			err = i.DeleteConfigFunc(configDir)
 			if err != nil {
 				slog.Debug("config file does not exist, nothing to do")
@@ -104,6 +132,12 @@ func (i *Installer) Install(
 			return cc.CreateSystemInCorruptedStateCmdFailure()
 		}
 		return err
+	}
+
+	if snapshot != nil {
+		if err := snapshot.Commit(); err != nil {
+			return err
+		}
 	}
 
 	cmdSession.Finish()

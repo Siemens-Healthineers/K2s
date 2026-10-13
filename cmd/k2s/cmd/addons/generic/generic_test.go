@@ -8,10 +8,10 @@ import (
 	"log/slog"
 	"testing"
 
-	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/common"
-	"github.com/siemens-healthineers/k2s/internal/test/reflection"
+	"github.com/k2s-project/k2s/cmd/k2s/cmd/common"
+	"github.com/k2s-project/k2s/internal/test/reflection"
 
-	"github.com/siemens-healthineers/k2s/internal/core/addons"
+	"github.com/k2s-project/k2s/internal/core/addons"
 
 	"github.com/go-logr/logr"
 	. "github.com/onsi/ginkgo/v2"
@@ -228,6 +228,54 @@ var _ = Describe("generic pkg", func() {
 	})
 
 	Describe("newAddonCmd", func() {
+		When("enabling storage addon", func() {
+			It("adds storage implementation guidance to command help", func() {
+				command := "enable"
+				addon := addons.Addon{
+					Metadata: addons.AddonMetadata{
+						Name: "storage",
+					},
+					Spec: addons.AddonSpec{
+						Implementations: []addons.Implementation{
+							{Name: "smb", Commands: &map[string]addons.AddonCmd{command: {}}},
+							{Name: "ceph", Commands: &map[string]addons.AddonCmd{command: {}}},
+						},
+					},
+				}
+
+				result, err := newAddonCmd(addon, command)
+
+				Expect(err).ToNot(HaveOccurred())
+				Expect(result.Long).To(ContainSubstring("only one storage implementation can be enabled at a time"))
+				Expect(result.Long).To(ContainSubstring("Choose either 'smb' or 'ceph'"))
+				Expect(result.Long).To(ContainSubstring("- smb:"))
+				Expect(result.Long).To(ContainSubstring("- ceph:"))
+			})
+
+			It("defaults the parent storage command to smb", func() {
+				command := "enable"
+				addon := addons.Addon{
+					Metadata: addons.AddonMetadata{
+						Name: "storage",
+					},
+					Spec: addons.AddonSpec{
+						Implementations: []addons.Implementation{
+							{Name: "smb", Commands: &map[string]addons.AddonCmd{command: {}}},
+							{Name: "ceph", Commands: &map[string]addons.AddonCmd{command: {}}},
+						},
+					},
+				}
+
+				result, err := newAddonCmd(addon, command)
+
+				Expect(err).ToNot(HaveOccurred())
+				Expect(result.RunE).ToNot(BeNil())
+				Expect(result.Commands()).To(HaveLen(2))
+				uses := []string{result.Commands()[0].Use, result.Commands()[1].Use}
+				Expect(uses).To(ContainElements("smb", "ceph"))
+			})
+		})
+
 		When("no CLI config exists", func() {
 			When("addon name and implementation name are the same", func() {
 				It("returns command without flags or examples", func() {

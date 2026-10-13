@@ -68,7 +68,7 @@ Write-Log 'Deploying Windows Exporter for Windows node metrics' -Console
 $windowsExporterPath = "$PSScriptRoot\..\common\manifests\windows-exporter"
 (Invoke-Kubectl -Params 'apply', '-k', $windowsExporterPath).Output | Write-Log
 
-$allPodsAreUp = (Wait-ForPodCondition -Condition Ready -Label 'k8s-app=metrics-server' -Namespace 'metrics' -TimeoutSeconds 120)
+$allPodsAreUp = (Wait-ForPodCondition -Condition Ready -Label 'k8s-app=metrics-server' -Namespace 'metrics' -TimeoutSeconds 900)
 
 if ($allPodsAreUp -ne $true) {
     $errMsg = "All metric server pods could not become ready. Please use kubectl describe for more details.`nInstallation of metrics-server failed."

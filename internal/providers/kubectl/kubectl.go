@@ -8,7 +8,7 @@ import (
 	"log/slog"
 	"path/filepath"
 
-	"github.com/siemens-healthineers/k2s/internal/os"
+	"github.com/k2s-project/k2s/internal/os"
 )
 
 type Kubectl struct {

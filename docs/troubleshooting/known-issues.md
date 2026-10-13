@@ -148,7 +148,7 @@ If you face network errors especially between *Linux* and *Microsoft* services, 
 ## *Microsoft* APIPA / Link-Local Address
 Another reason could be the *Windows* Automatic Private IP Addressing (APIPA). It is enabled by default in *Windows 10* and depending on the speed of the physical adapter, the CPU and the DHCP server, it may happen that *Windows* decides to use an "automatic APIPA address".
 
-There is a reserved IPv4 address block `169.254.0.0/16` (`169.254.0.0` – `169.254.255.255`) for link-local addressing. If such an address is chosen by *Microsoft*, it will no longer be overwritten by the DHCP server (depending on OS version). This will make the *flanneld* approach unusable. Such APIPA addresses are detected during the *K2s* start routine. A workaround is also provided the script [FixAutoconfiguration.ps1](https://github.com/Siemens-Healthineers/K2s/blob/main/smallsetup/FixAutoconfiguration.ps1){target="_blank"}.
+There is a reserved IPv4 address block `169.254.0.0/16` (`169.254.0.0` – `169.254.255.255`) for link-local addressing. If such an address is chosen by *Microsoft*, it will no longer be overwritten by the DHCP server (depending on OS version). This will make the *flanneld* approach unusable. Such APIPA addresses are detected during the *K2s* start routine. A workaround is also provided the script [FixAutoconfiguration.ps1](https://github.com/k2s-project/k2s/blob/main/smallsetup/FixAutoconfiguration.ps1){target="_blank"}.
 
 ![IMAGE here](assets/apipa_err.png)
 

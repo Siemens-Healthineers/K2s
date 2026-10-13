@@ -14,7 +14,7 @@ import (
 	"os"
 	"path/filepath"
 
-	ve "github.com/siemens-healthineers/k2s/internal/version"
+	ve "github.com/k2s-project/k2s/internal/version"
 
 	"github.com/kdomanski/iso9660"
 )

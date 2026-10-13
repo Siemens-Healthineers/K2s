@@ -19,14 +19,14 @@ import (
 	"strings"
 	"time"
 
-	ac "github.com/siemens-healthineers/k2s/cmd/k2s/cmd/addons/common"
-	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/common"
-	"github.com/siemens-healthineers/k2s/cmd/k2s/utils"
-	cconfig "github.com/siemens-healthineers/k2s/internal/contracts/config"
-	"github.com/siemens-healthineers/k2s/internal/core/addons"
-	"github.com/siemens-healthineers/k2s/internal/core/config"
-	k2sos "github.com/siemens-healthineers/k2s/internal/os"
-	"github.com/siemens-healthineers/k2s/internal/providers/powershell"
+	ac "github.com/k2s-project/k2s/cmd/k2s/cmd/addons/common"
+	"github.com/k2s-project/k2s/cmd/k2s/cmd/common"
+	"github.com/k2s-project/k2s/cmd/k2s/utils"
+	cconfig "github.com/k2s-project/k2s/internal/contracts/config"
+	"github.com/k2s-project/k2s/internal/core/addons"
+	"github.com/k2s-project/k2s/internal/core/config"
+	k2sos "github.com/k2s-project/k2s/internal/os"
+	"github.com/k2s-project/k2s/internal/providers/powershell"
 	"github.com/spf13/cobra"
 )
 

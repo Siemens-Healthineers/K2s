@@ -8,12 +8,12 @@ package cmd
 import (
 	"log/slog"
 
-	"github.com/siemens-healthineers/k2s/cmd/devgon/cmd/install"
-	"github.com/siemens-healthineers/k2s/cmd/devgon/cmd/remove"
-	"github.com/siemens-healthineers/k2s/cmd/devgon/cmd/version"
+	"github.com/k2s-project/k2s/cmd/devgon/cmd/install"
+	"github.com/k2s-project/k2s/cmd/devgon/cmd/remove"
+	"github.com/k2s-project/k2s/cmd/devgon/cmd/version"
 
-	"github.com/siemens-healthineers/k2s/internal/cli"
-	"github.com/siemens-healthineers/k2s/internal/logging"
+	"github.com/k2s-project/k2s/internal/cli"
+	"github.com/k2s-project/k2s/internal/logging"
 
 	"github.com/spf13/cobra"
 )

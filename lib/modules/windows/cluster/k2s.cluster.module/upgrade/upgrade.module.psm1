@@ -911,7 +911,7 @@ function Invoke-ClusterInstall {
 	# start new executable and do an install
 	$argsCall = 'install'
 	if ( $ShowLogs ) { $argsCall += ' -o' }
-	if ( -not [string]::IsNullOrEmpty($Config) ) { $argsCall += " -config $Config" }
+	if ( -not [string]::IsNullOrEmpty($Config) ) { $argsCall += " --config `"$Config`"" }
 	if ( -not [string]::IsNullOrEmpty($Proxy) ) { $argsCall += " --proxy $Proxy" }
 	if ( $DeleteFiles ) { $argsCall += ' -d' }
 	$argsCall += ' --append-log'
@@ -1108,6 +1108,79 @@ function Invoke-UpgradeBackupRestoreHooks {
 	if ($executionCount -eq 0) {
 		Write-Log 'No back-up/restore hooks found.'
 	}
+}
+
+function Backup-EffectiveInstallConfig {
+	param(
+		[Parameter(Mandatory = $true)]
+		[string] $BackupDir
+	)
+
+	$setupConfigPath = Get-SetupConfigFilePath
+	if (-not (Test-Path -LiteralPath $setupConfigPath -PathType Leaf)) {
+		return ''
+	}
+
+	$setupConfig = Get-Content -LiteralPath $setupConfigPath -Raw -ErrorAction Stop | ConvertFrom-Json -ErrorAction Stop
+	$snapshotProperty = $setupConfig.PSObject.Properties['EffectiveInstallConfigPath']
+	if ($null -eq $snapshotProperty -or [string]::IsNullOrWhiteSpace([string]$snapshotProperty.Value)) {
+		return ''
+	}
+
+	$sourcePath = [string]$snapshotProperty.Value
+	if (-not (Test-Path -LiteralPath $sourcePath -PathType Leaf)) {
+		Write-Log "[KubeletOverrides] Previous effective install configuration '$sourcePath' is missing; upgrade will continue without overrides." -Console
+		return ''
+	}
+
+	$null = New-Item -ItemType Directory -Path $BackupDir -Force -ErrorAction Stop
+	$targetPath = Join-Path $BackupDir 'effective-install-config.previous.json'
+	$temporaryPath = Join-Path $BackupDir ".effective-install-config-$([guid]::NewGuid().ToString('N')).tmp"
+	$sourceAcl = Get-Acl -LiteralPath $sourcePath -ErrorAction Stop
+	$sourceStream = $null
+	$targetStream = $null
+	$promoted = $false
+	try {
+		try {
+			$sourceStream = [System.IO.File]::Open($sourcePath, [System.IO.FileMode]::Open, [System.IO.FileAccess]::Read, [System.IO.FileShare]::Read)
+			$targetStream = New-Object System.IO.FileStream($temporaryPath, [System.IO.FileMode]::CreateNew, [System.Security.AccessControl.FileSystemRights]::FullControl, [System.IO.FileShare]::None, 4096, [System.IO.FileOptions]::WriteThrough, $sourceAcl)
+			$sourceStream.CopyTo($targetStream)
+			$targetStream.Flush($true)
+		}
+		finally {
+			if ($null -ne $targetStream) { $targetStream.Dispose() }
+			if ($null -ne $sourceStream) { $sourceStream.Dispose() }
+		}
+		if (Test-Path -LiteralPath $targetPath -PathType Leaf) {
+			[System.IO.File]::Replace($temporaryPath, $targetPath, $null)
+		}
+		else {
+			[System.IO.File]::Move($temporaryPath, $targetPath)
+		}
+		$promoted = $true
+		return $targetPath
+	}
+	finally {
+		if (-not $promoted -and (Test-Path -LiteralPath $temporaryPath -PathType Leaf)) {
+			Remove-Item -LiteralPath $temporaryPath -Force -ErrorAction SilentlyContinue
+		}
+	}
+}
+
+function Resolve-UpgradeInstallConfig {
+	param(
+		[string] $RequestedConfig,
+		[string] $PreviousConfig,
+		[switch] $Rollback
+	)
+
+	if ($Rollback) {
+		return $PreviousConfig
+	}
+	if (-not [string]::IsNullOrWhiteSpace($RequestedConfig)) {
+		return $RequestedConfig
+	}
+	return $PreviousConfig
 }
 
 function Remove-SetupConfigIfExisting {
@@ -1374,6 +1447,7 @@ function PerformClusterUpgrade {
 		}
 
 		Invoke-ClusterInstall @installParams
+		Enable-ClusterIsRunning -ShowLogs:$ShowLogs
 		Wait-ForAPIServerInGivenKubePath -KubePath $K2sPathToInstallFrom
 
 		# restore user application images FIRST - before importing resources to avoid image pulls
@@ -1783,6 +1857,6 @@ function Invoke-ImageRestore {
 Export-ModuleMember -Function Assert-UpgradeOperation, Enable-ClusterIsRunning, Assert-YamlTools, Export-ClusterResources, `
     Invoke-ClusterUninstall, Invoke-ClusterInstall, Import-NotNamespacedResources, Import-NamespacedResources, Remove-ExportedClusterResources, `
     Get-LinuxVMCores, Get-LinuxVMMemory, Get-LinuxVMStorageSize, Get-ClusterInstalledFolder, Backup-LogFile, Restore-LogFile, Restore-MergeLogFiles, `
-    Invoke-UpgradeBackupRestoreHooks, Remove-SetupConfigIfExisting, Get-TempPath, Wait-ForAPIServerInGivenKubePath, Get-KubeBinPathGivenKubePath, `
+    Invoke-UpgradeBackupRestoreHooks, Backup-EffectiveInstallConfig, Resolve-UpgradeInstallConfig, Remove-SetupConfigIfExisting, Get-TempPath, Wait-ForAPIServerInGivenKubePath, Get-KubeBinPathGivenKubePath, `
     Write-RefreshEnvVariablesGivenKubePath, Get-ProductVersionGivenKubePath, PrepareClusterUpgrade, PerformClusterUpgrade, Invoke-ImageBackup, Invoke-PVBackup, `
     Invoke-ImageRestore, Invoke-PVRestore

@@ -29,7 +29,7 @@ C:\ws\k2s\bin\bgol
     Without this step, `k2s.exe` and supporting tools will be missing and *K2s* will not function.
 
 ## Build *Go* projects
-Building *Go* based projects is done through [BuildGoExe.ps1](https://github.com/Siemens-Healthineers/K2s/blob/main/smallsetup/common/BuildGoExe.ps1){target="_blank"}
+Building *Go* based projects is done through [BuildGoExe.ps1](https://github.com/k2s-project/k2s/blob/main/smallsetup/common/BuildGoExe.ps1){target="_blank"}
 
 !!! tip
     `bgow.cmd` / `bgol.cmd` are shortcut commands to build all Go executables for Windows / Linux respectively.<br/>
@@ -94,7 +94,7 @@ GOOS=linux go build ./cmd/k2s
 
 ## Building Natively on Linux (no PowerShell)
 
-On a Linux developer machine you can build the Linux executables without PowerShell using the `build.sh` script (or the `Makefile` wrapper) in the repository root. Both mirror the same Go build flags and version metadata as [BuildGoExe.ps1](https://github.com/Siemens-Healthineers/K2s/blob/main/smallsetup/common/BuildGoExe.ps1){target="_blank"}.
+On a Linux developer machine you can build the Linux executables without PowerShell using the `build.sh` script (or the `Makefile` wrapper) in the repository root. Both mirror the same Go build flags and version metadata as [BuildGoExe.ps1](https://github.com/k2s-project/k2s/blob/main/smallsetup/common/BuildGoExe.ps1){target="_blank"}.
 
 Prerequisite: install [*Go*](https://go.dev/dl/){target="_blank"} (see `go.mod` for the required version).
 

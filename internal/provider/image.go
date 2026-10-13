@@ -33,6 +33,12 @@ type ImageProvider interface {
 
 	// Clean removes all non-K8s container images from the cluster.
 	Clean(config ImageCleanConfig) error
+
+	// RegistryAdd configures access to a container registry.
+	RegistryAdd(config ImageRegistryAddConfig) error
+
+	// RegistryRemove removes access to a container registry.
+	RegistryRemove(config ImageRegistryRemoveConfig) error
 }
 
 // ImageListConfig holds parameters for listing container images.
@@ -136,4 +142,22 @@ type ImagePushConfig struct {
 type ImageCleanConfig struct {
 	Nodes      string
 	ShowOutput bool
+}
+
+// ImageRegistryAddConfig holds parameters for adding access to a container registry.
+type ImageRegistryAddConfig struct {
+	RegistryName string
+	Username     string
+	Password     string
+	SkipVerify   bool
+	PlainHttp    bool
+	Nodes        string
+	ShowOutput   bool
+}
+
+// ImageRegistryRemoveConfig holds parameters for removing access to a container registry.
+type ImageRegistryRemoveConfig struct {
+	RegistryName string
+	Nodes        string
+	ShowOutput   bool
 }

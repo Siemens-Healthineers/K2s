@@ -82,6 +82,17 @@ To inspect the different install options, run:
 !!! note
     *K2s* will start automatically after the installation has finished.
 
+!!! note "Windows loopback adapter discovery"
+    During `k2s install`, Windows worker setup checks the device installer's exit
+    code and logs its output. It waits for the loopback adapter to become visible
+    using up to 31 queries, two seconds apart, rather than failing immediately
+    after device creation. Existing loopback devices removed during setup must
+    disappear before another device is installed; the same polling limit applies.
+    Device-command failures, discovery timeouts and multiple adapters remain
+    explicit installation errors. For diagnosis, inspect `k2s.log` in the configured
+    log directory (normally `C:\var\log`) and `C:\Windows\INF\setupapi.dev.log`.
+    This behavior applies to packages containing the fix, not older release packages.
+
 ### Installing Using Config Files
 Instead of assembling many command-line parameters/flags to customize the installation, you can also pass a YAML file to the `k2s install` command configuring install parameters like node resource definitions (e.g. CPU, RAM or size of the hard drive):
 ```console
@@ -144,7 +155,7 @@ Instead of assembling many command-line parameters/flags to customize the instal
     **To override auto-calculation:**
     - Set `memory` explicitly to control startup value (must be between min and max)
 
-To create a user-defined configuration for any of the hosting variants, take one of the corresponding [Base Configuration Files](https://github.com/Siemens-Healthineers/K2s/tree/main/cmd/k2s/cmd/install/config/embed){target="_blank"} as a template.
+To create a user-defined configuration for any of the hosting variants, take one of the corresponding [Base Configuration Files](https://github.com/k2s-project/k2s/tree/main/cmd/k2s/cmd/install/config/embed){target="_blank"} as a template.
 
 ### Online vs. Offline
 Downloading all dependencies (i.e. binaries) on-the-fly is referred to as *online* installation, whereas *offline* refers to an installation package containing parts of or all the dependencies. If *K2s* was acquired via [Downloading the Official Release Package](getting-k2s.md#option-2-downloading-official-release-package), parts of the dependencies are already available locally. If an offline package was create according to [Creating Offline Package](creating-offline-package.md), all dependencies are available offline.
@@ -200,15 +211,19 @@ To build and test containers without a *K8s* cluster, run:
 
 ### \[Experimental\] Linux Host
 
-The initial native Linux-host implementation supports **Debian 13** in
-Linux-only mode. The Kubernetes control plane runs directly on the host and
-uses **CRI-O** as its container runtime. Windows worker provisioning is not
-supported yet.
+The native Linux-host implementation supports **Debian 13**. The Kubernetes
+control plane runs directly on the host and uses **CRI-O** as its container
+runtime. By default, K2s also provisions one K2s-managed Windows worker with
+libvirt/KVM. Use `--linux-only` to install the native control plane without a
+Windows worker.
 
 Run the Linux binary with elevated privileges:
 
 ```console
 sudo ./k2s install --linux-only --proxy http://proxy.example:8080 --no-proxy localhost,127.0.0.1
+
+# Install the native control plane and a managed Windows worker from a prepared QCOW2 image.
+sudo ./k2s install --worker-cpus 4 --worker-memory 8GB --worker-disk 64GB --windows-qcow2-path /path/to/WindowsWorker-Base.qcow2
 ```
 
 The equivalent platform-first lifecycle entry point is
@@ -225,16 +240,46 @@ service forwards external traffic through `--proxy` when supplied. The given
 `--no-proxy` values are merged with K2s internal addresses and applied only to
 K2s services; the installer does not change global proxy environment settings.
 
-For workload pods, the same proxy is available at the configured
-`smallsetup.kubeSwitch` address from [cfg/config.json](https://github.com/Siemens-Healthineers/K2s/blob/main/cfg/config.json){target="_blank"}
-on port `8181`, matching the Windows-host and Linux-host topology. The proxy only accepts loopback, pod-CIDR, and service-CIDR clients.
+For workload pods and the managed Windows worker, the same proxy is available at the configured
+`smallsetup.kubeSwitch` address from [cfg/config.json](https://github.com/k2s-project/k2s/blob/main/cfg/config.json){target="_blank"}
+on port `8181`. The Linux implementation creates a K2s-owned `k2s-switch`
+libvirt NAT network with the same addressing contract as KubeSwitch. The proxy
+only accepts loopback, pod-CIDR, service-CIDR, and K2s-switch clients.
+
+The managed worker requires nested virtualization, `/dev/kvm`, a running
+`libvirtd` or `virtqemud`, `virsh`, `qemu-img`, OpenSSH tools, and a minimum remaining host
+reserve of 2GB memory and 20GB disk after the worker allocation. Worker memory
+must not exceed 75% of total host memory. Its default
+allocation is 4 CPUs, 8GB RAM, and a 64GB disk. K2s owns the domain, disk,
+network, and lifecycle; `k2s uninstall` removes these K2s-managed resources.
+
+For the first installation, supply a prepared Windows worker image with
+`--windows-qcow2-path`. K2s validates the QCOW2 format, imports it into the
+managed base-image cache at `/var/lib/libvirt/images/k2s/WindowsWorker-Base.qcow2`,
+and creates a disposable QCOW2 overlay from that cache for the worker. For
+repeatable offline use, preserve the cached image under
+`/var/lib/libvirt/images/k2s/` for later installations.
+
+Prepare the image with the temporary `remote` password bootstrap used to install
+the generated worker SSH key. See [Preparing a Windows Worker
+QCOW2](preparing-windows-worker-qcow2.md).
+
+The worker automatically selects legacy BIOS for an MBR partition table and
+standard OVMF UEFI for GPT. Its VNC console listens only on `127.0.0.1`; use
+`sudo virsh vncdisplay k2s-win-worker` to obtain the display number when
+diagnosing a failed boot. On an SSH timeout, K2s saves a console screenshot at
+`/var/lib/k2s/k2s-win-worker-console.png`.
 
 The following options are intentionally unavailable on a native Linux host:
 
-- Windows-worker installation (omit `--linux-only`)
 - `--master-cpus`, `--master-memory`, `--master-disk`, dynamic-memory options,
   and `--wsl`
 - `--force-online-installation`, offline artifact cleanup, and `--k8s-bins`
+
+Native Linux exposes `--worker-cpus`, `--worker-memory`, `--worker-disk`, and
+`--windows-qcow2-path`; Windows hosts do not expose these options. In an install
+configuration, the corresponding resource fields belong to the `worker` node
+entry and `windowsQCOW2Path` supplies the prepared image location.
 
 The administrator invoking `sudo` receives the generated kubeconfig at
 `~/.kube/config` after a successful installation.

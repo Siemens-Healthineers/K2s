@@ -192,6 +192,9 @@ k2s image ls [flags]
 
 Build a container image.
 
+> [!NOTE]
+> Building Windows container images (`--windows`) is only supported on Windows worker nodes and will return an error when invoked on a Linux-only installation.
+
 ```console
 k2s image build [flags]
 ```
@@ -302,6 +305,9 @@ k2s image clean
 
 Reset the containerd and Docker image storage on Windows nodes.
 
+> [!NOTE]
+> Resetting Windows container storage is Windows-specific and is not supported on Linux-only or Linux host installations.
+
 ```console
 k2s image reset-win-storage [flags]
 ```
@@ -317,6 +323,8 @@ k2s image reset-win-storage [flags]
 ### image registry
 
 Manage configured container registries.
+
+On Linux hosts, registry additions and removals configure `/etc/containers/registries.conf.d/` drop-in files and Buildah credentials natively without PowerShell.
 
 #### image registry add
 

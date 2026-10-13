@@ -22,6 +22,6 @@ SPDX-License-Identifier: MIT
 
 See [*k2s* CLI](../user-guide/k2s-cli.md) and [CLI Shortcuts](../user-guide/cli-shortcuts.md) for more means to interact with the *K2s* cluster.
 
-Optionally, install one or more [*K2s* Addons](https://github.com/Siemens-Healthineers/K2s/blob/main/addons/README.md){target="_blank"} for additional functionality.
+Optionally, install one or more [*K2s* Addons](https://github.com/k2s-project/k2s/blob/main/addons/README.md){target="_blank"} for additional functionality.
 
 To create an offline installer first, check out [Creating Offline Package](../op-manual/creating-offline-package.md).

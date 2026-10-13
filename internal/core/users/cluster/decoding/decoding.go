@@ -8,7 +8,7 @@ import (
 	"fmt"
 	"log/slog"
 
-	"github.com/siemens-healthineers/k2s/internal/providers/kubeconfig"
+	"github.com/k2s-project/k2s/internal/providers/kubeconfig"
 )
 
 func DecodeK8sApiCredentials(clusterConfig *kubeconfig.Cluster, userConfig *kubeconfig.User) (caCert, userCert, userKey []byte, err error) {

@@ -5,7 +5,7 @@ SPDX-License-Identifier: MIT
 
 # Customizing Kubelet Configuration
 
-By default, *K2s* installs kubelet with standard Kubernetes defaults on both the Linux control-plane node and the Windows worker node. This page describes how to customize kubelet settings using the **kubelet configuration drop-in directory**, a feature that became generally available in Kubernetes 1.30.
+By default, *K2s* installs kubelet with standard Kubernetes defaults on both the Linux control-plane node and the Windows worker node. This page describes managed role-based overrides in the install configuration and manual customization through the **kubelet configuration drop-in directory**, a feature that became generally available in Kubernetes 1.30.
 
 ## Overview
 
@@ -19,9 +19,46 @@ Kubelet reads its configuration from a base file (`config.yaml`, managed by kube
 Drop-in files are read in **alphabetical order**. Each file is a partial `KubeletConfiguration` — only include the fields you want to override. Later files override earlier ones, and all override the base config.
 
 !!! note
-    *K2s* configures the kubelet drop-in directory on both Linux and Windows nodes during installation. You only need to place your override files and restart kubelet.
+    *K2s* configures the kubelet drop-in directory on both Linux and Windows nodes during installation. Use managed install configuration for supported settings, or place a separate manual override file and restart kubelet.
 
-## Customizing the Linux Control-Plane Node
+## Managed Overrides in Install Configuration
+
+On a Windows host, `k2s install -c <file>` can manage overrides for the Linux control plane and the optional Windows worker. This works with both Hyper-V and supported WSL control-plane installations. Native Linux-host installation is unchanged.
+
+```yaml
+kubeletOverrides:
+  linuxControlPlane:
+    enabled: true
+    config:
+      maxPods: 100
+      systemReserved:
+        cpu: "500m"
+        memory: "1Gi"
+      kubeReserved:
+        cpu: "250m"
+        memory: "512Mi"
+  windowsWorker:
+    enabled: true
+    config:
+      maxPods: 100
+```
+
+Only `maxPods`, `systemReserved.cpu`, `systemReserved.memory`, `kubeReserved.cpu`, and `kubeReserved.memory` are accepted. Resource values use Kubernetes quantity syntax. Unknown roles or fields, invalid quantities, and mistyped values fail validation before provisioning starts.
+
+K2s renders deterministic partial `KubeletConfiguration` files at these fixed paths:
+
+| Role | Managed file |
+|------|--------------|
+| Linux control plane | `/etc/kubernetes/kubelet.conf.d/20-k2s-install-config.conf` |
+| Windows worker | `C:\etc\kubernetes\kubelet.conf.d\20-k2s-install-config.conf` |
+
+The first line is `# This file is managed by K2s. Do not edit.` K2s changes only this fixed file and leaves unrelated drop-ins untouched. If the fixed path already contains an unmarked file, installation fails instead of replacing it. Omitting a role or setting `enabled: false` removes a previous K2s-managed file for that role. A running kubelet is restarted only when managed content changes.
+
+For `k2s install --linux-only` on a Windows host, Linux control-plane overrides are applied and configured Windows worker overrides are skipped with a warning. The optional role does not cause installation to fail when its node is absent.
+
+The feature requires no network access. The normalized install configuration is passed internally to node provisioning, so the same behavior is available for air-gapped installation.
+
+## Manual Overrides on the Linux Control-Plane Node
 
 On the Linux node, kubeadm configures the kubelet systemd unit with `--config-dir=/etc/kubernetes/kubelet.conf.d` automatically (Kubernetes >= 1.30). Drop-in files placed in this directory are read on kubelet startup without any additional changes.
 
@@ -44,18 +81,18 @@ evictionHard:
   nodefs.available: "10%"
 ```
 
-Save this file locally, e.g. as `C:\temp\20-custom.conf`.
+Save this file locally, for example as `C:\temp\30-custom.conf`.
 
 ### 2. Copy the file to the Linux node
 
 ```console
-k2s node copy -i 172.19.1.100 -u remote -s C:\temp\20-custom.conf -t /tmp/20-custom.conf
+k2s node copy -i 172.19.1.100 -u remote -s C:\temp\30-custom.conf -t /tmp/30-custom.conf
 ```
 
 ### 3. Place it in the drop-in directory
 
 ```console
-k2s node exec -i 172.19.1.100 -u remote -c "sudo mkdir -p /etc/kubernetes/kubelet.conf.d && sudo cp /tmp/20-custom.conf /etc/kubernetes/kubelet.conf.d/20-custom.conf"
+k2s node exec -i 172.19.1.100 -u remote -c "sudo mkdir -p /etc/kubernetes/kubelet.conf.d && sudo cp /tmp/30-custom.conf /etc/kubernetes/kubelet.conf.d/30-custom.conf"
 ```
 
 ### 4. Restart kubelet
@@ -94,7 +131,7 @@ maxPods: 100
 systemReserved:
   cpu: "500m"
   memory: "1Gi"
-"@ | Set-Content -Path "C:\etc\kubernetes\kubelet.conf.d\20-custom.conf" -Encoding UTF8
+"@ | Set-Content -Path "C:\etc\kubernetes\kubelet.conf.d\30-custom.conf" -Encoding UTF8
 ```
 
 ### 2. Restart the cluster
@@ -166,39 +203,41 @@ With these settings, the Kubernetes scheduler sees reduced `Allocatable` resourc
 
 ## Important Notes
 
-!!! warning "Custom settings are lost on install and upgrade"
-    Drop-in files **persist** across `k2s stop` / `k2s start` cycles — kubelet re-reads them on every startup.
+!!! warning "Manual drop-ins are lost on install and upgrade"
+    Drop-in files persist across `k2s stop` / `k2s start` cycles because kubelet re-reads them on every startup.
 
-    However, **custom drop-in files are lost** when running `k2s install` or `k2s system upgrade`, because both perform a full reinstall:
+    Managed `kubeletOverrides` are recreated automatically during installation and full upgrade. When `k2s system upgrade` is run without `-c`, K2s reuses the previous effective install configuration. Supplying `-c` replaces it, and rollback uses the staged previous configuration.
+
+    Separate user-created drop-ins are still lost during a full reinstall:
 
     - **Windows**: The entire `C:\etc\` directory tree is deleted and recreated
     - **Linux**: The VM is destroyed and provisioned from scratch
 
-    The K2s default drop-in (`00-k2s-defaults.conf`) is re-deployed automatically, but any user-created files (e.g. `20-custom.conf`) must be re-applied manually.
+    The K2s default drop-in (`00-k2s-defaults.conf`) and managed `20-k2s-install-config.conf` are re-deployed automatically. Other user-created files (for example, `30-custom.conf`) must be re-applied manually.
 
-    **You must re-apply your custom kubelet configuration after every install or upgrade.**
+    For settings outside the managed allowlist, re-apply the manual drop-in after every install or full upgrade.
 
-    Recommended workflow:
+    Recommended manual workflow:
 
-    1. Store your custom drop-in files in a version-controlled location outside K2s (e.g. a Git repository or a shared drive)
+    1. Store manual drop-in files in a version-controlled location outside K2s (for example, a Git repository or shared drive).
     2. After `k2s install` or `k2s system upgrade` completes, re-apply them:
 
     ```powershell
     # Windows worker node
-    Copy-Item ".\my-kubelet-overrides\20-custom.conf" "C:\etc\kubernetes\kubelet.conf.d\"
+    Copy-Item ".\my-kubelet-overrides\30-custom.conf" "C:\etc\kubernetes\kubelet.conf.d\"
     nssm restart kubelet
     ```
 
     ```console
     # Linux control-plane node
-    k2s node copy -i 172.19.1.100 -u remote -s .\my-kubelet-overrides\20-custom.conf -t /tmp/20-custom.conf
-    k2s node exec -i 172.19.1.100 -u remote -c "sudo cp /tmp/20-custom.conf /etc/kubernetes/kubelet.conf.d/20-custom.conf && sudo systemctl restart kubelet"
+    k2s node copy -i 172.19.1.100 -u remote -s .\my-kubelet-overrides\30-custom.conf -t /tmp/30-custom.conf
+    k2s node exec -i 172.19.1.100 -u remote -c "sudo cp /tmp/30-custom.conf /etc/kubernetes/kubelet.conf.d/30-custom.conf && sudo systemctl restart kubelet"
     ```
 
     Alternatively, use the [Hook System](hook-system.md) to automate re-application via a post-install hook script.
 
 !!! info "K2s defaults"
-    *K2s* ships a `00-k2s-defaults.conf` drop-in file on the Windows worker node that sets `enforceNodeAllocatable: []`. Your custom files (e.g. `20-custom.conf`) are merged after it and can override any of its settings.
+    *K2s* ships a `00-k2s-defaults.conf` drop-in file on the Windows worker node that sets `enforceNodeAllocatable: []`. The managed `20-k2s-install-config.conf` is merged after it. Name separate manual files later in lexical order, for example `30-custom.conf`, when they must override managed values.
 
 !!! info "Validation"
     Kubelet validates the merged configuration on startup. If an override file contains invalid field names or values, kubelet will fail to start. Always check kubelet logs after applying changes.

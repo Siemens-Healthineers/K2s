@@ -9,9 +9,9 @@ import (
 	"os"
 	"testing"
 
-	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/common"
+	"github.com/k2s-project/k2s/cmd/k2s/cmd/common"
 
-	r "github.com/siemens-healthineers/k2s/internal/test/reflection"
+	r "github.com/k2s-project/k2s/internal/test/reflection"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -444,6 +444,22 @@ var _ = Describe("config", func() {
 			})
 		})
 
+		When("nodes have worker role", func() {
+			It("returns nil", func() {
+				kind := "test-kind"
+				nodes := []any{map[string]any{"role": WorkerRoleName}}
+
+				config := viper.New()
+				config.Set("kind", kind)
+				config.Set("apiVersion", SupportedApiVersion)
+				config.Set("nodes", nodes)
+
+				sut := &userConfigValidator{}
+
+				Expect(sut.validate(Kind(kind), config)).To(Succeed())
+			})
+		})
+
 		When("no nodes exist", func() {
 			It("returns nil", func() {
 				kind := "test-kind"
@@ -494,6 +510,26 @@ var _ = Describe("config", func() {
 				Expect(actual).ToNot(BeNil())
 				Expect(actual.Kind).To(Equal(kind))
 				Expect(actual.ApiVersion).To(Equal(apiVersion))
+			})
+
+			It("converts user-facing environment keys for snapshot reuse", func() {
+				config := viper.New()
+				config.Set("env.httpProxy", "http://proxy")
+				config.Set("env.noProxy", []string{"localhost"})
+				config.Set("env.additionalHooksDir", "C:\\hooks")
+				config.Set("env.restartPostInstallCount", "2")
+				config.Set("env.k8sBins", "C:\\bins")
+
+				actual, err := (&viperConfigConverter{}).convert(config)
+
+				Expect(err).ToNot(HaveOccurred())
+				Expect(actual.Env).To(Equal(EnvConfig{
+					Proxy:              "http://proxy",
+					NoProxy:            []string{"localhost"},
+					AdditionalHooksDir: "C:\\hooks",
+					RestartPostInstall: "2",
+					K8sBins:            "C:\\bins",
+				}))
 			})
 		})
 	})

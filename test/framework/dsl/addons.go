@@ -5,7 +5,7 @@ package dsl
 
 import (
 	"github.com/samber/lo"
-	"github.com/siemens-healthineers/k2s/internal/contracts/config"
+	"github.com/k2s-project/k2s/internal/contracts/config"
 
 	//lint:ignore ST1001 test framework code
 	. "github.com/onsi/gomega"

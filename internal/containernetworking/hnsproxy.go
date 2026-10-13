@@ -18,8 +18,8 @@ import (
 	"time"
 
 	"github.com/Microsoft/hcsshim/hcn"
-	"github.com/siemens-healthineers/k2s/internal/logging"
-	kos "github.com/siemens-healthineers/k2s/internal/os"
+	"github.com/k2s-project/k2s/internal/logging"
+	kos "github.com/k2s-project/k2s/internal/os"
 )
 
 type Policy struct {

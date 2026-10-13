@@ -799,5 +799,5 @@ Get-L2BridgeSwitchName,
 Set-IPAddressAndDnsClientServerAddress, Set-WSLSwitch,
 Add-VfpRulesToWindowsNode, Remove-VfpRulesFromWindowsNode, Get-ConfiguredClusterCIDRNextHop,
 Add-VfpRoute, Remove-VfpRoute, Get-VirtualSwitchName, Set-KubeSwitchToPrivate, Invoke-HNSCommand,
-Wait-ForServiceStopped, Test-KubeSwitchPrivateProfile,
+Wait-ForServiceStopped, Wait-ForServiceRunning, Test-KubeSwitchPrivateProfile,
 Add-HostBridgeIpReservation, Remove-HostBridgeIpReservation

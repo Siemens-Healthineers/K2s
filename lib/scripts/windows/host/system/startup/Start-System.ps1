@@ -339,6 +339,7 @@ function Restart-FlannelDaemonSetWithWindowsRouteRepair {
     param(
         [Parameter(Mandatory = $true)]
         [string]$KubeConfigPath,
+        [ValidateRange(1, 10)]
         [int]$MaxAttempts = 3
     )
 
@@ -357,10 +358,7 @@ function Restart-FlannelDaemonSetWithWindowsRouteRepair {
                 continue
             }
 
-            Write-Log "[$logUseCase] WARNING: Proceeding with a single flannel restart without Windows route validation"
-            $restartResult = Invoke-KubectlWithKubeConfig -KubeConfigPath $KubeConfigPath -Params @('rollout', 'restart', 'daemonset/kube-flannel-ds', '-n', 'kube-flannel')
-            $restartResult.Output | Write-Log
-            return
+            throw "[$logUseCase] Cannot validate Windows pod routes after $MaxAttempts attempts"
         }
 
         $windowsNodeRoutes = $windowsNodeRouteResult.Routes
@@ -369,6 +367,9 @@ function Restart-FlannelDaemonSetWithWindowsRouteRepair {
             Write-Log "[$logUseCase] No Windows worker nodes found, restarting flannel daemonset once"
             $restartResult = Invoke-KubectlWithKubeConfig -KubeConfigPath $KubeConfigPath -Params @('rollout', 'restart', 'daemonset/kube-flannel-ds', '-n', 'kube-flannel')
             $restartResult.Output | Write-Log
+            if (-not $restartResult.Success) {
+                throw "[$logUseCase] Failed to restart flannel: $($restartResult.Output)"
+            }
             return
         }
 
@@ -377,6 +378,9 @@ function Restart-FlannelDaemonSetWithWindowsRouteRepair {
 
         $restartResult = Invoke-KubectlWithKubeConfig -KubeConfigPath $KubeConfigPath -Params @('rollout', 'restart', 'daemonset/kube-flannel-ds', '-n', 'kube-flannel')
         $restartResult.Output | Write-Log
+        if (-not $restartResult.Success) {
+            throw "[$logUseCase] Failed to restart flannel: $($restartResult.Output)"
+        }
 
         $statusResult = Invoke-KubectlWithKubeConfig -KubeConfigPath $KubeConfigPath -Params @('rollout', 'status', 'daemonset/kube-flannel-ds', '-n', 'kube-flannel', '--timeout=120s')
         if ($statusResult.Success) {
@@ -387,36 +391,97 @@ function Restart-FlannelDaemonSetWithWindowsRouteRepair {
         }
 
         $missingRoutes = Get-MissingWindowsPodRoutesOnControlPlane -WindowsNodeRoutes $windowsNodeRoutes
-        if ($missingRoutes.Count -eq 0) {
+        if ($statusResult.Success -and $missingRoutes.Count -eq 0) {
             Write-Log "[$logUseCase] Flannel host-gw routes to Windows pod CIDR(s) are present"
             return
         }
 
-        $missingRouteDescriptions = $missingRoutes | ForEach-Object { "$($_.PodCIDR) via $($_.InternalIP) ($($_.NodeName))" }
-        Write-Log "[$logUseCase] WARNING: Missing flannel route(s) after restart: $($missingRouteDescriptions -join '; ')"
+        if ($missingRoutes.Count -gt 0) {
+            $missingRouteDescriptions = $missingRoutes | ForEach-Object { "$($_.PodCIDR) via $($_.InternalIP) ($($_.NodeName))" }
+            Write-Log "[$logUseCase] WARNING: Missing flannel route(s) after restart: $($missingRouteDescriptions -join '; ')"
+        }
 
         if ($attempt -lt $MaxAttempts) {
             Start-Sleep -Seconds 5
         }
     }
 
-    Write-Log "[$logUseCase] WARNING: Could not repair flannel host-gw route(s) to Windows nodes after retries"
+    throw "[$logUseCase] Could not repair flannel host-gw route(s) to Windows nodes after $MaxAttempts attempts"
+}
+
+function Stop-StartupNetworkingServices {
+    foreach ($serviceName in @('kubeproxy', 'kubelet', 'flanneld')) {
+        Stop-Service -Name $serviceName -Force -NoWait -ErrorAction Stop
+        if (-not (Wait-ForServiceStopped -ServiceName $serviceName -MaxRetries 10 -SleepSeconds 1)) {
+            throw "[$logUseCase] Cannot recover startup networking: service '$serviceName' did not stop"
+        }
+    }
+}
+
+function Initialize-StartupWindowsNetwork {
+    [CmdletBinding()]
+    param(
+        [ValidateRange(1, 5)]
+        [int]$MaxAttempts = 3,
+        [string]$PodSubnetworkNumber = '1'
+    )
+
+    for ($attempt = 1; $attempt -le $MaxAttempts; $attempt++) {
+        Write-Log "[$logUseCase] Stabilizing Windows startup network (attempt $attempt/$MaxAttempts)"
+        Stop-StartupNetworkingServices
+        Test-DefaultSwitch -ResolveConflict -SwitchObservationSeconds 30
+        try {
+            Confirm-LoopbackAdapterIP
+            Remove-FlannelConflictingRoutesOnLoopback
+            Start-Service -Name 'flanneld' -ErrorAction Stop
+            if (-not (Wait-ForServiceRunning -ServiceName 'flanneld')) {
+                throw "[$logUseCase] flanneld did not start during Windows network recovery"
+            }
+            Wait-NetworkL2BridgeReady -PodSubnetworkNumber $PodSubnetworkNumber
+            Add-HostBridgeIpReservation -PodSubnetworkNumber $PodSubnetworkNumber
+            Test-DefaultSwitch -SwitchObservationSeconds 30
+        }
+        catch {
+            $startupError = $_
+            # A late collision can prevent cbr0 readiness before the final check.
+            try {
+                Test-DefaultSwitch
+            }
+            catch {
+                $startupError = $_
+            }
+            # Retry only a late subnet collision, not an unrelated inspection failure.
+            $message = $startupError.Exception.Message
+            if (-not $message.StartsWith('[PREREQ-FAILED] Hyper-V Default Switch subnet (') -or
+                -not $message.Contains('collides with K2s network configuration')) {
+                throw $startupError
+            }
+            Write-Log "[$logUseCase] Default Switch changed during network initialization: $message" -Console
+            Stop-StartupNetworkingServices
+            if ($attempt -eq $MaxAttempts) {
+                throw $startupError
+            }
+            continue
+        }
+
+        Write-Log "[$logUseCase] Windows startup network validated before Linux route repair"
+        return
+    }
 }
 
 # Ensures flanneld, kubelet, and kubeproxy are running and refreshes Linux-side
 # DaemonSets. Called both after L2 bridge recreation (unclean reboot with cbr0
 # removed) and when cbr0 survived a reboot but services aren't running.
 function Start-K8sNetworkingServices {
+    Initialize-StartupWindowsNetwork
     Write-Log "[$logUseCase] Ensuring flanneld, kubelet and kubeproxy are running"
 
-    # Remove broken flannel routes on Loopbackk2s BEFORE starting flanneld.
-    # Must run first because flanneld's host-gw backend actively maintains routes
-    # and would re-add them if already running when we try to remove.
-    Remove-FlannelConflictingRoutesOnLoopback
-
-    Start-Service -Name 'flanneld' -ErrorAction SilentlyContinue
-    Start-Service -Name 'kubelet' -ErrorAction SilentlyContinue
-    Start-Service -Name 'kubeproxy' -ErrorAction SilentlyContinue
+    foreach ($serviceName in @('kubelet', 'kubeproxy')) {
+        Start-Service -Name $serviceName -ErrorAction Stop
+        if (-not (Wait-ForServiceRunning -ServiceName $serviceName)) {
+            throw "[$logUseCase] Service '$serviceName' did not start"
+        }
+    }
 
     # Restore kubelet and kubeproxy to auto-start in case Stop-System.ps1
     # set them to SERVICE_DEMAND_START during a previous shutdown.
@@ -433,38 +498,46 @@ function Start-K8sNetworkingServices {
     # (results in Unauthorized errors in their logs).
     # Must use explicit --kubeconfig because this script runs as LOCAL SYSTEM
     # (via httpproxy NSSM service), which has no user-level KUBECONFIG env var.
-    $kubeBinPathTools = Get-KubeToolsPath
     $kubeConfigPath = "$(Get-KubePath)\config"
     $controlPlaneHostname = Get-ConfigControlPlaneNodeHostname
     Write-Log "[$logUseCase] Waiting for API server before restarting system DaemonSets (kubeconfig: $kubeConfigPath)..."
     try {
         $apiReady = $false
         for ($attempt = 1; $attempt -le 20; $attempt++) {
-            $ErrorActionPreference = 'Continue'
-            $waitResult = &"$kubeBinPathTools\kubectl.exe" --kubeconfig="$kubeConfigPath" wait --timeout=30s --for=condition=Ready -n kube-system "pod/kube-apiserver-$($controlPlaneHostname.ToLower())" 2>&1
-            $ErrorActionPreference = 'Stop'
-            if ($waitResult -match 'condition met') {
+            $waitResult = Invoke-KubectlWithKubeConfig -KubeConfigPath $kubeConfigPath -Params @(
+                'wait', '--timeout=30s', '--for=condition=Ready', '-n', 'kube-system',
+                "pod/kube-apiserver-$($controlPlaneHostname.ToLower())"
+            )
+            if ($waitResult.Success) {
                 $apiReady = $true
                 break
             }
-            Write-Log "[$logUseCase] API server not ready yet (attempt $attempt/20): $waitResult"
+            Write-Log "[$logUseCase] API server not ready yet (attempt $attempt/20): $($waitResult.Output)"
             Start-Sleep -Seconds 2
         }
         if ($apiReady) {
             Write-Log "[$logUseCase] Restarting Linux-side system DaemonSets to refresh service account tokens..."
-            (Invoke-KubectlWithKubeConfig -KubeConfigPath $kubeConfigPath -Params @('rollout', 'restart', 'daemonset/kube-proxy', '-n', 'kube-system')).Output | Write-Log
+            $proxyRestart = Invoke-KubectlWithKubeConfig -KubeConfigPath $kubeConfigPath -Params @('rollout', 'restart', 'daemonset/kube-proxy', '-n', 'kube-system')
+            $proxyRestart.Output | Write-Log
+            if (-not $proxyRestart.Success) {
+                throw "[$logUseCase] Failed to restart Linux kube-proxy: $($proxyRestart.Output)"
+            }
             Restart-FlannelDaemonSetWithWindowsRouteRepair -KubeConfigPath $kubeConfigPath -MaxAttempts 6
-            (Invoke-KubectlWithKubeConfig -KubeConfigPath $kubeConfigPath -Params @('rollout', 'restart', 'deployment/coredns', '-n', 'kube-system')).Output | Write-Log
+            $dnsRestart = Invoke-KubectlWithKubeConfig -KubeConfigPath $kubeConfigPath -Params @('rollout', 'restart', 'deployment/coredns', '-n', 'kube-system')
+            $dnsRestart.Output | Write-Log
+            if (-not $dnsRestart.Success) {
+                throw "[$logUseCase] Failed to restart CoreDNS: $($dnsRestart.Output)"
+            }
             Write-Log "[$logUseCase] Linux-side system DaemonSet restart completed"
         } else {
-            Write-Log "[$logUseCase] WARNING: API server not ready after 20 attempts, skipping DaemonSet restart"
+            throw "[$logUseCase] API server not ready after 20 attempts; startup network recovery incomplete"
         }
     } catch {
-        Write-Log "[$logUseCase] WARNING: Failed to restart Linux-side DaemonSets: $_"
+        Write-Log "[$logUseCase] Failed to restart Linux-side DaemonSets: $_" -Console
+        throw
     }
 }
 
-$networkStartupAttempted = $false
 try {
     Write-Log "[$logUseCase] started"
 
@@ -480,8 +553,6 @@ try {
         Write-Log "[$logUseCase] finished"
         return
     }
-
-    $networkStartupAttempted = $true
 
     # check if there is an HNS network with l2 bridge
     $PodSubnetworkNumber = '1'
@@ -543,15 +614,7 @@ try {
                 # HNS policies against a transient cbr0 that flannel created before Start-System ran.
                 # We must stop and restart them so they reprogram policies against the proper cbr0.
                 Write-Log "[$logUseCase] Stopping kubeproxy, kubelet and flanneld services..."
-                Stop-Service -Name 'kubeproxy' -Force -ErrorAction SilentlyContinue
-                Stop-Service -Name 'kubelet' -Force -ErrorAction SilentlyContinue
-                Stop-Service -Name 'flanneld' -Force -ErrorAction SilentlyContinue
-                $stopped = Wait-ForServiceStopped -ServiceName 'flanneld' -MaxRetries 10 -SleepSeconds 1
-                if (-not $stopped) {
-                    Write-Log "[$logUseCase] WARNING: flanneld service did not stop cleanly, continuing anyway"
-                }
-                Wait-ForServiceStopped -ServiceName 'kubelet' -MaxRetries 10 -SleepSeconds 1
-                Wait-ForServiceStopped -ServiceName 'kubeproxy' -MaxRetries 10 -SleepSeconds 1
+                Stop-StartupNetworkingServices
 
                 # Additional delay to ensure flanneld releases all L2 bridge resources
                 Start-Sleep -Seconds 2
@@ -566,13 +629,6 @@ try {
                     New-ExternalSwitch -adapterName $adapterName -PodSubnetworkNumber $PodSubnetworkNumber
                     Set-LoopbackAdapterExtendedProperties -AdapterName $adapterName -DnsServers $DnsServers
                     Write-Log "[$logUseCase] External switch recreated successfully, restart networking services"
-                    Confirm-LoopbackAdapterIP
-                    Start-Service -Name 'flanneld' -ErrorAction SilentlyContinue
-                    Write-Log "[$logUseCase] Waiting for k8s L2 bridge network to be ready"
-                    Wait-NetworkL2BridgeReady -PodSubnetworkNumber $PodSubnetworkNumber
-                    Add-HostBridgeIpReservation -PodSubnetworkNumber $PodSubnetworkNumber
-                    Write-Log "[$logUseCase] L2 bridge network is ready"
-
                     Start-K8sNetworkingServices
 
                     Write-Log "[$logUseCase] Attempt to repair kubeswitch"
@@ -594,10 +650,6 @@ try {
     }
 }
 catch {
-    if ($networkStartupAttempted) {
-        Confirm-LoopbackAdapterIP
-        Start-Service -Name 'flanneld' -ErrorAction SilentlyContinue
-    }
     Write-Log "[$logUseCase] $($_.Exception.Message) - $($_.ScriptStackTrace)" -Error
 
     throw $_

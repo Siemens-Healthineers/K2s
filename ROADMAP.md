@@ -44,7 +44,7 @@ The project focuses on:
 The best way to influence the roadmap is to open or comment on a GitHub issue:
 
 ```text
-https://github.com/Siemens-Healthineers/K2s/issues
+https://github.com/k2s-project/k2s/issues
 ```
 
 For substantial changes, please discuss the proposal with maintainers before investing in a large implementation.

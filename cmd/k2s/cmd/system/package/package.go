@@ -11,13 +11,13 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/common"
-	nodepackage "github.com/siemens-healthineers/k2s/cmd/k2s/cmd/system/package/node"
-	cconfig "github.com/siemens-healthineers/k2s/internal/contracts/config"
-	"github.com/siemens-healthineers/k2s/internal/core/config"
-	"github.com/siemens-healthineers/k2s/internal/providers/powershell"
+	"github.com/k2s-project/k2s/cmd/k2s/cmd/common"
+	nodepackage "github.com/k2s-project/k2s/cmd/k2s/cmd/system/package/node"
+	cconfig "github.com/k2s-project/k2s/internal/contracts/config"
+	"github.com/k2s-project/k2s/internal/core/config"
+	"github.com/k2s-project/k2s/internal/providers/powershell"
 
-	"github.com/siemens-healthineers/k2s/cmd/k2s/utils"
+	"github.com/k2s-project/k2s/cmd/k2s/utils"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"

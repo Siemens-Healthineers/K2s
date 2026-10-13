@@ -9,7 +9,7 @@ import (
 	"fmt"
 	"os/user"
 
-	"github.com/siemens-healthineers/k2s/internal/contracts/users"
+	"github.com/k2s-project/k2s/internal/contracts/users"
 )
 
 func CurrentUser() (*users.OSUser, error) {

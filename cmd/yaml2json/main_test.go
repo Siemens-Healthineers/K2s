@@ -16,7 +16,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/gexec"
-	"github.com/siemens-healthineers/k2s/internal/cli"
+	"github.com/k2s-project/k2s/internal/cli"
 )
 
 type TestContent struct {
@@ -61,7 +61,7 @@ func TestYaml2json(t *testing.T) {
 
 var _ = BeforeSuite(func() {
 	var err error
-	exePath, err = gexec.Build("github.com/siemens-healthineers/k2s/cmd/yaml2json")
+	exePath, err = gexec.Build("github.com/k2s-project/k2s/cmd/yaml2json")
 	Expect(err).ToNot(HaveOccurred())
 
 	GinkgoWriter.Println("temp exe path:", exePath)

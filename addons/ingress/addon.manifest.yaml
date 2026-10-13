@@ -35,6 +35,9 @@ spec:
               - name: omitCertMgr
                 description: Omit cert-manager installation
                 default: false
+                omittedImages:
+                  fromFiles:
+                    - ../../common/manifests/certmanager/cert-manager.yaml
             examples:
               - cmd: k2s addons enable ingress nginx
                 comment: Enable ingress nginx in k2s
@@ -78,6 +81,9 @@ spec:
               - name: omitCertMgr
                 description: Omit cert-manager installation
                 default: false
+                omittedImages:
+                  fromFiles:
+                    - ../../common/manifests/certmanager/cert-manager.yaml
             examples:
               - cmd: k2s addons enable ingress traefik
                 comment: Enable ingress traefik in k2s
@@ -122,6 +128,9 @@ spec:
               - name: omitCertMgr
                 description: Omit cert-manager installation (TLS certificates must be provided manually)
                 default: false
+                omittedImages:
+                  fromFiles:
+                    - ../../common/manifests/certmanager/cert-manager.yaml
             examples:
               - cmd: k2s addons enable ingress nginx-gw
                 comment: Enable ingress nginx-gw in k2s

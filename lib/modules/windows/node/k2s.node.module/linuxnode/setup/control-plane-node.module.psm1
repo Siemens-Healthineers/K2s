@@ -39,7 +39,9 @@ function New-ControlPlaneNodeOnNewVM {
         [parameter(Mandatory = $false, HelpMessage = 'Exit after initial checks')]
         [switch] $CheckOnly = $false,
         [parameter(Mandatory = $false, HelpMessage = 'Use WSL2 for hosting KubeMaster VM')]
-        [switch] $WSL = $false
+        [switch] $WSL = $false,
+        [parameter(Mandatory = $true, HelpMessage = 'Internal normalized effective install configuration path')]
+        [string] $EffectiveInstallConfigPath
     )
 
     Write-Log 'Prerequisites checks before installation' -Console
@@ -140,6 +142,7 @@ function New-ControlPlaneNodeOnNewVM {
         Hook                 = $addToControlPlane
         ClusterName          = $clusterName
         ForceOnlineInstallation = $ForceOnlineInstallation
+        EffectiveInstallConfigPath = $EffectiveInstallConfigPath
     }
     Set-UpMasterNode @masterNodeParams
 

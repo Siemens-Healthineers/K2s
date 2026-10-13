@@ -505,6 +505,26 @@ function Set-ConfigHostGW {
     Set-ConfigValue -Path $SetupJsonFile -Key 'HostGW' -Value $Value
 }
 
+<#
+.SYNOPSIS
+    Name of the network adapter the l2 bridge is built on.
+.DESCRIPTION
+    Empty or absent for the default setup, where K2s creates a dedicated loopback
+    adapter so it does not take over the NIC of the Windows host. A node that is a
+    dedicated VM, such as the managed Windows worker of a native Linux host, sets
+    this to its own Ethernet adapter instead.
+#>
+function Get-ConfigL2BridgeAdapterName {
+    return Get-ConfigValue -Path $SetupJsonFile -Key 'L2BridgeAdapterName'
+}
+
+function Set-ConfigL2BridgeAdapterName {
+    param (
+        [object] $Value = $(throw 'Please provide the config value.')
+    )
+    Set-ConfigValue -Path $SetupJsonFile -Key 'L2BridgeAdapterName' -Value $Value
+}
+
 function Get-ConfigControlPlaneNodeHostname () {
     $hostname = Get-ConfigValue -Path $SetupJsonFile -Key 'ControlPlaneNodeHostname'
 
@@ -685,6 +705,8 @@ Get-ConfigProductVersion,
 Set-ConfigProductVersion,
 Get-ConfigHostGW,
 Set-ConfigHostGW,
+Get-ConfigL2BridgeAdapterName,
+Set-ConfigL2BridgeAdapterName,
 Set-ConfigControlPlaneNodeHostname,
 Get-ConfigLogRoot,
 Set-ConfigLogRoot,

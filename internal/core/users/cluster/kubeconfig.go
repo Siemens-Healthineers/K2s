@@ -7,9 +7,9 @@ import (
 	"fmt"
 	"log/slog"
 
-	"github.com/siemens-healthineers/k2s/internal/contracts/config"
-	"github.com/siemens-healthineers/k2s/internal/providers/kubeconfig"
-	"github.com/siemens-healthineers/k2s/internal/providers/kubectl"
+	"github.com/k2s-project/k2s/internal/contracts/config"
+	"github.com/k2s-project/k2s/internal/providers/kubeconfig"
+	"github.com/k2s-project/k2s/internal/providers/kubectl"
 )
 
 type KubeconfigEditor struct {
