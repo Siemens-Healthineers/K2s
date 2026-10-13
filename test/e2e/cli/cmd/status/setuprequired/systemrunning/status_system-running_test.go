@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText:  © 2024 Siemens Healthineers AG
+// SPDX-FileCopyrightText:  © 2024 The K2s Authors
 // SPDX-License-Identifier:   MIT
 package systemrunning
 
@@ -6,7 +6,7 @@ import (
 	"context"
 	"encoding/json"
 
-	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/status"
+	"github.com/k2s-project/k2s/cmd/k2s/cmd/status"
 
 	"testing"
 
@@ -14,8 +14,8 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/types"
 
-	"github.com/siemens-healthineers/k2s/test/framework"
-	"github.com/siemens-healthineers/k2s/test/framework/regex"
+	"github.com/k2s-project/k2s/test/framework"
+	"github.com/k2s-project/k2s/test/framework/regex"
 )
 
 const (

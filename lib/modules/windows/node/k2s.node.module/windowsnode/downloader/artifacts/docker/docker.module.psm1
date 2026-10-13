@@ -1,5 +1,5 @@
-# SPDX-FileCopyrightText: © 2024 Siemens Healthineers AG
-# SPDX-License-Identifier: MIT
+# SPDX-FileCopyrightText: © 2024 The K2s Authors
+# SPDX-License-Identifier: Apache-2.0
 
 #Requires -RunAsAdministrator
 
@@ -18,7 +18,7 @@ $windowsNode_DockerDirectory = 'docker'
 
 function Invoke-DownloadDockerArtifacts($downloadsBaseDirectory, $Proxy, $windowsNodeArtifactsDirectory) {
     $dockerDownloadsDirectory = "$downloadsBaseDirectory\$windowsNode_DockerDirectory"
-    $DockerVersion = '29.8.2'
+    $DockerVersion = '29.9.0'
     $compressedDockerFile = 'docker-' + $DockerVersion + '.zip'
     $compressedFile = "$dockerDownloadsDirectory\$compressedDockerFile"
 

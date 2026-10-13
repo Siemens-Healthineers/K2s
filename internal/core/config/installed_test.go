@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText:  © 2026 Siemens Healthineers AG
+// SPDX-FileCopyrightText:  © 2026 The K2s Authors
 // SPDX-License-Identifier:   MIT
 
 package config
@@ -13,9 +13,9 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	contracts "github.com/siemens-healthineers/k2s/internal/contracts/config"
-	"github.com/siemens-healthineers/k2s/internal/definitions"
-	kos "github.com/siemens-healthineers/k2s/internal/os"
+	contracts "github.com/k2s-project/k2s/internal/contracts/config"
+	"github.com/k2s-project/k2s/internal/definitions"
+	kos "github.com/k2s-project/k2s/internal/os"
 )
 
 // setPath sets the PATH env var for the duration of the current spec.

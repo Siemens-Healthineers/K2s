@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText:  © 2026 Siemens Healthineers AG
+// SPDX-FileCopyrightText:  © 2026 The K2s Authors
 // SPDX-License-Identifier:   MIT
 
 //go:build windows
@@ -11,10 +11,11 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/siemens-healthineers/k2s/cmd/k2s/utils"
-	"github.com/siemens-healthineers/k2s/internal/definitions"
-	"github.com/siemens-healthineers/k2s/internal/output"
-	"github.com/siemens-healthineers/k2s/internal/providers/powershell"
+	"github.com/k2s-project/k2s/cmd/k2s/utils"
+	"github.com/k2s-project/k2s/internal/definitions"
+	"github.com/k2s-project/k2s/internal/effectiveconfig"
+	"github.com/k2s-project/k2s/internal/output"
+	"github.com/k2s-project/k2s/internal/providers/powershell"
 )
 
 type windowsClusterProvider struct {
@@ -32,6 +33,11 @@ func newWindowsClusterProvider(cfg ProviderConfig) *windowsClusterProvider {
 func (p *windowsClusterProvider) Install(cfg ClusterInstallConfig) error {
 	if cfg.LinuxOnly && cfg.WSL {
 		return errors.New("linux-only in combination with WSL is currently not supported")
+	}
+
+	snapshot, err := effectiveconfig.Stage(cfg.ConfigDir, cfg.EffectiveInstallConfig)
+	if err != nil {
+		return err
 	}
 
 	setup := p.resolveSetupDir(cfg.SetupName, cfg.LinuxOnly)
@@ -86,13 +92,21 @@ func (p *windowsClusterProvider) Install(cfg ClusterInstallConfig) error {
 	if cfg.AppendLog {
 		cmd += " -AppendLogFile"
 	}
+	cmd += " -EffectiveInstallConfigPath " + utils.EscapeWithSingleQuotes(snapshot.Path())
 
 	writer := cfg.StdWriter
 	if writer == nil {
 		writer = p.stdWriter
 	}
 
-	return powershell.ExecutePs(cmd, writer)
+	if err := powershell.ExecutePs(cmd, writer); err != nil {
+		if abortErr := snapshot.Abort(); abortErr != nil {
+			return fmt.Errorf("installation failed: %w; snapshot cleanup failed: %v", err, abortErr)
+		}
+		return err
+	}
+
+	return snapshot.Commit()
 }
 
 func (p *windowsClusterProvider) Uninstall(cfg ClusterUninstallConfig) error {

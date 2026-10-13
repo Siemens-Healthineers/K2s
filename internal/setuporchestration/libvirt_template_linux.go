@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText:  © 2025 Siemens Healthineers AG
+// SPDX-FileCopyrightText:  © 2025 The K2s Authors
 // SPDX-License-Identifier:   MIT
 
 //go:build linux
@@ -12,7 +12,7 @@ import (
 	"path/filepath"
 	"text/template"
 
-	"github.com/siemens-healthineers/k2s/internal/host"
+	"github.com/k2s-project/k2s/internal/host"
 )
 
 // loadLibvirtTemplate loads a libvirt XML template by name.

@@ -1,6 +1,6 @@
-// SPDX-FileCopyrightText: © 2026 Siemens Healthineers AG
+// SPDX-FileCopyrightText: © 2026 The K2s Authors
 //
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: Apache-2.0
 
 package lifecycle
 
@@ -26,6 +26,10 @@ type Operation struct {
 	SkipStart            bool     `json:"skipStart"`
 	SkipPurge            bool     `json:"skipPurge"`
 	LinuxOnly            bool     `json:"linuxOnly"`
+	WorkerCPUCount       string   `json:"workerCPUCount"`
+	WorkerMemory         string   `json:"workerMemory"`
+	WorkerDiskSize       string   `json:"workerDiskSize"`
+	WindowsQCOW2Path     string   `json:"windowsQCOW2Path"`
 }
 
 // Execute invokes the platform-first native Linux lifecycle script.

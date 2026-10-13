@@ -1,9 +1,9 @@
-// SPDX-FileCopyrightText:  © 2026 Siemens Healthineers AG
+// SPDX-FileCopyrightText:  © 2026 The K2s Authors
 // SPDX-License-Identifier:   MIT
 
 package provider
 
-import "github.com/siemens-healthineers/k2s/internal/output"
+import "github.com/k2s-project/k2s/internal/output"
 
 // ClusterProvider abstracts cluster lifecycle operations.
 // On Windows: delegates to PowerShell scripts.
@@ -33,6 +33,10 @@ type ClusterInstallConfig struct {
 	MasterVMMemoryMin                 string
 	MasterVMMemoryMax                 string
 	MasterDiskSize                    string
+	WorkerCPUCount                    string
+	WorkerMemory                      string
+	WorkerDiskSize                    string
+	WindowsQCOW2Path                  string
 	DynamicMemory                     bool
 	LinuxOnly                         bool
 	WSL                               bool
@@ -51,6 +55,7 @@ type ClusterInstallConfig struct {
 	Version                           string
 	ClusterName                       string
 	ControlPlaneHostname              string
+	EffectiveInstallConfig            []byte
 	// StdWriter overrides the default writer for capturing PS output (Windows).
 	// Linux providers ignore this field.
 	StdWriter output.StreamWriter

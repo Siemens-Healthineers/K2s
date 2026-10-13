@@ -1,7 +1,7 @@
 <!--
-SPDX-FileCopyrightText: © 2025 Siemens Healthineers AG
+SPDX-FileCopyrightText: © 2025 The K2s Authors
 
-SPDX-License-Identifier: MIT
+SPDX-License-Identifier: Apache-2.0
 -->
 
 ### build it

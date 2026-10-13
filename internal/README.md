@@ -1,6 +1,6 @@
 <!--
-SPDX-FileCopyrightText: © 2026 Siemens Healthineers AG
-SPDX-License-Identifier: MIT
+SPDX-FileCopyrightText: © 2026 The K2s Authors
+SPDX-License-Identifier: Apache-2.0
 -->
 
 # Overview
@@ -61,5 +61,5 @@ The dependencies can be analyzed with *Go* tooling, e.g.:
 - Install [*Graphviz*](https://graphviz.org/download/#windows)
 - Generate graph:
     ```sh
-    goda graph github.com/siemens-healthineers/k2s/internal/... | dot -Tsvg -o graph-internal.svg
+    goda graph github.com/k2s-project/k2s/internal/... | dot -Tsvg -o graph-internal.svg
     ```

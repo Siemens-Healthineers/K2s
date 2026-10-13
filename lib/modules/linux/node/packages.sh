@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# SPDX-FileCopyrightText: © 2026 Siemens Healthineers AG
-# SPDX-License-Identifier: MIT
+# SPDX-FileCopyrightText: © 2026 The K2s Authors
+# SPDX-License-Identifier: Apache-2.0
 
 if [[ -n ${K2S_NODE_PACKAGES_SH_LOADED:-} ]]; then
   return 0

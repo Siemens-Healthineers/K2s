@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText:  © 2026 Siemens Healthineers AG
+// SPDX-FileCopyrightText:  © 2026 The K2s Authors
 // SPDX-License-Identifier:   MIT
 
 //go:build linux
@@ -9,7 +9,7 @@ import (
 	"fmt"
 	"os/user"
 
-	"github.com/siemens-healthineers/k2s/internal/contracts/users"
+	"github.com/k2s-project/k2s/internal/contracts/users"
 )
 
 func CurrentUser() (*users.OSUser, error) {

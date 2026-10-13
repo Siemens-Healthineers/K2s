@@ -1,6 +1,6 @@
-# SPDX-FileCopyrightText: © 2026 Siemens Healthineers AG
+# SPDX-FileCopyrightText: © 2026 The K2s Authors
 #
-# SPDX-License-Identifier: MIT
+# SPDX-License-Identifier: Apache-2.0
 
 ---
 
@@ -43,7 +43,7 @@ spec:
       terminationGracePeriodSeconds: 60
       hostNetwork: false
       containers:
-      - image: public.ecr.aws/docker/library/traefik:v3.7.13
+      - image: public.ecr.aws/docker/library/traefik:v3.7.14
         imagePullPolicy: IfNotPresent
         name: traefik
         resources:

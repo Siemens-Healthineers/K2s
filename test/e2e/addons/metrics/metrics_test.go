@@ -1,6 +1,6 @@
-// SPDX-FileCopyrightText: © 2024 Siemens Healthineers AG
+// SPDX-FileCopyrightText: © 2024 The K2s Authors
 //
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: Apache-2.0
 
 package metricsserver
 
@@ -10,10 +10,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/addons/status"
-	"github.com/siemens-healthineers/k2s/internal/cli"
-	"github.com/siemens-healthineers/k2s/test/framework"
-	"github.com/siemens-healthineers/k2s/test/framework/dsl"
+	"github.com/k2s-project/k2s/cmd/k2s/cmd/addons/status"
+	"github.com/k2s-project/k2s/internal/cli"
+	"github.com/k2s-project/k2s/test/framework"
+	"github.com/k2s-project/k2s/test/framework/dsl"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"

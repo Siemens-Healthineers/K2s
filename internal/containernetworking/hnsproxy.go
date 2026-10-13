@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText:  © 2024 Siemens Healthineers AG
+// SPDX-FileCopyrightText:  © 2024 The K2s Authors
 // SPDX-License-Identifier:   MIT
 
 //go:build windows
@@ -18,8 +18,8 @@ import (
 	"time"
 
 	"github.com/Microsoft/hcsshim/hcn"
-	"github.com/siemens-healthineers/k2s/internal/logging"
-	kos "github.com/siemens-healthineers/k2s/internal/os"
+	"github.com/k2s-project/k2s/internal/logging"
+	kos "github.com/k2s-project/k2s/internal/os"
 )
 
 type Policy struct {

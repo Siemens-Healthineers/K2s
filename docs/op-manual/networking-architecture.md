@@ -1,5 +1,5 @@
 <!--
-SPDX-FileCopyrightText: © 2025 Siemens Healthineers AG
+SPDX-FileCopyrightText: © 2025 The K2s Authors
 SPDX-License-Identifier: MIT
 -->
 
@@ -7,7 +7,7 @@ SPDX-License-Identifier: MIT
 
 ## Core Principles and Architecture: simplicity and maximum performance
 
-In alignment with *K2s*' foundational design principles of operational <b>simplicity</b> and <b>maximum performance</b>, our networking architecture is built upon Flannel CNI configured in host-gateway mode. This provides a transparent, high-throughput, and low-latency data plane that is ideal for demanding workloads and facilitates straightforward network analysis. For production-grade security, K2s integrates the [security addon](https://github.com/Siemens-Healthineers/K2s/blob/main/addons/security/README.md) which uses [Linkerd](https://linkerd.io/) to establish a zero-trust environment for all TCP-based traffic through transparent mTLS and fine-grained policy enforcement.
+In alignment with *K2s*' foundational design principles of operational <b>simplicity</b> and <b>maximum performance</b>, our networking architecture is built upon Flannel CNI configured in host-gateway mode. This provides a transparent, high-throughput, and low-latency data plane that is ideal for demanding workloads and facilitates straightforward network analysis. For production-grade security, K2s integrates the [security addon](https://github.com/k2s-project/k2s/blob/main/addons/security/README.md) which uses [Linkerd](https://linkerd.io/) to establish a zero-trust environment for all TCP-based traffic through transparent mTLS and fine-grained policy enforcement.
 
 ## The Broader Strategic Value of Simplicity and Performance
 

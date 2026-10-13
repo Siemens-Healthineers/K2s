@@ -1,6 +1,6 @@
 <!--
-SPDX-FileCopyrightText: © 2026 Siemens Healthineers AG
-SPDX-License-Identifier: MIT
+SPDX-FileCopyrightText: © 2026 The K2s Authors
+SPDX-License-Identifier: Apache-2.0
 -->
 
 # Option 2 — Native Process Managed by Kubernetes (HostProcess + Compartment)
@@ -26,7 +26,7 @@ flowchart TB
 > uses). If you prefer `cplauncher` to do the discovery and launch, see the concept guide below.
 
 See the concept guide:
-[Running Native Windows Applications with HostProcess + Network Compartments](https://siemens-healthineers.github.io/K2s/next/op-manual/running-apps-as-hostprocess/).
+[Running Native Windows Applications with HostProcess + Network Compartments](https://k2s-project.github.io/K2s/next/op-manual/running-apps-as-hostprocess/).
 
 ## Files
 

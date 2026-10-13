@@ -1,6 +1,6 @@
-# SPDX-FileCopyrightText: © 2024 Siemens Healthineers AG
+# SPDX-FileCopyrightText: © 2024 The K2s Authors
 #
-# SPDX-License-Identifier: MIT
+# SPDX-License-Identifier: Apache-2.0
 
 ---
 # Source: kube-prometheus-stack/charts/grafana/templates/deployment.yaml
@@ -46,7 +46,7 @@ spec:
       enableServiceLinks: true
       initContainers:
         - name: grafana-sc-datasources
-          image: "quay.io/kiwigrid/k8s-sidecar:2.11.2"
+          image: "quay.io/kiwigrid/k8s-sidecar:2.14.1"
           imagePullPolicy: IfNotPresent
           env:
             - name: METHOD
@@ -66,7 +66,7 @@ spec:
               mountPath: "/etc/grafana/provisioning/datasources"
       containers:
         - name: grafana-sc-dashboard
-          image: "quay.io/kiwigrid/k8s-sidecar:2.11.2"
+          image: "quay.io/kiwigrid/k8s-sidecar:2.14.1"
           imagePullPolicy: IfNotPresent
           env:
             - name: METHOD

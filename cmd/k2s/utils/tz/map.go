@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText:  © 2025 Siemens Healthineers AG
+// SPDX-FileCopyrightText:  © 2025 The K2s Authors
 // SPDX-License-Identifier:   MIT
 package tz
 
@@ -8,7 +8,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/siemens-healthineers/k2s/internal/contracts/config"
+	"github.com/k2s-project/k2s/internal/contracts/config"
 )
 
 var (

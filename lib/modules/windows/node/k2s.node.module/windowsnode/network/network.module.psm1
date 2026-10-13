@@ -1,5 +1,5 @@
-# SPDX-FileCopyrightText: © 2024 Siemens Healthineers AG
-# SPDX-License-Identifier: MIT
+# SPDX-FileCopyrightText: © 2024 The K2s Authors
+# SPDX-License-Identifier: Apache-2.0
 
 $configModule = "$PSScriptRoot\..\..\..\..\infra\k2s.infra.module\config\config.module.psm1"
 $fileModule = "$PSScriptRoot\..\..\..\..\infra\k2s.infra.module\config\file.module.psm1"
@@ -799,5 +799,5 @@ Get-L2BridgeSwitchName,
 Set-IPAddressAndDnsClientServerAddress, Set-WSLSwitch,
 Add-VfpRulesToWindowsNode, Remove-VfpRulesFromWindowsNode, Get-ConfiguredClusterCIDRNextHop,
 Add-VfpRoute, Remove-VfpRoute, Get-VirtualSwitchName, Set-KubeSwitchToPrivate, Invoke-HNSCommand,
-Wait-ForServiceStopped, Test-KubeSwitchPrivateProfile,
+Wait-ForServiceStopped, Wait-ForServiceRunning, Test-KubeSwitchPrivateProfile,
 Add-HostBridgeIpReservation, Remove-HostBridgeIpReservation

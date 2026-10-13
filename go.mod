@@ -1,10 +1,10 @@
-// SPDX-FileCopyrightText: © 2024 Siemens Healthineers AG
+// SPDX-FileCopyrightText: © 2024 The K2s Authors
 //
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: Apache-2.0
 
-module github.com/siemens-healthineers/k2s
+module github.com/k2s-project/k2s
 
-go 1.27.1
+go 1.27.2
 
 require (
 	github.com/Microsoft/hcsshim v0.14.1

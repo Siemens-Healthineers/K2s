@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText:  © 2026 Siemens Healthineers AG
+// SPDX-FileCopyrightText:  © 2026 The K2s Authors
 // SPDX-License-Identifier:   MIT
 
 package os
@@ -16,7 +16,7 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/siemens-healthineers/k2s/internal/output"
+	"github.com/k2s-project/k2s/internal/output"
 )
 
 type Files []fs.FileInfo

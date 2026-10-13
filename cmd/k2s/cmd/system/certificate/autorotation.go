@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText:  © 2026 Siemens Healthineers AG
+// SPDX-FileCopyrightText:  © 2026 The K2s Authors
 // SPDX-License-Identifier:   MIT
 
 package certificate
@@ -9,8 +9,8 @@ import (
 	"github.com/pterm/pterm"
 	"github.com/spf13/cobra"
 
-	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/common"
-	"github.com/siemens-healthineers/k2s/internal/provider"
+	"github.com/k2s-project/k2s/cmd/k2s/cmd/common"
+	"github.com/k2s-project/k2s/internal/provider"
 )
 
 const (

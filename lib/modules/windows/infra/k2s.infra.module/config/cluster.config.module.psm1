@@ -1,5 +1,5 @@
-# SPDX-FileCopyrightText: © 2026 Siemens Healthcare GmbH
-# SPDX-License-Identifier: MIT
+# SPDX-FileCopyrightText: © 2026 The K2s Authors
+# SPDX-License-Identifier: Apache-2.0
 
 
 $pathModule = "$PSScriptRoot\..\path\path.module.psm1"

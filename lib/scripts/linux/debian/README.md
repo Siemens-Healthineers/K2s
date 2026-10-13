@@ -1,6 +1,6 @@
 <!--
-SPDX-FileCopyrightText: © 2026 Siemens Healthineers AG
-SPDX-License-Identifier: MIT
+SPDX-FileCopyrightText: © 2026 The K2s Authors
+SPDX-License-Identifier: Apache-2.0
 -->
 
 # Native Debian 13 Host Automation

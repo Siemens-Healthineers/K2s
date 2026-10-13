@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText:  © 2026 Siemens Healthineers AG
+// SPDX-FileCopyrightText:  © 2026 The K2s Authors
 // SPDX-License-Identifier:   MIT
 
 package users
@@ -7,14 +7,14 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/common"
-	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/status"
-	config_contract "github.com/siemens-healthineers/k2s/internal/contracts/config"
-	users_contract "github.com/siemens-healthineers/k2s/internal/contracts/users"
-	"github.com/siemens-healthineers/k2s/internal/core/config"
-	"github.com/siemens-healthineers/k2s/internal/core/users"
-	"github.com/siemens-healthineers/k2s/internal/definitions"
-	"github.com/siemens-healthineers/k2s/internal/providers/ssh"
+	"github.com/k2s-project/k2s/cmd/k2s/cmd/common"
+	"github.com/k2s-project/k2s/cmd/k2s/cmd/status"
+	config_contract "github.com/k2s-project/k2s/internal/contracts/config"
+	users_contract "github.com/k2s-project/k2s/internal/contracts/users"
+	"github.com/k2s-project/k2s/internal/core/config"
+	"github.com/k2s-project/k2s/internal/core/users"
+	"github.com/k2s-project/k2s/internal/definitions"
+	"github.com/k2s-project/k2s/internal/providers/ssh"
 	"github.com/spf13/cobra"
 )
 

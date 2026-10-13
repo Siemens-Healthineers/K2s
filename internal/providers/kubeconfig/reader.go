@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText:  © 2026 Siemens Healthineers AG
+// SPDX-FileCopyrightText:  © 2026 The K2s Authors
 // SPDX-License-Identifier:   MIT
 
 package kubeconfig
@@ -8,7 +8,7 @@ import (
 	"log/slog"
 
 	"github.com/samber/lo"
-	"github.com/siemens-healthineers/k2s/internal/yaml"
+	"github.com/k2s-project/k2s/internal/yaml"
 )
 
 type Kubeconfig struct {

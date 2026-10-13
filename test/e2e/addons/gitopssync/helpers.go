@@ -1,6 +1,6 @@
-// SPDX-FileCopyrightText: © 2026 Siemens Healthineers AG
+// SPDX-FileCopyrightText: © 2026 The K2s Authors
 //
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: Apache-2.0
 
 // Package gitopssync provides shared helper functions for GitOps addon-sync e2e tests.
 package gitopssync
@@ -19,7 +19,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/siemens-healthineers/k2s/test/framework"
+	"github.com/k2s-project/k2s/test/framework"
 
 	//lint:ignore ST1001 test framework code
 	. "github.com/onsi/ginkgo/v2"

@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText:  © 2025 Siemens Healthineers AG
+// SPDX-FileCopyrightText:  © 2025 The K2s Authors
 // SPDX-License-Identifier:   MIT
 
 //go:build windows
@@ -10,7 +10,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/siemens-healthineers/k2s/test/framework/os"
+	"github.com/k2s-project/k2s/test/framework/os"
 	"golang.org/x/sys/windows/svc"
 	"golang.org/x/sys/windows/svc/mgr"
 	"golang.org/x/text/encoding/unicode"

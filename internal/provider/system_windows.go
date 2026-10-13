@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText:  © 2026 Siemens Healthineers AG
+// SPDX-FileCopyrightText:  © 2026 The K2s Authors
 // SPDX-License-Identifier:   MIT
 
 //go:build windows
@@ -9,9 +9,9 @@ import (
 	"fmt"
 	"path/filepath"
 
-	"github.com/siemens-healthineers/k2s/cmd/k2s/utils"
-	"github.com/siemens-healthineers/k2s/internal/output"
-	"github.com/siemens-healthineers/k2s/internal/providers/powershell"
+	"github.com/k2s-project/k2s/cmd/k2s/utils"
+	"github.com/k2s-project/k2s/internal/output"
+	"github.com/k2s-project/k2s/internal/providers/powershell"
 )
 
 type windowsSystemProvider struct {
@@ -65,6 +65,10 @@ func (p *windowsSystemProvider) Upgrade(cfg SystemUpgradeConfig) error {
 		return powershell.ExecutePs(psCmd+params, p.stdWriter)
 	}
 
+	return powershell.ExecutePs(p.clusterUpgradeCommand(cfg), p.stdWriter)
+}
+
+func (p *windowsSystemProvider) clusterUpgradeCommand(cfg SystemUpgradeConfig) string {
 	psCmd := p.scriptPath("upgrade/Start-ClusterUpgrade.ps1")
 	var params string
 	if cfg.ShowOutput {
@@ -80,7 +84,7 @@ func (p *windowsSystemProvider) Upgrade(cfg SystemUpgradeConfig) error {
 		params += " -DeleteFiles"
 	}
 	if cfg.ConfigFile != "" {
-		params += " -Config " + cfg.ConfigFile
+		params += " -Config " + utils.EscapeWithSingleQuotes(cfg.ConfigFile)
 	}
 	if cfg.Proxy != "" {
 		params += " -Proxy " + cfg.Proxy
@@ -94,7 +98,7 @@ func (p *windowsSystemProvider) Upgrade(cfg SystemUpgradeConfig) error {
 	if cfg.Force {
 		params += " -Force"
 	}
-	return powershell.ExecutePs(psCmd+params, p.stdWriter)
+	return psCmd + params
 }
 
 func (p *windowsSystemProvider) Package(cfg SystemPackageConfig) error {

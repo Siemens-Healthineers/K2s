@@ -1,6 +1,6 @@
-# SPDX-FileCopyrightText: © 2026 Siemens Healthineers AG
+# SPDX-FileCopyrightText: © 2026 The K2s Authors
 #
-# SPDX-License-Identifier: MIT
+# SPDX-License-Identifier: Apache-2.0
 
 #Requires -RunAsAdministrator
 
@@ -113,6 +113,11 @@ else {
             }
         }
 
+        # Default implementation when none is specified, mirroring 'k2s addons enable storage' (-> smb)
+        if ($null -eq $implementationName -and $addonName -eq 'storage') {
+            $implementationName = 'smb'
+        }
+
         foreach ($manifest in $allManifests) {
             if ($manifest.metadata.name -eq $addonName) {
                 # Clone to prevent mutations when exporting multiple implementations
@@ -203,6 +208,20 @@ try {
                  Write-Log "No manifests directory found at $sourceManifestsDir"
              }
 
+             if ($manifest.metadata.name -eq 'storage' -and $implementation.name -eq 'ceph') {
+                 $sharedSmbSourceDir = Join-Path $manifest.dir.path 'smb\manifests'
+                 if (Test-Path $sharedSmbSourceDir) {
+                     $sharedSmbDestDir = Join-Path $manifestsStaging 'smb-shared'
+                     $sharedSmbFiles = @(Get-ChildItem -Path $sharedSmbSourceDir -Recurse -File)
+                     Write-Log "Copying $($sharedSmbFiles.Count) shared SMB manifest files into Ceph export fallback bundle"
+                     New-Item -ItemType Directory -Path $sharedSmbDestDir -Force | Out-Null
+                     Copy-Item -Path (Join-Path $sharedSmbSourceDir '*') -Destination $sharedSmbDestDir -Recurse -Force -ErrorAction SilentlyContinue
+                 }
+                 else {
+                     Write-Log "Warning: shared SMB manifests not found at $sharedSmbSourceDir while exporting storage ceph" -Console
+                 }
+             }
+
              # Inject gitops-sync/ Job template into manifests layer for GitOps delivery.
              $gitopsSyncSource = Join-Path $PSScriptRoot 'common\manifests\addon-sync\gitops-sync'
              Write-Log "Checking for gitops-sync source at: $gitopsSyncSource"
@@ -236,7 +255,7 @@ try {
                  Copy-Item -Path $readmePath -Destination $scriptsStaging -Force
              }
 
-             @('*.ps1', '*.psm1') | ForEach-Object {
+             @('*.ps1', '*.psm1','*.sh') | ForEach-Object {
                  Get-ChildItem -Path $dirPath -Filter $_ -File -Recurse -ErrorAction SilentlyContinue | ForEach-Object {
                      $relativePath = $_.FullName.Substring($dirPath.Length + 1)
                      $targetPath = Join-Path $scriptsStaging $relativePath
@@ -535,9 +554,8 @@ try {
                     
                     if ($linuxImageToExportArray -and $linuxImageToExportArray.Count -gt 0) {
                         $imageToExport = $linuxImageToExportArray[0]
-                        # Create meaningful tar filename from image name (sanitize special chars)
-                        $sanitizedImageName = ($image -replace '[:/]', '_') -replace '[^a-zA-Z0-9_.-]', ''
-                        $linuxImageTarPath = "${imagesStaging}\${sanitizedImageName}.tar"
+                        # Create meaningful tar filename from image name (shared sanitizer, see oci.module.psm1)
+                        $linuxImageTarPath = Join-Path $imagesStaging (ConvertTo-ImageTarFileName -Image $image)
                         &$exportImageScript -Id $imageToExport.ImageId -ExportPath $linuxImageTarPath -ShowLogs:$ShowLogs
 
                         if (!$?) {
@@ -556,9 +574,8 @@ try {
 
                     if ($windowsImageToExportArray -and $windowsImageToExportArray.Count -gt 0) {
                         $imageToExport = $windowsImageToExportArray[0]
-                        # Create meaningful tar filename from image name (sanitize special chars)
-                        $sanitizedImageName = ($image -replace '[:/]', '_') -replace '[^a-zA-Z0-9_.-]', ''
-                        $windowsImageTarPath = "${imagesStaging}\windows_${sanitizedImageName}.tar"
+                        # Create meaningful tar filename from image name (shared sanitizer, see oci.module.psm1)
+                        $windowsImageTarPath = Join-Path $imagesStaging (ConvertTo-ImageTarFileName -Image $image -Windows)
                         &$exportImageScript -Id $imageToExport.ImageId -ExportPath $windowsImageTarPath -ShowLogs:$ShowLogs
 
                         if (!$?) {
@@ -826,8 +843,8 @@ try {
                     'org.opencontainers.image.title' = $addonFolderName
                     'org.opencontainers.image.version' = $addonVersion
                     'org.opencontainers.image.created' = (Get-Date).ToString('yyyy-MM-ddTHH:mm:ssZ')
-                    'org.opencontainers.image.vendor' = 'Siemens Healthineers AG'
-                    'org.opencontainers.image.licenses' = 'MIT'
+                    'org.opencontainers.image.vendor' = 'K2s Project'
+                    'org.opencontainers.image.licenses' = 'Apache-2.0'
                     'org.opencontainers.image.description' = if ($manifest.metadata.description) { $manifest.metadata.description } else { "K2s addon: $($manifest.metadata.name)" }
                     'vnd.k2s.addon.name' = $manifest.metadata.name
                     'vnd.k2s.addon.implementation' = $implementation.name
@@ -897,8 +914,8 @@ try {
         manifests = @()
         annotations = @{
             'org.opencontainers.image.created' = (Get-Date).ToString('yyyy-MM-ddTHH:mm:ssZ')
-            'org.opencontainers.image.vendor' = 'Siemens Healthineers AG'
-            'org.opencontainers.image.licenses' = 'MIT'
+            'org.opencontainers.image.vendor' = 'K2s Project'
+            'org.opencontainers.image.licenses' = 'Apache-2.0'
             'vnd.k2s.version' = $k2sVersion
             'vnd.k2s.export.date' = (Get-Date).ToString('yyyy-MM-ddTHH:mm:ssZ')
             'vnd.k2s.export.type' = if ($All) { 'all' } else { 'specific' }

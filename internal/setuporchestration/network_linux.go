@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText:  © 2025 Siemens Healthineers AG
+// SPDX-FileCopyrightText:  © 2025 The K2s Authors
 // SPDX-License-Identifier:   MIT
 
 //go:build linux
@@ -44,7 +44,7 @@ var networkXMLTemplate string
 
 // winVMMACAddress is a fixed MAC address for the Windows worker VM.
 // Using a fixed MAC ensures the DHCP reservation always assigns the same IP.
-const winVMMACAddress = "52:54:00:k2:5w:01"
+const winVMMACAddress = "52:54:00:25:57:01"
 
 // CreateK2sNetwork creates the libvirt NAT network for K2s host ↔ VM communication.
 func CreateK2sNetwork() error {

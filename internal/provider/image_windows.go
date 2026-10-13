@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText:  © 2026 Siemens Healthineers AG
+// SPDX-FileCopyrightText:  © 2026 The K2s Authors
 // SPDX-License-Identifier:   MIT
 
 //go:build windows
@@ -10,9 +10,9 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/siemens-healthineers/k2s/cmd/k2s/utils"
-	"github.com/siemens-healthineers/k2s/internal/output"
-	"github.com/siemens-healthineers/k2s/internal/providers/powershell"
+	"github.com/k2s-project/k2s/cmd/k2s/utils"
+	"github.com/k2s-project/k2s/internal/output"
+	"github.com/k2s-project/k2s/internal/providers/powershell"
 )
 
 type windowsImageProvider struct {
@@ -285,5 +285,43 @@ func (p *windowsImageProvider) Clean(cfg ImageCleanConfig) error {
 		params = append(params, " -ShowLogs")
 	}
 
+	return p.execPS(psCmd, params...)
+}
+
+func (p *windowsImageProvider) RegistryAdd(cfg ImageRegistryAddConfig) error {
+	psCmd := p.scriptPath(filepath.Join("registry", "Add-Registry.ps1"))
+	var params []string
+	params = append(params, " -RegistryName "+utils.EscapeWithSingleQuotes(cfg.RegistryName))
+	if cfg.Username != "" {
+		params = append(params, " -Username "+utils.EscapeWithSingleQuotes(cfg.Username))
+	}
+	if cfg.Password != "" {
+		params = append(params, " -Password "+utils.EscapeWithSingleQuotes(cfg.Password))
+	}
+	if cfg.SkipVerify {
+		params = append(params, " -SkipVerify")
+	}
+	if cfg.PlainHttp {
+		params = append(params, " -PlainHttp")
+	}
+	if cfg.Nodes != "" {
+		params = append(params, " -Nodes "+utils.EscapeWithSingleQuotes(cfg.Nodes))
+	}
+	if cfg.ShowOutput {
+		params = append(params, " -ShowLogs")
+	}
+	return p.execPS(psCmd, params...)
+}
+
+func (p *windowsImageProvider) RegistryRemove(cfg ImageRegistryRemoveConfig) error {
+	psCmd := p.scriptPath(filepath.Join("registry", "Remove-Registry.ps1"))
+	var params []string
+	params = append(params, " -RegistryName "+utils.EscapeWithSingleQuotes(cfg.RegistryName))
+	if cfg.Nodes != "" {
+		params = append(params, " -Nodes "+utils.EscapeWithSingleQuotes(cfg.Nodes))
+	}
+	if cfg.ShowOutput {
+		params = append(params, " -ShowLogs")
+	}
 	return p.execPS(psCmd, params...)
 }

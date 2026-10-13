@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText:  © 2026 Siemens Healthineers AG
+// SPDX-FileCopyrightText:  © 2026 The K2s Authors
 // SPDX-License-Identifier:   MIT
 
 // Package provider defines platform-agnostic interfaces for all K2s operations.
@@ -8,7 +8,7 @@
 package provider
 
 import (
-	"github.com/siemens-healthineers/k2s/internal/output"
+	"github.com/k2s-project/k2s/internal/output"
 )
 
 // Registry holds all platform-specific providers.

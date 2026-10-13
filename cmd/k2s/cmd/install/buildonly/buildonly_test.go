@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText:  © 2026 Siemens Healthineers AG
+// SPDX-FileCopyrightText:  © 2026 The K2s Authors
 // SPDX-License-Identifier:   MIT
 
 package buildonly
@@ -6,12 +6,12 @@ package buildonly
 import (
 	"testing"
 
-	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/common"
-	ic "github.com/siemens-healthineers/k2s/cmd/k2s/cmd/install/config"
+	"github.com/k2s-project/k2s/cmd/k2s/cmd/common"
+	ic "github.com/k2s-project/k2s/cmd/k2s/cmd/install/config"
 
-	r "github.com/siemens-healthineers/k2s/internal/test/reflection"
+	r "github.com/k2s-project/k2s/internal/test/reflection"
 
-	"github.com/siemens-healthineers/k2s/cmd/k2s/utils"
+	"github.com/k2s-project/k2s/cmd/k2s/utils"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"

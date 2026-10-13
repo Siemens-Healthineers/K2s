@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText:  © 2026 Siemens Healthineers AG
+// SPDX-FileCopyrightText:  © 2026 The K2s Authors
 // SPDX-License-Identifier:   MIT
 
 package k8s_test
@@ -11,8 +11,8 @@ import (
 	"github.com/go-logr/logr"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/siemens-healthineers/k2s/internal/providers/k8s"
-	"github.com/siemens-healthineers/k2s/internal/test/reflection"
+	"github.com/k2s-project/k2s/internal/providers/k8s"
+	"github.com/k2s-project/k2s/internal/test/reflection"
 	"github.com/stretchr/testify/mock"
 )
 

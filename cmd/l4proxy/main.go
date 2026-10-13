@@ -1,6 +1,6 @@
-// SPDX-FileCopyrightText: © 2025 Siemens Healthineers AG
+// SPDX-FileCopyrightText: © 2025 The K2s Authors
 //
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: Apache-2.0
 
 //go:build windows
 
@@ -17,10 +17,10 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/siemens-healthineers/k2s/internal/cli"
-	cn "github.com/siemens-healthineers/k2s/internal/containernetworking"
-	"github.com/siemens-healthineers/k2s/internal/logging"
-	ve "github.com/siemens-healthineers/k2s/internal/version"
+	"github.com/k2s-project/k2s/internal/cli"
+	cn "github.com/k2s-project/k2s/internal/containernetworking"
+	"github.com/k2s-project/k2s/internal/logging"
+	ve "github.com/k2s-project/k2s/internal/version"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"

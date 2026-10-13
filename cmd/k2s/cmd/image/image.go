@@ -1,10 +1,10 @@
-// SPDX-FileCopyrightText:  © 2024 Siemens Healthineers AG
+// SPDX-FileCopyrightText:  © 2024 The K2s Authors
 // SPDX-License-Identifier:   MIT
 
 package image
 
 import (
-	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/image/registry"
+	"github.com/k2s-project/k2s/cmd/k2s/cmd/image/registry"
 
 	"github.com/spf13/cobra"
 )

@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText:  © 2024 Siemens Healthineers AG
+// SPDX-FileCopyrightText:  © 2024 The K2s Authors
 // SPDX-License-Identifier:   MIT
 
 package systempackage
@@ -7,7 +7,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/common"
+	"github.com/k2s-project/k2s/cmd/k2s/cmd/common"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"

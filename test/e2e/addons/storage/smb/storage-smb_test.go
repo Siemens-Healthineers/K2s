@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText:  © 2026 Siemens Healthineers AG
+// SPDX-FileCopyrightText:  © 2026 The K2s Authors
 // SPDX-License-Identifier:   MIT
 
 package smb_share
@@ -12,14 +12,14 @@ import (
 	"testing"
 	"time"
 
-	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/addons/status"
-	"github.com/siemens-healthineers/k2s/test/framework"
-	"github.com/siemens-healthineers/k2s/test/framework/os"
+	"github.com/k2s-project/k2s/cmd/k2s/cmd/addons/status"
+	"github.com/k2s-project/k2s/test/framework"
+	"github.com/k2s-project/k2s/test/framework/os"
 
 	bos "os"
 
-	"github.com/siemens-healthineers/k2s/internal/cli"
-	kos "github.com/siemens-healthineers/k2s/internal/os"
+	"github.com/k2s-project/k2s/internal/cli"
+	kos "github.com/k2s-project/k2s/internal/os"
 
 	"encoding/json"
 
@@ -105,6 +105,23 @@ var _ = BeforeSuite(func(ctx context.Context) {
 
 	configBytes, err := bos.ReadFile(testConfigFileName)
 	Expect(err).ToNot(HaveOccurred())
+
+	var rawConfig []map[string]json.RawMessage
+	Expect(json.Unmarshal(configBytes, &rawConfig)).To(Succeed())
+	nonPosixConfig := make([]map[string]json.RawMessage, 0, len(rawConfig))
+	for _, configEntry := range rawConfig {
+		var enablePosixExtensions bool
+		if posixValue, exists := configEntry["enablePosixExtensions"]; exists {
+			Expect(json.Unmarshal(posixValue, &enablePosixExtensions)).To(Succeed())
+		}
+		if enablePosixExtensions {
+			continue
+		}
+		nonPosixConfig = append(nonPosixConfig, configEntry)
+	}
+	nonPosixConfigBytes, err := json.MarshalIndent(nonPosixConfig, "", "    ")
+	Expect(err).ToNot(HaveOccurred())
+	Expect(bos.WriteFile(originalConfigPath, nonPosixConfigBytes, fs.ModePerm)).To(Succeed())
 
 	Expect(json.Unmarshal(configBytes, &storageConfig)).To(Succeed())
 })
@@ -193,6 +210,15 @@ var _ = Describe(fmt.Sprintf("%s Addon, %s Implementation", addonName, implement
 					MatchRegexp(`.+\[force keep\] were all set`),
 				))
 			})
+		})
+	})
+
+	Describe("negative flows", func() {
+		It("fails enable when ceph is requested while smb is already enabled", func(ctx context.Context) {
+			suite.K2sCli().MustExec(ctx, "addons", "enable", addonName, implementationName, "-o")
+			output, _ := suite.K2sCli().ExpectedExitCode(cli.ExitCodeFailure).Exec(ctx, "addons", "enable", addonName, "ceph")
+			Expect(output).To(ContainSubstring("Cannot enable"))
+			suite.K2sCli().MustExec(ctx, "addons", "disable", addonName, implementationName, "-f", "-o")
 		})
 	})
 
@@ -1047,6 +1073,10 @@ var _ = Describe(fmt.Sprintf("%s Addon, %s Implementation", addonName, implement
 	Describe("SMB 3.1.1 POSIX Extensions", func() {
 		When("a POSIX-enabled StorageClass is hosted on the Linux Samba host", func() {
 			posixPVCName := fmt.Sprintf("persistent-storage-%s-0", linuxPosixWorkloadName)
+
+			BeforeAll(func() {
+				Expect(kos.CopyFile(testConfigFileName, originalConfigPath)).To(Succeed())
+			})
 
 			It("enables the addon with the Linux SMB host", func(ctx context.Context) {
 				output := suite.K2sCli().MustExec(ctx, "addons", "enable", addonName, implementationName, "-o", "-t", "linux")

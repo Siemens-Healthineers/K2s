@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText:  © 2025 Siemens Healthineers AG
+// SPDX-FileCopyrightText:  © 2025 The K2s Authors
 // SPDX-License-Identifier:   MIT
 
 //go:build windows
@@ -24,7 +24,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	"github.com/siemens-healthineers/k2s/internal/logging"
+	"github.com/k2s-project/k2s/internal/logging"
 )
 
 // album represents data about a record album.

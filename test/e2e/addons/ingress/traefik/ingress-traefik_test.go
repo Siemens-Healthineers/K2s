@@ -1,6 +1,6 @@
-// SPDX-FileCopyrightText: © 2026 Siemens Healthineers AG
+// SPDX-FileCopyrightText: © 2026 The K2s Authors
 //
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: Apache-2.0
 
 package traefik
 
@@ -12,12 +12,12 @@ import (
 	"testing"
 	"time"
 
-	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/addons/status"
-	"github.com/siemens-healthineers/k2s/test/framework"
+	"github.com/k2s-project/k2s/cmd/k2s/cmd/addons/status"
+	"github.com/k2s-project/k2s/test/framework"
 
-	"github.com/siemens-healthineers/k2s/internal/cli"
-	"github.com/siemens-healthineers/k2s/test/framework/dsl"
-	"github.com/siemens-healthineers/k2s/test/framework/regex"
+	"github.com/k2s-project/k2s/internal/cli"
+	"github.com/k2s-project/k2s/test/framework/dsl"
+	"github.com/k2s-project/k2s/test/framework/regex"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -112,13 +112,20 @@ var _ = Describe("'ingress traefik' addon", Ordered, func() {
 		k2s.VerifyAddonIsEnabled("ingress", "traefik")
 
 		suite.Cluster().ExpectDeploymentToBeAvailable("traefik", "ingress-traefik")
-		suite.Cluster().ExpectDeploymentToBeAvailable("external-dns", "kube-system")
+		if !suite.SetupInfo().RuntimeConfig.InstallConfig().LinuxOnly() {
+			suite.Cluster().ExpectDeploymentToBeAvailable("external-dns", "kube-system")
+		}
 
 		suite.Cluster().ExpectPodsUnderDeploymentReady(ctx, "app.kubernetes.io/name", "traefik", "ingress-traefik")
-		suite.Cluster().ExpectPodsUnderDeploymentReady(ctx, "app", "external-dns", "kube-system")
+		if !suite.SetupInfo().RuntimeConfig.InstallConfig().LinuxOnly() {
+			suite.Cluster().ExpectPodsUnderDeploymentReady(ctx, "app", "external-dns", "kube-system")
+		}
 	})
 
 	It("installs cmctl.exe, the cert-manager CLI", func(ctx context.Context) {
+		if suite.SetupInfo().RuntimeConfig.InstallConfig().LinuxOnly() {
+			Skip("cmctl.exe is a Windows-only binary")
+		}
 		cmCtlPath := path.Join(suite.RootDir(), "bin", "cmctl.exe")
 		_, err := os.Stat(cmCtlPath)
 		Expect(err).To(BeNil())
@@ -223,10 +230,14 @@ var _ = Describe("'ingress-traefik' addon with --omitCertMgr", Ordered, func() {
 		k2s.VerifyAddonIsEnabled("ingress", "traefik")
 
 		suite.Cluster().ExpectDeploymentToBeAvailable("traefik", "ingress-traefik")
-		suite.Cluster().ExpectDeploymentToBeAvailable("external-dns", "kube-system")
+		if !suite.SetupInfo().RuntimeConfig.InstallConfig().LinuxOnly() {
+			suite.Cluster().ExpectDeploymentToBeAvailable("external-dns", "kube-system")
+		}
 
 		suite.Cluster().ExpectPodsUnderDeploymentReady(ctx, "app.kubernetes.io/name", "traefik", "ingress-traefik")
-		suite.Cluster().ExpectPodsUnderDeploymentReady(ctx, "app", "external-dns", "kube-system")
+		if !suite.SetupInfo().RuntimeConfig.InstallConfig().LinuxOnly() {
+			suite.Cluster().ExpectPodsUnderDeploymentReady(ctx, "app", "external-dns", "kube-system")
+		}
 	})
 
 	It("cert-manager namespace does not exist", func(ctx context.Context) {

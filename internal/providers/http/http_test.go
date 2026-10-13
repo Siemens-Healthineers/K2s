@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText:  © 2025 Siemens Healthineers AG
+// SPDX-FileCopyrightText:  © 2025 The K2s Authors
 // SPDX-License-Identifier:   MIT
 
 package http_test
@@ -17,7 +17,7 @@ import (
 	"github.com/go-logr/logr"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/siemens-healthineers/k2s/internal/providers/http"
+	"github.com/k2s-project/k2s/internal/providers/http"
 )
 
 type ping struct {

@@ -1,6 +1,6 @@
-# SPDX-FileCopyrightText: © 2026 Siemens Healthineers AG
+# SPDX-FileCopyrightText: © 2026 The K2s Authors
 #
-# SPDX-License-Identifier: MIT
+# SPDX-License-Identifier: Apache-2.0
 #
 # Convenience wrapper for the native Linux build (see build.sh).
 
@@ -8,7 +8,7 @@
 
 # Default target: build all Linux executables.
 build:
-	./build.sh
+	bash ./build.sh
 
 # Remove the binaries produced by build.sh.
 clean:

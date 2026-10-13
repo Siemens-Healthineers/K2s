@@ -1,5 +1,5 @@
-// SPDX-FileCopyrightText: © 2025 Siemens Healthineers AG
-// SPDX-License-Identifier: MIT
+// SPDX-FileCopyrightText: © 2025 The K2s Authors
+// SPDX-License-Identifier: Apache-2.0
 
 package restore
 
@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/siemens-healthineers/k2s/test/framework"
+	"github.com/k2s-project/k2s/test/framework"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"

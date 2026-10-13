@@ -1,6 +1,6 @@
-# SPDX-FileCopyrightText: © 2024 Siemens Healthineers AG
+# SPDX-FileCopyrightText: © 2026 The K2s Authors
 #
-# SPDX-License-Identifier: MIT
+# SPDX-License-Identifier: Apache-2.0
 
 #Requires -RunAsAdministrator
 
@@ -30,7 +30,9 @@ Param(
     [parameter(Mandatory = $false, HelpMessage = 'Use WSL2 for hosting Control Plane VM')]
     [switch] $WSL = $false,
     [parameter(Mandatory = $false, HelpMessage = 'Append to log file (do not start from scratch)')]
-    [switch] $AppendLogFile = $false
+    [switch] $AppendLogFile = $false,
+    [parameter(Mandatory = $true, HelpMessage = 'Internal normalized effective install configuration path')]
+    [string] $EffectiveInstallConfigPath
 )
 
 $installStopwatch = [system.diagnostics.stopwatch]::StartNew()
@@ -98,6 +100,7 @@ $controlPlaneNodeParams = @{
     CheckOnly = $false
     ShowLogs = $ShowLogs
     WSL = $WSL
+    EffectiveInstallConfigPath = $EffectiveInstallConfigPath
 }
 & "$PSScriptRoot\..\..\..\control-plane\Install.ps1" @controlPlaneNodeParams
 

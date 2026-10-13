@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText:  © 2026 Siemens Healthineers AG
+// SPDX-FileCopyrightText:  © 2026 The K2s Authors
 // SPDX-License-Identifier:   MIT
 
 package reset
@@ -9,12 +9,12 @@ import (
 
 	"github.com/spf13/cobra"
 
-	cconfig "github.com/siemens-healthineers/k2s/internal/contracts/config"
-	"github.com/siemens-healthineers/k2s/internal/core/config"
-	"github.com/siemens-healthineers/k2s/internal/provider"
-	"github.com/siemens-healthineers/k2s/internal/terminal"
+	cconfig "github.com/k2s-project/k2s/internal/contracts/config"
+	"github.com/k2s-project/k2s/internal/core/config"
+	"github.com/k2s-project/k2s/internal/provider"
+	"github.com/k2s-project/k2s/internal/terminal"
 
-	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/common"
+	"github.com/k2s-project/k2s/cmd/k2s/cmd/common"
 )
 
 var resetNetworkCmd = &cobra.Command{

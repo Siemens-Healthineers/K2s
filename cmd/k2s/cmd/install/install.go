@@ -1,9 +1,10 @@
-// SPDX-FileCopyrightText:  © 2026 Siemens Healthineers AG
+// SPDX-FileCopyrightText:  © 2026 The K2s Authors
 // SPDX-License-Identifier:   MIT
 
 package install
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -12,28 +13,29 @@ import (
 	"path/filepath"
 	"runtime"
 
-	config_contracts "github.com/siemens-healthineers/k2s/internal/contracts/config"
-	"github.com/siemens-healthineers/k2s/internal/core/config"
-	"github.com/siemens-healthineers/k2s/internal/definitions"
-	kos "github.com/siemens-healthineers/k2s/internal/os"
-	"github.com/siemens-healthineers/k2s/internal/provider"
-	"github.com/siemens-healthineers/k2s/internal/providers/powershell"
-	"github.com/siemens-healthineers/k2s/internal/version"
+	config_contracts "github.com/k2s-project/k2s/internal/contracts/config"
+	"github.com/k2s-project/k2s/internal/core/config"
+	"github.com/k2s-project/k2s/internal/definitions"
+	"github.com/k2s-project/k2s/internal/effectiveconfig"
+	kos "github.com/k2s-project/k2s/internal/os"
+	"github.com/k2s-project/k2s/internal/provider"
+	"github.com/k2s-project/k2s/internal/providers/powershell"
+	"github.com/k2s-project/k2s/internal/version"
 
 	"github.com/spf13/cobra"
 
-	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/install/buildonly"
-	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/install/core"
+	"github.com/k2s-project/k2s/cmd/k2s/cmd/install/buildonly"
+	"github.com/k2s-project/k2s/cmd/k2s/cmd/install/core"
 
-	"github.com/siemens-healthineers/k2s/cmd/k2s/utils/tz"
+	"github.com/k2s-project/k2s/cmd/k2s/utils/tz"
 
-	ic "github.com/siemens-healthineers/k2s/cmd/k2s/cmd/install/config"
+	ic "github.com/k2s-project/k2s/cmd/k2s/cmd/install/config"
 
-	"github.com/siemens-healthineers/k2s/internal/terminal"
+	"github.com/k2s-project/k2s/internal/terminal"
 
-	cc "github.com/siemens-healthineers/k2s/cmd/k2s/cmd/common"
+	cc "github.com/k2s-project/k2s/cmd/k2s/cmd/common"
 
-	"github.com/siemens-healthineers/k2s/cmd/k2s/utils"
+	"github.com/k2s-project/k2s/cmd/k2s/utils"
 )
 
 const (
@@ -101,6 +103,9 @@ func init() {
 		DeleteConfigFunc: func(configDir string) error {
 			return os.Remove(filepath.Join(configDir, definitions.K2sRuntimeConfigFileName))
 		},
+		StageEffectiveInstallConfigFunc: func(configDir string, content []byte) (core.EffectiveInstallConfigSnapshot, error) {
+			return effectiveconfig.Stage(configDir, content)
+		},
 	}
 
 	createTzHandleFunc = createTimezoneConfigHandle
@@ -113,16 +118,10 @@ func bindFlags(cmd *cobra.Command) {
 	cmd.Flags().BoolP(cc.DeleteFilesFlagName, cc.DeleteFilesFlagShorthand, false, cc.DeleteFilesFlagUsage)
 	cmd.Flags().BoolP(cc.ForceOnlineInstallFlagName, cc.ForceOnlineInstallFlagShorthand, false, cc.ForceOnlineInstallFlagUsage)
 
-	cmd.Flags().String(ic.ControlPlaneCPUsFlagName, "", ic.ControlPlaneCPUsFlagUsage)
-	cmd.Flags().String(ic.ControlPlaneMemoryFlagName, "", ic.ControlPlaneMemoryFlagUsage)
-	cmd.Flags().String(ic.ControlPlaneMemoryMinFlagName, "", ic.ControlPlaneMemoryMinFlagUsage)
-	cmd.Flags().String(ic.ControlPlaneMemoryMaxFlagName, "", ic.ControlPlaneMemoryMaxFlagUsage)
-	cmd.Flags().String(ic.ControlPlaneDiskSizeFlagName, "", ic.ControlPlaneDiskSizeFlagUsage)
+	bindPlatformFlags(cmd)
 	cmd.Flags().StringP(ic.ProxyFlagName, ic.ProxyFlagShorthand, "", ic.ProxyFlagUsage)
 	cmd.Flags().StringSlice(ic.NoProxyFlagName, []string{}, ic.NoProxyFlagUsage)
 	cmd.Flags().StringP(ic.ConfigFileFlagName, ic.ConfigFileFlagShorthand, "", ic.ConfigFileFlagUsage)
-	cmd.Flags().Bool(ic.WslFlagName, false, ic.WslFlagUsage)
-	cmd.Flags().String(ic.K8sBinFlagName, "", ic.K8sBinFlagUsage)
 
 	// convenience flag; not configurable in config file
 	cmd.Flags().Bool(ic.LinuxOnlyFlagName, false, ic.LinuxOnlyFlagUsage)
@@ -181,13 +180,14 @@ func install(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return err
 	}
-
 	linuxOnly, err := cmd.Flags().GetBool(ic.LinuxOnlyFlagName)
 	if err != nil {
 		return err
 	}
+	installConfig.LinuxOnly = linuxOnly
+
 	if runtime.GOOS == "linux" {
-		if err := validateLinuxInstallOptions(cmd, linuxOnly); err != nil {
+		if err := validateLinuxInstallOptions(cmd, installConfig.LinuxOnly); err != nil {
 			return err
 		}
 	}
@@ -212,7 +212,11 @@ func install(cmd *cobra.Command, args []string) error {
 		}
 	}
 
-	slog.Debug("Installing using config", "config", installConfig)
+	effectiveInstallConfig, err := json.MarshalIndent(installConfig, "", "  ")
+	if err != nil {
+		return fmt.Errorf("failed to serialize effective install configuration: %w", err)
+	}
+	slog.Debug("Installing using normalized effective configuration")
 
 	tzConfigHandle, err := createTzHandleFunc(context.Config().Host().KubeConfig())
 	if err != nil {
@@ -224,6 +228,14 @@ func install(cmd *cobra.Command, args []string) error {
 	node, err := installConfig.GetNodeByRole(ic.ControlPlaneRoleName)
 	if err != nil {
 		return err
+	}
+	// The managed Windows worker only exists for native Linux hosts. Everywhere
+	// else the worker resources stay empty so nothing is resolved or passed on.
+	var worker ic.NodeConfig
+	if runtime.GOOS == "linux" && !installConfig.LinuxOnly {
+		if configured, found := installConfig.FindNodeByRole(ic.WorkerRoleName); found {
+			worker = *configured
+		}
 	}
 
 	hostname, _ := os.Hostname()
@@ -240,8 +252,12 @@ func install(cmd *cobra.Command, args []string) error {
 		MasterVMMemoryMin:                 node.Resources.MemoryMin,
 		MasterVMMemoryMax:                 node.Resources.MemoryMax,
 		MasterDiskSize:                    node.Resources.Disk,
+		WorkerCPUCount:                    worker.Resources.Cpu,
+		WorkerMemory:                      worker.Resources.Memory,
+		WorkerDiskSize:                    worker.Resources.Disk,
+		WindowsQCOW2Path:                  installConfig.WindowsQCOW2Path,
 		DynamicMemory:                     node.Resources.DynamicMemory,
-		LinuxOnly:                         linuxOnly,
+		LinuxOnly:                         installConfig.LinuxOnly,
 		WSL:                               installConfig.Behavior.Wsl,
 		ShowLogs:                          installConfig.Behavior.ShowOutput,
 		SkipStart:                         installConfig.Behavior.SkipStart,
@@ -258,6 +274,7 @@ func install(cmd *cobra.Command, args []string) error {
 		Version:                           fmt.Sprintf("%s", ver),
 		ClusterName:                       "k2s-cluster",
 		ControlPlaneHostname:              hostname,
+		EffectiveInstallConfig:            effectiveInstallConfig,
 		StdWriter:                         outputWriter,
 	})
 	if err != nil {
@@ -271,7 +288,7 @@ func install(cmd *cobra.Command, args []string) error {
 			return &cc.CmdFailure{
 				Severity: cc.SeverityWarning,
 				Code:     "prereq-failed",
-				Message:  fmt.Sprintf("Prerequisite check failed: %s. See https://github.com/Siemens-Healthineers/K2s/blob/main/docs/op-manual/installing-k2s.md#prerequisites", errorLine),
+				Message:  fmt.Sprintf("Prerequisite check failed: %s. See https://github.com/k2s-project/k2s/blob/main/docs/op-manual/installing-k2s.md#prerequisites", errorLine),
 			}
 		}
 
@@ -290,26 +307,16 @@ func install(cmd *cobra.Command, args []string) error {
 }
 
 func validateLinuxInstallOptions(cmd *cobra.Command, linuxOnly bool) error {
-	if !linuxOnly {
-		return errors.New("Linux host installation currently supports only 'k2s install --linux-only'; Windows worker provisioning is not supported yet")
-	}
-
+	// Flags the Linux flag set does not register at all (see flags_linux.go) are
+	// rejected by cobra itself, so only the cross-platform ones are listed here.
 	unsupportedFlags := []string{
 		cc.ForceOnlineInstallFlagName,
 		cc.DeleteFilesFlagName,
-		ic.K8sBinFlagName,
-		ic.WslFlagName,
-		ic.ControlPlaneCPUsFlagName,
-		ic.ControlPlaneMemoryFlagName,
-		ic.ControlPlaneMemoryMinFlagName,
-		ic.ControlPlaneMemoryMaxFlagName,
-		ic.ControlPlaneDiskSizeFlagName,
 	}
 	for _, flagName := range unsupportedFlags {
 		if cmd.Flags().Changed(flagName) {
 			return fmt.Errorf("--%s is not supported for native Linux hosts", flagName)
 		}
 	}
-
 	return nil
 }

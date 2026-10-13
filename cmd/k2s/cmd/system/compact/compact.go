@@ -1,5 +1,5 @@
-// SPDX-FileCopyrightText: © 2026 Siemens Healthineers AG
-// SPDX-License-Identifier: MIT
+// SPDX-FileCopyrightText: © 2026 The K2s Authors
+// SPDX-License-Identifier: Apache-2.0
 
 package compact
 
@@ -8,13 +8,13 @@ import (
 	"path/filepath"
 	"strconv"
 
-	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/common"
-	"github.com/siemens-healthineers/k2s/cmd/k2s/utils"
-	"github.com/siemens-healthineers/k2s/cmd/k2s/utils/tz"
-	cconfig "github.com/siemens-healthineers/k2s/internal/contracts/config"
-	"github.com/siemens-healthineers/k2s/internal/core/config"
-	"github.com/siemens-healthineers/k2s/internal/definitions"
-	"github.com/siemens-healthineers/k2s/internal/provider"
+	"github.com/k2s-project/k2s/cmd/k2s/cmd/common"
+	"github.com/k2s-project/k2s/cmd/k2s/utils"
+	"github.com/k2s-project/k2s/cmd/k2s/utils/tz"
+	cconfig "github.com/k2s-project/k2s/internal/contracts/config"
+	"github.com/k2s-project/k2s/internal/core/config"
+	"github.com/k2s-project/k2s/internal/definitions"
+	"github.com/k2s-project/k2s/internal/provider"
 
 	"github.com/spf13/cobra"
 )

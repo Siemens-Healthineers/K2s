@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText:  © 2026 Siemens Healthineers AG
+// SPDX-FileCopyrightText:  © 2026 The K2s Authors
 // SPDX-License-Identifier:   MIT
 
 package naming_test
@@ -10,8 +10,8 @@ import (
 	"github.com/go-logr/logr"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/siemens-healthineers/k2s/internal/contracts/users"
-	"github.com/siemens-healthineers/k2s/internal/core/users/naming"
+	"github.com/k2s-project/k2s/internal/contracts/users"
+	"github.com/k2s-project/k2s/internal/core/users/naming"
 )
 
 func TestPkg(t *testing.T) {

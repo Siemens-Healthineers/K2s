@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText:  © 2026 Siemens Healthineers AG
+// SPDX-FileCopyrightText:  © 2026 The K2s Authors
 // SPDX-License-Identifier:   MIT
 
 package dsl
@@ -6,7 +6,7 @@ package dsl
 import (
 	"context"
 
-	"github.com/siemens-healthineers/k2s/internal/cli"
+	"github.com/k2s-project/k2s/internal/cli"
 )
 
 func (k2s *K2s) ShowStatus(ctx context.Context) *K2sCmdResult {

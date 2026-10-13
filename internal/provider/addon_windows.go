@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText:  © 2026 Siemens Healthineers AG
+// SPDX-FileCopyrightText:  © 2026 The K2s Authors
 // SPDX-License-Identifier:   MIT
 
 //go:build windows
@@ -9,9 +9,9 @@ import (
 	"fmt"
 	"path/filepath"
 
-	"github.com/siemens-healthineers/k2s/cmd/k2s/utils"
-	"github.com/siemens-healthineers/k2s/internal/output"
-	"github.com/siemens-healthineers/k2s/internal/providers/powershell"
+	"github.com/k2s-project/k2s/cmd/k2s/utils"
+	"github.com/k2s-project/k2s/internal/output"
+	"github.com/k2s-project/k2s/internal/providers/powershell"
 )
 
 type windowsAddonProvider struct {

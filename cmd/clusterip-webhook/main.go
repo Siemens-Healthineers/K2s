@@ -1,6 +1,6 @@
-// SPDX-FileCopyrightText: © 2026 Siemens Healthineers AG
+// SPDX-FileCopyrightText: © 2026 The K2s Authors
 //
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: Apache-2.0
 
 package main
 
@@ -22,8 +22,8 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/siemens-healthineers/k2s/internal/cli"
-	ve "github.com/siemens-healthineers/k2s/internal/version"
+	"github.com/k2s-project/k2s/internal/cli"
+	ve "github.com/k2s-project/k2s/internal/version"
 	admissionv1 "k8s.io/api/admission/v1"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"

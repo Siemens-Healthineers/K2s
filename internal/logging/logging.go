@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText:  © 2024 Siemens Healthineers AG
+// SPDX-FileCopyrightText:  © 2024 The K2s Authors
 // SPDX-License-Identifier:   MIT
 
 package logging
@@ -17,9 +17,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/siemens-healthineers/k2s/internal/definitions"
-	"github.com/siemens-healthineers/k2s/internal/host"
-	kos "github.com/siemens-healthineers/k2s/internal/os"
+	"github.com/k2s-project/k2s/internal/definitions"
+	"github.com/k2s-project/k2s/internal/host"
+	kos "github.com/k2s-project/k2s/internal/os"
 )
 
 // LogRootEnvVar is the environment variable that overrides the configured log root directory.

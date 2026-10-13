@@ -1,6 +1,6 @@
-// SPDX-FileCopyrightText: © 2026 Siemens Healthineers AG
+// SPDX-FileCopyrightText: © 2026 The K2s Authors
 //
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: Apache-2.0
 
 // Package argocdgitopssync tests the GitOps addon delivery infrastructure
 // deployed by the rollout/argocd addon.
@@ -26,10 +26,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/siemens-healthineers/k2s/test/e2e/addons/exportimport"
-	gitopssync "github.com/siemens-healthineers/k2s/test/e2e/addons/gitopssync"
-	"github.com/siemens-healthineers/k2s/test/framework"
-	"github.com/siemens-healthineers/k2s/test/framework/dsl"
+	"github.com/k2s-project/k2s/test/e2e/addons/exportimport"
+	gitopssync "github.com/k2s-project/k2s/test/e2e/addons/gitopssync"
+	"github.com/k2s-project/k2s/test/framework"
+	"github.com/k2s-project/k2s/test/framework/dsl"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"

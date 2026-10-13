@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText:  © 2025 Siemens Healthineers AG
+// SPDX-FileCopyrightText:  © 2025 The K2s Authors
 // SPDX-License-Identifier:   MIT
 
 //go:build linux
@@ -13,7 +13,7 @@ import (
 	"strings"
 	"time"
 
-	linuxlifecycle "github.com/siemens-healthineers/k2s/internal/linux/lifecycle"
+	linuxlifecycle "github.com/k2s-project/k2s/internal/linux/lifecycle"
 )
 
 type linuxClusterProvider struct {
@@ -33,6 +33,8 @@ func (p *linuxClusterProvider) Install(cfg ClusterInstallConfig) error {
 		InstallDir: cfg.InstallDir, ConfigDir: cfg.ConfigDir, Version: cfg.Version,
 		ClusterName: cfg.ClusterName, ControlPlaneHostname: cfg.ControlPlaneHostname,
 		Proxy: cfg.Proxy, NoProxy: cfg.NoProxy, SkipStart: cfg.SkipStart, LinuxOnly: cfg.LinuxOnly,
+		WorkerCPUCount: cfg.WorkerCPUCount, WorkerMemory: cfg.WorkerMemory,
+		WorkerDiskSize: cfg.WorkerDiskSize, WindowsQCOW2Path: cfg.WindowsQCOW2Path,
 	})
 }
 

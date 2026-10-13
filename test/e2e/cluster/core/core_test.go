@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText:  © 2026 Siemens Healthineers AG
+// SPDX-FileCopyrightText:  © 2026 The K2s Authors
 // SPDX-License-Identifier:   MIT
 
 package core
@@ -16,12 +16,12 @@ import (
 	"testing"
 	"time"
 
-	core_config "github.com/siemens-healthineers/k2s/internal/core/config"
-	"github.com/siemens-healthineers/k2s/internal/definitions"
-	"github.com/siemens-healthineers/k2s/internal/providers/ssh"
-	"github.com/siemens-healthineers/k2s/test/framework"
-	"github.com/siemens-healthineers/k2s/test/framework/dsl"
-	"github.com/siemens-healthineers/k2s/test/framework/watcher"
+	core_config "github.com/k2s-project/k2s/internal/core/config"
+	"github.com/k2s-project/k2s/internal/definitions"
+	"github.com/k2s-project/k2s/internal/providers/ssh"
+	"github.com/k2s-project/k2s/test/framework"
+	"github.com/k2s-project/k2s/test/framework/dsl"
+	"github.com/k2s-project/k2s/test/framework/watcher"
 	core_v1 "k8s.io/api/core/v1"
 	discovery_v1 "k8s.io/api/discovery/v1"
 

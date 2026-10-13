@@ -1,6 +1,6 @@
-# SPDX-FileCopyrightText: © 2026 Siemens Healthineers AG
+# SPDX-FileCopyrightText: © 2026 The K2s Authors
 #
-# SPDX-License-Identifier: MIT
+# SPDX-License-Identifier: Apache-2.0
 
 # ConfigMap that mounts the Sync-Addons.ps1 script into the processor Job container.
 # The script is loaded from the scripts/ directory at kustomize build time via the

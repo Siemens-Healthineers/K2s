@@ -1,6 +1,6 @@
-# SPDX-FileCopyrightText: © 2024 Siemens Healthineers AG
+# SPDX-FileCopyrightText: © 2024 The K2s Authors
 #
-# SPDX-License-Identifier: MIT
+# SPDX-License-Identifier: Apache-2.0
 
 <#
 .SYNOPSIS
@@ -274,7 +274,7 @@ if (!$Windows) {
     }
 }
 
-$GO_VERSION = '1.27.1'
+$GO_VERSION = '1.27.2'
 if ($null -ne $env:GOVERSION -and $env:GOVERSION -ne '') {
     Write-Log "Using local GOVERSION $Env:GOVERSION environment variable from the host machine"
     # $env:GOVERSION will be go1.24.2, remove the go part.

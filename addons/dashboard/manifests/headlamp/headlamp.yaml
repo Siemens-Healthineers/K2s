@@ -1,6 +1,6 @@
-# SPDX-FileCopyrightText: © 2026 Siemens Healthineers AG
+# SPDX-FileCopyrightText: © 2026 The K2s Authors
 #
-# SPDX-License-Identifier: MIT
+# SPDX-License-Identifier: Apache-2.0
 
 # Headlamp Kubernetes manifests for k2s
 # Based on Headlamp v0.45.0 (https://github.com/kubernetes-sigs/headlamp)

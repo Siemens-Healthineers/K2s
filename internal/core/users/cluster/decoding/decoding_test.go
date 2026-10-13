@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText:  © 2026 Siemens Healthineers AG
+// SPDX-FileCopyrightText:  © 2026 The K2s Authors
 // SPDX-License-Identifier:   MIT
 
 package decoding_test
@@ -10,8 +10,8 @@ import (
 	"github.com/go-logr/logr"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/siemens-healthineers/k2s/internal/core/users/cluster/decoding"
-	"github.com/siemens-healthineers/k2s/internal/providers/kubeconfig"
+	"github.com/k2s-project/k2s/internal/core/users/cluster/decoding"
+	"github.com/k2s-project/k2s/internal/providers/kubeconfig"
 )
 
 func TestPkg(t *testing.T) {

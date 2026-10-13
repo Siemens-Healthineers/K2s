@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText:  © 2026 Siemens Healthineers AG
+// SPDX-FileCopyrightText:  © 2026 The K2s Authors
 // SPDX-License-Identifier:   MIT
 
 //go:build windows
@@ -10,7 +10,7 @@ import (
 	"log/slog"
 
 	acl_pkg "github.com/hectane/go-acl"
-	"github.com/siemens-healthineers/k2s/internal/contracts/users"
+	"github.com/k2s-project/k2s/internal/contracts/users"
 	"golang.org/x/sys/windows"
 )
 

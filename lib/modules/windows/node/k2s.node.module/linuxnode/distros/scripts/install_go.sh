@@ -1,11 +1,11 @@
 #!/bin/bash
 
-# SPDX-FileCopyrightText: © 2024 Siemens Healthineers AG
+# SPDX-FileCopyrightText: © 2024 The K2s Authors
 #
-# SPDX-License-Identifier: MIT
+# SPDX-License-Identifier: Apache-2.0
 
 # Set default Go version
-DEFAULT_GO_VERSION="1.27.1"
+DEFAULT_GO_VERSION="1.27.2"
 
 # Check if an argument is provided and is a valid integer
 if [ "$#" -eq 1 ] && [[ "$1" =~ ^[0-9]+\.[0-9]+(\.[0-9]+)?$ ]]; then

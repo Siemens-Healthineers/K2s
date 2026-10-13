@@ -1,6 +1,6 @@
-// SPDX-FileCopyrightText: © 2025 Siemens Healthineers AG
+// SPDX-FileCopyrightText: © 2025 The K2s Authors
 //
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: Apache-2.0
 
 //go:build windows
 
@@ -19,8 +19,8 @@ import (
 
 	hydra "github.com/ory/hydra-client-go"
 	"github.com/pkg/errors"
-	"github.com/siemens-healthineers/k2s/internal/cli"
-	ve "github.com/siemens-healthineers/k2s/internal/version"
+	"github.com/k2s-project/k2s/internal/cli"
+	ve "github.com/k2s-project/k2s/internal/version"
 	"golang.org/x/sys/windows"
 )
 

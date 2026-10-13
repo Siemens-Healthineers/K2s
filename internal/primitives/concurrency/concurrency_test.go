@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText:  © 2026 Siemens Healthineers AG
+// SPDX-FileCopyrightText:  © 2026 The K2s Authors
 // SPDX-License-Identifier:   MIT
 
 package concurrency_test
@@ -8,7 +8,7 @@ import (
 	"sync/atomic"
 	"testing"
 
-	sut "github.com/siemens-healthineers/k2s/internal/primitives/concurrency"
+	sut "github.com/k2s-project/k2s/internal/primitives/concurrency"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"

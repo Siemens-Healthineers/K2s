@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText:  © 2025 Siemens Healthineers AG
+// SPDX-FileCopyrightText:  © 2025 The K2s Authors
 // SPDX-License-Identifier:   MIT
 package k2s
 
@@ -9,8 +9,8 @@ import (
 
 	//lint:ignore ST1001 test framework code
 	. "github.com/onsi/ginkgo/v2"
-	"github.com/siemens-healthineers/k2s/internal/contracts/config"
-	"github.com/siemens-healthineers/k2s/test/framework/os"
+	"github.com/k2s-project/k2s/internal/contracts/config"
+	"github.com/k2s-project/k2s/test/framework/os"
 )
 
 type KubeProxyRestarter struct {

@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText:  © 2025 Siemens Healthineers AG
+// SPDX-FileCopyrightText:  © 2025 The K2s Authors
 // SPDX-License-Identifier:   MIT
 
 package setuprequired
@@ -12,10 +12,10 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
-	ka "github.com/siemens-healthineers/k2s/internal/core/addons"
-	"github.com/siemens-healthineers/k2s/test/framework"
-	"github.com/siemens-healthineers/k2s/test/framework/dsl"
-	"github.com/siemens-healthineers/k2s/test/framework/k2s/addons"
+	ka "github.com/k2s-project/k2s/internal/core/addons"
+	"github.com/k2s-project/k2s/test/framework"
+	"github.com/k2s-project/k2s/test/framework/dsl"
+	"github.com/k2s-project/k2s/test/framework/k2s/addons"
 )
 
 var (

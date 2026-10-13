@@ -1,6 +1,6 @@
-// SPDX-FileCopyrightText: © 2026 Siemens Healthineers AG
+// SPDX-FileCopyrightText: © 2026 The K2s Authors
 //
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: Apache-2.0
 
 package dicomsecurity
 
@@ -11,9 +11,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/siemens-healthineers/k2s/test/framework"
-	"github.com/siemens-healthineers/k2s/test/framework/dsl"
-	"github.com/siemens-healthineers/k2s/test/framework/k2s/addons"
+	"github.com/k2s-project/k2s/test/framework"
+	"github.com/k2s-project/k2s/test/framework/dsl"
+	"github.com/k2s-project/k2s/test/framework/k2s/addons"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"

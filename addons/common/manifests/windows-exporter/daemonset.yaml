@@ -1,6 +1,6 @@
-# SPDX-FileCopyrightText: © 2025 Siemens Healthineers AG
+# SPDX-FileCopyrightText: © 2025 The K2s Authors
 #
-# SPDX-License-Identifier: MIT
+# SPDX-License-Identifier: Apache-2.0
 
 apiVersion: apps/v1
 kind: DaemonSet
@@ -33,7 +33,7 @@ spec:
       hostPID: true
       containers:
       - name: windows-exporter
-        image: shsk2s.azurecr.io/prometheus-community/windows-exporter:0.31.8-hp #windows_image
+        image: shsk2s.azurecr.io/prometheus-community/windows-exporter:0.31.9-hp #windows_image
         args:
         - --config.file=C:\\config\\windows_exporter.yaml
         ports:

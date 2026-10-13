@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# SPDX-FileCopyrightText: © 2026 Siemens Healthineers AG
-# SPDX-License-Identifier: MIT
+# SPDX-FileCopyrightText: © 2026 The K2s Authors
+# SPDX-License-Identifier: Apache-2.0
 
 # Apply node delta package updates
 # This script is copied into a node delta package and executed on the Linux worker node

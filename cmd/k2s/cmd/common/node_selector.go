@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText:  © 2026 Siemens Healthineers AG
+// SPDX-FileCopyrightText:  © 2026 The K2s Authors
 // SPDX-License-Identifier:   MIT
 
 package common
@@ -8,7 +8,7 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/siemens-healthineers/k2s/cmd/k2s/utils"
+	"github.com/k2s-project/k2s/cmd/k2s/utils"
 )
 
 // ParseNodeSelector reads the nodes/node flags (identified by nodeFlagName and nodesFlagName) and

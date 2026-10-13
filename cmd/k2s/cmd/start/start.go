@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText:  © 2026 Siemens Healthineers AG
+// SPDX-FileCopyrightText:  © 2026 The K2s Authors
 // SPDX-License-Identifier:   MIT
 
 package start
@@ -11,24 +11,24 @@ import (
 	"strconv"
 	"strings"
 
-	contracts "github.com/siemens-healthineers/k2s/internal/contracts/config"
+	contracts "github.com/k2s-project/k2s/internal/contracts/config"
 
 	"github.com/pterm/pterm"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 
-	"github.com/siemens-healthineers/k2s/cmd/k2s/utils/tz"
+	"github.com/k2s-project/k2s/cmd/k2s/utils/tz"
 
-	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/common"
-	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/status"
-	cconfig "github.com/siemens-healthineers/k2s/internal/contracts/config"
+	"github.com/k2s-project/k2s/cmd/k2s/cmd/common"
+	"github.com/k2s-project/k2s/cmd/k2s/cmd/status"
+	cconfig "github.com/k2s-project/k2s/internal/contracts/config"
 
-	"github.com/siemens-healthineers/k2s/cmd/k2s/utils"
+	"github.com/k2s-project/k2s/cmd/k2s/utils"
 
-	cc "github.com/siemens-healthineers/k2s/internal/core/clusterconfig"
-	"github.com/siemens-healthineers/k2s/internal/core/config"
-	"github.com/siemens-healthineers/k2s/internal/provider"
-	"github.com/siemens-healthineers/k2s/internal/providers/powershell"
+	cc "github.com/k2s-project/k2s/internal/core/clusterconfig"
+	"github.com/k2s-project/k2s/internal/core/config"
+	"github.com/k2s-project/k2s/internal/provider"
+	"github.com/k2s-project/k2s/internal/providers/powershell"
 )
 
 var Startk8sCmd = &cobra.Command{

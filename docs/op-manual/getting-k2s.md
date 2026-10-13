@@ -1,5 +1,5 @@
 <!--
-SPDX-FileCopyrightText: © 2024 Siemens Healthineers AG
+SPDX-FileCopyrightText: © 2024 The K2s Authors
 SPDX-License-Identifier: MIT
 -->
 
@@ -28,7 +28,7 @@ SPDX-License-Identifier: MIT
 To clone the Git repository into a new folder of your choice, run:
 ```console
 mkdir c:\myFolder; cd c:\myFolder
-git clone https://github.com/Siemens-Healthineers/K2s .
+git clone https://github.com/k2s-project/k2s .
 git checkout tags/v1.4.0
 ```
 
@@ -50,7 +50,7 @@ Go-built binaries (including `k2s.exe`) are **not committed** to the git reposit
 Proceed with the installation, see [Installing *K2s*](installing-k2s.md).
 
 ## \[Option 2\] Downloading Official Release Package
-Download the latest released and officially cleared *K2s* version from [*K2s* Releases](https://github.com/Siemens-Healthineers/K2s/releases){target="_blank"}.
+Download the latest released and officially cleared *K2s* version from [*K2s* Releases](https://github.com/k2s-project/k2s/releases){target="_blank"}.
 Please move the package to a folder on your drive from the windows downloads folder. 
 
 !!! tip

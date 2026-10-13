@@ -1,5 +1,5 @@
 <!--
-SPDX-FileCopyrightText: © 2024 Siemens Healthineers AG
+SPDX-FileCopyrightText: © 2024 The K2s Authors
 SPDX-License-Identifier: MIT
 -->
 
@@ -58,7 +58,7 @@ graph TD
 ```
 
 !!! note
-    Omitting the `--for-offline-installation` flag will effectively bundle only repository source files similar to the [*K2s* Releases](https://github.com/Siemens-Healthineers/K2s/releases){target="_blank"}.
+    Omitting the `--for-offline-installation` flag will effectively bundle only repository source files similar to the [*K2s* Releases](https://github.com/k2s-project/k2s/releases){target="_blank"}.
 
 ## Node Package for Offline Node Add
 

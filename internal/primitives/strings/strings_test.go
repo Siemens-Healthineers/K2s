@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText:  © 2024 Siemens Healthineers AG
+// SPDX-FileCopyrightText:  © 2024 The K2s Authors
 // SPDX-License-Identifier:   MIT
 
 package strings_test
@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	sut "github.com/siemens-healthineers/k2s/internal/primitives/strings"
+	sut "github.com/k2s-project/k2s/internal/primitives/strings"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"

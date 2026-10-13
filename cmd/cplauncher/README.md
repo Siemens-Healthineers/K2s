@@ -1,7 +1,7 @@
 <!--
-SPDX-FileCopyrightText: © 2025 Siemens Healthineers AG
+SPDX-FileCopyrightText: © 2025 The K2s Authors
 
-SPDX-License-Identifier: MIT
+SPDX-License-Identifier: Apache-2.0
 -->
 
 ### Overview
@@ -117,9 +117,9 @@ On fatal errors the tool now prints the most recent ERROR lines (or last lines) 
 | ipconfig scan failed for ip ... | Ensure `ipconfig /allcompartments` lists the pod IP; if not, wait until networking initializes. |
 
 <!--
-SPDX-FileCopyrightText: © 2025 Siemens Healthineers AG
+SPDX-FileCopyrightText: © 2025 The K2s Authors
 
-SPDX-License-Identifier: MIT
+SPDX-License-Identifier: Apache-2.0
 -->
 
 ### Build the cphook.dll with mingw

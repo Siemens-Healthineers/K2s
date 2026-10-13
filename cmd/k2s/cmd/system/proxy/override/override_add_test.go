@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText:  © 2025 Siemens Healthineers AG
+// SPDX-FileCopyrightText:  © 2025 The K2s Authors
 // SPDX-License-Identifier:   MIT
 
 package override
@@ -7,7 +7,7 @@ import (
 	"path"
 	"strings"
 
-	"github.com/siemens-healthineers/k2s/cmd/k2s/utils"
+	"github.com/k2s-project/k2s/cmd/k2s/utils"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"

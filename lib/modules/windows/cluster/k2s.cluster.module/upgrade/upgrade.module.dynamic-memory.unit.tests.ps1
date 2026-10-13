@@ -1,6 +1,6 @@
-# SPDX-FileCopyrightText: © 2025 Siemens Healthineers AG
+# SPDX-FileCopyrightText: © 2026 The K2s Authors
 #
-# SPDX-License-Identifier: MIT
+# SPDX-License-Identifier: Apache-2.0
 
 <#
 .SYNOPSIS
@@ -157,6 +157,17 @@ Describe 'Invoke-ClusterInstall - Dynamic Memory Support' -Tag 'unit', 'ci', 'up
     }
 
     Context 'Command String Format Validation' {
+
+        It 'uses the long config flag and quotes paths with spaces' {
+            InModuleScope -ModuleName $moduleName {
+                Invoke-ClusterInstall -Config 'C:\Backup Dir\effective-install-config.previous.json'
+
+                Should -Invoke Invoke-Cmd -ParameterFilter {
+                    $Arguments -match '--config "C:\\Backup Dir\\effective-install-config\.previous\.json"' -and
+                    $Arguments -notmatch '(^|\s)-config(\s|$)'
+                }
+            }
+        }
 
         It 'includes append-log flag in all cases' {
             InModuleScope -ModuleName $moduleName {

@@ -1,6 +1,6 @@
-// SPDX-FileCopyrightText: © 2024 Siemens Healthineers AG
+// SPDX-FileCopyrightText: © 2024 The K2s Authors
 //
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: Apache-2.0
 
 //go:build windows
 
@@ -19,7 +19,7 @@ import (
 	"github.com/Microsoft/windows-container-networking/cni"
 	"github.com/Microsoft/windows-container-networking/common"
 	"github.com/Microsoft/windows-container-networking/network"
-	kos "github.com/siemens-healthineers/k2s/internal/os"
+	kos "github.com/k2s-project/k2s/internal/os"
 
 	"github.com/Microsoft/hcsshim/hcn"
 	"github.com/containernetworking/cni/pkg/invoke"

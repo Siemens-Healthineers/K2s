@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText:  © 2024 Siemens Healthineers AG
+// SPDX-FileCopyrightText:  © 2024 The K2s Authors
 // SPDX-License-Identifier:   MIT
 
 package status
@@ -8,12 +8,12 @@ import (
 	"fmt"
 	"runtime"
 
-	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/common"
+	"github.com/k2s-project/k2s/cmd/k2s/cmd/common"
 
-	cconfig "github.com/siemens-healthineers/k2s/internal/contracts/config"
-	"github.com/siemens-healthineers/k2s/internal/core/config"
-	"github.com/siemens-healthineers/k2s/internal/json"
-	"github.com/siemens-healthineers/k2s/internal/terminal"
+	cconfig "github.com/k2s-project/k2s/internal/contracts/config"
+	"github.com/k2s-project/k2s/internal/core/config"
+	"github.com/k2s-project/k2s/internal/json"
+	"github.com/k2s-project/k2s/internal/terminal"
 
 	"github.com/spf13/cobra"
 )

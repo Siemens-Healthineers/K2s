@@ -1,5 +1,5 @@
-# SPDX-FileCopyrightText: © 2026 Siemens Healthineers AG
-# SPDX-License-Identifier: MIT
+# SPDX-FileCopyrightText: © 2026 The K2s Authors
+# SPDX-License-Identifier: Apache-2.0
 
 $formattingModule = "$PSScriptRoot/formatting/formatting.module.psm1"
 $logModule = "$PSScriptRoot\..\..\..\infra\k2s.infra.module\log\log.module.psm1"

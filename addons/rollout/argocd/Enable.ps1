@@ -1,6 +1,6 @@
-# SPDX-FileCopyrightText: © 2024 Siemens Healthineers AG
+# SPDX-FileCopyrightText: © 2024 The K2s Authors
 #
-# SPDX-License-Identifier: MIT
+# SPDX-License-Identifier: Apache-2.0
 
 #Requires -RunAsAdministrator
 
@@ -94,7 +94,7 @@ if ((Test-IsAddonEnabled -Addon ([pscustomobject] @{Name = 'rollout'; Implementa
 
 $rolloutNamespace = 'rollout'
 
-$VERSION_ARGOCD = 'v3.5.3'
+$VERSION_ARGOCD = 'v3.5.4'
 
 Write-Log 'Creating rollout namespace'
 (Invoke-Kubectl -Params 'create', 'namespace', $rolloutNamespace).Output | Write-Log

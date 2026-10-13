@@ -1,6 +1,6 @@
-// SPDX-FileCopyrightText: © 2025 Siemens Healthineers AG
+// SPDX-FileCopyrightText: © 2025 The K2s Authors
 //
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: Apache-2.0
 
 // Package securityenhanced provides shared helper functions for addon + security enhanced tests.
 package securityenhanced
@@ -9,7 +9,7 @@ import (
 	"context"
 	"time"
 
-	"github.com/siemens-healthineers/k2s/test/framework"
+	"github.com/k2s-project/k2s/test/framework"
 
 	. "github.com/onsi/ginkgo/v2"
 )

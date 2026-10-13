@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText:  © 2026 Siemens Healthineers AG
+// SPDX-FileCopyrightText:  © 2026 The K2s Authors
 // SPDX-License-Identifier:   MIT
 
 package config_test
@@ -10,7 +10,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/siemens-healthineers/k2s/internal/core/config"
+	"github.com/k2s-project/k2s/internal/core/config"
 )
 
 // realistic excerpt of 'cfg/config.json' containing entries that are unknown to the typed

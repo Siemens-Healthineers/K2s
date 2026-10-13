@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText:  © 2026 Siemens Healthineers AG
+// SPDX-FileCopyrightText:  © 2026 The K2s Authors
 // SPDX-License-Identifier:   MIT
 
 package powershell
@@ -11,9 +11,9 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/siemens-healthineers/k2s/internal/os"
-	"github.com/siemens-healthineers/k2s/internal/output"
-	"github.com/siemens-healthineers/k2s/internal/providers/powershell/decode"
+	"github.com/k2s-project/k2s/internal/os"
+	"github.com/k2s-project/k2s/internal/output"
+	"github.com/k2s-project/k2s/internal/providers/powershell/decode"
 )
 
 type structuredOutputWriter struct {

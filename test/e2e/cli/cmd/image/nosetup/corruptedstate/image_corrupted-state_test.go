@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText:  © 2024 Siemens Healthineers AG
+// SPDX-FileCopyrightText:  © 2024 The K2s Authors
 // SPDX-License-Identifier:   MIT
 package corruptedstate
 
@@ -10,17 +10,17 @@ import (
 	"testing"
 	"time"
 
-	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/image"
+	"github.com/k2s-project/k2s/cmd/k2s/cmd/image"
 
-	contracts "github.com/siemens-healthineers/k2s/internal/contracts/config"
-	"github.com/siemens-healthineers/k2s/internal/core/config"
-	kos "github.com/siemens-healthineers/k2s/internal/os"
+	contracts "github.com/k2s-project/k2s/internal/contracts/config"
+	"github.com/k2s-project/k2s/internal/core/config"
+	kos "github.com/k2s-project/k2s/internal/os"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
-	"github.com/siemens-healthineers/k2s/internal/cli"
-	"github.com/siemens-healthineers/k2s/test/framework"
+	"github.com/k2s-project/k2s/internal/cli"
+	"github.com/k2s-project/k2s/test/framework"
 )
 
 var suite *framework.K2sTestSuite

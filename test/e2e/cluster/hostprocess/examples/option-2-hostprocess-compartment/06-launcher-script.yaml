@@ -1,6 +1,6 @@
-# SPDX-FileCopyrightText: © 2026 Siemens Healthineers AG
+# SPDX-FileCopyrightText: © 2026 The K2s Authors
 #
-# SPDX-License-Identifier: MIT
+# SPDX-License-Identifier: Apache-2.0
 
 # PowerShell script mounted into the HostProcess container (see 20-hostprocess-deployment.yaml).
 # Keeping the logic in a mounted file - instead of an inline -Command in the Deployment -
@@ -17,8 +17,8 @@ metadata:
   namespace: hostprocess-examples
 data:
   start-albumswin.ps1: |
-    # SPDX-FileCopyrightText: © 2026 Siemens Healthineers AG
-    # SPDX-License-Identifier: MIT
+    # SPDX-FileCopyrightText: © 2026 The K2s Authors
+    # SPDX-License-Identifier: Apache-2.0
     $ErrorActionPreference = 'Stop'
     $ns = 'hostprocess-examples'
     $label = 'app=cp-albums-win'

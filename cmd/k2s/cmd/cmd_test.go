@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText:  © 2026 Siemens Healthineers AG
+// SPDX-FileCopyrightText:  © 2026 The K2s Authors
 // SPDX-License-Identifier:   MIT
 
 package cmd
@@ -9,8 +9,8 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	cconfig "github.com/siemens-healthineers/k2s/internal/contracts/config"
-	"github.com/siemens-healthineers/k2s/internal/core/config"
+	cconfig "github.com/k2s-project/k2s/internal/contracts/config"
+	"github.com/k2s-project/k2s/internal/core/config"
 )
 
 func TestCmd(t *testing.T) {
@@ -81,6 +81,16 @@ var _ = Describe("resolveInstallDirFromPath", func() {
 			Expect(err).To(MatchError(originalErr))
 			Expect(actual).To(Equal(exeDir))
 		})
+	})
+})
+
+var _ = Describe("formatLinuxCLIInvocation", func() {
+	It("uses POSIX-safe quoting for Linux command arguments", func() {
+		args := []string{"/opt/k2s/k2s", "install", "--windows-qcow2-path", "/tmp/Windows 11's.qcow2", "--proxy", "http://proxy:81"}
+
+		actual := formatLinuxCLIInvocation(args)
+
+		Expect(actual).To(Equal("/opt/k2s/k2s install --windows-qcow2-path '/tmp/Windows 11'\"'\"'s.qcow2' --proxy http://proxy:81"))
 	})
 })
 

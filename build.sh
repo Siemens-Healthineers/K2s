@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
-# SPDX-FileCopyrightText: © 2026 Siemens Healthineers AG
+# SPDX-FileCopyrightText: © 2026 The K2s Authors
 #
-# SPDX-License-Identifier: MIT
+# SPDX-License-Identifier: Apache-2.0
 #
 # Native Linux build for the K2s Go executables -- no PowerShell required.
 #
@@ -113,7 +113,7 @@ fi
 echo "GIT_COMMIT: $GIT_COMMIT"
 echo "GIT_TREE_STATE: $GIT_TREE_STATE"
 
-VERSION_PKG="github.com/siemens-healthineers/k2s/internal/version"
+VERSION_PKG="github.com/k2s-project/k2s/internal/version"
 LDFLAGS="-s -w \
 -X ${VERSION_PKG}.version=${VERSION} \
 -X ${VERSION_PKG}.buildDate=${BUILD_DATE} \

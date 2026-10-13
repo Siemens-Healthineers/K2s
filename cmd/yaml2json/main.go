@@ -1,6 +1,6 @@
-// SPDX-FileCopyrightText: © 2024 Siemens Healthineers AG
+// SPDX-FileCopyrightText: © 2024 The K2s Authors
 //
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: Apache-2.0
 
 package main
 
@@ -12,8 +12,8 @@ import (
 	"log/slog"
 	"os"
 
-	"github.com/siemens-healthineers/k2s/internal/cli"
-	"github.com/siemens-healthineers/k2s/internal/logging"
+	"github.com/k2s-project/k2s/internal/cli"
+	"github.com/k2s-project/k2s/internal/logging"
 
 	"gopkg.in/yaml.v3"
 )

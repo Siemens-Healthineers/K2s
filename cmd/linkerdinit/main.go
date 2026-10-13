@@ -1,6 +1,6 @@
-// SPDX-FileCopyrightText: © 2026 Siemens Healthineers AG
+// SPDX-FileCopyrightText: © 2026 The K2s Authors
 //
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: Apache-2.0
 
 // linkerdinit replaces the upstream linkerd2-proxy-init inside the Windows
 // Linkerd data-plane image. Upstream only configures Linux iptables, while on
@@ -15,8 +15,8 @@ import (
 	"io"
 	"os"
 
-	"github.com/siemens-healthineers/k2s/internal/cli"
-	ve "github.com/siemens-healthineers/k2s/internal/version"
+	"github.com/k2s-project/k2s/internal/cli"
+	ve "github.com/k2s-project/k2s/internal/version"
 )
 
 const cliName = "linkerdinit"

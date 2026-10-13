@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText:  © 2026 Siemens Healthineers AG
+// SPDX-FileCopyrightText:  © 2026 The K2s Authors
 // SPDX-License-Identifier:   MIT
 
 package image
@@ -9,13 +9,13 @@ import (
 	"path/filepath"
 	"strconv"
 
-	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/common"
+	"github.com/k2s-project/k2s/cmd/k2s/cmd/common"
 
-	"github.com/siemens-healthineers/k2s/cmd/k2s/utils"
+	"github.com/k2s-project/k2s/cmd/k2s/utils"
 
-	cconfig "github.com/siemens-healthineers/k2s/internal/contracts/config"
-	"github.com/siemens-healthineers/k2s/internal/core/config"
-	"github.com/siemens-healthineers/k2s/internal/provider"
+	cconfig "github.com/k2s-project/k2s/internal/contracts/config"
+	"github.com/k2s-project/k2s/internal/core/config"
+	"github.com/k2s-project/k2s/internal/provider"
 
 	"github.com/spf13/cobra"
 )
@@ -122,11 +122,15 @@ func importImage(cmd *cobra.Command, args []string) error {
 	}
 
 	if runtimeConfig.InstallConfig().LinuxOnly() && isWindowsImage {
-		return common.CreateFuncUnavailableForLinuxOnlyCmdFailure()
+		return fmt.Errorf("importing Windows container images is not supported on a Linux-only installation")
 	}
 
 	nodeSelector, err := parseNodeSelector(cmd)
 	if err != nil {
+		return err
+	}
+
+	if err := validateNodeSelector(nodeSelector, runtimeConfig); err != nil {
 		return err
 	}
 

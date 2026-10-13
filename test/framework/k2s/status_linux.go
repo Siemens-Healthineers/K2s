@@ -1,5 +1,5 @@
-// SPDX-FileCopyrightText: © 2026 Siemens Healthineers AG
-// SPDX-License-Identifier: MIT
+// SPDX-FileCopyrightText: © 2026 The K2s Authors
+// SPDX-License-Identifier: Apache-2.0
 
 //go:build linux
 
@@ -9,7 +9,7 @@ import (
 	"context"
 	"os"
 
-	testos "github.com/siemens-healthineers/k2s/test/framework/os"
+	testos "github.com/k2s-project/k2s/test/framework/os"
 
 	//lint:ignore ST1001 test framework code
 	. "github.com/onsi/ginkgo/v2"

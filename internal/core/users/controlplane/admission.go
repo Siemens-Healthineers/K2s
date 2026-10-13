@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText:  © 2026 Siemens Healthineers AG
+// SPDX-FileCopyrightText:  © 2026 The K2s Authors
 // SPDX-License-Identifier:   MIT
 
 package controlplane
@@ -7,13 +7,13 @@ import (
 	"fmt"
 	"log/slog"
 
-	"github.com/siemens-healthineers/k2s/internal/contracts/config"
-	"github.com/siemens-healthineers/k2s/internal/contracts/users"
-	"github.com/siemens-healthineers/k2s/internal/core/users/controlplane/keyauth"
-	"github.com/siemens-healthineers/k2s/internal/core/users/controlplane/knownhosts"
-	"github.com/siemens-healthineers/k2s/internal/primitives/concurrency"
-	"github.com/siemens-healthineers/k2s/internal/providers/acl"
-	"github.com/siemens-healthineers/k2s/internal/providers/ssh"
+	"github.com/k2s-project/k2s/internal/contracts/config"
+	"github.com/k2s-project/k2s/internal/contracts/users"
+	"github.com/k2s-project/k2s/internal/core/users/controlplane/keyauth"
+	"github.com/k2s-project/k2s/internal/core/users/controlplane/knownhosts"
+	"github.com/k2s-project/k2s/internal/primitives/concurrency"
+	"github.com/k2s-project/k2s/internal/providers/acl"
+	"github.com/k2s-project/k2s/internal/providers/ssh"
 )
 
 type ControlPlaneAdmission struct {

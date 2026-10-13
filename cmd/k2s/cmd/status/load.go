@@ -1,11 +1,11 @@
-// SPDX-FileCopyrightText:  © 2024 Siemens Healthineers AG
+// SPDX-FileCopyrightText:  © 2024 The K2s Authors
 // SPDX-License-Identifier:   MIT
 
 package status
 
 import (
-	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/common"
-	"github.com/siemens-healthineers/k2s/internal/provider"
+	"github.com/k2s-project/k2s/cmd/k2s/cmd/common"
+	"github.com/k2s-project/k2s/internal/provider"
 )
 
 type LoadedStatus struct {

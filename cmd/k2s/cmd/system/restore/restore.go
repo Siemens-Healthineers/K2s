@@ -1,5 +1,5 @@
-// SPDX-FileCopyrightText: © 2026 Siemens Healthineers AG
-// SPDX-License-Identifier: MIT
+// SPDX-FileCopyrightText: © 2025 The K2s Authors
+// SPDX-License-Identifier: Apache-2.0
 
 package restore
 
@@ -7,8 +7,8 @@ import (
 	"github.com/pterm/pterm"
 	"github.com/spf13/cobra"
 
-	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/common"
-	"github.com/siemens-healthineers/k2s/internal/provider"
+	"github.com/k2s-project/k2s/cmd/k2s/cmd/common"
+	"github.com/k2s-project/k2s/internal/provider"
 )
 
 const (

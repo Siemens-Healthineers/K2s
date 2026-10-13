@@ -1,6 +1,6 @@
-REM SPDX-FileCopyrightText: © 2024 Siemens Healthineers AG
+REM SPDX-FileCopyrightText: © 2024 The K2s Authors
 REM
-REM SPDX-License-Identifier: MIT
+REM SPDX-License-Identifier: Apache-2.0
 
 @SET installationDirectory=%~dp0..
 @SET installationDrive=%~d0

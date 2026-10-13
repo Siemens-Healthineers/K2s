@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# SPDX-FileCopyrightText: © 2025 Siemens Healthineers AG
-# SPDX-License-Identifier: MIT
+# SPDX-FileCopyrightText: © 2025 The K2s Authors
+# SPDX-License-Identifier: Apache-2.0
 
 # Configure Hyper-V Dynamic Memory support for Debian/Ubuntu VMs
 # - Installs hyperv-daemons, loads hv_balloon module

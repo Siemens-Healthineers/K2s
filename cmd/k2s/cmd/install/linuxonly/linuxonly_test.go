@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText:  © 2025 Siemens Healthineers AG
+// SPDX-FileCopyrightText:  © 2025 The K2s Authors
 // SPDX-License-Identifier:   MIT
 
 package linuxonly_test
@@ -8,9 +8,9 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/install/config"
-	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/install/linuxonly"
-	"github.com/siemens-healthineers/k2s/cmd/k2s/utils"
+	"github.com/k2s-project/k2s/cmd/k2s/cmd/install/config"
+	"github.com/k2s-project/k2s/cmd/k2s/cmd/install/linuxonly"
+	"github.com/k2s-project/k2s/cmd/k2s/utils"
 )
 
 func Test(t *testing.T) {

@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText:  © 2026 Siemens Healthineers AG
+// SPDX-FileCopyrightText:  © 2026 The K2s Authors
 // SPDX-License-Identifier:   MIT
 
 //go:build windows
@@ -19,14 +19,14 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
-	"github.com/siemens-healthineers/k2s/internal/cli"
-	contracts "github.com/siemens-healthineers/k2s/internal/contracts/users"
-	"github.com/siemens-healthineers/k2s/internal/core/users"
-	"github.com/siemens-healthineers/k2s/internal/definitions"
-	"github.com/siemens-healthineers/k2s/internal/providers/kubeconfig"
-	"github.com/siemens-healthineers/k2s/internal/providers/osusers"
-	"github.com/siemens-healthineers/k2s/internal/providers/ssh"
-	"github.com/siemens-healthineers/k2s/test/framework"
+	"github.com/k2s-project/k2s/internal/cli"
+	contracts "github.com/k2s-project/k2s/internal/contracts/users"
+	"github.com/k2s-project/k2s/internal/core/users"
+	"github.com/k2s-project/k2s/internal/definitions"
+	"github.com/k2s-project/k2s/internal/providers/kubeconfig"
+	"github.com/k2s-project/k2s/internal/providers/osusers"
+	"github.com/k2s-project/k2s/internal/providers/ssh"
+	"github.com/k2s-project/k2s/test/framework"
 )
 
 type winUserProvider struct {

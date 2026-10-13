@@ -1,14 +1,14 @@
 <!--
-SPDX-FileCopyrightText: © 2024 Siemens Healthineers AG
+SPDX-FileCopyrightText: © 2024 The K2s Authors
 SPDX-License-Identifier: MIT
 -->
 
 # Home
-[![ci](https://github.com/Siemens-Healthineers/K2s/actions/workflows/ci-reuse-checks.yml/badge.svg)](https://github.com/Siemens-Healthineers/K2s/actions/workflows/ci-reuse-checks.yml){target="_blank"}
-[![ci](https://github.com/Siemens-Healthineers/K2s/actions/workflows/ci-unit-tests.yml/badge.svg)](https://github.com/Siemens-Healthineers/K2s/actions/workflows/ci-unit-tests.yml){target="_blank"}
-[![ci](https://github.com/Siemens-Healthineers/K2s/actions/workflows/build-k2s-cli.yml/badge.svg)](https://github.com/Siemens-Healthineers/K2s/actions/workflows/build-k2s-cli.yml){target="_blank"}
-[![ci](https://github.com/Siemens-Healthineers/K2s/actions/workflows/build-k2s-artifacts.yml/badge.svg)](https://github.com/Siemens-Healthineers/K2s/actions/workflows/build-k2s-artifacts.yml){target="_blank"}
-[![ci](https://github.com/Siemens-Healthineers/K2s/actions/workflows/build-docs-next.yml/badge.svg)](https://github.com/Siemens-Healthineers/K2s/actions/workflows/build-docs-next.yml){target="_blank"}
+[![ci](https://github.com/k2s-project/k2s/actions/workflows/ci-reuse-checks.yml/badge.svg)](https://github.com/k2s-project/k2s/actions/workflows/ci-reuse-checks.yml){target="_blank"}
+[![ci](https://github.com/k2s-project/k2s/actions/workflows/ci-unit-tests.yml/badge.svg)](https://github.com/k2s-project/k2s/actions/workflows/ci-unit-tests.yml){target="_blank"}
+[![ci](https://github.com/k2s-project/k2s/actions/workflows/build-k2s-cli.yml/badge.svg)](https://github.com/k2s-project/k2s/actions/workflows/build-k2s-cli.yml){target="_blank"}
+[![ci](https://github.com/k2s-project/k2s/actions/workflows/build-k2s-artifacts.yml/badge.svg)](https://github.com/k2s-project/k2s/actions/workflows/build-k2s-artifacts.yml){target="_blank"}
+[![ci](https://github.com/k2s-project/k2s/actions/workflows/build-docs-next.yml/badge.svg)](https://github.com/k2s-project/k2s/actions/workflows/build-docs-next.yml){target="_blank"}
 
 ## What is *K2s*?
 *K2s* is a *Kubernetes* distribution which packages different open-source components into one small and easy to use solution focusing on running mixed *Windows*-based & *Linux*-based workloads in *Kubernetes*. 
@@ -27,14 +27,7 @@ The problems that *K2s* solves are the following:
 - It is built 100% on open-source technology, requiring no additional licenses.
 
 ## Who uses *K2s*?
-*K2s* started as an internal project of [Siemens Healthineers AG](https://www.siemens-healthineers.com/){target="_blank"} under a different name and is now used across different business units.
-
-<figure markdown="span">
-  ![Siemens Healthineers AG Logo](assets/logo.png){ loading=lazy }
-  <figcaption>Siemens Healthineers AG</figcaption>
-</figure>
-
-See also [Siemens Healthineers on GitHub](https://github.com/Siemens-Healthineers){target="_blank"}.
+*K2s* is an open source project for mixed Windows and Linux Kubernetes workloads. Organizations using K2s may request inclusion in the [adopters list](https://github.com/k2s-project/k2s/blob/main/ADOPTERS.md).
 
 ## Quick Start
 Get started [here](quickstart/index.md).
@@ -47,7 +40,7 @@ Get started [here](quickstart/index.md).
 - Multiple network cards support, including support for LAN and *WI-FI* network interfaces
 - Offline support by being able to operate the *K8s* cluster and workloads without internet connectivity
 - [Building a Container Image](user-guide/building-container-image.md) for building and testing *Windows* and *Linux* containers
-- [Rich Set of Addons](https://github.com/Siemens-Healthineers/K2s/blob/main/addons/README.md){target="_blank"} which can be used optionally for additional functionality 
+ [Rich Set of Addons](https://github.com/k2s-project/k2s/blob/main/addons/README.md){target="_blank"} which can be used optionally for additional functionality
 - *K2*s supports different [Hosting Variants](user-guide/hosting-variants.md)
 - Template-based setup of the different variants through configuration files
 - Main configuration through central configuration file
@@ -63,8 +56,7 @@ Get started [here](quickstart/index.md).
 ### Reporting a Vulnerability
 The *K2s* project treats security vulnerabilities seriously, so we strive to take action quickly when required.
 
-The project requests that security issues be disclosed in a responsible manner to allow adequate time to respond. If a security issue or vulnerability has been found, please disclose the details to our dedicated email address:<br/>
-<a href="mailto:dieter.krotz@siemens-healthineers.com">dieter.krotz@siemens-healthineers.com</a>
+The project requests that security issues be disclosed in a responsible manner to allow adequate time to respond. If a security issue or vulnerability has been found, please use the [private security advisory form](https://github.com/k2s-project/k2s/security/advisories/new).
 
 Please include as much information as possible with the report. The
 following details assist with analysis efforts:

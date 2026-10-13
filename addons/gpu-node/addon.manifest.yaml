@@ -1,6 +1,6 @@
-# SPDX-FileCopyrightText: © 2026 Siemens Healthineers AG
+# SPDX-FileCopyrightText: © 2026 The K2s Authors
 #
-# SPDX-License-Identifier: MIT
+# SPDX-License-Identifier: Apache-2.0
 
 apiVersion: v1
 kind: AddonManifest
@@ -22,7 +22,7 @@ spec:
             - nvidia-container-toolkit
           curl: []
           additionalImages:
-            - shsk2s.azurecr.io/microsoft-standard-wsl2:6.18.40.1
+            - shsk2s.azurecr.io/microsoft-standard-wsl2:6.18.54.1
             - nvcr.io/nvidia/k8s-device-plugin:v0.20.1
             - nvcr.io/nvidia/k8s/dcgm-exporter:4.5.2-4.8.1-ubi9
         windows:

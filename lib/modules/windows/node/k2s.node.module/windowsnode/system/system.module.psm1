@@ -1,5 +1,5 @@
-# SPDX-FileCopyrightText: © 2024 Siemens Healthineers AG
-# SPDX-License-Identifier: MIT
+# SPDX-FileCopyrightText: © 2024 The K2s Authors
+# SPDX-License-Identifier: Apache-2.0
 
 $pathModule = "$PSScriptRoot\..\..\..\..\infra\k2s.infra.module\path\path.module.psm1"
 $logModule = "$PSScriptRoot\..\..\..\..\infra\k2s.infra.module\log\log.module.psm1"
@@ -237,11 +237,11 @@ Stop-InstallIfNoMandatoryServiceIsRunning checks for mandatory services on the s
 function Stop-InstallIfNoMandatoryServiceIsRunning {
     $hns = Get-Service 'hns' -ErrorAction SilentlyContinue
     if (!$hns) {
-        throw '[PREREQ-FAILED] Host Network Service is not running. This is required for Windows containers. Please enable prerequisites for K2s - https://github.com/Siemens-Healthineers/K2s !'
+        throw '[PREREQ-FAILED] Host Network Service is not running. This is required for Windows containers. Please enable prerequisites for K2s - https://github.com/k2s-project/k2s !'
     }
     $hcs = Get-Service 'vmcompute' -ErrorAction SilentlyContinue
     if (!$hcs) {
-        throw '[PREREQ-FAILED] Host Compute Service is not running. This is needed for containers. Please enable prerequisites for K2s - https://github.com/Siemens-Healthineers/K2s !'
+        throw '[PREREQ-FAILED] Host Compute Service is not running. This is needed for containers. Please enable prerequisites for K2s - https://github.com/k2s-project/k2s !'
     }
 }
 

@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText:  © 2026 Siemens Healthineers AG
+// SPDX-FileCopyrightText:  © 2026 The K2s Authors
 // SPDX-License-Identifier:   MIT
 
 package kubeconfig
@@ -6,10 +6,10 @@ package kubeconfig
 import (
 	"path/filepath"
 
-	"github.com/siemens-healthineers/k2s/internal/contracts/config"
-	"github.com/siemens-healthineers/k2s/internal/contracts/users"
-	"github.com/siemens-healthineers/k2s/internal/definitions"
-	"github.com/siemens-healthineers/k2s/internal/host"
+	"github.com/k2s-project/k2s/internal/contracts/config"
+	"github.com/k2s-project/k2s/internal/contracts/users"
+	"github.com/k2s-project/k2s/internal/definitions"
+	"github.com/k2s-project/k2s/internal/host"
 )
 
 type KubeconfigResolver struct {

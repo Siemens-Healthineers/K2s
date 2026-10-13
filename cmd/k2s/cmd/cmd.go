@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText:  © 2024 Siemens Healthineers AG
+// SPDX-FileCopyrightText:  © 2024 The K2s Authors
 // SPDX-License-Identifier:   MIT
 
 package cmd
@@ -9,28 +9,29 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 
-	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/addons"
-	cc "github.com/siemens-healthineers/k2s/cmd/k2s/cmd/common"
-	im "github.com/siemens-healthineers/k2s/cmd/k2s/cmd/image"
-	in "github.com/siemens-healthineers/k2s/cmd/k2s/cmd/install"
-	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/node"
-	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/start"
-	stat "github.com/siemens-healthineers/k2s/cmd/k2s/cmd/status"
-	stop "github.com/siemens-healthineers/k2s/cmd/k2s/cmd/stop"
-	sys "github.com/siemens-healthineers/k2s/cmd/k2s/cmd/system"
-	un "github.com/siemens-healthineers/k2s/cmd/k2s/cmd/uninstall"
-	ve "github.com/siemens-healthineers/k2s/cmd/k2s/cmd/version"
-	"github.com/siemens-healthineers/k2s/cmd/k2s/common"
-	"github.com/siemens-healthineers/k2s/cmd/k2s/utils"
-	"github.com/siemens-healthineers/k2s/cmd/k2s/utils/logging"
-	"github.com/siemens-healthineers/k2s/internal/cli"
-	cconfig "github.com/siemens-healthineers/k2s/internal/contracts/config"
-	"github.com/siemens-healthineers/k2s/internal/core/config"
-	"github.com/siemens-healthineers/k2s/internal/host"
-	bl "github.com/siemens-healthineers/k2s/internal/logging"
-	"github.com/siemens-healthineers/k2s/internal/provider"
+	"github.com/k2s-project/k2s/cmd/k2s/cmd/addons"
+	cc "github.com/k2s-project/k2s/cmd/k2s/cmd/common"
+	im "github.com/k2s-project/k2s/cmd/k2s/cmd/image"
+	in "github.com/k2s-project/k2s/cmd/k2s/cmd/install"
+	"github.com/k2s-project/k2s/cmd/k2s/cmd/node"
+	"github.com/k2s-project/k2s/cmd/k2s/cmd/start"
+	stat "github.com/k2s-project/k2s/cmd/k2s/cmd/status"
+	stop "github.com/k2s-project/k2s/cmd/k2s/cmd/stop"
+	sys "github.com/k2s-project/k2s/cmd/k2s/cmd/system"
+	un "github.com/k2s-project/k2s/cmd/k2s/cmd/uninstall"
+	ve "github.com/k2s-project/k2s/cmd/k2s/cmd/version"
+	"github.com/k2s-project/k2s/cmd/k2s/common"
+	"github.com/k2s-project/k2s/cmd/k2s/utils"
+	"github.com/k2s-project/k2s/cmd/k2s/utils/logging"
+	"github.com/k2s-project/k2s/internal/cli"
+	cconfig "github.com/k2s-project/k2s/internal/contracts/config"
+	"github.com/k2s-project/k2s/internal/core/config"
+	"github.com/k2s-project/k2s/internal/host"
+	bl "github.com/k2s-project/k2s/internal/logging"
+	"github.com/k2s-project/k2s/internal/provider"
 
 	"github.com/spf13/cobra"
 )
@@ -52,10 +53,10 @@ func CreateRootCmd(logger *logging.Slogger) (*cobra.Command, error) {
 
 			fileHandler := logging.NewFileHandler(bl.GlobalLogFilePath())
 
-			// Log CLI invocation to file only (before adding CLI handler)
+			// Initialize file logging before configuration and provider setup.
 			logger.SetHandlers(fileHandler).SetGlobally()
 			slog.Info("<*********************************>")
-			slog.Info("CLI invocation", "cmd", strings.Join(os.Args, " "))
+			slog.Info("CLI invocation", "cmd", formatCLIInvocation(os.Args))
 			slog.Debug("log level set", "level", verbosity)
 
 			// Set up full handler chain including CLI handler if requested
@@ -115,6 +116,25 @@ func CreateRootCmd(logger *logging.Slogger) (*cobra.Command, error) {
 	persistentFlags.StringVarP(&verbosity, cli.VerbosityFlagName, cli.VerbosityFlagShorthand, verbosity, cli.VerbosityFlagHelp())
 
 	return cmd, nil
+}
+
+func formatCLIInvocation(args []string) string {
+	if runtime.GOOS != "linux" {
+		return strings.Join(args, " ")
+	}
+	return formatLinuxCLIInvocation(args)
+}
+
+func formatLinuxCLIInvocation(args []string) string {
+	quotedArgs := make([]string, 0, len(args))
+	for _, arg := range args {
+		if arg != "" && !strings.ContainsAny(arg, " \t\n\r'\"\\$`;&|<>()[]{}*?!") {
+			quotedArgs = append(quotedArgs, arg)
+			continue
+		}
+		quotedArgs = append(quotedArgs, "'"+strings.ReplaceAll(arg, "'", "'\"'\"'")+"'")
+	}
+	return strings.Join(quotedArgs, " ")
 }
 
 // resolveInstallDirForDelta checks if the executable is running from a delta package

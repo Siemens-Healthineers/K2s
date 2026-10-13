@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText:  © 2024 Siemens Healthineers AG
+// SPDX-FileCopyrightText:  © 2024 The K2s Authors
 // SPDX-License-Identifier:   MIT
 
 package logging
@@ -7,7 +7,7 @@ import (
 	"log/slog"
 
 	"github.com/samber/lo"
-	base "github.com/siemens-healthineers/k2s/internal/logging"
+	base "github.com/k2s-project/k2s/internal/logging"
 )
 
 // SlogHandler extends slog.Handler interface for e.g. log file sync/close

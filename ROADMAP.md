@@ -1,7 +1,7 @@
 <!--
-SPDX-FileCopyrightText: © 2026 Siemens Healthineers AG
+SPDX-FileCopyrightText: © 2026 The K2s Authors
 
-SPDX-License-Identifier: MIT
+SPDX-License-Identifier: Apache-2.0
 -->
 
 # Roadmap
@@ -33,7 +33,7 @@ The project focuses on:
 
 ## Longer-Term Goals
 
-- Broaden community participation beyond the original Siemens Healthineers contributor base.
+- Broaden community participation beyond the initial contributor base.
 - Improve release transparency and public planning through milestones and issues.
 - Continue improving governance, security handling, and project metadata for the public open source project.
 - Continue reducing implementation duplication between Windows-specific PowerShell orchestration and shared Go/provider-based logic where this improves maintainability.
@@ -44,7 +44,7 @@ The project focuses on:
 The best way to influence the roadmap is to open or comment on a GitHub issue:
 
 ```text
-https://github.com/Siemens-Healthineers/K2s/issues
+https://github.com/k2s-project/k2s/issues
 ```
 
 For substantial changes, please discuss the proposal with maintainers before investing in a large implementation.
