@@ -10,6 +10,7 @@ BeforeAll {
         throw ($parseErrors | Out-String)
     }
     $functionNames = @(
+        'Select-K2sIsRunning',
         'Get-MissingWindowsPodRoutesOnControlPlane',
         'Restore-ControlPlaneTransitRoute',
         'Wait-ForControlPlaneTransitReachability',
@@ -42,6 +43,57 @@ BeforeAll {
     function Get-KubePath {}
     function Get-ConfigControlPlaneNodeHostname {}
     $logUseCase = 'Start-System'
+}
+
+Describe 'Startup CLI operation guard' -Tag 'unit', 'ci', 'startup' {
+    BeforeEach {
+        Mock Write-Log {}
+        Mock Get-CimInstance { @() }
+    }
+
+    It 'allows recovery when no CLI process is running' {
+        Select-K2sIsRunning | Should -BeFalse
+    }
+
+    It 'allows recovery during unrelated CLI command <CommandLine>' -TestCases @(
+        @{ CommandLine = 'C:\k2s\k2s.exe image import -d C:\temp\images -o' }
+        @{ CommandLine = 'C:\k2s\k2s.exe node exec -c echo ready' }
+        @{ CommandLine = 'C:\k2s\k2s.exe status' }
+        @{ CommandLine = 'C:\k2s\k2s.exe image import -d C:\install\start' }
+        @{ CommandLine = 'C:\k2s\k2s.exe node exec -c "k2s start"' }
+        @{ CommandLine = 'C:\k2s\k2s.exe startup' }
+        @{ CommandLine = $null }
+    ) {
+        param($CommandLine)
+        Mock Get-CimInstance { [pscustomobject]@{ Name = 'k2s.exe'; CommandLine = $CommandLine } }
+        Select-K2sIsRunning | Should -BeFalse
+    }
+
+    It 'defers recovery during lifecycle command <CommandLine>' -TestCases @(
+        @{ CommandLine = 'C:\k2s\k2s.exe install --output' }
+        @{ CommandLine = 'C:\k2s\k2s.exe start' }
+        @{ CommandLine = '"C:\Program Files\K2s\k2s.exe" start --output' }
+        @{ CommandLine = '"C:\Program Files\K2s\k2s.exe" INSTALL --output' }
+    ) {
+        param($CommandLine)
+        Mock Get-CimInstance { [pscustomobject]@{ Name = 'k2s.exe'; CommandLine = $CommandLine } }
+        Select-K2sIsRunning | Should -BeTrue
+    }
+
+    It 'checks all CLI processes for a lifecycle operation' {
+        Mock Get-CimInstance {
+            @(
+                [pscustomobject]@{ Name = 'k2s.exe'; CommandLine = 'C:\k2s\k2s.exe image import -d C:\temp' }
+                [pscustomobject]@{ Name = 'k2s.exe'; CommandLine = 'C:\k2s\k2s.exe start -o' }
+            )
+        }
+        Select-K2sIsRunning | Should -BeTrue
+    }
+
+    It 'does not defer recovery for an unrelated executable' {
+        Mock Get-CimInstance { [pscustomobject]@{ Name = 'other.exe'; CommandLine = 'other.exe start' } }
+        Select-K2sIsRunning | Should -BeFalse
+    }
 }
 
 Describe 'Startup route inspection and repair' -Tag 'unit', 'ci', 'startup' {
