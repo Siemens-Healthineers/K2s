@@ -235,7 +235,7 @@ $virtviewer = Get-VirtViewerMsiFileName
 if (!(Test-Path "$binPath\$virtviewer")) {
     Write-Log 'Installing VirtViewer ...'
     if (!(Test-Path "$binPath\$virtviewer")) {
-        Invoke-DownloadFile "$binPath\$virtviewer" "https://releases.pagure.org/virt-viewer/$virtviewer" $true -ProxyToUse $Proxy
+        Invoke-DownloadFile "$binPath\$virtviewer" "https://gitlab.com/virt-viewer/virt-viewer/-/releases/v11.0/downloads/$virtviewer" $true -ProxyToUse $Proxy
     }
     msiexec.exe /i "$binPath\$virtviewer" /L*VX "$binPath\msiinstall.log" /quiet /passive /norestart
 
