@@ -84,7 +84,9 @@ To inspect the different install options, run:
 
 !!! note "Windows reboot recovery"
     Post-reboot networking recovery defers to an active `k2s install` or
-    `k2s start` operation. Other CLI commands, such as `k2s image import` or
+    `k2s start` operation, or a proxy reconfiguration (`k2s system proxy set`,
+    `reset`, or `override add/delete`) that owns the Flannel restart.
+    Other CLI commands, such as `k2s image import` or
     `k2s status`, do not suppress recovery of the Windows networking services.
 
 !!! note "Windows loopback adapter discovery"

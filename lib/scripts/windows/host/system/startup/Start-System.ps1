@@ -80,7 +80,8 @@ function Select-K2sIsRunning {
         foreach ($process in $k2sProcess) {
             $commandLine = $process.CommandLine
 
-            if ($commandLine -match '^\s*(?:"[^"]+"|\S+)\s+(?:install|start)(?:\s|$)') {
+            # Proxy mutations own Flannel's stop/start sequence when restarting httpproxy.
+            if ($commandLine -match '^\s*(?:"[^"]+"|\S+)\s+(?:install|start|system\s+proxy\s+(?:set|reset|override\s+(?:add|delete)))(?:\s|$)') {
                 $found = $true
                 break # Exit the loop once a matching argument is found for this process
             }
@@ -91,7 +92,7 @@ function Select-K2sIsRunning {
             return $true
         }
         else {
-            Write-Log "[$logUseCase] K2s is not doing an install or start."
+            Write-Log "[$logUseCase] K2s is not doing an install, start or proxy reconfiguration."
             return $false
         }
     }

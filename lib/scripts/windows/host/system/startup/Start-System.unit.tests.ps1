@@ -62,6 +62,11 @@ Describe 'Startup CLI operation guard' -Tag 'unit', 'ci', 'startup' {
         @{ CommandLine = 'C:\k2s\k2s.exe image import -d C:\install\start' }
         @{ CommandLine = 'C:\k2s\k2s.exe node exec -c "k2s start"' }
         @{ CommandLine = 'C:\k2s\k2s.exe startup' }
+        @{ CommandLine = 'C:\k2s\k2s.exe system proxy show' }
+        @{ CommandLine = 'C:\k2s\k2s.exe system proxy get' }
+        @{ CommandLine = 'C:\k2s\k2s.exe system proxy override ls' }
+        @{ CommandLine = 'C:\k2s\k2s.exe node exec -c "k2s system proxy reset"' }
+        @{ CommandLine = 'C:\k2s\k2s.exe system proxy settings' }
         @{ CommandLine = $null }
     ) {
         param($CommandLine)
@@ -74,6 +79,11 @@ Describe 'Startup CLI operation guard' -Tag 'unit', 'ci', 'startup' {
         @{ CommandLine = 'C:\k2s\k2s.exe start' }
         @{ CommandLine = '"C:\Program Files\K2s\k2s.exe" start --output' }
         @{ CommandLine = '"C:\Program Files\K2s\k2s.exe" INSTALL --output' }
+        @{ CommandLine = 'C:\k2s\k2s.exe system proxy set http://test-proxy:8080' }
+        @{ CommandLine = 'C:\k2s\k2s.exe system proxy reset' }
+        @{ CommandLine = 'C:\k2s\k2s.exe system proxy override add test.local' }
+        @{ CommandLine = 'C:\k2s\k2s.exe system proxy override delete test.local' }
+        @{ CommandLine = '"C:\Program Files\K2s\k2s.exe" SYSTEM PROXY RESET' }
     ) {
         param($CommandLine)
         Mock Get-CimInstance { [pscustomobject]@{ Name = 'k2s.exe'; CommandLine = $CommandLine } }
@@ -93,6 +103,30 @@ Describe 'Startup CLI operation guard' -Tag 'unit', 'ci', 'startup' {
     It 'does not defer recovery for an unrelated executable' {
         Mock Get-CimInstance { [pscustomobject]@{ Name = 'other.exe'; CommandLine = 'other.exe start' } }
         Select-K2sIsRunning | Should -BeFalse
+    }
+
+    It 'does not stop networking services during proxy reconfiguration' {
+        Mock Get-CimInstance {
+            [pscustomobject]@{ Name = 'k2s.exe'; CommandLine = 'C:\k2s\k2s.exe system proxy set http://test-proxy:8080' }
+        }
+        Mock Stop-Service {}
+        Mock Test-DefaultSwitch {}
+        $tokens = $null
+        $parseErrors = $null
+        $ast = [System.Management.Automation.Language.Parser]::ParseFile(
+            "$PSScriptRoot\Start-System.ps1", [ref]$tokens, [ref]$parseErrors)
+        $startup = $ast.EndBlock.Statements | Where-Object { $_ -is [System.Management.Automation.Language.TryStatementAst] } | Select-Object -Last 1
+        $guard = $startup.Body.Statements | Where-Object {
+            $_ -is [System.Management.Automation.Language.IfStatementAst] -and
+            $_.Clauses[0].Item1.Extent.Text -eq '$k2sRunning'
+        } | Select-Object -First 1
+        $prefix = $ast.Extent.Text.Substring(
+            $startup.Body.Extent.StartOffset + 1,
+            $guard.Extent.EndOffset - $startup.Body.Extent.StartOffset - 1)
+
+        & ([scriptblock]::Create($prefix + "`nStop-StartupNetworkingServices"))
+
+        Should -Invoke Stop-Service -Times 0 -Exactly
     }
 }
 
