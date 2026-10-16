@@ -492,6 +492,86 @@ function Test-ImageImportSuccess {
     return ($Result.Success -is [bool] -and $Result.Success)
 }
 
+<#
+.SYNOPSIS
+Reads the Docker 'manifest.json' of an image archive without extracting the archive.
+
+.DESCRIPTION
+Uses the Windows system tar.exe to stream 'manifest.json' and parses it with ConvertFrom-Json.
+Never throws. Returns an object with:
+  State   - 'Valid'       non-empty JSON array of manifest entries
+            'Invalid'     manifest.json exists but is empty, malformed, or not an array of objects
+            'NotFound'    archive has no readable manifest.json (e.g. OCI-only archives)
+            'Unavailable' archive path is missing or cannot be inspected
+  Entries - the parsed manifest entries (only populated when State is 'Valid')
+#>
+function Get-DockerArchiveManifestInfo {
+    param(
+        [Parameter(Mandatory = $false)]
+        [string]$ImagePath
+    )
+
+    $info = [pscustomobject]@{ State = 'Unavailable'; Entries = @() }
+
+    try {
+        if ([string]::IsNullOrWhiteSpace($ImagePath) -or -not (Test-Path -LiteralPath $ImagePath -PathType Leaf)) {
+            return $info
+        }
+
+        $tarExe = Join-Path $env:SystemRoot 'System32\tar.exe'
+        if (-not (Test-Path -LiteralPath $tarExe -PathType Leaf)) {
+            Write-Log "[Import] Warning: '$tarExe' not found; cannot inspect '$ImagePath' for multiple images"
+            return $info
+        }
+
+        # tar.exe resolves relative paths against the process directory, not the PowerShell location
+        $archivePath = (Resolve-Path -LiteralPath $ImagePath).ProviderPath
+
+        $prevEAP = $ErrorActionPreference
+        $ErrorActionPreference = 'Continue'
+        try {
+            $tarOutput = & $tarExe -xOqf $archivePath 'manifest.json' 2>$null
+            $tarExitCode = $LASTEXITCODE
+        }
+        finally {
+            $ErrorActionPreference = $prevEAP
+        }
+
+        if ($tarExitCode -ne 0) {
+            $info.State = 'NotFound'
+            return $info
+        }
+
+        $info.State = 'Invalid'
+        try {
+            # Assign before testing: PS 5.1 emits a JSON array as a single object[] instead of enumerating it
+            $manifest = (@($tarOutput) -join "`n") | ConvertFrom-Json -ErrorAction Stop
+        }
+        catch {
+            return $info
+        }
+
+        if ($null -eq $manifest -or $manifest -isnot [array] -or $manifest.Count -eq 0) {
+            return $info
+        }
+        foreach ($entry in $manifest) {
+            if ($entry -isnot [System.Management.Automation.PSCustomObject]) {
+                return $info
+            }
+        }
+
+        $info.State = 'Valid'
+        $info.Entries = $manifest
+    }
+    catch {
+        Write-Log "[Import] Warning: could not inspect '$ImagePath' for multiple images: $_"
+        $info.State = 'Unavailable'
+        $info.Entries = @()
+    }
+
+    return $info
+}
+
 function Invoke-LinuxNodeImageImport {
     param(
         [Parameter(Mandatory = $true)]
@@ -506,22 +586,70 @@ function Invoke-LinuxNodeImageImport {
     $importSuccess = $false
     $pullCommand = if ($DockerArchive) { 'sudo buildah pull docker-archive:/tmp/import.tar 2>&1' } else { 'sudo buildah pull oci-archive:/tmp/import.tar 2>&1' }
 
+    # Multi-image Docker archives are imported entry by entry; everything else keeps the single pull above
+    $manifestInfo = Get-DockerArchiveManifestInfo -ImagePath $ImagePath
+    $manifestEntries = @($manifestInfo.Entries)
+    $isMultiImageArchive = ($manifestInfo.State -eq 'Valid' -and $manifestEntries.Count -ge 2)
+    if ($manifestInfo.State -eq 'Invalid') {
+        Write-Log "[Import] Warning: '$ImagePath' contains an empty or invalid manifest.json; using the default import" -Console
+    }
+
+    $invokePull = {
+        param([string]$Command)
+        if ($NodeInfo.Kind -eq 'ControlPlane') {
+            return Invoke-CmdOnControlPlaneViaSSHKey $Command -Retries 3 -Timeout 10 -NoLog
+        }
+        return Invoke-CmdOnVmViaSSHKey $Command -IpAddress $NodeInfo.IpAddress -UserName $NodeInfo.Username -Retries 3 -Timeout 10 -NoLog
+    }
+
     try {
         if ($NodeInfo.Kind -eq 'ControlPlane') {
             Copy-ToControlPlaneViaSSHKey $ImagePath $remoteImagePath
-            $importResult = Invoke-CmdOnControlPlaneViaSSHKey $pullCommand -Retries 3 -Timeout 10 -NoLog
         }
         else {
             Copy-ToRemoteComputerViaSshKey -Source $ImagePath -Target $remoteImagePath -UserName $NodeInfo.Username -IpAddress $NodeInfo.IpAddress
-            $importResult = Invoke-CmdOnVmViaSSHKey $pullCommand -IpAddress $NodeInfo.IpAddress -UserName $NodeInfo.Username -Retries 3 -Timeout 10 -NoLog
         }
 
-        if ($importResult.Output) {
-            $importResult.Output | Write-Log
+        if (-not $isMultiImageArchive) {
+            $importResult = & $invokePull $pullCommand
+
+            if ($importResult.Output) {
+                $importResult.Output | Write-Log
+            }
+            $importSuccess = Test-ImageImportSuccess -Result $importResult
+            if (-not $importSuccess) {
+                Write-Log "[Import] Image import failed on '$($NodeInfo.Name)'" -Error
+            }
         }
-        $importSuccess = Test-ImageImportSuccess -Result $importResult
-        if (-not $importSuccess) {
-            Write-Log "[Import] Image import failed on '$($NodeInfo.Name)'" -Error
+        else {
+            $entryCount = $manifestEntries.Count
+            Write-Log "[Import] Docker archive '$ImagePath' contains $entryCount images; importing each entry on '$($NodeInfo.Name)'" -Console
+            $failedEntries = @()
+
+            for ($i = 0; $i -lt $entryCount; $i++) {
+                $repoTags = @($manifestEntries[$i].RepoTags | Where-Object { -not [string]::IsNullOrWhiteSpace($_) })
+                $tagText = if ($repoTags.Count -gt 0) { $repoTags -join ', ' } else { '<untagged>' }
+                if ($repoTags.Count -eq 0) {
+                    Write-Log "[Import] Warning: archive entry @$i has no RepoTags; the image will only be referenceable by ID" -Console
+                }
+
+                Write-Log "[Import] Importing archive entry @$i ($tagText) on '$($NodeInfo.Name)'"
+                $entryResult = & $invokePull "sudo buildah pull docker-archive:/tmp/import.tar:@$i 2>&1"
+
+                if ($entryResult.Output) {
+                    $entryResult.Output | Write-Log
+                }
+                if (-not (Test-ImageImportSuccess -Result $entryResult)) {
+                    # Not -Error: Write-Error would stop the loop under ErrorActionPreference 'Stop'; the summary below reports the error
+                    Write-Log "[Import] Image import failed for archive entry @$i ($tagText) on '$($NodeInfo.Name)'" -Console
+                    $failedEntries += $i
+                }
+            }
+
+            $importSuccess = ($failedEntries.Count -eq 0)
+            if (-not $importSuccess) {
+                Write-Log "[Import] Imported $($entryCount - $failedEntries.Count) of $entryCount images on '$($NodeInfo.Name)'; failed entries: @$($failedEntries -join ', @')" -Error
+            }
         }
     }
     catch {
