@@ -2272,10 +2272,32 @@ You're not viewing the latest release version.
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
+  <a href="#provisioning-hostname-checks" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Provisioning Hostname Checks
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#windows-workload-readiness-diagnostics" class="md-nav__link">
     <span class="md-ellipsis">
       
         Windows Workload Readiness Diagnostics
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#cross-node-communication-diagnostics" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Cross-Node Communication Diagnostics
       
     </span>
   </a>
@@ -3059,10 +3081,32 @@ You're not viewing the latest release version.
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
+  <a href="#provisioning-hostname-checks" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Provisioning Hostname Checks
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#windows-workload-readiness-diagnostics" class="md-nav__link">
     <span class="md-ellipsis">
       
         Windows Workload Readiness Diagnostics
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#cross-node-communication-diagnostics" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Cross-Node Communication Diagnostics
       
     </span>
   </a>
@@ -3333,6 +3377,13 @@ SPDX-License-Identifier: MIT
 <p class="admonition-title">Info</p>
 <p>Acceptance tests might require a running <em>K2s</em> cluster.</p>
 </div>
+<h3 id="provisioning-hostname-checks">Provisioning Hostname Checks</h3>
+<p>The provisioning hostname query allows up to four <abbr title="Secure Shell">SSH</abbr> attempts, with a
+three-second delay between failed attempts. This retries only the read-only
+<code>hostname</code> command, not installation or role-assignment operations. A failed
+query is reported as an <abbr title="Secure Shell">SSH</abbr> failure; hostname validation runs only after a
+successful query. The regression cases are in
+<code>common-setup.module.unit.tests.ps1</code> under the Windows Linux-node distro module.</p>
 <h3 id="windows-workload-readiness-diagnostics">Windows Workload Readiness Diagnostics</h3>
 <p>If the core acceptance suite exhausts its Windows <abbr title="Hypertext Transfer Protocol">HTTP</abbr> readiness retries, it
 collects evidence without changing the readiness criteria. The suite probes
@@ -3344,6 +3395,19 @@ not identify the failing component on their own.</p>
 <p>Diagnostic commands have a ten-second timeout and share a four-minute
 collection budget. Query and probe failures are recorded without replacing
 the original readiness failure or preventing independent probes.</p>
+<h3 id="cross-node-communication-diagnostics">Cross-Node Communication Diagnostics</h3>
+<p>The node acceptance suite preserves curl error output (<code>-sS</code>) for pod
+communication checks. On failure, it probes the same destination's Service <abbr title="Internet Protocol">IP</abbr>
+and direct Pod <abbr title="Internet Protocol">IP</abbr> from the failing source container, without <abbr title="Domain Name System">DNS</abbr> or proxy use.
+The generated node workloads use port 80 for both paths.</p>
+<p>Failure-only collection also records the Service, EndpointSlices, pods, nodes,
+Flannel/kube-proxy logs, and Windows routes/HNS state. For participating Linux
+nodes with known <abbr title="Secure Shell">SSH</abbr> configuration, it collects host routes, route lookups,
+and iptables counters using the existing key and strict host-key checking.
+Missing tools, <abbr title="Secure Shell">SSH</abbr> access, and diagnostic failures are reported without
+replacing the original assertion failure. Collection has a two-minute overall
+budget and a ten-second limit per command; it does not retry the test or
+change network state. Evidence appears under <code>NODE-NET DIAG</code> in test output.</p>
 <h2 id="prerequisites">Prerequisites</h2>
 <p><a href="#install-pester">Install <em>Pester</em></a> and <a href="https://onsi.github.io/ginkgo/#installing-ginkgo" target="_blank" rel="noopener">Install <em>Ginkgo</em></a>.</p>
 <div class="admonition tip">
