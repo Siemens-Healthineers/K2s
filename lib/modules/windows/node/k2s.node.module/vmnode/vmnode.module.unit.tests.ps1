@@ -150,9 +150,18 @@ Describe 'Bounded Hyper-V stop' -Tag 'unit', 'ci', 'vm' {
         Should -Invoke Stop-VM -Times 0 -Exactly
     }
 
-    It 'fails explicitly when the VM cannot be found' {
+    It 'skips stop when VM cannot be found (count is 0)' {
         Mock Get-VM { @() }
-        { Stop-VirtualMachine -VmName 'KubeMaster' } | Should -Throw '*aborting stop*'
+        Stop-VirtualMachine -VmName 'KubeMaster'
+        Should -Invoke Stop-VM -Times 0 -Exactly
+    }
+
+    It 'fails explicitly when more than one VM is found' {
+        Mock Get-VM { @(
+            [pscustomobject]@{ Name = 'KubeMaster'; State = 'Running' },
+            [pscustomobject]@{ Name = 'KubeMaster'; State = 'Running' }
+        ) }
+        { Stop-VirtualMachine -VmName 'KubeMaster' } | Should -Throw '*More than one VM found*'
         Should -Invoke Stop-VM -Times 0 -Exactly
     }
 

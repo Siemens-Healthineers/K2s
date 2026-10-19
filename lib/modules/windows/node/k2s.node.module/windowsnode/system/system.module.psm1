@@ -313,16 +313,26 @@ function Add-K2sAppLockerRules {
 }
 
 function Remove-K2sAppLockerRules {
-    $AppLockerPolicyFile = "$Env:Temp\CurrentAppLockerRules.xml"
-    [xml]$AppLockerPolicy = Get-AppLockerPolicy -Xml -Local
-    $node = $AppLockerPolicy.SelectSingleNode("//AppLockerPolicy/RuleCollection/FilePathRule[@Id='0bf9e8e6-42cf-41cc-8737-68c788984e0d']")
-    if($null -ne $node)
-    {
-       Write-Log "Removing AppLocker rule"
-       [void]$node.ParentNode.RemoveChild($node)
-       $AppLockerPolicy.Save($AppLockerPolicyFile)
-       Set-AppLockerPolicy -XmlPolicy $AppLockerPolicyFile
-       Remove-Item $AppLockerPolicyFile -Force
+    try {
+        $AppLockerPolicyFile = "$Env:Temp\CurrentAppLockerRules.xml"
+        $rawPolicy = Get-AppLockerPolicy -Xml -Local -ErrorAction SilentlyContinue
+        if ([string]::IsNullOrWhiteSpace($rawPolicy)) {
+            Write-Log "No local AppLocker policy found to clean up."
+            return
+        }
+
+        [xml]$AppLockerPolicy = $rawPolicy
+        $node = $AppLockerPolicy.SelectSingleNode("//AppLockerPolicy/RuleCollection/FilePathRule[@Id='0bf9e8e6-42cf-41cc-8737-68c788984e0d']")
+        if ($null -ne $node) {
+            Write-Log "Removing AppLocker rule"
+            [void]$node.ParentNode.RemoveChild($node)
+            $AppLockerPolicy.Save($AppLockerPolicyFile)
+            Set-AppLockerPolicy -XmlPolicy $AppLockerPolicyFile -ErrorAction SilentlyContinue
+            Remove-Item $AppLockerPolicyFile -Force -ErrorAction SilentlyContinue
+        }
+    }
+    catch {
+        Write-Log "Warning: Could not remove AppLocker rules: $($_.Exception.Message)"
     }
 }
 
