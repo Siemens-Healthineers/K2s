@@ -494,16 +494,55 @@ function Test-ImageImportSuccess {
 
 <#
 .SYNOPSIS
+Normalizes an archive member path the way Buildah (containers/image) compares tar member names.
+
+.DESCRIPTION
+Converts backslashes to slashes and removes '.', empty, and leading '/' segments; '..' removes the previous segment.
+For example './blobs/sha256/abc' and 'blobs//sha256/abc' both become 'blobs/sha256/abc'.
+#>
+function ConvertTo-ImageArchiveMemberPath {
+    param(
+        [Parameter(Mandatory = $false)]
+        [AllowEmptyString()]
+        [AllowNull()]
+        [string]$Path
+    )
+
+    if ([string]::IsNullOrEmpty($Path)) {
+        return ''
+    }
+
+    $segments = [System.Collections.Generic.List[string]]::new()
+    foreach ($segment in ($Path -replace '\\', '/').Split('/')) {
+        if ($segment -eq '' -or $segment -eq '.') {
+            continue
+        }
+        if ($segment -eq '..') {
+            if ($segments.Count -gt 0) {
+                $segments.RemoveAt($segments.Count - 1)
+            }
+            continue
+        }
+        $segments.Add($segment)
+    }
+
+    return ($segments -join '/')
+}
+
+<#
+.SYNOPSIS
 Reads the Docker 'manifest.json' of an image archive without extracting the archive.
 
 .DESCRIPTION
-Uses the Windows system tar.exe to stream 'manifest.json' and parses it with ConvertFrom-Json.
+Uses the Windows system tar.exe to list the archive members and to stream 'manifest.json' (also accepted as
+'./manifest.json'), then parses it with ConvertFrom-Json.
 Never throws. Returns an object with:
-  State   - 'Valid'       non-empty JSON array of manifest entries
+  State   - 'Valid'       non-empty JSON array of JSON objects (the entries are not validated further, see Get-DockerArchiveEntryProblem)
             'Invalid'     manifest.json exists but is empty, malformed, or not an array of objects
-            'NotFound'    archive has no readable manifest.json (e.g. OCI-only archives)
-            'Unavailable' archive path is missing or cannot be inspected
-  Entries - the parsed manifest entries (only populated when State is 'Valid')
+            'NotFound'    archive has no manifest.json (e.g. OCI-only archives)
+            'Unavailable' archive path is missing or the archive cannot be listed/read
+  Entries - the parsed manifest entries in manifest.json order (only populated when State is 'Valid')
+  Members - the normalized archive member paths (populated whenever the archive could be listed)
 #>
 function Get-DockerArchiveManifestInfo {
     param(
@@ -511,7 +550,7 @@ function Get-DockerArchiveManifestInfo {
         [string]$ImagePath
     )
 
-    $info = [pscustomobject]@{ State = 'Unavailable'; Entries = @() }
+    $info = [pscustomobject]@{ State = 'Unavailable'; Entries = @(); Members = @() }
 
     try {
         if ([string]::IsNullOrWhiteSpace($ImagePath) -or -not (Test-Path -LiteralPath $ImagePath -PathType Leaf)) {
@@ -530,7 +569,40 @@ function Get-DockerArchiveManifestInfo {
         $prevEAP = $ErrorActionPreference
         $ErrorActionPreference = 'Continue'
         try {
-            $tarOutput = & $tarExe -xOqf $archivePath 'manifest.json' 2>$null
+            $memberNames = @(& $tarExe -tf $archivePath 2>$null)
+            $listExitCode = $LASTEXITCODE
+        }
+        finally {
+            $ErrorActionPreference = $prevEAP
+        }
+
+        if ($listExitCode -ne 0) {
+            Write-Log "[Import] Warning: tar.exe could not list '$ImagePath' (exit code $listExitCode); it is not inspected for multiple images"
+            return $info
+        }
+
+        $normalizedMembers = [System.Collections.Generic.List[string]]::new()
+        $manifestMember = $null
+        foreach ($memberName in $memberNames) {
+            $normalizedName = ConvertTo-ImageArchiveMemberPath -Path $memberName
+            if ($normalizedName -eq '') {
+                continue
+            }
+            $normalizedMembers.Add($normalizedName)
+            if ($null -eq $manifestMember -and $normalizedName -eq 'manifest.json') {
+                $manifestMember = $memberName
+            }
+        }
+        $info.Members = $normalizedMembers.ToArray()
+
+        if ($null -eq $manifestMember) {
+            $info.State = 'NotFound'
+            return $info
+        }
+
+        $ErrorActionPreference = 'Continue'
+        try {
+            $tarOutput = & $tarExe -xOqf $archivePath $manifestMember 2>$null
             $tarExitCode = $LASTEXITCODE
         }
         finally {
@@ -538,14 +610,19 @@ function Get-DockerArchiveManifestInfo {
         }
 
         if ($tarExitCode -ne 0) {
-            $info.State = 'NotFound'
+            Write-Log "[Import] Warning: tar.exe could not read '$manifestMember' from '$ImagePath' (exit code $tarExitCode)"
             return $info
         }
 
         $info.State = 'Invalid'
+        $convertParams = @{ ErrorAction = 'Stop' }
+        if ((Get-Command ConvertFrom-Json).Parameters.ContainsKey('NoEnumerate')) {
+            # PowerShell 7 would otherwise unroll a one-element array into a single object
+            $convertParams.NoEnumerate = $true
+        }
         try {
             # Assign before testing: PS 5.1 emits a JSON array as a single object[] instead of enumerating it
-            $manifest = (@($tarOutput) -join "`n") | ConvertFrom-Json -ErrorAction Stop
+            $manifest = (@($tarOutput) -join "`n") | ConvertFrom-Json @convertParams
         }
         catch {
             return $info
@@ -572,6 +649,71 @@ function Get-DockerArchiveManifestInfo {
     return $info
 }
 
+<#
+.SYNOPSIS
+Checks one Docker archive manifest entry before it is imported with an '@<index>' selector.
+
+.DESCRIPTION
+Returns $null when the entry is usable, otherwise a short description of the problem:
+- 'Config' must be a non-empty string and 'Layers' an array of non-empty strings.
+- 'RepoTags', when present, must be an array of strings (it may be missing or null for untagged images).
+- When Members is given, the config and every layer must be members of the archive.
+The image content itself (digests, layer count versus config) is verified by Buildah during the pull.
+#>
+function Get-DockerArchiveEntryProblem {
+    param(
+        [Parameter(Mandatory = $false)]
+        [AllowNull()]
+        [object]$Entry,
+        [Parameter(Mandatory = $false)]
+        [AllowNull()]
+        [string[]]$Members = @()
+    )
+
+    if ($Entry -isnot [System.Management.Automation.PSCustomObject]) {
+        return 'the entry is not a JSON object'
+    }
+
+    $configProperty = $Entry.PSObject.Properties['Config']
+    if ($null -eq $configProperty -or $configProperty.Value -isnot [string] -or [string]::IsNullOrWhiteSpace($configProperty.Value)) {
+        return "'Config' is missing or not a non-empty string"
+    }
+
+    $layersProperty = $Entry.PSObject.Properties['Layers']
+    if ($null -eq $layersProperty -or $layersProperty.Value -isnot [array]) {
+        return "'Layers' is missing or not an array"
+    }
+    foreach ($layer in $layersProperty.Value) {
+        if ($layer -isnot [string] -or [string]::IsNullOrWhiteSpace($layer)) {
+            return "'Layers' contains an item that is not a non-empty string"
+        }
+    }
+
+    $repoTagsProperty = $Entry.PSObject.Properties['RepoTags']
+    if ($null -ne $repoTagsProperty -and $null -ne $repoTagsProperty.Value) {
+        if ($repoTagsProperty.Value -isnot [array]) {
+            return "'RepoTags' is not an array"
+        }
+        foreach ($tag in $repoTagsProperty.Value) {
+            if ($tag -isnot [string]) {
+                return "'RepoTags' contains an item that is not a string"
+            }
+        }
+    }
+
+    $memberList = @($Members | Where-Object { -not [string]::IsNullOrEmpty($_) })
+    if ($memberList.Count -gt 0) {
+        $memberSet = [System.Collections.Generic.HashSet[string]]::new([string[]]$memberList, [System.StringComparer]::Ordinal)
+        $referenced = @($configProperty.Value) + @($layersProperty.Value)
+        $missing = @($referenced | Where-Object { -not $memberSet.Contains((ConvertTo-ImageArchiveMemberPath -Path $_)) } | Select-Object -Unique)
+        if ($missing.Count -gt 0) {
+            return "archive member(s) not found: $($missing -join ', ')"
+        }
+    }
+
+    return $null
+}
+
 function Invoke-LinuxNodeImageImport {
     param(
         [Parameter(Mandatory = $true)]
@@ -582,9 +724,11 @@ function Invoke-LinuxNodeImageImport {
         [switch]$DockerArchive
     )
 
-    $remoteImagePath = '/tmp/import.tar'
+    # A unique remote file per import keeps concurrent imports to the same node from overwriting or deleting each other's archive
+    $remoteImagePath = "/tmp/k2s-image-import-$([guid]::NewGuid().ToString('N')).tar"
     $importSuccess = $false
-    $pullCommand = if ($DockerArchive) { 'sudo buildah pull docker-archive:/tmp/import.tar 2>&1' } else { 'sudo buildah pull oci-archive:/tmp/import.tar 2>&1' }
+    $archiveTransport = if ($DockerArchive) { 'docker-archive' } else { 'oci-archive' }
+    $pullCommand = "sudo buildah pull ${archiveTransport}:$remoteImagePath 2>&1"
 
     # Multi-image Docker archives are imported entry by entry; everything else keeps the single pull above
     $manifestInfo = Get-DockerArchiveManifestInfo -ImagePath $ImagePath
@@ -594,7 +738,7 @@ function Invoke-LinuxNodeImageImport {
         Write-Log "[Import] Warning: '$ImagePath' contains an empty or invalid manifest.json; using the default import" -Console
     }
 
-    $invokePull = {
+    $invokeRemote = {
         param([string]$Command)
         if ($NodeInfo.Kind -eq 'ControlPlane') {
             return Invoke-CmdOnControlPlaneViaSSHKey $Command -Retries 3 -Timeout 10 -NoLog
@@ -611,7 +755,7 @@ function Invoke-LinuxNodeImageImport {
         }
 
         if (-not $isMultiImageArchive) {
-            $importResult = & $invokePull $pullCommand
+            $importResult = & $invokeRemote $pullCommand
 
             if ($importResult.Output) {
                 $importResult.Output | Write-Log
@@ -626,29 +770,41 @@ function Invoke-LinuxNodeImageImport {
             Write-Log "[Import] Docker archive '$ImagePath' contains $entryCount images; importing each entry on '$($NodeInfo.Name)'" -Console
             $failedEntries = @()
 
+            # '@<index>' addresses the entry at that position of manifest.json (not index.json); Buildah applies that entry's RepoTags
             for ($i = 0; $i -lt $entryCount; $i++) {
-                $repoTags = @($manifestEntries[$i].RepoTags | Where-Object { -not [string]::IsNullOrWhiteSpace($_) })
+                $entry = $manifestEntries[$i]
+                $repoTags = @()
+                if ($entry -is [System.Management.Automation.PSCustomObject] -and $null -ne $entry.PSObject.Properties['RepoTags']) {
+                    $repoTags = @($entry.RepoTags | Where-Object { $_ -is [string] -and -not [string]::IsNullOrWhiteSpace($_) })
+                }
                 $tagText = if ($repoTags.Count -gt 0) { $repoTags -join ', ' } else { '<untagged>' }
+
+                # Not -Error: Write-Error would stop the loop under ErrorActionPreference 'Stop'; the summary below reports the error
+                $entryProblem = Get-DockerArchiveEntryProblem -Entry $entry -Members $manifestInfo.Members
+                if ($null -ne $entryProblem) {
+                    Write-Log "[Import] Skipping archive entry @$i ($tagText) of '$ImagePath': invalid manifest.json entry: $entryProblem" -Console
+                    $failedEntries += $i
+                    continue
+                }
                 if ($repoTags.Count -eq 0) {
                     Write-Log "[Import] Warning: archive entry @$i has no RepoTags; the image will only be referenceable by ID" -Console
                 }
 
-                Write-Log "[Import] Importing archive entry @$i ($tagText) on '$($NodeInfo.Name)'"
-                $entryResult = & $invokePull "sudo buildah pull docker-archive:/tmp/import.tar:@$i 2>&1"
+                Write-Log "[Import] Importing archive entry @$i ($tagText, config '$($entry.Config)') on '$($NodeInfo.Name)'"
+                $entryResult = & $invokeRemote "sudo buildah pull docker-archive:${remoteImagePath}:@$i 2>&1"
 
                 if ($entryResult.Output) {
                     $entryResult.Output | Write-Log
                 }
                 if (-not (Test-ImageImportSuccess -Result $entryResult)) {
-                    # Not -Error: Write-Error would stop the loop under ErrorActionPreference 'Stop'; the summary below reports the error
-                    Write-Log "[Import] Image import failed for archive entry @$i ($tagText) on '$($NodeInfo.Name)'" -Console
+                    Write-Log "[Import] Image import failed for archive entry @$i ($tagText) of '$ImagePath' on '$($NodeInfo.Name)'" -Console
                     $failedEntries += $i
                 }
             }
 
             $importSuccess = ($failedEntries.Count -eq 0)
             if (-not $importSuccess) {
-                Write-Log "[Import] Imported $($entryCount - $failedEntries.Count) of $entryCount images on '$($NodeInfo.Name)'; failed entries: @$($failedEntries -join ', @')" -Error
+                Write-Log "[Import] Imported $($entryCount - $failedEntries.Count) of $entryCount images from '$ImagePath' on '$($NodeInfo.Name)'; failed entries: @$($failedEntries -join ', @'). Successfully imported images are kept." -Error
             }
         }
     }
@@ -656,25 +812,25 @@ function Invoke-LinuxNodeImageImport {
         Write-Log "[Import] Image import failed on '$($NodeInfo.Name)': $_" -Error
     }
     finally {
+        # Errors are collected first so that logging them cannot skip the cleanup result or replace an import error
+        $cleanupError = $null
         try {
-            if ($NodeInfo.Kind -eq 'ControlPlane') {
-                $cleanupResult = Invoke-CmdOnControlPlaneViaSSHKey 'sudo rm -f /tmp/import.tar' -Retries 3 -Timeout 10 -NoLog
-            }
-            else {
-                $cleanupResult = Invoke-CmdOnVmViaSSHKey 'sudo rm -f /tmp/import.tar' -IpAddress $NodeInfo.IpAddress -UserName $NodeInfo.Username -Retries 3 -Timeout 10 -NoLog
-            }
+            $cleanupResult = & $invokeRemote "sudo rm -f $remoteImagePath"
 
             if ($cleanupResult.Output) {
                 $cleanupResult.Output | Write-Log
             }
             if (-not (Test-ImageImportSuccess -Result $cleanupResult)) {
-                Write-Log "[Import] Could not remove temporary image archive from '$($NodeInfo.Name)'" -Error
-                $importSuccess = $false
+                $cleanupError = "[Import] Could not remove temporary image archive '$remoteImagePath' from '$($NodeInfo.Name)'"
             }
         }
         catch {
-            Write-Log "[Import] Could not remove temporary image archive from '$($NodeInfo.Name)': $_" -Error
+            $cleanupError = "[Import] Could not remove temporary image archive '$remoteImagePath' from '$($NodeInfo.Name)': $_"
+        }
+
+        if ($null -ne $cleanupError) {
             $importSuccess = $false
+            Write-Log $cleanupError -Error
         }
     }
 

@@ -278,6 +278,11 @@ k2s image import [flags]
 | `--windows` | `-w` | Import as Windows image |
 | `--docker-archive` | | Import from docker-archive tar |
 
+!!! note "Multi-image Docker archives"
+    When importing a Linux image archive, K2s inspects its `manifest.json`. If the archive is a Docker archive containing several images (for example, created with `docker save image1 image2`), K2s detects this automatically, even without `--docker-archive`. It then imports each image separately with its tags from `manifest.json`; layers shared by the images are stored only once. Entries that are invalid (for example, referencing missing files) are skipped. If any image fails, the command reports an error, and images that were already imported are kept.
+
+    Single-image archives are imported as before. Multi-image OCI archives (an `index.json` with several images and no Docker `manifest.json`) are not supported.
+
 ### image rm
 
 Remove a container image.

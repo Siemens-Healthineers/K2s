@@ -42,6 +42,9 @@ var (
   # Import a Linux image from a docker tar archive onto the Linux control-plane (default)
   k2s image import -t C:\tmp\dockerimage.tar --docker-archive
 
+  # Import all Linux images of a multi-image docker tar archive (e.g. 'docker save img1 img2') onto the Linux control-plane (default)
+  k2s image import -t C:\tmp\dockerimages.tar --docker-archive
+
   # Import Linux images from a directory onto the Linux control-plane (default)
   k2s image import -d C:\tmp\images
 
