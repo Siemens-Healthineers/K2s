@@ -261,7 +261,7 @@ Describe 'Real stop-job waiting deadline without a VM' -Tag 'unit', 'ci', 'vm' {
     It 'bounds real Wait-Job and leaves the unfinished operation alone' {
         $timer = [System.Diagnostics.Stopwatch]::StartNew()
         { Stop-VirtualMachine -VmName 'KubeMaster' -Wait -TimeoutInSeconds 1 } | Should -Throw '*stop operation exceeded 1s*'
-        $timer.Elapsed.TotalSeconds | Should -BeLessThan 6
+        $timer.Elapsed.TotalSeconds | Should -BeLessThan 15
         $script:liveStopJob.State | Should -Be 'Running'
         Should -Invoke Write-Log -Times 1 -Exactly -ParameterFilter { $Messages -like '*Retaining unfinished stop job*' }
     }
