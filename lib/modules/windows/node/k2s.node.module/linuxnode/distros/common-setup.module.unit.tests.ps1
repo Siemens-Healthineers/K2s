@@ -29,6 +29,65 @@ Describe 'Get-KubenodeNoProxy' -Tag 'unit', 'ci', 'proxy' {
     }
 }
 
+Describe 'Assert-GeneralComputerPrerequisites' -Tag 'unit', 'ci', 'provisioning' {
+    BeforeEach {
+        Mock Write-Log {} -ModuleName $moduleName
+        Mock Get-IsValidIPv4Address { $true } -ModuleName $moduleName
+    }
+
+    It 'requests bounded retries only for the read-only hostname command' {
+        InModuleScope $moduleName {
+            Mock Invoke-CmdOnControlPlaneViaUserAndPwd {
+                [pscustomobject]@{ Success = $true; Output = 'kubenode' }
+            }
+
+            { Assert-GeneralComputerPrerequisites -UserName 'remote' -UserPwd 'fixture' -IpAddress '172.18.12.22' } | Should -Not -Throw
+
+            Should -Invoke Invoke-CmdOnControlPlaneViaUserAndPwd -Times 1 -Exactly -ParameterFilter {
+                $CmdToExecute -eq 'hostname' -and $RemoteUser -eq 'remote@172.18.12.22' -and
+                $RemoteUserPwd -eq 'fixture' -and $Retries -eq 3 -and $Timeout -eq 3 -and -not $IgnoreErrors
+            }
+        }
+    }
+
+    It 'reports exhausted SSH failures instead of validating their output as hostnames' {
+        InModuleScope $moduleName {
+            Mock Invoke-CmdOnControlPlaneViaUserAndPwd {
+                [pscustomobject]@{ Success = $false; Output = 'FATAL ERROR: Network error: Software caused connection abort' }
+            }
+
+            { Assert-GeneralComputerPrerequisites -UserName 'remote' -UserPwd 'fixture' -IpAddress '172.18.12.22' } |
+                Should -Throw "*SSH command 'hostname' failed after retrying*Software caused connection abort*"
+        }
+    }
+
+    It 'does not accept valid-looking output from an unsuccessful command' {
+        InModuleScope $moduleName {
+            Mock Invoke-CmdOnControlPlaneViaUserAndPwd {
+                [pscustomobject]@{ Success = $false; Output = 'kubenode' }
+            }
+
+            { Assert-GeneralComputerPrerequisites -UserName 'remote' -UserPwd 'fixture' -IpAddress '172.18.12.22' } |
+                Should -Throw "*SSH command 'hostname' failed*"
+        }
+    }
+
+    It 'retains empty and invalid hostname validation after successful SSH' -ForEach @(
+        @{ Hostname = ''; Message = '*could not be retrieved*' },
+        @{ Hostname = 'InvalidName'; Message = '*contains not allowed characters*' }
+    ) {
+        InModuleScope $moduleName -Parameters @{ Hostname = $Hostname; Message = $Message } {
+            param($Hostname, $Message)
+            Mock Invoke-CmdOnControlPlaneViaUserAndPwd {
+                [pscustomobject]@{ Success = $true; Output = $Hostname }
+            }
+
+            { Assert-GeneralComputerPrerequisites -UserName 'remote' -UserPwd 'fixture' -IpAddress '172.18.12.22' } |
+                Should -Throw $Message
+        }
+    }
+}
+
 Describe 'Get-GpuContainerImages' -Tag 'unit', 'ci', 'gpu' {
     It 'reads the GPU addon manifest from the package root' {
         InModuleScope $moduleName {

@@ -14,6 +14,15 @@ The ultimate goal is to automate every test case and type, i.e.:
 !!! info
     Acceptance tests might require a running *K2s* cluster.
 
+### Provisioning Hostname Checks
+
+The provisioning hostname query allows up to four SSH attempts, with a
+three-second delay between failed attempts. This retries only the read-only
+`hostname` command, not installation or role-assignment operations. A failed
+query is reported as an SSH failure; hostname validation runs only after a
+successful query. The regression cases are in
+`common-setup.module.unit.tests.ps1` under the Windows Linux-node distro module.
+
 ### Windows Workload Readiness Diagnostics
 
 If the core acceptance suite exhausts its Windows HTTP readiness retries, it

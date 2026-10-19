@@ -557,7 +557,7 @@ function Invoke-CmdOnControlPlaneViaUserAndPwd(
                 Write-Log "cmd: $CmdToExecute will be retried.."
 
                 # try to repair the command
-                if ( ($null -ne $RepairCmd) -and !$IgnoreErrors) {
+                if (![string]::IsNullOrWhiteSpace($RepairCmd) -and !$IgnoreErrors) {
                     Write-Log "Executing repair cmd: $RepairCmd"
                     &"$plinkExe" -ssh -4 -legacy-stdio-prompts $RemoteUser -pw $RemoteUserPwd -no-antispoof $RepairCmd 2>&1 | ForEach-Object { Write-Log $_ -Console -Raw }
                 }
