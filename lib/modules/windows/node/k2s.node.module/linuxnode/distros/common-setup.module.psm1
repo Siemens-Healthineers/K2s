@@ -55,7 +55,11 @@ Function Assert-GeneralComputerPrerequisites {
     $remoteUserPwd = $UserPwd
 
     Write-Log 'Checking if the hostname contains only allowed characters...'
-    [string]$hostname = (Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute 'hostname' -RemoteUser "$remoteUser" -RemoteUserPwd "$remoteUserPwd").Output
+    $hostnameResult = Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute 'hostname' -RemoteUser "$remoteUser" -RemoteUserPwd "$remoteUserPwd" -Retries 3 -Timeout 3
+    if (-not $hostnameResult.Success) {
+        throw "Could not retrieve the hostname of the computer with IP '$IpAddress': SSH command 'hostname' failed after retrying. Output: $($hostnameResult.Output)"
+    }
+    [string]$hostname = $hostnameResult.Output
     if ([string]::IsNullOrWhiteSpace($hostname) -eq $true) {
         throw "The hostname of the computer with IP '$IpAddress' could not be retrieved."
     }

@@ -6,6 +6,64 @@ BeforeAll {
     $moduleName = (Import-Module $modulePath -PassThru -Force).Name
 }
 
+Describe 'Invoke-CmdOnControlPlaneViaUserAndPwd retries' -Tag 'unit', 'ci', 'vm' {
+    It 'recovers a hostname read after a transient connection abort' {
+        InModuleScope $moduleName {
+            function Test-PlinkInvocation {}
+            $originalPlink = $script:plinkExe
+            $script:plinkExe = 'Test-PlinkInvocation'
+            $script:hostnameAttempts = 0
+            Mock Write-Log { if ($Raw) { $Messages } }
+            Mock Start-Sleep {}
+            Mock Test-PlinkInvocation {
+                $script:hostnameAttempts++
+                if ($script:hostnameAttempts -eq 1) {
+                    $global:LASTEXITCODE = 1
+                    'FATAL ERROR: Network error: Software caused connection abort'
+                }
+                else {
+                    $global:LASTEXITCODE = 0
+                    'kubenode'
+                }
+            }
+            try {
+                $result = Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute 'hostname' -RemoteUser 'remote@172.18.12.22' -RemoteUserPwd 'fixture' -Retries 3 -Timeout 3 -NoLog
+                $result.Success | Should -BeTrue
+                $result.Output | Should -Be 'kubenode'
+                Should -Invoke Test-PlinkInvocation -Times 2 -Exactly
+                Should -Invoke Start-Sleep -Times 1 -Exactly -ParameterFilter { $Seconds -eq 3 }
+            }
+            finally {
+                $script:plinkExe = $originalPlink
+            }
+        }
+    }
+
+    It 'stops after four failed attempts and returns the failure' {
+        InModuleScope $moduleName {
+            function Test-PlinkInvocation {}
+            $originalPlink = $script:plinkExe
+            $script:plinkExe = 'Test-PlinkInvocation'
+            Mock Write-Log { if ($Raw) { $Messages } }
+            Mock Start-Sleep {}
+            Mock Test-PlinkInvocation {
+                $global:LASTEXITCODE = 1
+                'connection abort'
+            }
+            try {
+                $result = Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute 'hostname' -RemoteUser 'remote@172.18.12.22' -RemoteUserPwd 'fixture' -Retries 3 -Timeout 3 -NoLog
+                $result.Success | Should -BeFalse
+                $result.Output | Should -Be 'connection abort'
+                Should -Invoke Test-PlinkInvocation -Times 4 -Exactly
+                Should -Invoke Start-Sleep -Times 3 -Exactly
+            }
+            finally {
+                $script:plinkExe = $originalPlink
+            }
+        }
+    }
+}
+
 Describe 'Invoke-SSHOnce' -Tag 'unit', 'ci', 'vm' {
     Context 'Socket warning filtering' {
         It 'filters socket warning and sets HadSocketWarning flag' {
