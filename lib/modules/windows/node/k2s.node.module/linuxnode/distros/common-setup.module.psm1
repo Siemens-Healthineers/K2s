@@ -55,7 +55,11 @@ Function Assert-GeneralComputerPrerequisites {
     $remoteUserPwd = $UserPwd
 
     Write-Log 'Checking if the hostname contains only allowed characters...'
-    [string]$hostname = (Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute 'hostname' -RemoteUser "$remoteUser" -RemoteUserPwd "$remoteUserPwd").Output
+    $hostnameResult = Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute 'hostname' -RemoteUser "$remoteUser" -RemoteUserPwd "$remoteUserPwd" -Retries 3 -Timeout 3
+    if (-not $hostnameResult.Success) {
+        throw "Could not retrieve the hostname of the computer with IP '$IpAddress': SSH command 'hostname' failed after retrying. Output: $($hostnameResult.Output)"
+    }
+    [string]$hostname = $hostnameResult.Output
     if ([string]::IsNullOrWhiteSpace($hostname) -eq $true) {
         throw "The hostname of the computer with IP '$IpAddress' could not be retrieved."
     }
@@ -797,7 +801,7 @@ function Get-FlannelImages {
     Write-Log 'Get images used by flannel'
 
     &$executeRemoteCommand 'sudo crictl pull docker.io/flannel/flannel-cni-plugin:v1.9.1-flannel3'
-    &$executeRemoteCommand 'sudo crictl pull docker.io/flannel/flannel:0.28.9'
+    &$executeRemoteCommand 'sudo crictl pull docker.io/flannel/flannel:v0.28.10'
 }
 
 <#
