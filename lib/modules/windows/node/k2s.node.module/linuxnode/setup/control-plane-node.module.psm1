@@ -544,15 +544,30 @@ function Remove-ControlPlaneNodeOnNewVM {
     }
 
     $WSL = Get-ConfigWslFlag
-    $VmName = 'KubeMaster'
+    $VmName = Get-ConfigControlPlaneNodeHostname
 
     if ($WSL) {
-        wsl --shutdown | Out-Null
-        wsl --unregister $VmName | Out-Null
+        try {
+            wsl --shutdown 2>&1 | Out-Null
+            wsl --unregister $VmName 2>&1 | Out-Null
+        }
+        catch {
+            Write-Log "[WSL] Warning while stopping/unregistering WSL VM '$VmName': $($_.Exception.Message)"
+        }
     }
     else {
-        Stop-VirtualMachine -VmName $VmName -Wait
-        Remove-VirtualMachine $VmName
+        $vm = Get-VM -ErrorAction SilentlyContinue | Where-Object Name -eq $VmName
+        $vmCount = ($vm | Measure-Object).Count
+        if ($vmCount -eq 0) {
+            Write-Log "VM '$VmName' not found in Hyper-V, skipping stop and removal." -Console
+        }
+        elseif ($vmCount -eq 1) {
+            Stop-VirtualMachine -VmName $VmName -Wait
+            Remove-VirtualMachine $VmName
+        }
+        else {
+            Write-Log "More than one VM found for name '$VmName' in Hyper-V, skipping automatic removal." -Console
+        }
     }
 
     Write-Log 'Cleaning up' -Console
@@ -591,7 +606,9 @@ function Remove-ControlPlaneNodeOnNewVM {
 
     Write-Log 'Remove previous VM key from known_hosts file'
     $ipControlPlane = Get-ConfiguredIPControlPlane
-    ssh-keygen.exe -R $ipControlPlane 2>&1 | % { "$_" } | Out-Null
+    if (Get-Command 'ssh-keygen.exe' -ErrorAction SilentlyContinue) {
+        ssh-keygen.exe -R $ipControlPlane 2>&1 | % { "$_" } | Out-Null
+    }
 
     if (!$SkipPurge) {
         Remove-SshKey -IpAddress $ipControlPlane
