@@ -51,6 +51,9 @@ var (
   # Import a Windows image onto the local Windows host (default)
   k2s image import -t C:\tmp\image.tar -w
 
+  # Import all Windows images of a multi-image docker tar archive onto the local Windows host
+  k2s image import -t C:\tmp\windowsimages.tar -w
+
   # Import a Linux image onto a specific worker node
   k2s image import --node worker-1 -t C:\tmp\image.tar 
 

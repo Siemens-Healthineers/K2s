@@ -714,6 +714,124 @@ function Get-DockerArchiveEntryProblem {
     return $null
 }
 
+<#
+.SYNOPSIS
+Converts a Docker archive 'RepoTags' reference to the fully qualified name stored by containerd and Buildah.
+
+.DESCRIPTION
+Applies the Docker reference normalization: a reference without a registry domain gets 'docker.io',
+single-component Docker Hub names get 'library/', 'index.docker.io' becomes 'docker.io', and ':latest' is added
+when neither a tag nor a digest is given. For example 'python:3' becomes 'docker.io/library/python:3'.
+#>
+function ConvertTo-ContainerdImageName {
+    param(
+        [Parameter(Mandatory = $false)]
+        [AllowEmptyString()]
+        [AllowNull()]
+        [string]$Reference
+    )
+
+    if ([string]::IsNullOrWhiteSpace($Reference)) {
+        return ''
+    }
+
+    $name = $Reference.Trim()
+    $domain = 'docker.io'
+    $remainder = $name
+    $slashIndex = $name.IndexOf('/')
+    if ($slashIndex -gt 0) {
+        $firstComponent = $name.Substring(0, $slashIndex)
+        if ($firstComponent -match '[.:]' -or $firstComponent -ceq 'localhost' -or $firstComponent -cne $firstComponent.ToLowerInvariant()) {
+            $domain = $firstComponent
+            $remainder = $name.Substring($slashIndex + 1)
+        }
+    }
+    if ($domain -eq 'index.docker.io') {
+        $domain = 'docker.io'
+    }
+    if ($domain -eq 'docker.io' -and $remainder.IndexOf('/') -lt 0) {
+        $remainder = "library/$remainder"
+    }
+
+    $lastSlash = $remainder.LastIndexOf('/')
+    $lastPart = $remainder.Substring($lastSlash + 1)
+    if ($lastPart.IndexOf(':') -lt 0 -and $lastPart.IndexOf('@') -lt 0) {
+        $remainder = "${remainder}:latest"
+    }
+
+    return "$domain/$remainder"
+}
+
+<#
+.SYNOPSIS
+Summarizes the image names of the entries of a Docker archive manifest.
+
+.DESCRIPTION
+Returns an object with:
+  ExpectedNames   - the normalized names of all RepoTags (unique, in manifest order)
+  UntaggedEntries - the indexes of entries without usable RepoTags
+  DuplicateTags   - one object per normalized name used by more than one entry (Name, Entries); the runtime keeps
+                    the image of the last entry for such a name
+#>
+function Get-DockerArchiveTagReport {
+    param(
+        [Parameter(Mandatory = $false)]
+        [AllowNull()]
+        [object[]]$Entries = @()
+    )
+
+    $expectedNames = [System.Collections.Generic.List[string]]::new()
+    $untaggedEntries = [System.Collections.Generic.List[int]]::new()
+    $entriesByName = [System.Collections.Generic.Dictionary[string, System.Collections.Generic.List[int]]]::new([System.StringComparer]::Ordinal)
+
+    $entryList = @($Entries)
+    for ($i = 0; $i -lt $entryList.Count; $i++) {
+        $entry = $entryList[$i]
+        $names = @()
+        if ($entry -is [System.Management.Automation.PSCustomObject] -and $null -ne $entry.PSObject.Properties['RepoTags']) {
+            $names = @($entry.RepoTags | Where-Object { $_ -is [string] -and -not [string]::IsNullOrWhiteSpace($_) } |
+                    ForEach-Object { ConvertTo-ContainerdImageName -Reference $_ } | Select-Object -Unique)
+        }
+        if ($names.Count -eq 0) {
+            $untaggedEntries.Add($i)
+            continue
+        }
+        foreach ($name in $names) {
+            if (-not $entriesByName.ContainsKey($name)) {
+                $entriesByName[$name] = [System.Collections.Generic.List[int]]::new()
+                $expectedNames.Add($name)
+            }
+            $entriesByName[$name].Add($i)
+        }
+    }
+
+    $duplicateTags = @(foreach ($name in $expectedNames) {
+            if ($entriesByName[$name].Count -gt 1) {
+                [pscustomobject]@{ Name = $name; Entries = $entriesByName[$name].ToArray() }
+            }
+        })
+
+    return [pscustomobject]@{
+        ExpectedNames   = $expectedNames.ToArray()
+        UntaggedEntries = $untaggedEntries.ToArray()
+        DuplicateTags   = $duplicateTags
+    }
+}
+
+function Write-DockerArchiveDuplicateTagWarning {
+    param(
+        [Parameter(Mandatory = $true)]
+        [object]$TagReport,
+        [Parameter(Mandatory = $true)]
+        [string]$ImagePath
+    )
+
+    foreach ($duplicate in @($TagReport.DuplicateTags)) {
+        $lastEntry = @($duplicate.Entries)[-1]
+        Write-Log "[Import] Warning: tag '$($duplicate.Name)' is used by archive entries @$(@($duplicate.Entries) -join ', @') of '$ImagePath'; it will refer to entry @$lastEntry" -Console
+    }
+}
+
 function Invoke-LinuxNodeImageImport {
     param(
         [Parameter(Mandatory = $true)]
@@ -768,6 +886,7 @@ function Invoke-LinuxNodeImageImport {
         else {
             $entryCount = $manifestEntries.Count
             Write-Log "[Import] Docker archive '$ImagePath' contains $entryCount images; importing each entry on '$($NodeInfo.Name)'" -Console
+            Write-DockerArchiveDuplicateTagWarning -TagReport (Get-DockerArchiveTagReport -Entries $manifestEntries) -ImagePath $ImagePath
             $failedEntries = @()
 
             # '@<index>' addresses the entry at that position of manifest.json (not index.json); Buildah applies that entry's RepoTags
@@ -837,6 +956,146 @@ function Invoke-LinuxNodeImageImport {
     return $importSuccess
 }
 
+<#
+.SYNOPSIS
+Inspects an image archive before a Windows (containerd) import.
+
+.DESCRIPTION
+containerd ('ctr images import') imports every image of a Docker or OCI archive in one operation, so no per-entry
+import is needed on Windows. This function only reads the Docker 'manifest.json' to report the number of images and
+duplicate tags, and returns the information needed to verify the import afterwards.
+Returns $null when the archive has no valid Docker manifest (for example OCI-only archives); such archives are not verified.
+#>
+function Get-WindowsImageArchiveReport {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$ImagePath
+    )
+
+    $manifestInfo = Get-DockerArchiveManifestInfo -ImagePath $ImagePath
+    if ($manifestInfo.State -eq 'Invalid') {
+        Write-Log "[Import] Warning: '$ImagePath' contains an empty or invalid manifest.json; the imported image names are not verified" -Console
+    }
+    if ($manifestInfo.State -ne 'Valid') {
+        return $null
+    }
+
+    $entries = @($manifestInfo.Entries)
+    $tagReport = Get-DockerArchiveTagReport -Entries $entries
+    if ($entries.Count -ge 2) {
+        Write-Log "[Import] Docker archive '$ImagePath' contains $($entries.Count) images; containerd imports all of them in one operation" -Console
+    }
+    Write-DockerArchiveDuplicateTagWarning -TagReport $tagReport -ImagePath $ImagePath
+
+    return [pscustomobject]@{
+        EntryCount      = $entries.Count
+        ExpectedNames   = @($tagReport.ExpectedNames)
+        UntaggedEntries = @($tagReport.UntaggedEntries)
+    }
+}
+
+<#
+.SYNOPSIS
+Verifies that every tagged image of a Docker archive exists in containerd after 'ctr images import' succeeded.
+
+.DESCRIPTION
+containerd skips Docker archive entries without RepoTags and still exits with code 0, so such entries are reported
+as not imported. ImageNames is the output of 'ctr -n k8s.io images ls -q'; when it is $null the names could not be
+listed and only the untagged entries are checked.
+#>
+function Test-WindowsImageArchiveImport {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$ImagePath,
+        [Parameter(Mandatory = $false)]
+        [AllowNull()]
+        [object]$ArchiveReport,
+        [Parameter(Mandatory = $false)]
+        [AllowNull()]
+        [string[]]$ImageNames,
+        [Parameter(Mandatory = $true)]
+        [string]$Target
+    )
+
+    if ($null -eq $ArchiveReport) {
+        return $true
+    }
+
+    $complete = $true
+    foreach ($index in @($ArchiveReport.UntaggedEntries)) {
+        Write-Log "[Import] Archive entry @$index of '$ImagePath' has no RepoTags; containerd does not import untagged Docker archive entries on $Target" -Console
+        $complete = $false
+    }
+
+    if ($null -eq $ImageNames) {
+        Write-Log "[Import] Warning: could not list the images on $Target; the imported image names of '$ImagePath' are not verified" -Console
+        return $complete
+    }
+
+    $nameSet = [System.Collections.Generic.HashSet[string]]::new([string[]]@($ImageNames | Where-Object { $null -ne $_ } | ForEach-Object { $_.Trim() }), [System.StringComparer]::Ordinal)
+    $missingNames = @($ArchiveReport.ExpectedNames | Where-Object { -not $nameSet.Contains($_) })
+    foreach ($missingName in $missingNames) {
+        Write-Log "[Import] Image '$missingName' from '$ImagePath' was not found on $Target after the import" -Console
+    }
+    if ($missingNames.Count -gt 0) {
+        $complete = $false
+    }
+
+    if ($complete) {
+        Write-Log "[Import] Verified $(@($ArchiveReport.ExpectedNames).Count) image name(s) of $($ArchiveReport.EntryCount) archive entries from '$ImagePath' on $Target"
+    }
+    return $complete
+}
+
+function Get-LocalWindowsImageNames {
+    $ctrExe = "$(Get-KubeBinPath)\containerd\ctr.exe"
+
+    $prevEAP = $ErrorActionPreference
+    $ErrorActionPreference = 'Continue'
+    try {
+        $output = @(& $ctrExe -n k8s.io images ls -q 2>$null)
+        $exitCode = $LASTEXITCODE
+    }
+    finally {
+        $ErrorActionPreference = $prevEAP
+    }
+
+    return [pscustomobject]@{
+        Success = ($exitCode -eq 0)
+        Names   = @($output | ForEach-Object { "$_".Trim() } | Where-Object { $_ -ne '' })
+    }
+}
+
+function Invoke-LocalWindowsImageImport {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$ImagePath
+    )
+
+    $target = 'the local Windows host'
+    $archiveReport = Get-WindowsImageArchiveReport -ImagePath $ImagePath
+
+    if (-not (Invoke-Ctr -Arguments '-n', 'k8s.io', 'images', 'import', $ImagePath)) {
+        Write-Log "[Import] Image import of '$ImagePath' failed on $target" -Error
+        return $false
+    }
+
+    $imageNames = $null
+    if ($null -ne $archiveReport) {
+        $listing = Get-LocalWindowsImageNames
+        if ($listing.Success) {
+            $imageNames = [string[]]@($listing.Names)
+        }
+    }
+    if (-not (Test-WindowsImageArchiveImport -ImagePath $ImagePath -ArchiveReport $archiveReport -ImageNames $imageNames -Target $target)) {
+        Write-Log "[Import] Image archive '$ImagePath' was not completely imported on $target" -Error
+        return $false
+    }
+
+    Write-Log "$ImagePath imported successfully on $target"
+    return $true
+}
+
 function Invoke-WindowsWorkerImageImport {
     param(
         [Parameter(Mandatory = $true)]
@@ -846,8 +1105,11 @@ function Invoke-WindowsWorkerImageImport {
     )
 
     $session = $null
-    $remoteImagePath = 'C:\Windows\Temp\import.tar'
+    # A unique remote file per import keeps concurrent imports to the same node from overwriting or deleting each other's archive
+    $remoteImagePath = "C:\Windows\Temp\k2s-image-import-$([guid]::NewGuid().ToString('N')).tar"
     $importSuccess = $false
+    $target = "Windows worker '$NodeName'"
+    $archiveReport = Get-WindowsImageArchiveReport -ImagePath $ImagePath
 
     try {
         $session = Open-RemoteSession -VmName $NodeName -VmPwd (Get-DefaultTempPwd) -NoLog
@@ -859,9 +1121,18 @@ function Invoke-WindowsWorkerImageImport {
             $global:LASTEXITCODE = 1
             $output = @(& $remoteCtrPath -n k8s.io images import $path 2>&1)
             $exitCode = $LASTEXITCODE
+            $imageNames = $null
+            if ($exitCode -eq 0) {
+                $global:LASTEXITCODE = 1
+                $listOutput = @(& $remoteCtrPath -n k8s.io images ls -q 2>$null)
+                if ($LASTEXITCODE -eq 0) {
+                    $imageNames = @($listOutput | ForEach-Object { "$_".Trim() } | Where-Object { $_ -ne '' })
+                }
+            }
             [PSCustomObject]@{
-                Success = ($exitCode -eq 0)
-                Output  = ($output -join [Environment]::NewLine)
+                Success    = ($exitCode -eq 0)
+                Output     = ($output -join [Environment]::NewLine)
+                ImageNames = $imageNames
             }
         }
 
@@ -870,21 +1141,38 @@ function Invoke-WindowsWorkerImageImport {
         }
         $importSuccess = Test-ImageImportSuccess -Result $importResult
         if (-not $importSuccess) {
-            Write-Log "[Import] Image import failed on Windows worker '$NodeName'" -Error
+            Write-Log "[Import] Image import failed on $target" -Error
+        }
+        else {
+            $imageNames = $null
+            if ($null -ne $importResult.PSObject.Properties['ImageNames'] -and $null -ne $importResult.ImageNames) {
+                $imageNames = [string[]]@($importResult.ImageNames)
+            }
+            if (-not (Test-WindowsImageArchiveImport -ImagePath $ImagePath -ArchiveReport $archiveReport -ImageNames $imageNames -Target $target)) {
+                $importSuccess = $false
+                Write-Log "[Import] Image archive '$ImagePath' was not completely imported on $target" -Error
+            }
         }
     }
     catch {
-        Write-Log "[Import] Image import failed on Windows worker '$NodeName': $_" -Error
+        $importSuccess = $false
+        Write-Log "[Import] Image import failed on ${target}: $_" -Error
     }
     finally {
         if ($null -ne $session) {
             try {
-                Invoke-Command -Session $session -ArgumentList $remoteImagePath -ScriptBlock {
-                    param($path) Remove-Item -Path $path -Force -ErrorAction SilentlyContinue
-                } -ErrorAction Stop | Out-Null
+                $removed = Invoke-Command -Session $session -ArgumentList $remoteImagePath -ScriptBlock {
+                    param($path)
+                    Remove-Item -LiteralPath $path -Force -ErrorAction SilentlyContinue
+                    -not (Test-Path -LiteralPath $path)
+                } -ErrorAction Stop
+                if ($removed -ne $true) {
+                    Write-Log "[Import] Could not remove temporary image archive '$remoteImagePath' from $target" -Error
+                    $importSuccess = $false
+                }
             }
             catch {
-                Write-Log "[Import] Could not remove temporary image archive from Windows worker '$NodeName': $_" -Error
+                Write-Log "[Import] Could not remove temporary image archive '$remoteImagePath' from ${target}: $_" -Error
                 $importSuccess = $false
             }
             Remove-PSSession -Session $session -ErrorAction SilentlyContinue
@@ -894,4 +1182,4 @@ function Invoke-WindowsWorkerImageImport {
     return $importSuccess
 }
 
-Export-ModuleMember -Function Initialize-ImageScriptContext, Resolve-ImageNode, Get-DefaultNodeInfoList, Get-ImagesOnNode, Resolve-NodeList, Get-ImagesByNodeSelection, Test-NodeReady, Get-RegistryHostIp, Get-LinuxTransparentProxyPrefix, Test-ImageImportSuccess, Invoke-LinuxNodeImageImport, Invoke-WindowsWorkerImageImport
+Export-ModuleMember -Function Initialize-ImageScriptContext, Resolve-ImageNode, Get-DefaultNodeInfoList, Get-ImagesOnNode, Resolve-NodeList, Get-ImagesByNodeSelection, Test-NodeReady, Get-RegistryHostIp, Get-LinuxTransparentProxyPrefix, Test-ImageImportSuccess, Invoke-LinuxNodeImageImport, Invoke-LocalWindowsImageImport, Invoke-WindowsWorkerImageImport

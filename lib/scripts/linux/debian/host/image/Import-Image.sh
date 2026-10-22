@@ -41,10 +41,70 @@ if [[ -z "$tar_path" && -z "$dir_path" ]]; then
   exit 1
 fi
 
+# Prints the Docker manifest.json of an archive; fails when the archive has none
+docker_archive_manifest() {
+  local file="$1" member
+  for member in manifest.json ./manifest.json; do
+    if tar -xOf "$file" "$member" 2>/dev/null; then
+      return 0
+    fi
+  done
+  return 1
+}
+
+# Prints the number of manifest.json entries of a Docker archive, or 0 when there is no valid manifest.json
+docker_archive_entry_count() {
+  local file="$1" manifest count
+  if command -v jq >/dev/null 2>&1 && manifest="$(docker_archive_manifest "$file")" &&
+    count="$(jq -er 'if type == "array" and all(.[]; type == "object") then length else 0 end' <<<"$manifest" 2>/dev/null)"; then
+    echo "$count"
+  else
+    echo 0
+  fi
+}
+
+# Imports every entry of a multi-image Docker archive with its own Buildah selector ('@<index>' of manifest.json);
+# the entry's RepoTags are applied by Buildah. Successfully imported entries are kept when another entry fails.
+import_docker_archive_entries() {
+  local file="$1" count="$2" manifest i tags pull_out duplicate
+  local -a failed=()
+  manifest="$(docker_archive_manifest "$file")"
+  k2s_log INFO "Docker archive $file contains $count images; importing each entry"
+
+  while IFS= read -r duplicate; do
+    if [[ -n "$duplicate" ]]; then
+      k2s_log WARN "Tag '$duplicate' is used by more than one archive entry of $file; it will refer to the last of them"
+    fi
+  done < <(jq -r '[.[] | (.RepoTags // [])[]] | group_by(.) | map(select(length > 1) | .[0]) | .[]' <<<"$manifest" 2>/dev/null || true)
+
+  for ((i = 0; i < count; i++)); do
+    tags="$(jq -r --argjson i "$i" '(.[$i].RepoTags // []) | join(", ")' <<<"$manifest" 2>/dev/null || true)"
+    if pull_out="$(buildah pull "docker-archive:$file:@$i" 2>&1)"; then
+      k2s_log INFO "Imported archive entry @$i (${tags:-<untagged>}) from $file"
+    else
+      k2s_log ERROR "Failed to import archive entry @$i (${tags:-<untagged>}) from $file: $pull_out"
+      failed+=("@$i")
+    fi
+  done
+
+  if ((${#failed[@]} > 0)); then
+    k2s_log ERROR "Imported $((count - ${#failed[@]})) of $count images from $file; failed entries: ${failed[*]}. Successfully imported images are kept."
+    return 1
+  fi
+  k2s_log INFO "Successfully imported all $count images from Docker archive: $file"
+}
+
 import_single_tar() {
   local file="$1"
   k2s_log INFO "Importing container image from $file"
   if command -v buildah >/dev/null 2>&1; then
+    local entry_count
+    entry_count="$(docker_archive_entry_count "$file")"
+    if ((entry_count >= 2)); then
+      import_docker_archive_entries "$file" "$entry_count" || return 1
+      return 0
+    fi
+
     local pull_out=""
     if pull_out="$(buildah pull "oci-archive:$file" 2>&1)"; then
       k2s_log INFO "Successfully imported OCI archive: $file"

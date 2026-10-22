@@ -52,6 +52,26 @@ BeforeAll {
             }
         }
     }
+
+    $script:tarExe = Join-Path $env:SystemRoot 'System32\tar.exe'
+
+    function New-TestArchive {
+        param([string]$Name, [hashtable]$Files, [string[]]$MemberNames)
+        $sourceDir = Join-Path $TestDrive "$Name-src"
+        New-Item -ItemType Directory -Path $sourceDir -Force | Out-Null
+        foreach ($fileName in $Files.Keys) {
+            $filePath = Join-Path $sourceDir $fileName
+            New-Item -ItemType Directory -Path (Split-Path $filePath -Parent) -Force | Out-Null
+            Set-Content -LiteralPath $filePath -Value $Files[$fileName] -Encoding Ascii -NoNewline
+        }
+        if (-not $MemberNames) {
+            $MemberNames = @($Files.Keys)
+        }
+        $archivePath = Join-Path $TestDrive "$Name.tar"
+        & $script:tarExe -cf $archivePath -C $sourceDir @MemberNames
+        if ($LASTEXITCODE -ne 0) { throw "tar.exe failed to create test archive '$archivePath'" }
+        return $archivePath
+    }
 }
 
 Describe 'Image import helpers' -Tag 'unit', 'ci', 'image' {
@@ -535,26 +555,6 @@ Describe 'Image import helpers' -Tag 'unit', 'ci', 'image' {
 
     Context 'Get-DockerArchiveManifestInfo with generated archives' {
         BeforeAll {
-            $script:tarExe = Join-Path $env:SystemRoot 'System32\tar.exe'
-
-            function New-TestArchive {
-                param([string]$Name, [hashtable]$Files, [string[]]$MemberNames)
-                $sourceDir = Join-Path $TestDrive "$Name-src"
-                New-Item -ItemType Directory -Path $sourceDir -Force | Out-Null
-                foreach ($fileName in $Files.Keys) {
-                    $filePath = Join-Path $sourceDir $fileName
-                    New-Item -ItemType Directory -Path (Split-Path $filePath -Parent) -Force | Out-Null
-                    Set-Content -LiteralPath $filePath -Value $Files[$fileName] -Encoding Ascii -NoNewline
-                }
-                if (-not $MemberNames) {
-                    $MemberNames = @($Files.Keys)
-                }
-                $archivePath = Join-Path $TestDrive "$Name.tar"
-                & $script:tarExe -cf $archivePath -C $sourceDir @MemberNames
-                if ($LASTEXITCODE -ne 0) { throw "tar.exe failed to create test archive '$archivePath'" }
-                return $archivePath
-            }
-
             function Get-ManifestInfoInModule {
                 param([string]$Path)
                 InModuleScope $moduleName -Parameters @{ Path = $Path } {
@@ -801,6 +801,304 @@ Describe 'Image import helpers' -Tag 'unit', 'ci', 'image' {
             }
         }
     }
+
+    Context 'Docker archive tag report' {
+        It 'normalizes <Reference> to the containerd name <Expected>' -ForEach @(
+            # Expected values observed with 'ctr images import' (containerd 2.4.1) of a Docker archive using these RepoTags
+            @{ Reference = 'pause-win3212:short'; Expected = 'docker.io/library/pause-win3212:short' }
+            @{ Reference = 'k2s/test3212:1'; Expected = 'docker.io/k2s/test3212:1' }
+            @{ Reference = 'docker.io/busybox3212'; Expected = 'docker.io/library/busybox3212:latest' }
+            @{ Reference = 'index.docker.io/library/x3212:2'; Expected = 'docker.io/library/x3212:2' }
+            @{ Reference = 'localhost:5000/y3212'; Expected = 'localhost:5000/y3212:latest' }
+            @{ Reference = 'shsk2s.azurecr.io/pause-win:v1.8.0'; Expected = 'shsk2s.azurecr.io/pause-win:v1.8.0' }
+            @{ Reference = 'localhost/app'; Expected = 'localhost/app:latest' }
+            @{ Reference = 'example.local/app@sha256:0123'; Expected = 'example.local/app@sha256:0123' }
+        ) {
+            InModuleScope $moduleName -Parameters @{ Reference = $Reference } {
+                param($Reference)
+                ConvertTo-ContainerdImageName -Reference $Reference
+            } | Should -BeExactly $Expected
+        }
+
+        It 'reports expected names, untagged entries, and tags shared by several entries' {
+            $entries = @(
+                [PSCustomObject]@{ Config = 'a.json'; RepoTags = @('app:1', 'docker.io/library/app:latest'); Layers = @('a.tar') }
+                [PSCustomObject]@{ Config = 'b.json'; RepoTags = $null; Layers = @('b.tar') }
+                [PSCustomObject]@{ Config = 'c.json'; RepoTags = @('example.local/c:1', 'app:1'); Layers = @('c.tar') }
+                [PSCustomObject]@{ Config = 'd.json'; Layers = @('d.tar') }
+            )
+
+            $report = InModuleScope $moduleName -Parameters @{ Entries = $entries } {
+                param($Entries)
+                Get-DockerArchiveTagReport -Entries $Entries
+            }
+
+            @($report.ExpectedNames) | Should -Be @('docker.io/library/app:1', 'docker.io/library/app:latest', 'example.local/c:1')
+            @($report.UntaggedEntries) | Should -Be @(1, 3)
+            @($report.DuplicateTags).Count | Should -Be 1
+            @($report.DuplicateTags)[0].Name | Should -BeExactly 'docker.io/library/app:1'
+            @(@($report.DuplicateTags)[0].Entries) | Should -Be @(0, 2)
+        }
+
+        It 'treats tags that differ only in case as different names' {
+            $entries = @(
+                [PSCustomObject]@{ Config = 'a.json'; RepoTags = @('example.local/app:V1'); Layers = @('a.tar') }
+                [PSCustomObject]@{ Config = 'b.json'; RepoTags = @('example.local/app:v1'); Layers = @('b.tar') }
+            )
+
+            $report = InModuleScope $moduleName -Parameters @{ Entries = $entries } {
+                param($Entries)
+                Get-DockerArchiveTagReport -Entries $Entries
+            }
+
+            @($report.ExpectedNames).Count | Should -Be 2
+            @($report.DuplicateTags).Count | Should -Be 0
+        }
+
+        It 'warns that a tag shared by two entries of a Linux import refers to the last entry and still imports both entries' {
+            Mock -ModuleName $moduleName Write-Log {}
+            Initialize-RemoteCommandMocks
+            $archive = New-TestArchive -Name 'linux-dup-tags' -Files @{
+                'manifest.json' = '[{"Config":"a.json","RepoTags":["example.local/dup:1"],"Layers":["a/layer.tar"]},{"Config":"b.json","RepoTags":["example.local/dup:1"],"Layers":["b/layer.tar"]}]'
+                'a.json' = '{}'; 'a/layer.tar' = 'a'; 'b.json' = '{}'; 'b/layer.tar' = 'b'
+            }
+
+            $result = Invoke-LinuxNodeImageImport -ImagePath $archive -NodeInfo @{ Kind = 'ControlPlane'; Name = 'control-plane' }
+
+            $result | Should -BeTrue
+            ($script:executedCommands -join '|') | Should -BeExactly (@((Get-IndexedPullCommand 0), (Get-IndexedPullCommand 1), $script:cleanupCommand) -join '|')
+            Should -Invoke -ModuleName $moduleName Write-Log -Times 1 -Exactly -ParameterFilter {
+                "$Messages" -match "tag 'example\.local/dup:1' is used by archive entries @0, @1 .*it will refer to entry @1$"
+            }
+        }
+    }
+
+    Context 'Windows image import on the local host (containerd)' {
+        BeforeAll {
+            # Two images in the classic 'docker save' layout sharing 'a/layer.tar'; the contents are placeholders because ctr is mocked
+            $script:winManifest = '[{"Config":"a.json","RepoTags":["pause-win:a"],"Layers":["a/layer.tar"]},{"Config":"b.json","RepoTags":["example.local/win/b:1","example.local/win/b:latest"],"Layers":["a/layer.tar","b/layer.tar"]}]'
+            $script:winFiles = @{ 'manifest.json' = $script:winManifest; 'a.json' = '{}'; 'a/layer.tar' = 'a'; 'b.json' = '{}'; 'b/layer.tar' = 'b' }
+            # The names containerd stores for these RepoTags
+            $script:winNames = @('docker.io/library/pause-win:a', 'example.local/win/b:1', 'example.local/win/b:latest')
+        }
+
+        BeforeEach {
+            $script:ctrCalls = [System.Collections.Generic.List[string]]::new()
+            $script:ctrImportSucceeds = $true
+            $script:storeNames = @()
+            $script:listSucceeds = $true
+            $script:logMessages = [System.Collections.Generic.List[string]]::new()
+            Mock -ModuleName $moduleName Write-Log { $script:logMessages.Add("$Messages") }
+            # 'ctr images import' imports every tagged entry of the archive in one call; the store content after the call is set per test
+            Mock -ModuleName $moduleName Invoke-Ctr { $script:ctrCalls.Add($Arguments -join ' '); $script:ctrImportSucceeds }
+            Mock -ModuleName $moduleName Get-LocalWindowsImageNames { [pscustomobject]@{ Success = $script:listSucceeds; Names = @($script:storeNames) } }
+        }
+
+        It 'imports a two-image Docker archive with one ctr import and verifies every tag of every entry' {
+            $archive = New-TestArchive -Name 'win-multi' -Files $script:winFiles
+            $script:storeNames = $script:winNames + 'shsk2s.azurecr.io/pause-win:v1.8.0'
+
+            $result = Invoke-LocalWindowsImageImport -ImagePath $archive
+
+            $result | Should -BeTrue
+            @($script:ctrCalls) | Should -Be @("-n k8s.io images import $archive")
+            ($script:logMessages -join "`n") | Should -Match 'contains 2 images; containerd imports all of them in one operation'
+            ($script:logMessages -join "`n") | Should -Match 'Verified 3 image name\(s\) of 2 archive entries'
+        }
+
+        It 'fails when ctr succeeds but skips an untagged entry' {
+            $files = $script:winFiles.Clone()
+            $files['manifest.json'] = '[{"Config":"a.json","RepoTags":["pause-win:a"],"Layers":["a/layer.tar"]},{"Config":"b.json","RepoTags":null,"Layers":["b/layer.tar"]}]'
+            $archive = New-TestArchive -Name 'win-untagged' -Files $files
+            $script:storeNames = @('docker.io/library/pause-win:a')
+
+            $result = Invoke-LocalWindowsImageImport -ImagePath $archive
+
+            $result | Should -BeFalse
+            ($script:logMessages -join "`n") | Should -Match 'Archive entry @1 of .* has no RepoTags; containerd does not import untagged Docker archive entries'
+            ($script:logMessages -join "`n") | Should -Match 'was not completely imported on the local Windows host'
+        }
+
+        It 'fails and names the missing image when a tag is absent after the import' {
+            $archive = New-TestArchive -Name 'win-missing-tag' -Files $script:winFiles
+            $script:storeNames = @('docker.io/library/pause-win:a', 'example.local/win/b:1')
+
+            $result = Invoke-LocalWindowsImageImport -ImagePath $archive
+
+            $result | Should -BeFalse
+            @($script:logMessages | Where-Object { $_ -match "Image '(.+)' from .* was not found" } | ForEach-Object { $Matches[1] }) | Should -Be @('example.local/win/b:latest')
+        }
+
+        It 'returns false and does not verify names when ctr rejects the archive' {
+            $archive = New-TestArchive -Name 'win-ctr-fails' -Files $script:winFiles
+            $script:ctrImportSucceeds = $false
+
+            $result = Invoke-LocalWindowsImageImport -ImagePath $archive
+
+            $result | Should -BeFalse
+            Should -Invoke -ModuleName $moduleName Get-LocalWindowsImageNames -Times 0 -Exactly
+            ($script:logMessages -join "`n") | Should -Match 'Image import of .* failed on the local Windows host'
+        }
+
+        It 'imports a single-image Docker archive and verifies its tag' {
+            $archive = New-TestArchive -Name 'win-single' -Files @{ 'manifest.json' = '[{"Config":"a.json","RepoTags":["pause-win:a"],"Layers":["a/layer.tar"]}]'; 'a.json' = '{}'; 'a/layer.tar' = 'a' }
+            $script:storeNames = @('docker.io/library/pause-win:a')
+
+            $result = Invoke-LocalWindowsImageImport -ImagePath $archive
+
+            $result | Should -BeTrue
+            @($script:ctrCalls) | Should -Be @("-n k8s.io images import $archive")
+            ($script:logMessages -join "`n") | Should -Not -Match 'contains \d+ images'
+        }
+
+        It 'imports an OCI-only archive with ctr and does not verify names' {
+            $archive = New-TestArchive -Name 'win-oci' -Files @{ 'index.json' = '{"schemaVersion":2,"manifests":[]}'; 'oci-layout' = '{"imageLayoutVersion":"1.0.0"}' }
+
+            $result = Invoke-LocalWindowsImageImport -ImagePath $archive
+
+            $result | Should -BeTrue
+            @($script:ctrCalls) | Should -Be @("-n k8s.io images import $archive")
+            Should -Invoke -ModuleName $moduleName Get-LocalWindowsImageNames -Times 0 -Exactly
+        }
+
+        It 'keeps the ctr result for an archive with an invalid manifest.json and warns that names are not verified' {
+            $archive = New-TestArchive -Name 'win-invalid-manifest' -Files @{ 'manifest.json' = '[{"Config": ' }
+
+            $result = Invoke-LocalWindowsImageImport -ImagePath $archive
+
+            $result | Should -BeTrue
+            ($script:logMessages -join "`n") | Should -Match 'invalid manifest\.json; the imported image names are not verified'
+            Should -Invoke -ModuleName $moduleName Get-LocalWindowsImageNames -Times 0 -Exactly
+        }
+
+        It 'keeps the ctr result and warns when the image list cannot be read' {
+            $archive = New-TestArchive -Name 'win-list-fails' -Files $script:winFiles
+            $script:listSucceeds = $false
+
+            $result = Invoke-LocalWindowsImageImport -ImagePath $archive
+
+            $result | Should -BeTrue
+            ($script:logMessages -join "`n") | Should -Match 'could not list the images on the local Windows host'
+        }
+
+        It 'warns that a tag shared by two entries refers to the last entry' {
+            $files = $script:winFiles.Clone()
+            $files['manifest.json'] = '[{"Config":"a.json","RepoTags":["example.local/win/dup:1"],"Layers":["a/layer.tar"]},{"Config":"b.json","RepoTags":["example.local/win/dup:1"],"Layers":["b/layer.tar"]}]'
+            $archive = New-TestArchive -Name 'win-dup' -Files $files
+            $script:storeNames = @('example.local/win/dup:1')
+
+            $result = Invoke-LocalWindowsImageImport -ImagePath $archive
+
+            $result | Should -BeTrue
+            ($script:logMessages -join "`n") | Should -Match "tag 'example\.local/win/dup:1' is used by archive entries @0, @1 .*it will refer to entry @1"
+        }
+    }
+
+    Context 'Windows image import on a Windows worker VM (containerd)' {
+        BeforeAll {
+            $script:winWorkerFiles = @{
+                'manifest.json' = '[{"Config":"a.json","RepoTags":["example.local/win/a:1"],"Layers":["a/layer.tar"]},{"Config":"b.json","RepoTags":["example.local/win/b:1"],"Layers":["b/layer.tar"]}]'
+                'a.json' = '{}'; 'a/layer.tar' = 'a'; 'b.json' = '{}'; 'b/layer.tar' = 'b'
+            }
+            $script:winRemotePattern = '^C:\\Windows\\Temp\\k2s-image-import-[0-9a-f]{32}\.tar$'
+        }
+
+        BeforeEach {
+            $script:copyDestinations = [System.Collections.Generic.List[string]]::new()
+            $script:remoteCalls = [System.Collections.Generic.List[object]]::new()
+            $script:remoteImport = [PSCustomObject]@{ Success = $true; Output = ''; ImageNames = @('example.local/win/a:1', 'example.local/win/b:1') }
+            $script:cleanupRemoved = $true
+            $script:copyThrows = $false
+            $script:logMessages = [System.Collections.Generic.List[string]]::new()
+            $script:session = New-MockObject -Type System.Management.Automation.Runspaces.PSSession
+
+            Mock -ModuleName $moduleName Write-Log { $script:logMessages.Add("$Messages") }
+            Mock -ModuleName $moduleName Get-DefaultTempPwd { 'not-a-secret' }
+            Mock -ModuleName $moduleName Open-RemoteSession { $script:session }
+            Mock -ModuleName $moduleName Remove-PSSession {}
+            Mock -ModuleName $moduleName Copy-Item {
+                if ($script:copyThrows) { throw 'copy failed' }
+                $script:copyDestinations.Add([string]$Destination)
+            }
+            # Distinguishes the remote import script block (ctr import plus image list) from the cleanup script block
+            Mock -ModuleName $moduleName Invoke-Command {
+                $isImport = $ScriptBlock.ToString() -match 'images import'
+                $script:remoteCalls.Add([PSCustomObject]@{ Kind = $(if ($isImport) { 'import' } else { 'cleanup' }); Path = [string]$ArgumentList[0] })
+                if ($isImport) { return $script:remoteImport }
+                return $script:cleanupRemoved
+            }
+        }
+
+        It 'imports through a unique temporary file per import and removes exactly that file' {
+            $archive = New-TestArchive -Name 'worker-multi' -Files $script:winWorkerFiles
+
+            $first = Invoke-WindowsWorkerImageImport -ImagePath $archive -NodeName 'winvm'
+            $second = Invoke-WindowsWorkerImageImport -ImagePath $archive -NodeName 'winvm'
+
+            $first | Should -BeTrue
+            $second | Should -BeTrue
+            $script:copyDestinations.Count | Should -Be 2
+            $script:copyDestinations | ForEach-Object { $_ | Should -Match $script:winRemotePattern }
+            $script:copyDestinations[0] | Should -Not -Be $script:copyDestinations[1]
+            @($script:remoteCalls | ForEach-Object { "$($_.Kind):$($_.Path)" }) | Should -Be @(
+                "import:$($script:copyDestinations[0])", "cleanup:$($script:copyDestinations[0])",
+                "import:$($script:copyDestinations[1])", "cleanup:$($script:copyDestinations[1])")
+            Should -Invoke -ModuleName $moduleName Remove-PSSession -Times 2 -Exactly
+        }
+
+        It 'fails when the worker reports success but an expected image is missing, and still removes the file' {
+            $archive = New-TestArchive -Name 'worker-missing' -Files $script:winWorkerFiles
+            $script:remoteImport = [PSCustomObject]@{ Success = $true; Output = ''; ImageNames = @('example.local/win/a:1') }
+
+            $result = Invoke-WindowsWorkerImageImport -ImagePath $archive -NodeName 'winvm'
+
+            $result | Should -BeFalse
+            ($script:logMessages -join "`n") | Should -Match "Image 'example\.local/win/b:1' from .* was not found on Windows worker 'winvm'"
+            @($script:remoteCalls.Kind) | Should -Be @('import', 'cleanup')
+        }
+
+        It 'fails when ctr fails on the worker and still removes the file' {
+            $archive = New-TestArchive -Name 'worker-ctr-fails' -Files $script:winWorkerFiles
+            $script:remoteImport = [PSCustomObject]@{ Success = $false; Output = 'ctr: failed to resolve layers'; ImageNames = $null }
+
+            $result = Invoke-WindowsWorkerImageImport -ImagePath $archive -NodeName 'winvm'
+
+            $result | Should -BeFalse
+            ($script:logMessages -join "`n") | Should -Match 'ctr: failed to resolve layers'
+            @($script:remoteCalls.Kind) | Should -Be @('import', 'cleanup')
+        }
+
+        It 'fails when the temporary file cannot be removed from the worker' {
+            $archive = New-TestArchive -Name 'worker-cleanup' -Files $script:winWorkerFiles
+            $script:cleanupRemoved = $false
+
+            $result = Invoke-WindowsWorkerImageImport -ImagePath $archive -NodeName 'winvm'
+
+            $result | Should -BeFalse
+            ($script:logMessages -join "`n") | Should -Match 'Could not remove temporary image archive .*k2s-image-import-[0-9a-f]{32}\.tar'
+        }
+
+        It 'does not import when the copy fails and still attempts to remove the file' {
+            $archive = New-TestArchive -Name 'worker-copy' -Files $script:winWorkerFiles
+            $script:copyThrows = $true
+
+            $result = Invoke-WindowsWorkerImageImport -ImagePath $archive -NodeName 'winvm'
+
+            $result | Should -BeFalse
+            @($script:remoteCalls.Kind) | Should -Be @('cleanup')
+            $script:remoteCalls[0].Path | Should -Match $script:winRemotePattern
+        }
+
+        It 'keeps the ctr result and warns when the worker cannot list its images' {
+            $archive = New-TestArchive -Name 'worker-no-list' -Files $script:winWorkerFiles
+            $script:remoteImport = [PSCustomObject]@{ Success = $true; Output = ''; ImageNames = $null }
+
+            $result = Invoke-WindowsWorkerImageImport -ImagePath $archive -NodeName 'winvm'
+
+            $result | Should -BeTrue
+            ($script:logMessages -join "`n") | Should -Match "could not list the images on Windows worker 'winvm'"
+        }
+    }
 }
 
 Describe 'Import-Image.ps1' -Tag 'unit', 'ci', 'image' {
@@ -838,6 +1136,80 @@ Describe 'Import-Image.ps1' -Tag 'unit', 'ci', 'image' {
             $script:importCalls.Add([PSCustomObject]@{ ImagePath = $ImagePath; Kind = $NodeInfo.Kind; DockerArchive = [bool]$DockerArchive })
             $script:failingImages -notcontains $ImagePath
         }
+        Mock -CommandName Invoke-LocalWindowsImageImport {
+            $script:importCalls.Add([PSCustomObject]@{ ImagePath = $ImagePath; Kind = 'LocalWindows'; DockerArchive = $null })
+            $script:failingImages -notcontains $ImagePath
+        }
+        Mock -CommandName Invoke-WindowsWorkerImageImport {
+            $script:importCalls.Add([PSCustomObject]@{ ImagePath = $ImagePath; Kind = "WindowsWorker:$NodeName"; DockerArchive = $null })
+            $script:failingImages -notcontains $ImagePath
+        }
+        Mock -CommandName Test-NodeReady { $true }
+        Mock -CommandName Resolve-ImageNode {
+            switch ($NodeName) {
+                'kubemaster' { @{ Name = 'kubemaster'; OS = 'linux'; Kind = 'ControlPlane' } }
+                'linuxvm' { @{ Name = 'linuxvm'; OS = 'linux'; Kind = 'LinuxWorker'; IpAddress = '192.0.2.10'; Username = 'remote' } }
+                'winhost' { @{ Name = 'winhost'; OS = 'windows'; Kind = 'LocalWindows' } }
+                'winvm' { @{ Name = 'winvm'; OS = 'windows'; Kind = 'WindowsWorker' } }
+                default { $null }
+            }
+        }
+    }
+
+    It 'routes every archive of a directory to the local Windows import with -Windows and fails overall when one fails' {
+        $imageDir = Join-Path $TestDrive 'windows-images'
+        New-Item -ItemType Directory -Path $imageDir -Force | Out-Null
+        'multi.tar', 'single.tar' | ForEach-Object { Set-Content -LiteralPath (Join-Path $imageDir $_) -Value 'x' }
+        $script:failingImages = @((Join-Path $imageDir 'single.tar'))
+
+        $result = Invoke-ImportImageScript -Parameters @{ ImageDir = $imageDir; Windows = $true; ReturnStatus = $true }
+
+        $result | Should -BeFalse
+        @($script:importCalls | ForEach-Object { "$($_.Kind):$(Split-Path $_.ImagePath -Leaf)" } | Sort-Object) | Should -Be @('LocalWindows:multi.tar', 'LocalWindows:single.tar')
+    }
+
+    It 'routes each selected node to the import of its kind and forwards -DockerArchive only to Linux nodes' {
+        Mock -CommandName Resolve-NodeList { @('kubemaster', 'linuxvm', 'winhost', 'winvm') }
+
+        $result = Invoke-ImportImageScript -Parameters @{ ImagePath = 'C:\images\multi.tar'; Nodes = 'kubemaster,linuxvm,winhost,winvm'; DockerArchive = $true; ReturnStatus = $true }
+
+        $result | Should -BeTrue
+        @($script:importCalls | ForEach-Object { "$($_.Kind)|$($_.DockerArchive)" }) | Should -Be @('ControlPlane|True', 'LinuxWorker|True', 'LocalWindows|', 'WindowsWorker:winvm|')
+    }
+
+    It 'keeps the existing node routing when -Windows is combined with a Linux node' {
+        Mock -CommandName Resolve-NodeList { @('kubemaster') }
+
+        $result = Invoke-ImportImageScript -Parameters @{ ImagePath = 'C:\images\multi.tar'; Nodes = 'kubemaster'; Windows = $true; ReturnStatus = $true }
+
+        $result | Should -BeTrue
+        @($script:importCalls.Kind) | Should -Be @('ControlPlane')
+    }
+
+    It 'fails for a node that cannot be resolved and still imports on the other nodes' {
+        Mock -CommandName Resolve-NodeList { @('unknown', 'winvm') }
+
+        $result = Invoke-ImportImageScript -Parameters @{ ImagePath = 'C:\images\multi.tar'; Nodes = 'unknown,winvm'; ReturnStatus = $true }
+
+        $result | Should -BeFalse
+        @($script:importCalls.Kind) | Should -Be @('WindowsWorker:winvm')
+    }
+
+    It 'imports every archive of a directory on each selected node and fails overall when a Windows worker import fails' {
+        $imageDir = Join-Path $TestDrive 'worker-images'
+        New-Item -ItemType Directory -Path $imageDir -Force | Out-Null
+        'a-multi.tar', 'b-single.tar' | ForEach-Object { Set-Content -LiteralPath (Join-Path $imageDir $_) -Value 'x' }
+        Mock -CommandName Resolve-NodeList { @('winvm', 'winhost') }
+        Mock -CommandName Invoke-WindowsWorkerImageImport {
+            $script:importCalls.Add([PSCustomObject]@{ ImagePath = $ImagePath; Kind = "WindowsWorker:$NodeName"; DockerArchive = $null })
+            (Split-Path $ImagePath -Leaf) -ne 'a-multi.tar'
+        }
+
+        $result = Invoke-ImportImageScript -Parameters @{ ImageDir = $imageDir; Nodes = 'winvm,winhost'; Windows = $true; ReturnStatus = $true }
+
+        $result | Should -BeFalse
+        @($script:importCalls | ForEach-Object { "$($_.Kind):$(Split-Path $_.ImagePath -Leaf)" } | Sort-Object) |
+            Should -Be @('LocalWindows:a-multi.tar', 'LocalWindows:b-single.tar', 'WindowsWorker:winvm:a-multi.tar', 'WindowsWorker:winvm:b-single.tar')
     }
 
     It 'forwards -DockerArchive:<DockerArchive> to the Linux control-plane import and returns <Expected> in return-status mode' -ForEach @(

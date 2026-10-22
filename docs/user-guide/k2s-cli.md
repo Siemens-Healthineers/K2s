@@ -281,7 +281,11 @@ k2s image import [flags]
 !!! note "Multi-image Docker archives"
     When importing a Linux image archive, K2s inspects its `manifest.json`. If the archive is a Docker archive containing several images (for example, created with `docker save image1 image2`), K2s detects this automatically, even without `--docker-archive`. It then imports each image separately with its tags from `manifest.json`; layers shared by the images are stored only once. Entries that are invalid (for example, referencing missing files) are skipped. If any image fails, the command reports an error, and images that were already imported are kept.
 
-    Single-image archives are imported as before. Multi-image OCI archives (an `index.json` with several images and no Docker `manifest.json`) are not supported.
+    Single-image archives are imported as before. On Linux nodes, multi-image OCI archives (an `index.json` with several images and no Docker `manifest.json`) are not supported.
+
+    Windows image archives (`-w`, or a Windows node selected with `--node`/`--nodes`) are imported by containerd in a single operation, which imports all images of the archive and stores shared layers only once. Afterwards, K2s checks that every tag listed in `manifest.json` is present and reports an error otherwise. Because containerd does not import untagged Docker archive entries, such an archive is reported as failed. If any layer of the archive is missing, containerd imports no image at all.
+
+    On both Linux and Windows, if several entries of an archive use the same tag, the tag refers to the last of them and a warning is logged.
 
 ### image rm
 
