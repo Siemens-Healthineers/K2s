@@ -52,15 +52,33 @@ docker_archive_manifest() {
   return 1
 }
 
-# Prints the number of manifest.json entries of a Docker archive, or 0 when there is no valid manifest.json
+# Succeeds when the archive has a top-level Docker manifest.json member
+docker_archive_has_manifest() {
+  local members
+  members="$(tar -tf "$1" 2>/dev/null)" || return 1
+  grep -qxE '(\./)?manifest\.json' <<<"$members"
+}
+
+# Prints the number of entries of the Docker manifest.json of an archive, or 0 when the archive has no manifest.json.
+# Fails with an error when a manifest.json exists but cannot be inspected: jq (a native Linux K2s host prerequisite,
+# see k2s_require_host) is missing, or the manifest is not a non-empty JSON array of objects. Falling back to the
+# single-image import in these cases would hide that a multi-image archive is not imported completely.
 docker_archive_entry_count() {
   local file="$1" manifest count
-  if command -v jq >/dev/null 2>&1 && manifest="$(docker_archive_manifest "$file")" &&
-    count="$(jq -er 'if type == "array" and all(.[]; type == "object") then length else 0 end' <<<"$manifest" 2>/dev/null)"; then
-    echo "$count"
-  else
+  if ! docker_archive_has_manifest "$file"; then
     echo 0
+    return 0
   fi
+  if ! command -v jq >/dev/null 2>&1; then
+    k2s_log ERROR "jq is required to read the Docker manifest.json of $file but is not installed; install the 'jq' package (a K2s Linux host prerequisite) and import again"
+    return 1
+  fi
+  if ! manifest="$(docker_archive_manifest "$file")" ||
+    ! count="$(jq -er 'if type == "array" and length > 0 and all(.[]; type == "object") then length else error("not a non-empty array of objects") end' <<<"$manifest" 2>/dev/null)"; then
+    k2s_log ERROR "The Docker manifest.json of $file is empty, malformed or not a list of image entries; the archive is not imported"
+    return 1
+  fi
+  echo "$count"
 }
 
 # Imports every entry of a multi-image Docker archive with its own Buildah selector ('@<index>' of manifest.json);
@@ -99,7 +117,7 @@ import_single_tar() {
   k2s_log INFO "Importing container image from $file"
   if command -v buildah >/dev/null 2>&1; then
     local entry_count
-    entry_count="$(docker_archive_entry_count "$file")"
+    entry_count="$(docker_archive_entry_count "$file")" || return 1
     if ((entry_count >= 2)); then
       import_docker_archive_entries "$file" "$entry_count" || return 1
       return 0

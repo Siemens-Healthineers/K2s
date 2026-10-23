@@ -902,8 +902,22 @@ Describe 'Image import helpers' -Tag 'unit', 'ci', 'image' {
 
             $result | Should -BeTrue
             @($script:ctrCalls) | Should -Be @("-n k8s.io images import $archive")
+            Should -Invoke -ModuleName $moduleName Get-LocalWindowsImageNames -Times 1 -Exactly
             ($script:logMessages -join "`n") | Should -Match 'contains 2 images; containerd imports all of them in one operation'
             ($script:logMessages -join "`n") | Should -Match 'Verified 3 image name\(s\) of 2 archive entries'
+            ($script:logMessages -join "`n") | Should -Not -Match 'not verified'
+        }
+
+        It 'checks every expected name of every entry and names each missing image' {
+            $archive = New-TestArchive -Name 'win-second-entry-missing' -Files $script:winFiles
+            $script:storeNames = @('docker.io/library/pause-win:a')
+
+            $result = Invoke-LocalWindowsImageImport -ImagePath $archive
+
+            $result | Should -BeFalse
+            @($script:logMessages | Where-Object { $_ -match "Image '(.+)' from .* was not found" } | ForEach-Object { $Matches[1] }) |
+                Should -Be @('example.local/win/b:1', 'example.local/win/b:latest')
+            ($script:logMessages -join "`n") | Should -Not -Match 'Verified \d+ image name'
         }
 
         It 'fails when ctr succeeds but skips an untagged entry' {
@@ -915,8 +929,9 @@ Describe 'Image import helpers' -Tag 'unit', 'ci', 'image' {
             $result = Invoke-LocalWindowsImageImport -ImagePath $archive
 
             $result | Should -BeFalse
-            ($script:logMessages -join "`n") | Should -Match 'Archive entry @1 of .* has no RepoTags; containerd does not import untagged Docker archive entries'
-            ($script:logMessages -join "`n") | Should -Match 'was not completely imported on the local Windows host'
+            ($script:logMessages -join "`n") | Should -Match 'Archive entry @1 of .* has no RepoTags; containerd does not import untagged Docker archive entries on the local Windows host, and its import cannot be verified by name'
+            ($script:logMessages -join "`n") | Should -Match 'was not completely imported or could not be verified on the local Windows host'
+            ($script:logMessages -join "`n") | Should -Not -Match 'Verified \d+ image name'
         }
 
         It 'fails and names the missing image when a tag is absent after the import' {
@@ -951,7 +966,7 @@ Describe 'Image import helpers' -Tag 'unit', 'ci', 'image' {
             ($script:logMessages -join "`n") | Should -Not -Match 'contains \d+ images'
         }
 
-        It 'imports an OCI-only archive with ctr and does not verify names' {
+        It 'imports an OCI-only archive with ctr once, keeps the ctr result and logs that names are not verified' {
             $archive = New-TestArchive -Name 'win-oci' -Files @{ 'index.json' = '{"schemaVersion":2,"manifests":[]}'; 'oci-layout' = '{"imageLayoutVersion":"1.0.0"}' }
 
             $result = Invoke-LocalWindowsImageImport -ImagePath $archive
@@ -959,6 +974,29 @@ Describe 'Image import helpers' -Tag 'unit', 'ci', 'image' {
             $result | Should -BeTrue
             @($script:ctrCalls) | Should -Be @("-n k8s.io images import $archive")
             Should -Invoke -ModuleName $moduleName Get-LocalWindowsImageNames -Times 0 -Exactly
+            ($script:logMessages -join "`n") | Should -Match 'has no Docker manifest\.json \(for example an OCI archive\); the imported image names are not verified'
+            ($script:logMessages -join "`n") | Should -Match 'imported successfully on the local Windows host \(image names not verified\)'
+        }
+
+        It 'returns false for an OCI-only archive when ctr rejects it' {
+            $archive = New-TestArchive -Name 'win-oci-fails' -Files @{ 'index.json' = '{"schemaVersion":2,"manifests":[]}'; 'oci-layout' = '{"imageLayoutVersion":"1.0.0"}' }
+            $script:ctrImportSucceeds = $false
+
+            Invoke-LocalWindowsImageImport -ImagePath $archive | Should -BeFalse
+            ($script:logMessages -join "`n") | Should -Not -Match 'imported successfully'
+        }
+
+        It 'keeps the ctr result and warns on the console when the archive cannot be inspected' {
+            $archive = Join-Path $TestDrive 'win-not-a-tar.tar'
+            Set-Content -LiteralPath $archive -Value 'not an archive'
+
+            $result = Invoke-LocalWindowsImageImport -ImagePath $archive
+
+            $result | Should -BeTrue
+            @($script:ctrCalls) | Should -Be @("-n k8s.io images import $archive")
+            Should -Invoke -ModuleName $moduleName Write-Log -Times 1 -Exactly -ParameterFilter {
+                $Console -and "$Messages" -match 'could not be inspected; the imported image names are not verified'
+            }
         }
 
         It 'keeps the ctr result for an archive with an invalid manifest.json and warns that names are not verified' {
@@ -971,14 +1009,16 @@ Describe 'Image import helpers' -Tag 'unit', 'ci', 'image' {
             Should -Invoke -ModuleName $moduleName Get-LocalWindowsImageNames -Times 0 -Exactly
         }
 
-        It 'keeps the ctr result and warns when the image list cannot be read' {
+        It 'fails without importing again when the image list cannot be read after a successful ctr import' {
             $archive = New-TestArchive -Name 'win-list-fails' -Files $script:winFiles
             $script:listSucceeds = $false
 
             $result = Invoke-LocalWindowsImageImport -ImagePath $archive
 
-            $result | Should -BeTrue
-            ($script:logMessages -join "`n") | Should -Match 'could not list the images on the local Windows host'
+            $result | Should -BeFalse
+            @($script:ctrCalls) | Should -Be @("-n k8s.io images import $archive")
+            ($script:logMessages -join "`n") | Should -Match 'ctr imported .* on the local Windows host, but the image list could not be read; the 3 expected image name\(s\) are not verified'
+            ($script:logMessages -join "`n") | Should -Not -Match 'Verified \d+ image name|imported successfully'
         }
 
         It 'warns that a tag shared by two entries refers to the last entry' {
@@ -991,6 +1031,7 @@ Describe 'Image import helpers' -Tag 'unit', 'ci', 'image' {
 
             $result | Should -BeTrue
             ($script:logMessages -join "`n") | Should -Match "tag 'example\.local/win/dup:1' is used by archive entries @0, @1 .*it will refer to entry @1"
+            ($script:logMessages -join "`n") | Should -Match 'Verified 1 image name\(s\) of 2 archive entries .*; 1 of these name\(s\) are used by several entries and refer only to the last of them'
         }
     }
 
@@ -1089,14 +1130,39 @@ Describe 'Image import helpers' -Tag 'unit', 'ci', 'image' {
             $script:remoteCalls[0].Path | Should -Match $script:winRemotePattern
         }
 
-        It 'keeps the ctr result and warns when the worker cannot list its images' {
+        It 'fails when the worker cannot list its images after ctr succeeded, and still removes the file' {
             $archive = New-TestArchive -Name 'worker-no-list' -Files $script:winWorkerFiles
             $script:remoteImport = [PSCustomObject]@{ Success = $true; Output = ''; ImageNames = $null }
 
             $result = Invoke-WindowsWorkerImageImport -ImagePath $archive -NodeName 'winvm'
 
+            $result | Should -BeFalse
+            ($script:logMessages -join "`n") | Should -Match "ctr imported .* on Windows worker 'winvm', but the image list could not be read; the 2 expected image name\(s\) are not verified"
+            @($script:remoteCalls.Kind) | Should -Be @('import', 'cleanup')
+        }
+
+        It 'fails for an untagged entry on the worker and still removes the file' {
+            $files = $script:winWorkerFiles.Clone()
+            $files['manifest.json'] = '[{"Config":"a.json","RepoTags":["example.local/win/a:1"],"Layers":["a/layer.tar"]},{"Config":"b.json","Layers":["b/layer.tar"]}]'
+            $archive = New-TestArchive -Name 'worker-untagged' -Files $files
+            $script:remoteImport = [PSCustomObject]@{ Success = $true; Output = ''; ImageNames = @('example.local/win/a:1') }
+
+            $result = Invoke-WindowsWorkerImageImport -ImagePath $archive -NodeName 'winvm'
+
+            $result | Should -BeFalse
+            ($script:logMessages -join "`n") | Should -Match "Archive entry @1 of .* has no RepoTags; containerd does not import untagged Docker archive entries on Windows worker 'winvm'"
+            @($script:remoteCalls.Kind) | Should -Be @('import', 'cleanup')
+        }
+
+        It 'keeps the worker ctr result for an OCI-only archive without listing verification' {
+            $archive = New-TestArchive -Name 'worker-oci' -Files @{ 'index.json' = '{"schemaVersion":2,"manifests":[]}'; 'oci-layout' = '{"imageLayoutVersion":"1.0.0"}' }
+            $script:remoteImport = [PSCustomObject]@{ Success = $true; Output = ''; ImageNames = $null }
+
+            $result = Invoke-WindowsWorkerImageImport -ImagePath $archive -NodeName 'winvm'
+
             $result | Should -BeTrue
-            ($script:logMessages -join "`n") | Should -Match "could not list the images on Windows worker 'winvm'"
+            ($script:logMessages -join "`n") | Should -Match 'has no Docker manifest\.json .*the imported image names are not verified'
+            @($script:remoteCalls.Kind) | Should -Be @('import', 'cleanup')
         }
     }
 }
@@ -1154,6 +1220,32 @@ Describe 'Import-Image.ps1' -Tag 'unit', 'ci', 'image' {
                 default { $null }
             }
         }
+    }
+
+    It 'imports a Windows archive with -Windows through the verifying local helper exactly once and never calls ctr directly' -ForEach @(
+        @{ Label = 'default routing'; Nodes = ''; NodeList = @() }
+        @{ Label = 'the local Windows host selected by name'; Nodes = 'winhost'; NodeList = @('winhost') }
+    ) {
+        Mock -CommandName Resolve-NodeList { $NodeList }.GetNewClosure()
+        Mock -CommandName Invoke-Ctr { $true }
+        $parameters = @{ ImagePath = 'C:\images\win-multi.tar'; Windows = $true; ReturnStatus = $true }
+        if ($Nodes) { $parameters.Nodes = $Nodes }
+
+        $result = Invoke-ImportImageScript -Parameters $parameters
+
+        $result | Should -BeTrue
+        @($script:importCalls | ForEach-Object { "$($_.Kind):$($_.ImagePath)" }) | Should -Be @('LocalWindows:C:\images\win-multi.tar')
+        Should -Invoke -CommandName Invoke-Ctr -Times 0 -Exactly
+    }
+
+    It 'returns failure and reports image-import-failed when the verifying local Windows import fails' {
+        $script:failingImages = @('C:\images\win-untagged.tar')
+
+        $result = Invoke-ImportImageScript -Parameters @{ ImagePath = 'C:\images\win-untagged.tar'; Windows = $true; ReturnStatus = $true }
+
+        $result | Should -BeFalse
+        @($script:importCalls.Kind) | Should -Be @('LocalWindows')
+        @($script:newErrorCodes) | Should -Be @('image-import-failed')
     }
 
     It 'routes every archive of a directory to the local Windows import with -Windows and fails overall when one fails' {

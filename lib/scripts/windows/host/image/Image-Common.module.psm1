@@ -964,7 +964,11 @@ Inspects an image archive before a Windows (containerd) import.
 containerd ('ctr images import') imports every image of a Docker or OCI archive in one operation, so no per-entry
 import is needed on Windows. This function only reads the Docker 'manifest.json' to report the number of images and
 duplicate tags, and returns the information needed to verify the import afterwards.
-Returns $null when the archive has no valid Docker manifest (for example OCI-only archives); such archives are not verified.
+Returns $null when the archive has no usable Docker manifest; the import result of such an archive is the ctr result only,
+and the log states that the image names are not verified:
+- 'NotFound'    no manifest.json (for example OCI-only archives); supported, names come from index.json
+- 'Invalid'     manifest.json is empty or malformed; warned on the console
+- 'Unavailable' the archive could not be listed or read; warned on the console
 #>
 function Get-WindowsImageArchiveReport {
     param(
@@ -973,8 +977,16 @@ function Get-WindowsImageArchiveReport {
     )
 
     $manifestInfo = Get-DockerArchiveManifestInfo -ImagePath $ImagePath
-    if ($manifestInfo.State -eq 'Invalid') {
-        Write-Log "[Import] Warning: '$ImagePath' contains an empty or invalid manifest.json; the imported image names are not verified" -Console
+    switch ($manifestInfo.State) {
+        'Invalid' {
+            Write-Log "[Import] Warning: '$ImagePath' contains an empty or invalid manifest.json; the imported image names are not verified" -Console
+        }
+        'NotFound' {
+            Write-Log "[Import] '$ImagePath' has no Docker manifest.json (for example an OCI archive); the imported image names are not verified"
+        }
+        'Unavailable' {
+            Write-Log "[Import] Warning: '$ImagePath' could not be inspected; the imported image names are not verified" -Console
+        }
     }
     if ($manifestInfo.State -ne 'Valid') {
         return $null
@@ -991,6 +1003,7 @@ function Get-WindowsImageArchiveReport {
         EntryCount      = $entries.Count
         ExpectedNames   = @($tagReport.ExpectedNames)
         UntaggedEntries = @($tagReport.UntaggedEntries)
+        DuplicateTags   = @($tagReport.DuplicateTags)
     }
 }
 
@@ -999,9 +1012,13 @@ function Get-WindowsImageArchiveReport {
 Verifies that every tagged image of a Docker archive exists in containerd after 'ctr images import' succeeded.
 
 .DESCRIPTION
-containerd skips Docker archive entries without RepoTags and still exits with code 0, so such entries are reported
-as not imported. ImageNames is the output of 'ctr -n k8s.io images ls -q'; when it is $null the names could not be
-listed and only the untagged entries are checked.
+Returns $true only when every expected image name was found. Called only after ctr succeeded.
+- Untagged entries: containerd creates no named image for them (and still exits with code 0), and a name-based check
+  cannot show that they were imported, so they are reported and the result is $false.
+- ImageNames $null: the image list of the 'k8s.io' namespace could not be read; ctr succeeded but the names cannot be
+  verified, so the result is $false.
+- Duplicate tags: such a name is one image (the last entry using it); the success message says so.
+$ArchiveReport $null (no usable Docker manifest) returns $true: the ctr result is the only available result.
 #>
 function Test-WindowsImageArchiveImport {
     param(
@@ -1023,13 +1040,13 @@ function Test-WindowsImageArchiveImport {
 
     $complete = $true
     foreach ($index in @($ArchiveReport.UntaggedEntries)) {
-        Write-Log "[Import] Archive entry @$index of '$ImagePath' has no RepoTags; containerd does not import untagged Docker archive entries on $Target" -Console
+        Write-Log "[Import] Archive entry @$index of '$ImagePath' has no RepoTags; containerd does not import untagged Docker archive entries on $Target, and its import cannot be verified by name" -Console
         $complete = $false
     }
 
     if ($null -eq $ImageNames) {
-        Write-Log "[Import] Warning: could not list the images on $Target; the imported image names of '$ImagePath' are not verified" -Console
-        return $complete
+        Write-Log "[Import] ctr imported '$ImagePath' on $Target, but the image list could not be read; the $(@($ArchiveReport.ExpectedNames).Count) expected image name(s) are not verified" -Console
+        return $false
     }
 
     $nameSet = [System.Collections.Generic.HashSet[string]]::new([string[]]@($ImageNames | Where-Object { $null -ne $_ } | ForEach-Object { $_.Trim() }), [System.StringComparer]::Ordinal)
@@ -1042,7 +1059,12 @@ function Test-WindowsImageArchiveImport {
     }
 
     if ($complete) {
-        Write-Log "[Import] Verified $(@($ArchiveReport.ExpectedNames).Count) image name(s) of $($ArchiveReport.EntryCount) archive entries from '$ImagePath' on $Target"
+        $sharedText = ''
+        $sharedCount = @($ArchiveReport.DuplicateTags | Where-Object { $null -ne $_ }).Count
+        if ($sharedCount -gt 0) {
+            $sharedText = "; $sharedCount of these name(s) are used by several entries and refer only to the last of them"
+        }
+        Write-Log "[Import] Verified $(@($ArchiveReport.ExpectedNames).Count) image name(s) of $($ArchiveReport.EntryCount) archive entries from '$ImagePath' on $Target$sharedText"
     }
     return $complete
 }
@@ -1088,11 +1110,16 @@ function Invoke-LocalWindowsImageImport {
         }
     }
     if (-not (Test-WindowsImageArchiveImport -ImagePath $ImagePath -ArchiveReport $archiveReport -ImageNames $imageNames -Target $target)) {
-        Write-Log "[Import] Image archive '$ImagePath' was not completely imported on $target" -Error
+        Write-Log "[Import] Image archive '$ImagePath' was not completely imported or could not be verified on $target" -Error
         return $false
     }
 
-    Write-Log "$ImagePath imported successfully on $target"
+    if ($null -eq $archiveReport) {
+        Write-Log "$ImagePath imported successfully on $target (image names not verified)"
+    }
+    else {
+        Write-Log "$ImagePath imported successfully on $target"
+    }
     return $true
 }
 
@@ -1150,7 +1177,7 @@ function Invoke-WindowsWorkerImageImport {
             }
             if (-not (Test-WindowsImageArchiveImport -ImagePath $ImagePath -ArchiveReport $archiveReport -ImageNames $imageNames -Target $target)) {
                 $importSuccess = $false
-                Write-Log "[Import] Image archive '$ImagePath' was not completely imported on $target" -Error
+                Write-Log "[Import] Image archive '$ImagePath' was not completely imported or could not be verified on $target" -Error
             }
         }
     }
