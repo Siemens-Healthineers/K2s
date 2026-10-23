@@ -497,8 +497,11 @@ function Test-ImageImportSuccess {
 Normalizes an archive member path the way Buildah (containers/image) compares tar member names.
 
 .DESCRIPTION
-Converts backslashes to slashes and removes '.', empty, and leading '/' segments; '..' removes the previous segment.
-For example './blobs/sha256/abc' and 'blobs//sha256/abc' both become 'blobs/sha256/abc'.
+Applies Go's path.Clean, which Buildah uses for both the manifest.json references and the tar member names:
+'.' and empty segments are removed and '..' removes the previous segment. A leading '..' of a relative path and a
+leading '/' are kept, so a path outside the archive root never becomes a valid-looking member name. '/' is the only
+separator; a backslash is an ordinary character as in tar member names. './' and '' become ''.
+For example './blobs/sha256/abc' and 'blobs//sha256/abc' both become 'blobs/sha256/abc', '../layer.tar' stays '../layer.tar'.
 #>
 function ConvertTo-ImageArchiveMemberPath {
     param(
@@ -512,21 +515,97 @@ function ConvertTo-ImageArchiveMemberPath {
         return ''
     }
 
+    $rooted = $Path.StartsWith('/')
     $segments = [System.Collections.Generic.List[string]]::new()
-    foreach ($segment in ($Path -replace '\\', '/').Split('/')) {
+    foreach ($segment in $Path.Split('/')) {
         if ($segment -eq '' -or $segment -eq '.') {
             continue
         }
         if ($segment -eq '..') {
-            if ($segments.Count -gt 0) {
+            if ($segments.Count -gt 0 -and $segments[$segments.Count - 1] -ne '..') {
                 $segments.RemoveAt($segments.Count - 1)
+            }
+            elseif (-not $rooted) {
+                $segments.Add($segment)
             }
             continue
         }
         $segments.Add($segment)
     }
 
-    return ($segments -join '/')
+    $cleaned = $segments -join '/'
+    if ($rooted) {
+        return "/$cleaned"
+    }
+    return $cleaned
+}
+
+<#
+.SYNOPSIS
+Returns $true when a manifest.json path refers to a location inside the archive root.
+
+.DESCRIPTION
+Docker archives reference their members with relative '/'-separated paths. Absolute paths ('/x'), drive-qualified
+paths ('C:\x', 'C:x'), UNC paths ('\\server\share\x'), paths that leave the archive root after cleaning ('../x',
+'a/../../x') and paths without a file name ('', './') are rejected. Because containerd on Windows may treat '\' as a
+separator, these checks are also applied to the path with '\' read as '/'; 'folder\layer.tar' is still accepted.
+#>
+function Test-ImageArchiveMemberReference {
+    param(
+        [Parameter(Mandatory = $false)]
+        [AllowEmptyString()]
+        [AllowNull()]
+        [string]$Path
+    )
+
+    if ([string]::IsNullOrEmpty($Path)) {
+        return $false
+    }
+    foreach ($candidate in @($Path, ($Path -replace '\\', '/'))) {
+        if ($candidate.StartsWith('/') -or $candidate -match '^[A-Za-z]:') {
+            return $false
+        }
+        $cleaned = ConvertTo-ImageArchiveMemberPath -Path $candidate
+        if ($cleaned -eq '' -or $cleaned -eq '..' -or $cleaned.StartsWith('../')) {
+            return $false
+        }
+    }
+    return $true
+}
+
+<#
+.SYNOPSIS
+Converts a member name printed by 'tar.exe -t' (bsdtar) back to the stored name.
+
+.DESCRIPTION
+bsdtar escapes '\' as '\\' and control characters as '\a', '\b', '\f', '\n', '\r', '\t', '\v' or '\ooo' when listing.
+#>
+function ConvertFrom-TarListingName {
+    param(
+        [Parameter(Mandatory = $false)]
+        [AllowEmptyString()]
+        [AllowNull()]
+        [string]$Name
+    )
+
+    if ([string]::IsNullOrEmpty($Name) -or $Name.IndexOf('\') -lt 0) {
+        return $Name
+    }
+    return [regex]::Replace($Name, '\\([0-7]{3}|[abfnrtv\\])', {
+            param($match)
+            $value = $match.Groups[1].Value
+            switch -CaseSensitive ($value) {
+                'a' { return [string][char]7 }
+                'b' { return [string][char]8 }
+                'f' { return [string][char]12 }
+                'n' { return "`n" }
+                'r' { return "`r" }
+                't' { return "`t" }
+                'v' { return [string][char]11 }
+                '\' { return '\' }
+            }
+            return [string][char][Convert]::ToInt32($value, 8)
+        })
 }
 
 <#
@@ -534,15 +613,17 @@ function ConvertTo-ImageArchiveMemberPath {
 Reads the Docker 'manifest.json' of an image archive without extracting the archive.
 
 .DESCRIPTION
-Uses the Windows system tar.exe to list the archive members and to stream 'manifest.json' (also accepted as
-'./manifest.json'), then parses it with ConvertFrom-Json.
+Uses the Windows system tar.exe to list the archive members and to stream the top-level 'manifest.json' (any
+member name that cleans to 'manifest.json', such as './manifest.json'), then parses it with ConvertFrom-Json.
 Never throws. Returns an object with:
   State   - 'Valid'       non-empty JSON array of JSON objects (the entries are not validated further, see Get-DockerArchiveEntryProblem)
-            'Invalid'     manifest.json exists but is empty, malformed, or not an array of objects
+            'Invalid'     manifest.json exists but is empty, malformed, not an array of objects, or present more than once
+            'Unreadable'  manifest.json exists but tar.exe could not read it
             'NotFound'    archive has no manifest.json (e.g. OCI-only archives)
-            'Unavailable' archive path is missing or the archive cannot be listed/read
+            'Unavailable' the archive could not be inspected: path missing, tar.exe missing, or listing failed
+  Reason  - why the State is not 'Valid' or 'NotFound' (for log messages)
   Entries - the parsed manifest entries in manifest.json order (only populated when State is 'Valid')
-  Members - the normalized archive member paths (populated whenever the archive could be listed)
+  Members - the normalized archive member paths (populated when the archive could be listed and every name is ASCII)
 #>
 function Get-DockerArchiveManifestInfo {
     param(
@@ -550,7 +631,7 @@ function Get-DockerArchiveManifestInfo {
         [string]$ImagePath
     )
 
-    $info = [pscustomobject]@{ State = 'Unavailable'; Entries = @(); Members = @() }
+    $info = [pscustomobject]@{ State = 'Unavailable'; Reason = 'the archive file does not exist'; Entries = @(); Members = @() }
 
     try {
         if ([string]::IsNullOrWhiteSpace($ImagePath) -or -not (Test-Path -LiteralPath $ImagePath -PathType Leaf)) {
@@ -559,6 +640,7 @@ function Get-DockerArchiveManifestInfo {
 
         $tarExe = Join-Path $env:SystemRoot 'System32\tar.exe'
         if (-not (Test-Path -LiteralPath $tarExe -PathType Leaf)) {
+            $info.Reason = "'$tarExe' was not found"
             Write-Log "[Import] Warning: '$tarExe' not found; cannot inspect '$ImagePath' for multiple images"
             return $info
         }
@@ -577,28 +659,44 @@ function Get-DockerArchiveManifestInfo {
         }
 
         if ($listExitCode -ne 0) {
+            $info.Reason = "tar.exe could not list the archive (exit code $listExitCode)"
             Write-Log "[Import] Warning: tar.exe could not list '$ImagePath' (exit code $listExitCode); it is not inspected for multiple images"
             return $info
         }
 
         $normalizedMembers = [System.Collections.Generic.List[string]]::new()
-        $manifestMember = $null
+        $manifestMembers = [System.Collections.Generic.List[string]]::new()
         foreach ($memberName in $memberNames) {
-            $normalizedName = ConvertTo-ImageArchiveMemberPath -Path $memberName
+            $normalizedName = ConvertTo-ImageArchiveMemberPath -Path (ConvertFrom-TarListingName -Name $memberName)
             if ($normalizedName -eq '') {
                 continue
             }
             $normalizedMembers.Add($normalizedName)
-            if ($null -eq $manifestMember -and $normalizedName -eq 'manifest.json') {
-                $manifestMember = $memberName
+            if ($normalizedName -eq 'manifest.json') {
+                # The listed name is passed back to tar.exe unchanged; a manifest.json member name contains no escapes
+                $manifestMembers.Add($memberName)
             }
         }
         $info.Members = $normalizedMembers.ToArray()
+        if (@($info.Members | Where-Object { $_ -match '[^\x00-\x7F]' }).Count -gt 0) {
+            # tar.exe prints non-ASCII names in the ANSI code page and PowerShell decodes them with the console encoding,
+            # so they cannot be compared with manifest.json paths; the member check is skipped and left to Buildah
+            Write-Log "[Import] '$ImagePath' has member names with non-ASCII characters; archive members are not checked before the import"
+            $info.Members = @()
+        }
 
-        if ($null -eq $manifestMember) {
+        if ($manifestMembers.Count -eq 0) {
             $info.State = 'NotFound'
+            $info.Reason = ''
             return $info
         }
+        if ($manifestMembers.Count -gt 1) {
+            # Buildah would use the first and other tools may use the last copy; neither is known to be the intended one
+            $info.State = 'Invalid'
+            $info.Reason = "the archive contains $($manifestMembers.Count) manifest.json members"
+            return $info
+        }
+        $manifestMember = $manifestMembers[0]
 
         $ErrorActionPreference = 'Continue'
         try {
@@ -610,11 +708,14 @@ function Get-DockerArchiveManifestInfo {
         }
 
         if ($tarExitCode -ne 0) {
+            $info.State = 'Unreadable'
+            $info.Reason = "tar.exe could not read '$manifestMember' (exit code $tarExitCode)"
             Write-Log "[Import] Warning: tar.exe could not read '$manifestMember' from '$ImagePath' (exit code $tarExitCode)"
             return $info
         }
 
         $info.State = 'Invalid'
+        $info.Reason = 'manifest.json is not valid JSON'
         $convertParams = @{ ErrorAction = 'Stop' }
         if ((Get-Command ConvertFrom-Json).Parameters.ContainsKey('NoEnumerate')) {
             # PowerShell 7 would otherwise unroll a one-element array into a single object
@@ -628,6 +729,7 @@ function Get-DockerArchiveManifestInfo {
             return $info
         }
 
+        $info.Reason = 'manifest.json is empty or not a list of image entries'
         if ($null -eq $manifest -or $manifest -isnot [array] -or $manifest.Count -eq 0) {
             return $info
         }
@@ -638,11 +740,13 @@ function Get-DockerArchiveManifestInfo {
         }
 
         $info.State = 'Valid'
+        $info.Reason = ''
         $info.Entries = $manifest
     }
     catch {
         Write-Log "[Import] Warning: could not inspect '$ImagePath' for multiple images: $_"
         $info.State = 'Unavailable'
+        $info.Reason = "the archive could not be inspected: $_"
         $info.Entries = @()
     }
 
@@ -657,6 +761,7 @@ Checks one Docker archive manifest entry before it is imported with an '@<index>
 Returns $null when the entry is usable, otherwise a short description of the problem:
 - 'Config' must be a non-empty string and 'Layers' an array of non-empty strings.
 - 'RepoTags', when present, must be an array of strings (it may be missing or null for untagged images).
+- The config and layer paths must stay inside the archive (see Test-ImageArchiveMemberReference).
 - When Members is given, the config and every layer must be members of the archive.
 The image content itself (digests, layer count versus config) is verified by Buildah during the pull.
 #>
@@ -701,10 +806,15 @@ function Get-DockerArchiveEntryProblem {
         }
     }
 
+    $referenced = @($configProperty.Value) + @($layersProperty.Value)
+    $outside = @($referenced | Where-Object { -not (Test-ImageArchiveMemberReference -Path $_) } | Select-Object -Unique)
+    if ($outside.Count -gt 0) {
+        return "path(s) outside the archive: $($outside -join ', ')"
+    }
+
     $memberList = @($Members | Where-Object { -not [string]::IsNullOrEmpty($_) })
     if ($memberList.Count -gt 0) {
         $memberSet = [System.Collections.Generic.HashSet[string]]::new([string[]]$memberList, [System.StringComparer]::Ordinal)
-        $referenced = @($configProperty.Value) + @($layersProperty.Value)
         $missing = @($referenced | Where-Object { -not $memberSet.Contains((ConvertTo-ImageArchiveMemberPath -Path $_)) } | Select-Object -Unique)
         if ($missing.Count -gt 0) {
             return "archive member(s) not found: $($missing -join ', ')"
@@ -852,8 +962,10 @@ function Invoke-LinuxNodeImageImport {
     $manifestInfo = Get-DockerArchiveManifestInfo -ImagePath $ImagePath
     $manifestEntries = @($manifestInfo.Entries)
     $isMultiImageArchive = ($manifestInfo.State -eq 'Valid' -and $manifestEntries.Count -ge 2)
-    if ($manifestInfo.State -eq 'Invalid') {
-        Write-Log "[Import] Warning: '$ImagePath' contains an empty or invalid manifest.json; using the default import" -Console
+    if ($manifestInfo.State -eq 'Invalid' -or $manifestInfo.State -eq 'Unreadable') {
+        # A fallback pull could import only part of the archive (e.g. through index.json) and still report success
+        Write-Log "[Import] Image archive '$ImagePath' is not imported on '$($NodeInfo.Name)': $($manifestInfo.Reason)" -Error
+        return $false
     }
 
     $invokeRemote = {
@@ -964,11 +1076,12 @@ Inspects an image archive before a Windows (containerd) import.
 containerd ('ctr images import') imports every image of a Docker or OCI archive in one operation, so no per-entry
 import is needed on Windows. This function only reads the Docker 'manifest.json' to report the number of images and
 duplicate tags, and returns the information needed to verify the import afterwards.
-Returns $null when the archive has no usable Docker manifest; the import result of such an archive is the ctr result only,
-and the log states that the image names are not verified:
+Returns $null when the archive has no Docker manifest that can be checked; the import result of such an archive is the
+ctr result only, and the log states that the image names are not verified:
 - 'NotFound'    no manifest.json (for example OCI-only archives); supported, names come from index.json
-- 'Invalid'     manifest.json is empty or malformed; warned on the console
-- 'Unavailable' the archive could not be listed or read; warned on the console
+- 'Unavailable' the archive could not be listed (or tar.exe is missing); warned on the console
+Returns an object with Rejected = $true and a Reason when manifest.json exists but is 'Invalid' or 'Unreadable';
+such an archive must not be imported, because ctr could import only part of it and still succeed.
 #>
 function Get-WindowsImageArchiveReport {
     param(
@@ -978,15 +1091,15 @@ function Get-WindowsImageArchiveReport {
 
     $manifestInfo = Get-DockerArchiveManifestInfo -ImagePath $ImagePath
     switch ($manifestInfo.State) {
-        'Invalid' {
-            Write-Log "[Import] Warning: '$ImagePath' contains an empty or invalid manifest.json; the imported image names are not verified" -Console
-        }
         'NotFound' {
             Write-Log "[Import] '$ImagePath' has no Docker manifest.json (for example an OCI archive); the imported image names are not verified"
         }
         'Unavailable' {
-            Write-Log "[Import] Warning: '$ImagePath' could not be inspected; the imported image names are not verified" -Console
+            Write-Log "[Import] Warning: '$ImagePath' could not be inspected ($($manifestInfo.Reason)); the imported image names are not verified" -Console
         }
+    }
+    if ($manifestInfo.State -eq 'Invalid' -or $manifestInfo.State -eq 'Unreadable') {
+        return [pscustomobject]@{ Rejected = $true; Reason = $manifestInfo.Reason }
     }
     if ($manifestInfo.State -ne 'Valid') {
         return $null
@@ -1000,6 +1113,8 @@ function Get-WindowsImageArchiveReport {
     Write-DockerArchiveDuplicateTagWarning -TagReport $tagReport -ImagePath $ImagePath
 
     return [pscustomobject]@{
+        Rejected        = $false
+        Reason          = ''
         EntryCount      = $entries.Count
         ExpectedNames   = @($tagReport.ExpectedNames)
         UntaggedEntries = @($tagReport.UntaggedEntries)
@@ -1096,6 +1211,10 @@ function Invoke-LocalWindowsImageImport {
 
     $target = 'the local Windows host'
     $archiveReport = Get-WindowsImageArchiveReport -ImagePath $ImagePath
+    if ($null -ne $archiveReport -and $archiveReport.Rejected) {
+        Write-Log "[Import] Image archive '$ImagePath' is not imported on ${target}: $($archiveReport.Reason)" -Error
+        return $false
+    }
 
     if (-not (Invoke-Ctr -Arguments '-n', 'k8s.io', 'images', 'import', $ImagePath)) {
         Write-Log "[Import] Image import of '$ImagePath' failed on $target" -Error
@@ -1137,6 +1256,10 @@ function Invoke-WindowsWorkerImageImport {
     $importSuccess = $false
     $target = "Windows worker '$NodeName'"
     $archiveReport = Get-WindowsImageArchiveReport -ImagePath $ImagePath
+    if ($null -ne $archiveReport -and $archiveReport.Rejected) {
+        Write-Log "[Import] Image archive '$ImagePath' is not imported on ${target}: $($archiveReport.Reason)" -Error
+        return $false
+    }
 
     try {
         $session = Open-RemoteSession -VmName $NodeName -VmPwd (Get-DefaultTempPwd) -NoLog

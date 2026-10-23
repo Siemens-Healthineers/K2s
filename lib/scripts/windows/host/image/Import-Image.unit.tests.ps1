@@ -72,6 +72,52 @@ BeforeAll {
         if ($LASTEXITCODE -ne 0) { throw "tar.exe failed to create test archive '$archivePath'" }
         return $archivePath
     }
+
+    # Writes a ustar archive with the member names exactly as given (tar.exe would convert '\' and refuse '../' names).
+    # A member with Pax = $true stores its name as a UTF-8 PAX 'path' record, as Go and Docker do for non-ASCII names.
+    function New-RawTestArchive {
+        param([string]$Name, [object[]]$Members)
+        $stream = New-Object IO.MemoryStream
+        $ascii = [Text.Encoding]::ASCII
+        $writeEntry = {
+            param([string]$EntryName, [byte[]]$Data, [string]$Type)
+            $header = New-Object byte[] 512
+            $put = { param([string]$Text, [int]$Offset) $bytes = $ascii.GetBytes($Text); [Array]::Copy($bytes, 0, $header, $Offset, $bytes.Length) }
+            & $put $EntryName 0
+            & $put '0000644' 100
+            & $put '0000000' 108
+            & $put '0000000' 116
+            & $put ([Convert]::ToString($Data.Length, 8).PadLeft(11, '0')) 124
+            & $put '00000000000' 136
+            & $put '        ' 148
+            & $put $Type 156
+            & $put 'ustar' 257
+            & $put '00' 263
+            $sum = 0
+            foreach ($byte in $header) { $sum += $byte }
+            & $put ([Convert]::ToString($sum, 8).PadLeft(6, '0')) 148
+            $header[154] = 0
+            $stream.Write($header, 0, 512)
+            $stream.Write($Data, 0, $Data.Length)
+            $padding = (512 - ($Data.Length % 512)) % 512
+            $stream.Write((New-Object byte[] $padding), 0, $padding)
+        }
+        foreach ($member in $Members) {
+            $entryName = $member.Name
+            if ($member.Pax) {
+                $value = [Text.Encoding]::UTF8.GetBytes("path=$($member.Name)`n")
+                $length = $value.Length + 2
+                while ($length -ne ("$length".Length + 1 + $value.Length)) { $length = "$length".Length + 1 + $value.Length }
+                & $writeEntry 'PaxHeader' ([byte[]]($ascii.GetBytes("$length ") + $value)) 'x'
+                $entryName = 'pax-placeholder'
+            }
+            & $writeEntry $entryName ([Text.Encoding]::UTF8.GetBytes([string]$member.Content)) '0'
+        }
+        $stream.Write((New-Object byte[] 1024), 0, 1024)
+        $archivePath = Join-Path $TestDrive "$Name.tar"
+        [IO.File]::WriteAllBytes($archivePath, $stream.ToArray())
+        return $archivePath
+    }
 }
 
 Describe 'Image import helpers' -Tag 'unit', 'ci', 'image' {
@@ -140,22 +186,115 @@ Describe 'Image import helpers' -Tag 'unit', 'ci', 'image' {
     }
 
     Context 'ConvertTo-ImageArchiveMemberPath' {
+        # Expected values follow Go path.Clean, which Buildah applies to manifest paths and tar member names
         It 'normalizes <Path> to <Expected>' -ForEach @(
             @{ Path = 'manifest.json'; Expected = 'manifest.json' }
             @{ Path = './manifest.json'; Expected = 'manifest.json' }
-            @{ Path = '/manifest.json'; Expected = 'manifest.json' }
+            @{ Path = './/./manifest.json'; Expected = 'manifest.json' }
+            @{ Path = 'layer.tar'; Expected = 'layer.tar' }
+            @{ Path = './layer.tar'; Expected = 'layer.tar' }
+            @{ Path = 'folder/layer.tar'; Expected = 'folder/layer.tar' }
             @{ Path = 'blobs//sha256/abc'; Expected = 'blobs/sha256/abc' }
             @{ Path = './blobs/sha256/./abc'; Expected = 'blobs/sha256/abc' }
             @{ Path = 'blobs/sha256/'; Expected = 'blobs/sha256' }
             @{ Path = 'a/../b/layer.tar'; Expected = 'b/layer.tar' }
-            @{ Path = '../layer.tar'; Expected = 'layer.tar' }
-            @{ Path = 'dir\layer.tar'; Expected = 'dir/layer.tar' }
+            @{ Path = 'a/b/../../layer.tar'; Expected = 'layer.tar' }
+            @{ Path = '../layer.tar'; Expected = '../layer.tar' }
+            @{ Path = 'folder/../../layer.tar'; Expected = '../layer.tar' }
+            @{ Path = '../../a/layer.tar'; Expected = '../../a/layer.tar' }
+            @{ Path = '..'; Expected = '..' }
+            @{ Path = '/manifest.json'; Expected = '/manifest.json' }
+            @{ Path = '/../layer.tar'; Expected = '/layer.tar' }
+            @{ Path = '//a//b'; Expected = '/a/b' }
+            @{ Path = 'folder\layer.tar'; Expected = 'folder\layer.tar' }
+            @{ Path = 'C:\layer.tar'; Expected = 'C:\layer.tar' }
             @{ Path = './'; Expected = '' }
+            @{ Path = '.'; Expected = '' }
             @{ Path = ''; Expected = '' }
         ) {
             InModuleScope $moduleName -Parameters @{ Path = $Path; Expected = $Expected } {
                 param($Path, $Expected)
                 ConvertTo-ImageArchiveMemberPath -Path $Path | Should -BeExactly $Expected
+            }
+        }
+    }
+
+    Context 'Test-ImageArchiveMemberReference' {
+        It 'accepts the archive-relative path <Path>' -ForEach @(
+            @{ Path = 'layer.tar' }
+            @{ Path = './layer.tar' }
+            @{ Path = 'folder/layer.tar' }
+            @{ Path = 'folder\layer.tar' }
+            @{ Path = 'folder/sub\layer.tar' }
+            @{ Path = 'blobs//sha256/abc' }
+            @{ Path = 'a/../layer.tar' }
+            @{ Path = 'sha256:abc/layer.tar' }
+        ) {
+            InModuleScope $moduleName -Parameters @{ Path = $Path } {
+                param($Path)
+                Test-ImageArchiveMemberReference -Path $Path | Should -BeTrue
+            }
+        }
+
+        It 'rejects <Label> <Path>' -ForEach @(
+            @{ Label = 'a parent-relative path'; Path = '../layer.tar' }
+            @{ Label = 'a path leaving the root after cleaning'; Path = 'folder/../../layer.tar' }
+            @{ Label = 'the parent directory'; Path = '..' }
+            @{ Label = 'a backslash parent-relative path'; Path = '..\layer.tar' }
+            @{ Label = 'a mixed-separator path leaving the root'; Path = 'folder\..\../layer.tar' }
+            @{ Label = 'an absolute Unix path'; Path = '/layer.tar' }
+            @{ Label = 'an absolute Unix path to a system file'; Path = '/etc/passwd' }
+            @{ Label = 'a drive-qualified path'; Path = 'C:\images\layer.tar' }
+            @{ Label = 'a drive-qualified path with slashes'; Path = 'C:/images/layer.tar' }
+            @{ Label = 'a drive-relative path'; Path = 'C:layer.tar' }
+            @{ Label = 'a UNC path'; Path = '\\server\share\layer.tar' }
+            @{ Label = 'a UNC path with slashes'; Path = '//server/share/layer.tar' }
+            @{ Label = 'a root-relative Windows path'; Path = '\layer.tar' }
+            @{ Label = 'the archive root'; Path = './' }
+            @{ Label = 'an empty path'; Path = '' }
+        ) {
+            InModuleScope $moduleName -Parameters @{ Path = $Path } {
+                param($Path)
+                Test-ImageArchiveMemberReference -Path $Path | Should -BeFalse
+            }
+        }
+    }
+
+    Context 'ConvertFrom-TarListingName' {
+        It 'converts the tar.exe listing <Listed> back to the stored name' -ForEach @(
+            @{ Listed = 'manifest.json'; Expected = 'manifest.json' }
+            @{ Listed = 'folder\\layer.tar'; Expected = 'folder\layer.tar' }
+            @{ Listed = 'a\\\\b'; Expected = 'a\\b' }
+            @{ Listed = 'tab\there'; Expected = "tab`there" }
+            @{ Listed = 'bell\007x'; Expected = "bell$([char]7)x" }
+            @{ Listed = 'no\qescape'; Expected = 'no\qescape' }
+        ) {
+            InModuleScope $moduleName -Parameters @{ Listed = $Listed; Expected = $Expected } {
+                param($Listed, $Expected)
+                ConvertFrom-TarListingName -Name $Listed | Should -BeExactly $Expected
+            }
+        }
+
+        It 'matches the escaping of the installed tar.exe for a member name containing a backslash' {
+            $archive = New-RawTestArchive -Name 'listing-backslash' -Members @(@{ Name = 'folder\layer.tar'; Content = 'x' })
+            $listed = @(& $script:tarExe -tf $archive)
+
+            $listed | Should -Be @('folder\\layer.tar')
+            InModuleScope $moduleName -Parameters @{ Listed = $listed[0] } {
+                param($Listed)
+                ConvertFrom-TarListingName -Name $Listed | Should -BeExactly 'folder\layer.tar'
+            }
+        }
+
+        It 'matches the octal escaping of the installed tar.exe for control characters in member names' {
+            $names = @("soh$([char]1).tar", "esc$([char]27).tar")
+            $archive = New-RawTestArchive -Name 'listing-control' -Members @($names | ForEach-Object { @{ Name = $_; Content = 'x' } })
+            $listed = @(& $script:tarExe -tf $archive)
+
+            $listed | Should -Be @('soh\001.tar', 'esc\033.tar')
+            InModuleScope $moduleName -Parameters @{ Listed = $listed; Names = $names } {
+                param($Listed, $Names)
+                @($Listed | ForEach-Object { ConvertFrom-TarListingName -Name $_ }) | Should -Be $Names
             }
         }
     }
@@ -214,6 +353,27 @@ Describe 'Image import helpers' -Tag 'unit', 'ci', 'image' {
                 Get-DockerArchiveEntryProblem -Entry 'a.json' | Should -Be 'the entry is not a JSON object'
                 Get-DockerArchiveEntryProblem -Entry $null | Should -Be 'the entry is not a JSON object'
             }
+        }
+
+        It 'rejects <Label> outside the archive even when no member list is available' -ForEach @(
+            @{ Label = 'a parent-relative layer'; Json = '{"Config":"a.json","Layers":["../a/layer.tar"]}'; Expected = 'path(s) outside the archive: ../a/layer.tar' }
+            @{ Label = 'a layer leaving the root after cleaning'; Json = '{"Config":"a.json","Layers":["a/../../layer.tar"]}'; Expected = 'path(s) outside the archive: a/../../layer.tar' }
+            @{ Label = 'an absolute config'; Json = '{"Config":"/etc/a.json","Layers":["a/layer.tar"]}'; Expected = 'path(s) outside the archive: /etc/a.json' }
+            @{ Label = 'a drive-qualified layer'; Json = '{"Config":"a.json","Layers":["C:\\a\\layer.tar"]}'; Expected = 'path(s) outside the archive: C:\a\layer.tar' }
+            @{ Label = 'a UNC layer'; Json = '{"Config":"a.json","Layers":["\\\\server\\share\\layer.tar"]}'; Expected = 'path(s) outside the archive: \\server\share\layer.tar' }
+        ) {
+            Get-EntryProblem -Json $Json | Should -BeExactly $Expected
+        }
+
+        It 'does not match ../a/layer.tar to the member a/layer.tar' {
+            # The former normalization turned '../a/layer.tar' into 'a/layer.tar' and accepted this entry
+            Get-EntryProblem -Json '{"Config":"a.json","Layers":["../a/layer.tar"]}' -Members $script:members | Should -Match 'outside the archive'
+        }
+
+        It 'matches a backslash path only to a member stored with that backslash, like Buildah' {
+            Get-EntryProblem -Json '{"Config":"a.json","Layers":["folder\\layer.tar"]}' -Members @('a.json', 'folder\layer.tar') | Should -BeNullOrEmpty
+            Get-EntryProblem -Json '{"Config":"a.json","Layers":["folder\\layer.tar"]}' -Members @('a.json', 'folder/layer.tar') | Should -Be 'archive member(s) not found: folder\layer.tar'
+            Get-EntryProblem -Json '{"Config":"a.json","Layers":["folder/layer.tar"]}' -Members @('a.json', 'folder\layer.tar') | Should -Be 'archive member(s) not found: folder/layer.tar'
         }
     }
 
@@ -425,23 +585,22 @@ Describe 'Image import helpers' -Tag 'unit', 'ci', 'image' {
             Should -Invoke -ModuleName $moduleName Write-Log -Times 1 -Exactly -ParameterFilter { $_Error -and "$Messages" -match 'Imported 0 of 2 images.*failed entries: @0, @1\.' }
         }
 
-        It 'logs a warning and uses the legacy command for an invalid manifest' {
-            $script:manifestInfo = [PSCustomObject]@{ State = 'Invalid'; Entries = @(); Members = @('manifest.json') }
+        It 'rejects an archive whose manifest.json is <State> without copying it or running any remote command' -ForEach @(
+            @{ State = 'Invalid'; Reason = 'manifest.json is not valid JSON'; DockerArchive = $true }
+            @{ State = 'Invalid'; Reason = 'manifest.json is empty or not a list of image entries'; DockerArchive = $false }
+            @{ State = 'Invalid'; Reason = 'the archive contains 2 manifest.json members'; DockerArchive = $false }
+            @{ State = 'Unreadable'; Reason = "tar.exe could not read 'manifest.json' (exit code 1)"; DockerArchive = $true }
+        ) {
+            $script:manifestInfo = [PSCustomObject]@{ State = $State; Reason = $Reason; Entries = @(); Members = @('manifest.json', 'index.json', 'oci-layout') }
 
-            $result = Invoke-LinuxNodeImageImport -ImagePath 'C:\images\broken.tar' -NodeInfo $script:controlPlane -DockerArchive
+            $result = Invoke-LinuxNodeImageImport -ImagePath 'C:\images\broken.tar' -NodeInfo $script:controlPlane -DockerArchive:$DockerArchive
 
-            $result | Should -BeTrue
-            ($script:executedCommands -join '|') | Should -BeExactly "$script:legacyDockerCommand|$script:cleanupCommand"
-            Should -Invoke -ModuleName $moduleName Write-Log -ParameterFilter { "$Messages" -match 'empty or invalid manifest\.json' }
-        }
-
-        It 'uses the legacy oci-archive command for an empty manifest' {
-            $script:manifestInfo = [PSCustomObject]@{ State = 'Invalid'; Entries = @(); Members = @('manifest.json') }
-
-            $result = Invoke-LinuxNodeImageImport -ImagePath 'C:\images\empty.tar' -NodeInfo $script:controlPlane
-
-            $result | Should -BeTrue
-            ($script:executedCommands -join '|') | Should -BeExactly "$script:legacyOciCommand|$script:cleanupCommand"
+            $result | Should -BeFalse
+            $script:executedCommands.Count | Should -Be 0
+            $script:copyTargets.Count | Should -Be 0
+            Should -Invoke -ModuleName $moduleName Write-Log -Times 1 -Exactly -ParameterFilter {
+                $_Error -and "$Messages" -eq "[Import] Image archive 'C:\images\broken.tar' is not imported on 'control-plane': $Reason"
+            }
         }
 
         It 'keeps the legacy <Label> command without a warning when the archive cannot be inspected' -ForEach @(
@@ -653,7 +812,112 @@ Describe 'Image import helpers' -Tag 'unit', 'ci', 'image' {
             $info = Get-ManifestInfoInModule -Path $archive
 
             $info.State | Should -Be 'Invalid'
+            $info.Reason | Should -Match '^manifest\.json is (not valid JSON|empty or not a list of image entries)$'
             @($info.Entries).Count | Should -Be 0
+        }
+
+        It 'reports Invalid for an archive with <Label> and imports nothing on a Linux node' -ForEach @(
+            @{ Label = 'two manifest.json members'; Names = @('manifest.json', 'manifest.json') }
+            @{ Label = 'manifest.json and ./manifest.json'; Names = @('manifest.json', './manifest.json') }
+        ) {
+            $members = @(
+                @{ Name = $Names[0]; Content = $script:twoEntryManifest }
+                @{ Name = 'a.json'; Content = '{}' }; @{ Name = 'a/layer.tar'; Content = 'a' }
+                @{ Name = 'b.json'; Content = '{}' }; @{ Name = 'b/layer.tar'; Content = 'b' }
+                @{ Name = $Names[1]; Content = '[{"Config":"a.json","RepoTags":["example.local/other:1"],"Layers":["a/layer.tar"]}]' }
+            )
+            $archive = New-RawTestArchive -Name "dup-manifest-$($Label -replace '\W', '-')" -Members $members
+
+            $info = Get-ManifestInfoInModule -Path $archive
+
+            $info.State | Should -Be 'Invalid'
+            $info.Reason | Should -Be 'the archive contains 2 manifest.json members'
+
+            $result = Invoke-LinuxNodeImageImport -ImagePath $archive -NodeInfo @{ Kind = 'ControlPlane'; Name = 'control-plane' }
+
+            $result | Should -BeFalse
+            $script:executedCommands.Count | Should -Be 0
+            $script:copyTargets.Count | Should -Be 0
+        }
+
+        It 'reports NotFound when the only manifest.json member has an absolute path, as Buildah would not find it' {
+            $archive = New-RawTestArchive -Name 'absolute-manifest' -Members @(@{ Name = '/manifest.json'; Content = $script:twoEntryManifest })
+
+            $info = Get-ManifestInfoInModule -Path $archive
+
+            $info.State | Should -Be 'NotFound'
+            $info.Members | Should -Be @('/manifest.json')
+        }
+
+        It 'keeps backslashes in member names and matches them to the same manifest paths' {
+            $manifest = '[{"Config":"a.json","RepoTags":["example.local/a:1"],"Layers":["folder\\layer.tar"]},{"Config":"b.json","RepoTags":["example.local/b:1"],"Layers":["folder/layer.tar"]}]'
+            $archive = New-RawTestArchive -Name 'backslash-members' -Members @(
+                @{ Name = 'manifest.json'; Content = $manifest }
+                @{ Name = 'a.json'; Content = '{}' }; @{ Name = 'b.json'; Content = '{}' }
+                @{ Name = 'folder\layer.tar'; Content = 'a' }
+            )
+
+            $info = Get-ManifestInfoInModule -Path $archive
+
+            $info.State | Should -Be 'Valid'
+            $info.Members | Should -Contain 'folder\layer.tar'
+            $info.Members | Should -Not -Contain 'folder\\layer.tar'
+
+            $result = Invoke-LinuxNodeImageImport -ImagePath $archive -NodeInfo @{ Kind = 'ControlPlane'; Name = 'control-plane' }
+
+            $result | Should -BeFalse
+            ($script:executedCommands -join '|') | Should -BeExactly (@((Get-IndexedPullCommand 0), $script:cleanupCommand) -join '|')
+            Should -Invoke -ModuleName $moduleName Write-Log -Times 1 -Exactly -ParameterFilter { "$Messages" -match 'Skipping archive entry @1 .*archive member\(s\) not found: folder/layer\.tar$' }
+        }
+
+        It 'skips the member check instead of skipping a valid entry when a member name is non-ASCII' {
+            # tar.exe lists the PAX UTF-8 name in the ANSI code page, so it would not match the manifest path
+            $layer = "a/layer-$([char]0x00FC).tar"
+            $manifest = '[{"Config":"a.json","RepoTags":["example.local/a:1"],"Layers":["' + $layer + '"]},{"Config":"b.json","RepoTags":["example.local/b:1"],"Layers":["b/layer.tar"]}]'
+            $archive = New-RawTestArchive -Name 'non-ascii-member' -Members @(
+                @{ Name = 'manifest.json'; Content = $manifest }
+                @{ Name = 'a.json'; Content = '{}' }; @{ Name = $layer; Content = 'a'; Pax = $true }
+                @{ Name = 'b.json'; Content = '{}' }; @{ Name = 'b/layer.tar'; Content = 'b' }
+            )
+
+            $info = Get-ManifestInfoInModule -Path $archive
+
+            $info.State | Should -Be 'Valid'
+            @($info.Entries).Count | Should -Be 2
+            @($info.Entries)[0].Layers | Should -Be @($layer)
+            @($info.Members).Count | Should -Be 0
+
+            $result = Invoke-LinuxNodeImageImport -ImagePath $archive -NodeInfo @{ Kind = 'ControlPlane'; Name = 'control-plane' }
+
+            $result | Should -BeTrue
+            ($script:executedCommands -join '|') | Should -BeExactly (@((Get-IndexedPullCommand 0), (Get-IndexedPullCommand 1), $script:cleanupCommand) -join '|')
+            # once for the direct Get-DockerArchiveManifestInfo call above, once inside the import
+            Should -Invoke -ModuleName $moduleName Write-Log -Times 2 -Exactly -ParameterFilter { "$Messages" -match 'non-ASCII characters; archive members are not checked' }
+            Should -Invoke -ModuleName $moduleName Write-Log -Times 0 -Exactly -ParameterFilter { "$Messages" -match 'Skipping archive entry' }
+        }
+
+        It 'reports Unavailable when tar.exe cannot list a member name outside the ANSI code page' {
+            $archive = New-RawTestArchive -Name 'emoji-member' -Members @(
+                @{ Name = 'manifest.json'; Content = $script:twoEntryManifest }
+                @{ Name = "a/layer-$([char]0xD83D)$([char]0xDE00).tar"; Content = 'a'; Pax = $true }
+            )
+
+            $info = Get-ManifestInfoInModule -Path $archive
+
+            $info.State | Should -Be 'Unavailable'
+        }
+
+        It 'skips an entry whose layer path leaves the archive root instead of matching it to another member' {
+            $manifest = '[{"Config":"a.json","RepoTags":["example.local/a:1"],"Layers":["../a/layer.tar"]},{"Config":"b.json","RepoTags":["example.local/b:1"],"Layers":["b/layer.tar"]}]'
+            $files = $script:twoEntryFiles.Clone()
+            $files['manifest.json'] = $manifest
+            $archive = New-TestArchive -Name 'escaping-layer' -Files $files
+
+            $result = Invoke-LinuxNodeImageImport -ImagePath $archive -NodeInfo @{ Kind = 'ControlPlane'; Name = 'control-plane' }
+
+            $result | Should -BeFalse
+            ($script:executedCommands -join '|') | Should -BeExactly (@((Get-IndexedPullCommand 1), $script:cleanupCommand) -join '|')
+            Should -Invoke -ModuleName $moduleName Write-Log -Times 1 -Exactly -ParameterFilter { "$Messages" -match 'Skipping archive entry @0 .*path\(s\) outside the archive: \.\./a/layer\.tar$' }
         }
 
         It 'reports NotFound for an OCI-only archive without manifest.json' {
@@ -678,6 +942,7 @@ Describe 'Image import helpers' -Tag 'unit', 'ci', 'image' {
             $info = Get-ManifestInfoInModule -Path (Join-Path $TestDrive 'does-not-exist.tar')
 
             $info.State | Should -Be 'Unavailable'
+            $info.Reason | Should -Be 'the archive file does not exist'
             @($info.Entries).Count | Should -Be 0
         }
 
@@ -688,6 +953,7 @@ Describe 'Image import helpers' -Tag 'unit', 'ci', 'image' {
             $info = Get-ManifestInfoInModule -Path $notAnArchive
 
             $info.State | Should -Be 'Unavailable'
+            $info.Reason | Should -Match '^tar\.exe could not list the archive \(exit code \d+\)$'
             @($info.Entries).Count | Should -Be 0
 
             $result = Invoke-LinuxNodeImageImport -ImagePath $notAnArchive -NodeInfo @{ Kind = 'ControlPlane'; Name = 'control-plane' } -DockerArchive
@@ -995,18 +1261,35 @@ Describe 'Image import helpers' -Tag 'unit', 'ci', 'image' {
             $result | Should -BeTrue
             @($script:ctrCalls) | Should -Be @("-n k8s.io images import $archive")
             Should -Invoke -ModuleName $moduleName Write-Log -Times 1 -Exactly -ParameterFilter {
-                $Console -and "$Messages" -match 'could not be inspected; the imported image names are not verified'
+                $Console -and "$Messages" -match 'could not be inspected \(tar\.exe could not list the archive \(exit code \d+\)\); the imported image names are not verified'
             }
         }
 
-        It 'keeps the ctr result for an archive with an invalid manifest.json and warns that names are not verified' {
-            $archive = New-TestArchive -Name 'win-invalid-manifest' -Files @{ 'manifest.json' = '[{"Config": ' }
+        It 'rejects an archive with <Label> without running ctr' -ForEach @(
+            @{ Label = 'a malformed manifest.json'; Content = '[{"Config": '; Reason = 'manifest.json is not valid JSON' }
+            @{ Label = 'an empty manifest.json array'; Content = '[]'; Reason = 'manifest.json is empty or not a list of image entries' }
+        ) {
+            # index.json makes the archive importable by ctr, which could then report success for an unverifiable import
+            $archive = New-TestArchive -Name "win-invalid-$($Label -replace '\W', '-')" -Files @{ 'manifest.json' = $Content; 'index.json' = '{"schemaVersion":2,"manifests":[]}'; 'oci-layout' = '{"imageLayoutVersion":"1.0.0"}' }
 
             $result = Invoke-LocalWindowsImageImport -ImagePath $archive
 
-            $result | Should -BeTrue
-            ($script:logMessages -join "`n") | Should -Match 'invalid manifest\.json; the imported image names are not verified'
+            $result | Should -BeFalse
+            $script:ctrCalls.Count | Should -Be 0
             Should -Invoke -ModuleName $moduleName Get-LocalWindowsImageNames -Times 0 -Exactly
+            Should -Invoke -ModuleName $moduleName Write-Log -Times 1 -Exactly -ParameterFilter {
+                $_Error -and "$Messages" -eq "[Import] Image archive '$archive' is not imported on the local Windows host: $Reason"
+            }
+        }
+
+        It 'rejects an archive whose manifest.json cannot be read without running ctr' {
+            Mock -ModuleName $moduleName Get-DockerArchiveManifestInfo { [pscustomobject]@{ State = 'Unreadable'; Reason = "tar.exe could not read 'manifest.json' (exit code 1)"; Entries = @(); Members = @('manifest.json') } }
+
+            $result = Invoke-LocalWindowsImageImport -ImagePath 'C:\images\unreadable.tar'
+
+            $result | Should -BeFalse
+            $script:ctrCalls.Count | Should -Be 0
+            ($script:logMessages -join "`n") | Should -Match "is not imported on the local Windows host: tar\.exe could not read 'manifest\.json'"
         }
 
         It 'fails without importing again when the image list cannot be read after a successful ctr import' {
@@ -1163,6 +1446,29 @@ Describe 'Image import helpers' -Tag 'unit', 'ci', 'image' {
             $result | Should -BeTrue
             ($script:logMessages -join "`n") | Should -Match 'has no Docker manifest\.json .*the imported image names are not verified'
             @($script:remoteCalls.Kind) | Should -Be @('import', 'cleanup')
+        }
+
+        It 'rejects an archive with two manifest.json members before opening a session, copying, or running ctr' {
+            $archive = New-RawTestArchive -Name 'worker-dup-manifest' -Members @(
+                @{ Name = 'manifest.json'; Content = $script:winWorkerFiles['manifest.json'] }
+                @{ Name = './manifest.json'; Content = '[]' }
+            )
+
+            $result = Invoke-WindowsWorkerImageImport -ImagePath $archive -NodeName 'winvm'
+
+            $result | Should -BeFalse
+            Should -Invoke -ModuleName $moduleName Open-RemoteSession -Times 0 -Exactly
+            $script:copyDestinations.Count | Should -Be 0
+            $script:remoteCalls.Count | Should -Be 0
+            ($script:logMessages -join "`n") | Should -Match "is not imported on Windows worker 'winvm': the archive contains 2 manifest\.json members"
+        }
+
+        It 'rejects an archive with a malformed manifest.json on the worker' {
+            $archive = New-TestArchive -Name 'worker-invalid' -Files @{ 'manifest.json' = '{"Config":"a.json"}' }
+
+            Invoke-WindowsWorkerImageImport -ImagePath $archive -NodeName 'winvm' | Should -BeFalse
+            $script:remoteCalls.Count | Should -Be 0
+            ($script:logMessages -join "`n") | Should -Match 'manifest\.json is empty or not a list of image entries'
         }
     }
 }
