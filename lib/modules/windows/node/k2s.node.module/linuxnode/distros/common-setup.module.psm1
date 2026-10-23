@@ -1007,16 +1007,21 @@ function AddRegistryMirrors {
 
     Write-Log "Add mirrors to registry for VM with ip address: $IpAddress"
     $mirrorRegistries = Get-MirrorRegistries
+    if ($null -eq $mirrorRegistries -or @($mirrorRegistries).Count -eq 0) {
+        Write-Log "[RegistryMirror] No mirrorRegistries configured in config.json, skipping mirror setup on VM $IpAddress."
+        return
+    }
+
+    &$executeRemoteCommand 'mkdir -p /etc/containers/registries.conf.d'
     foreach ($registry in $mirrorRegistries) {
         $Name = $registry.registry
         $Mirror = $registry.mirror
         $fileName = $Name -replace ':', ''
-        &$executeRemoteCommand 'mkdir -p /etc/containers/registries.conf.d'
         &$executeRemoteCommand "echo -e `'[[registry]]\nlocation=\""$Name\""\ninsecure=true`' | sudo tee /etc/containers/registries.conf.d/$fileName.conf"
         &$executeRemoteCommand "echo -e `'[[registry.mirror]]\nlocation=\""$Mirror\""\ninsecure=true`' | sudo tee -a /etc/containers/registries.conf.d/$fileName.conf" 
-        &$executeRemoteCommand 'sudo systemctl daemon-reload'
-        &$executeRemoteCommand 'sudo systemctl restart crio'
     } 
+    &$executeRemoteCommand 'sudo systemctl daemon-reload'
+    &$executeRemoteCommand 'if ! sudo systemctl restart crio; then sudo systemctl reset-failed crio; if ! sudo systemctl restart crio; then sudo systemctl status crio --no-pager -l; sudo journalctl -u crio -b --no-pager -n 100; exit 1; fi; fi'
 }
 
 function Get-KubernetesImages {

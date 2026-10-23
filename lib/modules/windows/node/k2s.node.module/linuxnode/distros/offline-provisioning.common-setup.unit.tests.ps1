@@ -125,4 +125,34 @@ Describe 'Offline base-image provisioning' -Tag 'unit', 'ci', 'offline' {
         { & $FunctionName @parameters } | Should -Throw '*Remote provisioning command failed*'
         Should -Invoke Invoke-CmdOnControlPlaneViaUserAndPwd -Exactly 1
     }
+
+    It 'configures all mirror registries and restarts CRI-O only once' {
+        Mock Get-MirrorRegistries {
+            @(
+                [pscustomobject]@{ registry = 'docker.io'; mirror = '10.81.79.18' },
+                [pscustomobject]@{ registry = 'ghcr.io'; mirror = '10.81.79.18' },
+                [pscustomobject]@{ registry = 'quay.io'; mirror = '10.81.79.18' }
+            )
+        }
+        AddRegistryMirrors -UserName 'remote' -UserPwd 'test-password' -IpAddress '172.19.1.100'
+
+        $mkdirCommands = @($script:commands | Where-Object { $_ -eq 'mkdir -p /etc/containers/registries.conf.d' })
+        $mkdirCommands.Count | Should -Be 1
+
+        $restartCommands = @($script:commands | Where-Object { $_ -match 'systemctl restart crio' })
+        $restartCommands.Count | Should -Be 1
+
+        $lastConfigIndex = [Math]::Max(
+            $script:commands.FindLastIndex([Predicate[string]]{ param($c) $c -match 'docker.io.conf' }),
+            $script:commands.FindLastIndex([Predicate[string]]{ param($c) $c -match 'quay.io.conf' })
+        )
+        $restartIndex = $script:commands.FindIndex([Predicate[string]]{ param($c) $c -match 'systemctl restart crio' })
+        $restartIndex | Should -BeGreaterThan $lastConfigIndex
+    }
+
+    It 'skips mirror setup when no mirror registries are configured' {
+        Mock Get-MirrorRegistries { @() }
+        AddRegistryMirrors -UserName 'remote' -UserPwd 'test-password' -IpAddress '172.19.1.100'
+        $script:commands.Count | Should -Be 0
+    }
 }
